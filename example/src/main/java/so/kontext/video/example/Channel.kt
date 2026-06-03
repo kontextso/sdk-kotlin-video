@@ -64,3 +64,64 @@ val DEFAULT_CHANNEL: Channel = Channel(
     name = "Apple Advanced (fMP4) HLS",
     streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
 )
+
+/**
+ * A row in the film list. Each carries its own [streamUrl] so tapping it
+ * plays different content in the docked player. Thumbnails are CC0
+ * placeholder photos (picsum) standing in for poster art; titles are
+ * Creative-Commons / public test films, so nothing copyrighted is bundled.
+ */
+data class Film(
+    val title: String,
+    val subtitle: String,
+    val thumbnailUrl: String,
+    val streamUrl: String,
+)
+
+/** Maps a [Film] to a playable [Channel] (unique id so the player reloads). */
+fun Film.toChannel(): Channel = Channel(id = "film:$title", name = title, streamUrl = streamUrl)
+
+val SAMPLE_FILMS: List<Film> = listOf(
+    Film(
+        title = "Big Buck Bunny",
+        subtitle = "Animation · 2008",
+        thumbnailUrl = "https://picsum.photos/seed/bigbuckbunny/240/140",
+        streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+    ),
+    Film(
+        title = "Tears of Steel",
+        subtitle = "Sci-Fi · 2012",
+        thumbnailUrl = "https://picsum.photos/seed/tearsofsteel/240/140",
+        streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+    ),
+    Film(
+        title = "Tears of Steel — 4K demo",
+        subtitle = "Sci-Fi · 2012",
+        thumbnailUrl = "https://picsum.photos/seed/tos4k/240/140",
+        streamUrl = "https://test-streams.mux.dev/tos_ismc/main.m3u8",
+    ),
+    Film(
+        title = "BipBop Advanced (fMP4)",
+        subtitle = "Apple HLS demo",
+        thumbnailUrl = "https://picsum.photos/seed/bipbopadv/240/140",
+        streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
+    ),
+    Film(
+        title = "BipBop Classic (4:3)",
+        subtitle = "Apple HLS demo",
+        thumbnailUrl = "https://picsum.photos/seed/bipbop43/240/140",
+        streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
+    ),
+    Film(
+        title = "Mux Reference Stream",
+        subtitle = "HLS demo",
+        thumbnailUrl = "https://picsum.photos/seed/muxref/240/140",
+        streamUrl = "https://test-streams.mux.dev/test_001/stream.m3u8",
+    ),
+    Film(
+        title = "Time-Shift Demo",
+        subtitle = "HLS demo",
+        thumbnailUrl = "https://picsum.photos/seed/ptsshift/240/140",
+        streamUrl = "https://test-streams.mux.dev/pts_shift/master.m3u8",
+    ),
+)

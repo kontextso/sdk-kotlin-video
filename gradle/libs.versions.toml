@@ -47,6 +47,11 @@ media3 = "1.6.0"
 # for DRM license requests, auth, and SSAI tracking.
 okhttp = "4.12.0"
 
+# ---- Coil ----
+# Compose image loader for the :example film-list thumbnails. (Samsung TV+
+# uses Glide; Coil is the Compose-idiomatic equivalent.)
+coil = "2.7.0"
+
 # ---- Kotlin libraries ----
 kotlinx-coroutines = "1.8.1"
 kotlinx-serialization = "1.6.2"
@@ -96,6 +101,9 @@ androidx-media3-cast = { module = "androidx.media3:media3-cast", version.ref = "
 
 # OkHttp — backs the Media3 OkHttp data source.
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+
+# Coil — Compose image loader for film-list thumbnails.
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
