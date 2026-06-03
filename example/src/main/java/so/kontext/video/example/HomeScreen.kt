@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -161,19 +162,6 @@ private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
                 playWhenReady = true
             }
     }
-    val playerView = remember {
-        (LayoutInflater.from(context).inflate(R.layout.view_player, null) as PlayerView).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            )
-            // Show the (black) shutter when there's no current frame instead
-            // of keeping the previous video's last frame.
-            setKeepContentOnPlayerReset(false)
-            setPlayer(player)
-        }
-    }
-
     LaunchedEffect(channel.id) {
         player.setMediaItem(channel.toMediaItem())
         player.prepare()
@@ -181,13 +169,29 @@ private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
     }
 
     DisposableEffect(Unit) {
-        onDispose {
-            playerView.player = null
-            player.release()
-        }
+        onDispose { player.release() }
     }
 
-    AndroidView(modifier = modifier, factory = { playerView })
+    // Recreate the PlayerView for each film. Reusing one TextureView across
+    // videos of different resolutions leaves a stale scale/transform (the
+    // new film renders zoomed/cropped); a fresh view re-fits to the new
+    // video size. The single ExoPlayer persists across switches.
+    key(channel.id) {
+        AndroidView(
+            modifier = modifier,
+            factory = { ctx ->
+                (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                    setKeepContentOnPlayerReset(false)
+                    setPlayer(player)
+                }
+            },
+            onRelease = { it.player = null },
+        )
+    }
 }
 
 /**
