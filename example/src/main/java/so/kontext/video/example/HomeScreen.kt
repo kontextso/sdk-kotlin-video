@@ -1,6 +1,5 @@
 package so.kontext.video.example
 
-import android.content.ComponentName
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.annotation.OptIn
@@ -48,13 +47,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import okhttp3.OkHttpClient
 
 /**
  * Samsung-TV+-style home screen. Built up step by step:
@@ -146,6 +146,21 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String) {
 @Composable
 private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+
+    // Local ExoPlayer attached directly to the PlayerView — the surface is
+    // set synchronously, avoiding the cross-process surface re-handoff a
+    // MediaController/MediaSessionService does (which intermittently left a
+    // stale frame). Playback still runs through an OkHttp data source, and
+    // DefaultMediaSourceFactory applies per-MediaItem DRM.
+    val player = remember {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(OkHttpClient())))
+            .build()
+            .apply {
+                repeatMode = Player.REPEAT_MODE_ALL
+                playWhenReady = true
+            }
+    }
     val playerView = remember {
         (LayoutInflater.from(context).inflate(R.layout.view_player, null) as PlayerView).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -155,31 +170,21 @@ private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
             // Show the (black) shutter when there's no current frame instead
             // of keeping the previous video's last frame.
             setKeepContentOnPlayerReset(false)
+            setPlayer(player)
         }
     }
-    var controller by remember { mutableStateOf<MediaController?>(null) }
+
+    LaunchedEffect(channel.id) {
+        player.setMediaItem(channel.toMediaItem())
+        player.prepare()
+        player.play()
+    }
 
     DisposableEffect(Unit) {
-        val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
-        future.addListener(
-            { controller = future.get() },
-            ContextCompat.getMainExecutor(context),
-        )
         onDispose {
             playerView.player = null
-            controller = null
-            MediaController.releaseFuture(future)
+            player.release()
         }
-    }
-
-    LaunchedEffect(controller, channel.id) {
-        val c = controller ?: return@LaunchedEffect
-        if (playerView.player !== c) playerView.player = c
-        c.setMediaItem(channel.toMediaItem())
-        c.repeatMode = Player.REPEAT_MODE_ALL
-        c.playWhenReady = true
-        c.prepare()
     }
 
     AndroidView(modifier = modifier, factory = { playerView })
