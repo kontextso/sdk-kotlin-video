@@ -10,7 +10,7 @@ A Kotlin SDK for integrating Kontext's AI-powered ads into Android video experie
 ## Modules
 
 - **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 24, JVM 17). Currently just the `KontextVideo` namespace placeholder.
-- **`:example`** — a minimal demo app that plays a sample video with [Media3 ExoPlayer](https://developer.android.com/media/media3).
+- **`:example`** — a minimal demo app that plays a sample clip (the [W3C Sintel trailer](https://media.w3.org/2010/05/sintel/trailer.mp4)) on a loop with [Media3 ExoPlayer](https://developer.android.com/media/media3).
 
 ## Building
 
@@ -19,6 +19,16 @@ A Kotlin SDK for integrating Kontext's AI-powered ads into Android video experie
 ./gradlew :example:assembleDebug    # build the demo app
 ./gradlew spotlessCheck detekt      # code quality
 ```
+
+## Running the example
+
+```bash
+./gradlew :example:installDebug
+adb shell am start -n so.kontext.video.example/.MainActivity
+```
+
+The app needs network access to stream the sample clip. The application id is
+`so.kontext.video.example` — note it's `video`, not `ads`.
 
 ## KontextKit dependency
 

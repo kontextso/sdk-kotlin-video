@@ -58,8 +58,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        // Google's public ExoPlayer test asset (Big Buck Bunny, ~10 min).
+        // W3C's public sample clip (Sintel trailer, ~52s). A plain
+        // progressive MP4, so no extra Media3 extension module is needed.
         const val SAMPLE_VIDEO_URL =
-            "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            "https://media.w3.org/2010/05/sintel/trailer.mp4"
     }
 }
