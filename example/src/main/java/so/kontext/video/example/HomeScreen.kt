@@ -74,11 +74,13 @@ fun HomeScreen() {
             TopBar()
             DockedPlayer(
                 channel = current,
+                // No rounded-corner clip on the player: clipping forces the
+                // video SurfaceView into an offscreen layer, which composites
+                // incorrectly (the previous film "ghosts" under the new one).
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(14.dp))
                     .background(Color.Black),
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -144,6 +146,17 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String) {
 @Composable
 private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val playerView = remember {
+        (LayoutInflater.from(context).inflate(R.layout.view_player, null) as PlayerView).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+            // Show the (black) shutter when there's no current frame instead
+            // of keeping the previous video's last frame.
+            setKeepContentOnPlayerReset(false)
+        }
+    }
     var controller by remember { mutableStateOf<MediaController?>(null) }
 
     DisposableEffect(Unit) {
@@ -154,32 +167,22 @@ private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
             ContextCompat.getMainExecutor(context),
         )
         onDispose {
+            playerView.player = null
             controller = null
             MediaController.releaseFuture(future)
         }
     }
 
     LaunchedEffect(controller, channel.id) {
-        controller?.apply {
-            setMediaItem(channel.toMediaItem())
-            repeatMode = Player.REPEAT_MODE_ALL
-            playWhenReady = true
-            prepare()
-        }
+        val c = controller ?: return@LaunchedEffect
+        if (playerView.player !== c) playerView.player = c
+        c.setMediaItem(channel.toMediaItem())
+        c.repeatMode = Player.REPEAT_MODE_ALL
+        c.playWhenReady = true
+        c.prepare()
     }
 
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                )
-            }
-        },
-        update = { view -> view.player = controller },
-    )
+    AndroidView(modifier = modifier, factory = { playerView })
 }
 
 /**
