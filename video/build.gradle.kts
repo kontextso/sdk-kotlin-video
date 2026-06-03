@@ -175,10 +175,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
     // ---- Jetpack Compose ----
-    // BOM pins a version-aligned set; the deps below inherit versions
-    // from it. Only ui / runtime / foundation are needed for SDK-side
-    // Composable surfaces (material lives in the host app).
-    implementation(platform(libs.androidx.compose.bom))
+    // Pinned to Samsung TV+'s exact versions in the catalog. Only
+    // ui / runtime / foundation are needed for SDK-side Composable
+    // surfaces (material lives in the host app).
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)

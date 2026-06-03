@@ -33,9 +33,9 @@ android {
 dependencies {
     implementation(project(":video"))
 
-    // Jetpack Compose + Material3 — mirrors the Samsung TV+ / tvplus-test-player
-    // UI stack. The Media3 PlayerView is hosted via AndroidView interop.
-    implementation(platform(libs.androidx.compose.bom))
+    // Jetpack Compose + Material3 — mirrors Samsung TV+'s UI stack (exact
+    // versions pinned in the catalog). The Media3 PlayerView is hosted via
+    // AndroidView interop.
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -43,6 +43,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // MediaRouter pinned to 1.6.0 (stable) to match Samsung TV+ — overrides
+    // the 1.6.0-beta01 that media3-cast would otherwise pull in.
+    implementation(libs.androidx.mediarouter)
 
     // Media3 (ExoPlayer) — the module set Samsung TV+ ships: exoplayer +
     // HLS (HLS-only) + UI + session (MediaSession service) + OkHttp data
