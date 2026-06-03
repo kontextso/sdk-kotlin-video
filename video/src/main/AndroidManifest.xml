@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The video SDK's own HTTP (ad requests, tracking) will live here
+         once implemented. INTERNET is the only permission needed today;
+         ACCESS_NETWORK_STATE + com.google.android.gms.permission.AD_ID
+         are declared by KontextKit and auto-merge into the consuming app. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+</manifest>

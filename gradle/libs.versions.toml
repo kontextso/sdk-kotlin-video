@@ -1,0 +1,83 @@
+# Gradle Version Catalog — single source of truth for plugin and
+# library versions. Referenced from build.gradle.kts via
+# `alias(libs.plugins.foo)` and `implementation(libs.bar)`. Letting
+# Gradle generate the type-safe accessors means version bumps happen
+# in one place and IDE autocomplete works across all build files.
+
+[versions]
+
+# ---- SDK version ----
+# Default published version. Override at publish time via
+# `./gradlew :video:publish -PsdkVersion=X.Y.Z` so CI can cut patch
+# releases without bumping this file. Read at runtime as
+# `BuildConfig.SDK_VERSION` (see video/build.gradle.kts).
+sdk-kotlin-video = "0.0.1"
+
+# ---- KontextKit ----
+# Shared device-info / privacy / UI / OMID library, published to
+# Maven Central from github.com/kontextso/kontextkit-android.
+kontext-kit = "0.0.8"
+
+# ---- Build tooling ----
+agp = "8.7.3"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+; AGP 8.7+ needs Gradle 8.9)
+kotlin = "2.1.0"                    # Kotlin compiler version
+
+# ---- AndroidX ----
+androidx-activity = "1.8.2"             # ComponentActivity (:example screen)
+androidx-lifecycle = "2.7.0"
+
+# ---- Media3 (ExoPlayer) ----
+# Video playback for the :example app. The video SDK itself stays
+# player-agnostic for now; the example demonstrates a typical Media3
+# integration the SDK will later hook into.
+media3 = "1.4.1"
+
+# ---- Kotlin libraries ----
+kotlinx-coroutines = "1.8.1"
+kotlinx-serialization = "1.6.2"
+
+# ---- Code-quality plugins ----
+maven-publish = "0.34.0"            # vanniktech maven-publish
+spotless = "7.2.1"
+detekt = "1.23.8"
+ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
+
+# ---- Test libraries ----
+junit-jupiter = "5.10.1"
+mockk = "1.13.9"
+
+
+[libraries]
+
+# Kotlin
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# AndroidX
+androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
+
+# Media3 (ExoPlayer) — used by :example for video playback.
+androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+
+# KontextKit — shared device-info / privacy / UI / OMID helpers.
+# Pulls in androidx.browser, androidx.preference, and
+# play-services-ads-identifier transitively.
+kontext-kit = { module = "so.kontext.kit:kontext-kit-android", version.ref = "kontext-kit" }
+
+# Test
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+
+
+[plugins]
+
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

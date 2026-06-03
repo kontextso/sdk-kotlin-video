@@ -1,0 +1,62 @@
+complexity:
+  LongMethod:
+    threshold: 150
+  LongParameterList:
+    ignoreAnnotated:
+      - androidx.compose.runtime.Composable
+  TooManyFunctions:
+    thresholdInFiles: 20
+    thresholdInClasses: 20
+    thresholdInInterfaces: 20
+    thresholdInObjects: 10
+    thresholdInEnums: 15
+    ignoreDeprecated: false
+    ignorePrivate: true
+    ignoreOverridden: true
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: [ 'Composable' ]
+  TopLevelPropertyNaming:
+    active: false
+  EnumNaming:
+    active: false
+  MatchingDeclarationName:
+    # Several files use package-concept names (DebugEvent.kt holds
+    # DebugEventHandler; AdEvent.kt holds AdEventHandler) rather than
+    # the single top-level declaration's name.
+    active: false
+
+style:
+  ForbiddenComment:
+    active: false
+  FunctionOnlyReturningConstant:
+    active: false
+  LoopWithTooManyJumpStatements:
+    active: false
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    active: false
+  ReturnCount:
+    active: false
+  SerialVersionUIDInSerializableClass:
+    active: false
+  ThrowsCount:
+    active: false
+  UnnecessaryAbstractClass:
+    active: false
+  UnusedPrivateMember:
+    active: false
+
+exceptions:
+  # Boundary code (HTTP, JSON parsing, lifecycle callbacks) legitimately
+  # catches Exception — narrowing here would lose the catch-all the
+  # error reporting layer depends on.
+  TooGenericExceptionCaught:
+    active: false
+
+empty-blocks:
+  EmptyFunctionBlock:
+    active: true
+    ignoreOverridden: true
