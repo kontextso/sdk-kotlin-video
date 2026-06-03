@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.spotless)
@@ -45,6 +46,13 @@ android {
     }
 
     buildFeatures {
+        // Enables the `androidx.compose.*` source sets and Compose
+        // compiler integration, so the SDK can expose `@Composable` ad
+        // surfaces. Samsung TV+ and other target hosts are Compose apps.
+        // Compose compiler is configured by the
+        // `org.jetbrains.kotlin.plugin.compose` plugin (applied above) —
+        // no `composeOptions` block needed on Kotlin 2.x.
+        compose = true
         // Generates `BuildConfig.java` so `buildConfigField` values are
         // reachable from Kotlin source.
         buildConfig = true
@@ -165,6 +173,15 @@ dependencies {
     // ---- AndroidX ----
     implementation(libs.androidx.activity)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    // ---- Jetpack Compose ----
+    // BOM pins a version-aligned set; the deps below inherit versions
+    // from it. Only ui / runtime / foundation are needed for SDK-side
+    // Composable surfaces (material lives in the host app).
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.foundation)
 
     // ---- KontextKit (shared device-info / privacy / UI / OMID) ----
     implementation(libs.kontext.kit)

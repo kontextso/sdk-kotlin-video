@@ -7,10 +7,12 @@ A Kotlin SDK for integrating Kontext's AI-powered ads into Android video experie
 > The repo currently exists to establish the module layout, build config, and a
 > runnable example app.
 
+This repo mirrors the **Samsung TV+** playback stack (Kotlin + Jetpack Compose + Material3, Media3/ExoPlayer, HLS-first with DASH for DRM) — see the internal Samsung TV+ teardown — so the SDK drops naturally into a Samsung-TV+-shaped host.
+
 ## Modules
 
-- **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 24, JVM 17). Currently just the `KontextVideo` namespace placeholder.
-- **`:example`** — a minimal demo app that plays a sample clip (the [W3C Sintel trailer](https://media.w3.org/2010/05/sintel/trailer.mp4)) on a loop with [Media3 ExoPlayer](https://developer.android.com/media/media3).
+- **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 24, JVM 17, Compose enabled). Currently just the `KontextVideo` namespace placeholder.
+- **`:example`** — a minimal Compose + Material3 demo app that loops an HLS sample (Apple's advanced fMP4 bipbop stream) via [Media3 ExoPlayer](https://developer.android.com/media/media3), rendering `PlayerView` through `AndroidView` interop. Media3 HLS + DASH source sets are included to match Samsung TV+'s streaming formats.
 
 ## Building
 

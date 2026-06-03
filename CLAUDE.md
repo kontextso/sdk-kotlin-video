@@ -10,8 +10,10 @@ Kontext Kotlin Video SDK — an Android SDK for integrating AI-powered ads into 
 
 ## Modules
 
-- **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 24, JVM 17, `explicitApi()`).
-- **`:example`** — demo Android app: one `MainActivity` looping a sample clip (W3C Sintel trailer) via Media3 ExoPlayer (`PlayerView`). Application id `so.kontext.video.example`.
+The stack mirrors the **Samsung TV+** app (Kotlin + Jetpack Compose + Material3, Media3/ExoPlayer, HLS-first + DASH for DRM) per the internal teardown, so the SDK fits a Samsung-TV+-shaped host.
+
+- **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 24, JVM 17, `explicitApi()`, Compose enabled for future ad-overlay surfaces).
+- **`:example`** — Compose + Material3 demo app: `MainActivity` hosts a `PlayerScreen` that loops an HLS sample (Apple advanced fMP4 bipbop) via Media3 ExoPlayer, with `PlayerView` through `AndroidView` interop. HLS + DASH source sets included. Application id `so.kontext.video.example`.
 
 ## Common Commands
 
