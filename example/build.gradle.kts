@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "so.kontext.video.example"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "so.kontext.video.example"
-        minSdk = 24
-        targetSdk = 36
+        minSdk = 30
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
@@ -36,6 +36,7 @@ dependencies {
     // Jetpack Compose + Material3 — mirrors the Samsung TV+ / tvplus-test-player
     // UI stack. The Media3 PlayerView is hosted via AndroidView interop.
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.compose.ui)

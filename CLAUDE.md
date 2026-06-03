@@ -12,8 +12,10 @@ Kontext Kotlin Video SDK — an Android SDK for integrating AI-powered ads into 
 
 The stack mirrors the **Samsung TV+** app (Kotlin + Jetpack Compose + Material3, Media3/ExoPlayer, HLS-first + DASH for DRM) per the internal teardown, so the SDK fits a Samsung-TV+-shaped host.
 
-- **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 24, JVM 17, `explicitApi()`, Compose enabled for future ad-overlay surfaces).
+- **`:video`** — the publishable SDK library (package `so.kontext.video`, min SDK 30, JVM 17, `explicitApi()`, Compose enabled for future ad-overlay surfaces). No third-party runtime dependencies (does **not** depend on `kontext-kit-android`).
 - **`:example`** — Compose + Material3 demo app: `MainActivity` hosts a `PlayerScreen` that loops an HLS sample (Apple advanced fMP4 bipbop) via Media3 ExoPlayer, with `PlayerView` through `AndroidView` interop. HLS + DASH source sets included. Application id `so.kontext.video.example`.
+
+The toolchain + runtime libraries are pinned to exactly match the `tvplus-test-player` reference repo: AGP 8.6.1, Kotlin 2.0.21, Gradle 8.9, Compose BOM 2024.09.03, activity-compose 1.9.2, lifecycle 2.8.6, core-ktx 1.13.1, Media3 1.4.1, compileSdk/targetSdk 35, minSdk 30.
 
 ## Common Commands
 
@@ -44,7 +46,4 @@ adb shell am start -n so.kontext.video.example/.MainActivity
 - **`BuildConfig.SDK_VERSION`** is baked in at build time from `libs.versions.sdk-kotlin-video` (or `-PsdkVersion=X.Y.Z` at publish), so the SDK version can't drift from the published Maven version.
 - **Spotless** enforces ktlint 0.50.0; **Detekt** config in `extras/detekt.yml`.
 - Tests use **JUnit 5** + **mockk** + **kotlinx-coroutines-test**.
-
-## KontextKit dependency
-
-`so.kontext.kit:kontext-kit-android` ([github.com/kontextso/kontextkit-android](https://github.com/kontextso/kontextkit-android)) provides shared device-info / privacy / UI / OMID primitives. `settings.gradle.kts` substitutes the published artifact with a local `../kontextkit-android` checkout via composite build when present; `useLocalKontextkit=false` forces Maven Central resolution.
+- **No `kontext-kit-android` dependency** — unlike the sibling `sdk-kotlin` repo. Samsung TV+ uses SSAI + GMA-embedded OMID (not IAB OM SDK), so kontextkit's OMID/device-info primitives aren't pulled in here; the dependency surface is kept minimal to match `tvplus-test-player`.

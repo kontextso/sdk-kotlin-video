@@ -13,25 +13,23 @@
 # `BuildConfig.SDK_VERSION` (see video/build.gradle.kts).
 sdk-kotlin-video = "0.0.1"
 
-# ---- KontextKit ----
-# Shared device-info / privacy / UI / OMID library, published to
-# Maven Central from github.com/kontextso/kontextkit-android.
-kontext-kit = "0.0.8"
-
 # ---- Build tooling ----
-agp = "8.7.3"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+; AGP 8.7+ needs Gradle 8.9)
-kotlin = "2.1.0"                    # Kotlin compiler version
+# Pinned to exactly match the tvplus-test-player reference repo so the
+# example and that app build against an identical toolchain.
+agp = "8.6.1"                       # Android Gradle Plugin (matches tvplus-test-player)
+kotlin = "2.0.21"                   # Kotlin compiler version (matches tvplus-test-player)
 
 # ---- AndroidX ----
-androidx-activity = "1.8.2"             # ComponentActivity + activity-compose (:example screen)
-androidx-lifecycle = "2.7.0"
+androidx-activity = "1.9.2"             # activity / activity-compose (matches tvplus-test-player)
+androidx-lifecycle = "2.8.6"            # lifecycle-runtime-ktx (matches tvplus-test-player)
+androidx-core = "1.13.1"                # core-ktx (matches tvplus-test-player)
 
 # Compose BOM (Bill of Materials) — pins a version-aligned set of
 # Compose libraries. Listing individual `androidx.compose.*` deps
 # without versions lets the BOM resolve them, so they stay compatible.
 # Samsung TV+ (and the tvplus-test-player) render their Media3 PlayerView
 # inside a Jetpack Compose + Material3 UI, so :video and :example match.
-compose-bom = "2024.12.01"
+compose-bom = "2024.09.03"          # matches tvplus-test-player
 
 # ---- Media3 (ExoPlayer) ----
 # Video playback for the :example app. The video SDK itself stays
@@ -64,6 +62,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 # AndroidX
 androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
 
 # Jetpack Compose — the BOM pins a version-aligned set; individual
@@ -82,11 +81,6 @@ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", versi
 androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 androidx-media3-exoplayer-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
-
-# KontextKit — shared device-info / privacy / UI / OMID helpers.
-# Pulls in androidx.browser, androidx.preference, and
-# play-services-ads-identifier transitively.
-kontext-kit = { module = "so.kontext.kit:kontext-kit-android", version.ref = "kontext-kit" }
 
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }

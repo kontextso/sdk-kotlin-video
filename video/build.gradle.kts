@@ -25,14 +25,14 @@ android {
     // (`so.kontext.video.*`).
     namespace = "so.kontext.video"
 
-    // SDK we compile against — Android 16 (Baklava). Doesn't affect
-    // runtime behaviour on older devices, only compile-time visibility
-    // of new framework symbols.
-    compileSdk = 36
+    // SDK we compile against — Android 15. Matches the tvplus-test-player
+    // reference app and the Samsung TV+ target host.
+    compileSdk = 35
 
     defaultConfig {
-        // Minimum runtime API. Android 7.0 (Nougat).
-        minSdk = 24
+        // Minimum runtime API. Android 11 — matches Samsung TV+'s floor
+        // and the tvplus-test-player.
+        minSdk = 30
 
         // ProGuard rules packaged into the .aar; auto-applied during
         // the consuming app's R8 pass.
@@ -182,9 +182,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
-
-    // ---- KontextKit (shared device-info / privacy / UI / OMID) ----
-    implementation(libs.kontext.kit)
 
     // ---- Testing ----
     testImplementation(libs.junit.jupiter)

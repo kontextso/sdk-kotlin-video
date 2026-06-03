@@ -52,39 +52,3 @@ dependencyResolutionManagement {
 }
 
 include(":video", ":example")
-
-// Local-dev escape hatch. When `../kontextkit-android` exists on disk,
-// Gradle substitutes the published `so.kontext.kit:kontext-kit-android`
-// artifact with the local source tree. Useful when iterating across
-// both repos without cutting a KontextKit release between every change.
-// Gated on the directory existing so the same `settings.gradle.kts`
-// works on contributor machines that haven't checked KontextKit out.
-//
-// Resolution order: `-PuseLocalKontextkit=...` (one-off) > the
-// `useLocalKontextkit` key in `local.properties` (persistent, gitignored,
-// also honoured by Android Studio's Run button) > default `true` (keeps
-// the cross-repo dev-iteration flow for everyone else).
-val localProps = java.util.Properties().apply {
-    val f = file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}
-val useLocalKontextkit = (
-    startParameter.projectProperties["useLocalKontextkit"]
-        ?: localProps.getProperty("useLocalKontextkit")
-        ?: "true"
-).toBoolean()
-val kontextKitLocal = file("${rootDir}/../kontextkit-android")
-if (useLocalKontextkit && kontextKitLocal.exists()) {
-    includeBuild(kontextKitLocal) {
-        dependencySubstitution {
-            substitute(module("so.kontext.kit:kontext-kit-android"))
-                .using(project(":"))
-            // Substitute the IAB OMID redistribution too, so a local
-            // checkout of kontextkit-android can exercise the multi-
-            // module wire (root + :omsdk-android) without round-
-            // tripping through `publishToMavenLocal`.
-            substitute(module("so.kontext.iab:omsdk-android"))
-                .using(project(":omsdk-android"))
-        }
-    }
-}
