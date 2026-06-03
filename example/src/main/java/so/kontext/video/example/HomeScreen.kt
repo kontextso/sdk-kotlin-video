@@ -1,5 +1,6 @@
 package so.kontext.video.example
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.annotation.OptIn
@@ -30,7 +31,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,14 +48,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
-import okhttp3.OkHttpClient
 
 /**
  * Samsung-TV+-style home screen. Built up step by step:
@@ -139,44 +138,45 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String) {
 
 /**
  * Docked (non-fullscreen) player pinned under the top bar. Connects to
- * [PlaybackService] via a long-lived [MediaController]; whenever [channel]
- * changes (a film is tapped) it swaps the media item and keeps playing —
- * mirroring Samsung TV+'s inline player.
+ * the docked Samsung-TV+-style inline player. Each film gets its own player
+ * (see [key]) so switching never bleeds the old video into the new one.
  */
 @OptIn(UnstableApi::class)
 @Composable
 private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
-    // Local ExoPlayer attached directly to the PlayerView — the surface is
-    // set synchronously, avoiding the cross-process surface re-handoff a
-    // MediaController/MediaSessionService does (which intermittently left a
-    // stale frame). Playback still runs through an OkHttp data source, and
-    // DefaultMediaSourceFactory applies per-MediaItem DRM.
-    val player = remember {
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(OkHttpClient())))
-            .build()
-            .apply {
+    // One fresh ExoPlayer + PlayerView per film (keyed by id). Switching
+    // releases the previous player and view entirely, so nothing from the old
+    // film can bleed through behind the new one. Deliberately simple: a plain
+    // ExoPlayer (default HTTP/HLS pipeline) attached to a PlayerView.
+    key(channel.id) {
+        val player = remember {
+            Log.d(TAG, "create id=${channel.id} url=${channel.streamUrl}")
+            ExoPlayer.Builder(context).build().apply {
+                setMediaItem(channel.toMediaItem())
                 repeatMode = Player.REPEAT_MODE_ALL
                 playWhenReady = true
+                addListener(object : Player.Listener {
+                    override fun onVideoSizeChanged(videoSize: VideoSize) {
+                        Log.d(TAG, "[${channel.id}] videoSize=${videoSize.width}x${videoSize.height}")
+                    }
+
+                    override fun onPlayerError(error: PlaybackException) {
+                        Log.e(TAG, "[${channel.id}] error=${error.errorCodeName}", error)
+                    }
+                })
+                prepare()
             }
-    }
-    LaunchedEffect(channel.id) {
-        player.setMediaItem(channel.toMediaItem())
-        player.prepare()
-        player.play()
-    }
+        }
 
-    DisposableEffect(Unit) {
-        onDispose { player.release() }
-    }
+        DisposableEffect(Unit) {
+            onDispose {
+                Log.d(TAG, "release id=${channel.id}")
+                player.release()
+            }
+        }
 
-    // Recreate the PlayerView for each film. Reusing one TextureView across
-    // videos of different resolutions leaves a stale scale/transform (the
-    // new film renders zoomed/cropped); a fresh view re-fits to the new
-    // video size. The single ExoPlayer persists across switches.
-    key(channel.id) {
         AndroidView(
             modifier = modifier,
             factory = { ctx ->
@@ -185,7 +185,6 @@ private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                    setKeepContentOnPlayerReset(false)
                     setPlayer(player)
                 }
             },
@@ -193,6 +192,8 @@ private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
         )
     }
 }
+
+private const val TAG = "VideoExample"
 
 /**
  * Horizontally-scrollable category chips below the player, mirroring
