@@ -47,9 +47,10 @@ dependencies {
     // Coil — loads the film-list thumbnails.
     implementation(libs.coil.compose)
 
-    // Media3 (ExoPlayer) — HLS playback in the docked PlayerView. HLS-only,
-    // matching Samsung TV+ (no DASH).
+    // Media3 (ExoPlayer) — HLS + DASH adaptive streaming and progressive MP4
+    // playback in the docked PlayerView.
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.ui)
 }

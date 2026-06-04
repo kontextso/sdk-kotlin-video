@@ -84,11 +84,25 @@ fun Film.toChannel(): Channel = Channel(id = "film:$title", name = title, stream
 
 val SAMPLE_FILMS: List<Film> = listOf(
     Film(
-        title = "Big Buck Bunny",
+        title = "Big Buck Bunny — HLS",
         subtitle = "Animation · 2008 · Blender",
         tech = "HLS · MPEG-TS · H.264 + AAC · up to 1080p",
         thumbnailUrl = "https://picsum.photos/seed/bigbuckbunny/240/140",
         streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+    ),
+    Film(
+        title = "Big Buck Bunny — DASH",
+        subtitle = "Animation · 2008 · Blender",
+        tech = "DASH · .mpd · fMP4 · H.264 + AAC · adaptive, up to 2160p (4K)",
+        thumbnailUrl = "https://picsum.photos/seed/bbbdash/240/140",
+        streamUrl = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
+    ),
+    Film(
+        title = "Big Buck Bunny — MP4",
+        subtitle = "Animation · 2008 · Blender",
+        tech = "Progressive MP4 · single file · H.264 + AAC · 320×180 · full ~10 min",
+        thumbnailUrl = "https://picsum.photos/seed/bbbmp4/240/140",
+        streamUrl = "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4",
     ),
     Film(
         title = "Tears of Steel",

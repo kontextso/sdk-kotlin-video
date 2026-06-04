@@ -146,6 +146,7 @@ fun HomeScreen() {
                 Spacer(modifier = Modifier.height(8.dp))
                 FilmList(
                     films = SAMPLE_FILMS,
+                    selectedId = current.id,
                     onClick = { film -> current = film.toChannel() },
                     modifier = Modifier.weight(1f),
                 )
@@ -283,26 +284,41 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
     )
 }
 
-/** Vertically-scrollable list of films; tapping a row plays it. */
+/**
+ * Vertically-scrollable list of films; tapping a row plays it. The row whose
+ * channel is currently playing ([selectedId]) gets a highlighted background.
+ */
 @Composable
-private fun FilmList(films: List<Film>, onClick: (Film) -> Unit, modifier: Modifier = Modifier) {
+private fun FilmList(
+    films: List<Film>,
+    selectedId: String,
+    onClick: (Film) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(vertical = 4.dp),
     ) {
         items(films) { film ->
-            FilmRow(film = film, onClick = { onClick(film) })
+            FilmRow(
+                film = film,
+                selected = film.toChannel().id == selectedId,
+                onClick = { onClick(film) },
+            )
         }
     }
 }
 
 @Composable
-private fun FilmRow(film: Film, onClick: () -> Unit) {
+private fun FilmRow(film: Film, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) Color(0xFF2A2A2A) else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
