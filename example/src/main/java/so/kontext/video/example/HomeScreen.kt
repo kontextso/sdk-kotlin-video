@@ -11,6 +11,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -55,8 +58,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -124,7 +132,6 @@ fun HomeScreen() {
         if (fullscreen) {
             PlayerSurface(
                 player = player,
-                isFullscreen = true,
                 onToggleFullscreen = { fullscreen = false },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -133,7 +140,6 @@ fun HomeScreen() {
                 TopBar()
                 PlayerSurface(
                     player = player,
-                    isFullscreen = false,
                     onToggleFullscreen = { fullscreen = true },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,29 +171,111 @@ fun HomeScreen() {
 @Composable
 private fun PlayerSurface(
     player: ExoPlayer,
-    isFullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     key(player) {
-        AndroidView(
-            modifier = modifier,
-            factory = { ctx ->
-                (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
+        var qualities by remember { mutableStateOf(emptyList<VideoQuality>()) }
+        var selectedHeight by remember { mutableStateOf<Int?>(null) } // null = Auto (adaptive)
+        var menuOpen by remember { mutableStateOf(false) }
+
+        DisposableEffect(player) {
+            val listener = object : Player.Listener {
+                override fun onTracksChanged(tracks: Tracks) {
+                    qualities = videoQualities(tracks)
+                }
+            }
+            player.addListener(listener)
+            qualities = videoQualities(player.currentTracks)
+            onDispose { player.removeListener(listener) }
+        }
+
+        Box(modifier = modifier) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        setPlayer(player)
+                        setFullscreenButtonClickListener { onToggleFullscreen() }
+                    }
+                },
+                onRelease = { it.player = null },
+            )
+
+            // Quality picker — only when the stream offers more than one
+            // resolution. ExoPlayer is adaptive ("Auto"); picking a height
+            // pins that rendition via a track-selection override.
+            if (qualities.size > 1) {
+                Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                    Text(
+                        text = "Quality · " + (selectedHeight?.let { "${it}p" } ?: "Auto"),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xCC000000))
+                            .clickable { menuOpen = true }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
-                    setPlayer(player)
-                    setFullscreenButtonClickListener {
-                        Log.d(TAG, "fullscreenButtonClick requested=$it (wasFullscreen=$isFullscreen)")
-                        onToggleFullscreen()
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Auto") },
+                            onClick = {
+                                selectQuality(player, null)
+                                selectedHeight = null
+                                menuOpen = false
+                            },
+                        )
+                        qualities.forEach { quality ->
+                            DropdownMenuItem(
+                                text = { Text("${quality.height}p") },
+                                onClick = {
+                                    selectQuality(player, quality)
+                                    selectedHeight = quality.height
+                                    menuOpen = false
+                                },
+                            )
+                        }
                     }
                 }
-            },
-            onRelease = { it.player = null },
-        )
+            }
+        }
     }
+}
+
+/** A selectable video rendition (one resolution) within the current tracks. */
+private data class VideoQuality(val height: Int, val group: TrackGroup, val trackIndex: Int)
+
+/** Distinct video resolutions the player can currently switch to, high → low. */
+private fun videoQualities(tracks: Tracks): List<VideoQuality> {
+    val result = mutableListOf<VideoQuality>()
+    for (group in tracks.groups) {
+        if (group.type != C.TRACK_TYPE_VIDEO) continue
+        for (i in 0 until group.length) {
+            if (!group.isTrackSupported(i)) continue
+            val height = group.getTrackFormat(i).height
+            if (height != Format.NO_VALUE) {
+                result += VideoQuality(height, group.mediaTrackGroup, i)
+            }
+        }
+    }
+    return result.distinctBy { it.height }.sortedByDescending { it.height }
+}
+
+/** Pins [quality]'s rendition, or clears the override (null = back to Auto). */
+private fun selectQuality(player: ExoPlayer, quality: VideoQuality?) {
+    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        .apply {
+            if (quality != null) {
+                addOverride(TrackSelectionOverride(quality.group, listOf(quality.trackIndex)))
+            }
+        }
+        .build()
 }
 
 private fun applyFullscreen(activity: Activity?, fullscreen: Boolean) {
