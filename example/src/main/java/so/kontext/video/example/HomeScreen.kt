@@ -1,8 +1,11 @@
 package so.kontext.video.example
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,6 +52,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -56,42 +63,144 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 
+private const val TAG = "VideoExample"
+
 /**
- * Samsung-TV+-style home screen. Built up step by step:
- *  1. Branded top bar (logo + "Samsung TV Plus")        ✓
- *  2. Docked video player that auto-plays on open        ✓
- *  3. Top-bar action icons (search / cast / menu)        ✓
- *  4. Scrollable category chips                          ✓
- *  5. Scrollable film list — tapping a row plays it      ✓ ← current
+ * Samsung-TV+-style home screen:
+ *  - branded top bar (logo + title + cast / search / overflow)
+ *  - docked 16:9 player that auto-plays on open
+ *  - scrollable category chips
+ *  - scrollable film list (tap a row to play it)
+ *  - fullscreen: tap the player's fullscreen button -> landscape immersive;
+ *    Back returns to the docked layout.
+ *
+ * One fresh [ExoPlayer] per film (keyed by channel id) so switching never
+ * bleeds the old video into the new one; the player survives the
+ * docked <-> fullscreen switch so playback is continuous.
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun HomeScreen() {
-    // The channel currently in the docked player. Tapping a film swaps it.
+    val context = LocalContext.current
+    val activity = context as? Activity
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
+    var fullscreen by remember { mutableStateOf(false) }
+
+    val player = remember(current.id) {
+        Log.d(TAG, "create id=${current.id} url=${current.streamUrl}")
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(current.toMediaItem())
+            repeatMode = Player.REPEAT_MODE_ALL
+            playWhenReady = true
+            addListener(object : Player.Listener {
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    Log.d(TAG, "[${current.id}] videoSize=${videoSize.width}x${videoSize.height}")
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    Log.e(TAG, "[${current.id}] error=${error.errorCodeName}", error)
+                }
+            })
+            prepare()
+        }
+    }
+    DisposableEffect(current.id) {
+        onDispose {
+            Log.d(TAG, "release id=${current.id}")
+            player.release()
+        }
+    }
+
+    // Landscape + immersive while fullscreen; restore on exit / leaving.
+    LaunchedEffect(fullscreen) { applyFullscreen(activity, fullscreen) }
+    DisposableEffect(Unit) {
+        onDispose { applyFullscreen(activity, false) }
+    }
+    if (fullscreen) {
+        BackHandler { fullscreen = false }
+    }
 
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
-            TopBar()
-            DockedPlayer(
-                channel = current,
-                // No rounded-corner clip on the player: clipping forces the
-                // video SurfaceView into an offscreen layer, which composites
-                // incorrectly (the previous film "ghosts" under the new one).
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .aspectRatio(16f / 9f)
-                    .background(Color.Black),
+        if (fullscreen) {
+            PlayerSurface(
+                player = player,
+                isFullscreen = true,
+                onToggleFullscreen = { fullscreen = false },
+                modifier = Modifier.fillMaxSize(),
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            CategoryChips()
-            Spacer(modifier = Modifier.height(8.dp))
-            FilmList(
-                films = SAMPLE_FILMS,
-                onClick = { film -> current = film.toChannel() },
-                modifier = Modifier.weight(1f),
-            )
+        } else {
+            Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+                TopBar()
+                PlayerSurface(
+                    player = player,
+                    isFullscreen = false,
+                    onToggleFullscreen = { fullscreen = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                CategoryChips()
+                Spacer(modifier = Modifier.height(8.dp))
+                FilmList(
+                    films = SAMPLE_FILMS,
+                    onClick = { film -> current = film.toChannel() },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
+    }
+}
+
+/**
+ * Renders [player] in a Media3 [PlayerView]. Keyed by the player instance so a
+ * new film (new player) gets a fresh view that re-fits to its video size, and
+ * so re-hosting between docked / fullscreen re-attaches cleanly. Media3 draws
+ * the fullscreen button in the controls; [onToggleFullscreen] handles the tap.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+private fun PlayerSurface(
+    player: ExoPlayer,
+    isFullscreen: Boolean,
+    onToggleFullscreen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    key(player) {
+        AndroidView(
+            modifier = modifier,
+            factory = { ctx ->
+                (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                    setPlayer(player)
+                    setFullscreenButtonClickListener {
+                        Log.d(TAG, "fullscreenButtonClick requested=$it (wasFullscreen=$isFullscreen)")
+                        onToggleFullscreen()
+                    }
+                }
+            },
+            onRelease = { it.player = null },
+        )
+    }
+}
+
+private fun applyFullscreen(activity: Activity?, fullscreen: Boolean) {
+    Log.d(TAG, "applyFullscreen fullscreen=$fullscreen activity=${activity != null}")
+    activity ?: return
+    val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+    if (fullscreen) {
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+    } else {
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        controller.show(WindowInsetsCompat.Type.systemBars())
     }
 }
 
@@ -118,7 +227,7 @@ private fun TopBar() {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Cast / search / overflow — actions wired up in later steps.
+        // Cast / search / overflow — visual only for now.
         TopBarIcon(R.drawable.ic_cast, "Cast")
         TopBarIcon(R.drawable.ic_search, "Search")
         TopBarIcon(R.drawable.ic_more_vert, "More")
@@ -137,68 +246,8 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String) {
 }
 
 /**
- * Docked (non-fullscreen) player pinned under the top bar. Connects to
- * the docked Samsung-TV+-style inline player. Each film gets its own player
- * (see [key]) so switching never bleeds the old video into the new one.
- */
-@OptIn(UnstableApi::class)
-@Composable
-private fun DockedPlayer(channel: Channel, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-
-    // One fresh ExoPlayer + PlayerView per film (keyed by id). Switching
-    // releases the previous player and view entirely, so nothing from the old
-    // film can bleed through behind the new one. Deliberately simple: a plain
-    // ExoPlayer (default HTTP/HLS pipeline) attached to a PlayerView.
-    key(channel.id) {
-        val player = remember {
-            Log.d(TAG, "create id=${channel.id} url=${channel.streamUrl}")
-            ExoPlayer.Builder(context).build().apply {
-                setMediaItem(channel.toMediaItem())
-                repeatMode = Player.REPEAT_MODE_ALL
-                playWhenReady = true
-                addListener(object : Player.Listener {
-                    override fun onVideoSizeChanged(videoSize: VideoSize) {
-                        Log.d(TAG, "[${channel.id}] videoSize=${videoSize.width}x${videoSize.height}")
-                    }
-
-                    override fun onPlayerError(error: PlaybackException) {
-                        Log.e(TAG, "[${channel.id}] error=${error.errorCodeName}", error)
-                    }
-                })
-                prepare()
-            }
-        }
-
-        DisposableEffect(Unit) {
-            onDispose {
-                Log.d(TAG, "release id=${channel.id}")
-                player.release()
-            }
-        }
-
-        AndroidView(
-            modifier = modifier,
-            factory = { ctx ->
-                (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                    setPlayer(player)
-                }
-            },
-            onRelease = { it.player = null },
-        )
-    }
-}
-
-private const val TAG = "VideoExample"
-
-/**
- * Horizontally-scrollable category chips below the player, mirroring
- * Samsung TV+'s row (Featured / Favorites / Recent / …). Selection is
- * cosmetic for now; it doesn't filter the film list yet.
+ * Horizontally-scrollable category chips below the player (Featured /
+ * Favorites / Recent / …). Selection is cosmetic for now.
  */
 @Composable
 private fun CategoryChips(modifier: Modifier = Modifier) {
