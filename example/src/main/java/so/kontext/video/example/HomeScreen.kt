@@ -328,6 +328,12 @@ private fun FilmRow(film: Film, onClick: () -> Unit) {
                 color = Color(0xFF9E9E9E),
                 fontSize = 13.sp,
             )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = film.tech,
+                color = Color(0xFF6E6E6E),
+                fontSize = 11.sp,
+            )
         }
     }
 }
