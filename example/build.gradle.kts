@@ -44,21 +44,12 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // MediaRouter pinned to 1.6.0 (stable) to match Samsung TV+ — overrides
-    // the 1.6.0-beta01 that media3-cast would otherwise pull in.
-    implementation(libs.androidx.mediarouter)
-
     // Coil — loads the film-list thumbnails.
     implementation(libs.coil.compose)
 
-    // Media3 (ExoPlayer) — the module set Samsung TV+ ships: exoplayer +
-    // HLS (HLS-only) + UI + session (MediaSession service) + OkHttp data
-    // source + cast. No DASH — Samsung TV+ doesn't use it.
+    // Media3 (ExoPlayer) — HLS playback in the docked PlayerView. HLS-only,
+    // matching Samsung TV+ (no DASH).
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.session)
-    implementation(libs.androidx.media3.datasource.okhttp)
-    implementation(libs.androidx.media3.cast)
-    implementation(libs.okhttp)
 }
