@@ -29,7 +29,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -120,6 +122,11 @@ fun HomeScreen() {
     // Selectable audio tracks of the current stream + the chosen one (per film).
     var audioTracks by remember(current.id) { mutableStateOf(emptyList<AudioTrack>()) }
     var selectedAudioId by remember(current.id) { mutableStateOf<String?>(null) }
+    // Selectable subtitle/CC tracks + the chosen one (per film); null = Off.
+    var subtitleTracks by remember(current.id) { mutableStateOf(emptyList<TextTrack>()) }
+    var selectedSubtitleId by remember(current.id) { mutableStateOf<String?>(null) }
+    // Subtitle text size (session-wide); applied to the PlayerView's SubtitleView.
+    var subtitleSize by remember { mutableStateOf(SubtitleSize.NORMAL) }
     // How aggressively to buffer ahead. Session-wide; changing it rebuilds the
     // player (LoadControl is fixed at build time) — resume keeps the position.
     var bufferProfile by remember { mutableStateOf(BufferProfile.DEFAULT) }
@@ -225,18 +232,24 @@ fun HomeScreen() {
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 availableHeights = availableVideoHeights(tracks)
-                val parsed = parseAudioTracks(tracks)
-                audioTracks = parsed
-                // Re-assert a chosen language after a player rebuild (e.g. a
+                val parsedAudio = parseAudioTracks(tracks)
+                audioTracks = parsedAudio
+                val parsedText = parseTextTracks(tracks)
+                subtitleTracks = parsedText
+                // Re-assert chosen audio / subtitle after a player rebuild (e.g. a
                 // buffer-profile change keeps the film but builds a new player).
                 selectedAudioId?.let { id ->
-                    parsed.firstOrNull { it.id == id }?.let { selectAudio(player, it) }
+                    parsedAudio.firstOrNull { it.id == id }?.let { selectAudio(player, it) }
+                }
+                selectedSubtitleId?.let { id ->
+                    parsedText.firstOrNull { it.id == id }?.let { selectSubtitle(player, it) }
                 }
             }
         }
         player.addListener(listener)
         availableHeights = availableVideoHeights(player.currentTracks)
         audioTracks = parseAudioTracks(player.currentTracks)
+        subtitleTracks = parseTextTracks(player.currentTracks)
         onDispose { player.removeListener(listener) }
     }
 
@@ -299,6 +312,14 @@ fun HomeScreen() {
                         selectAudio(player, track)
                         selectedAudioId = track?.id
                     },
+                    subtitleTracks = subtitleTracks,
+                    selectedSubtitleId = selectedSubtitleId,
+                    onSelectSubtitle = { track ->
+                        selectSubtitle(player, track)
+                        selectedSubtitleId = track?.id
+                    },
+                    subtitleSize = subtitleSize,
+                    onSelectSubtitleSize = { subtitleSize = it },
                     bufferProfile = bufferProfile,
                     onSelectBufferProfile = { profile ->
                         // Save the live position so the rebuilt player resumes in place.
@@ -316,6 +337,7 @@ fun HomeScreen() {
 
             fullscreen -> PlayerSurface(
                 player = player,
+                subtitleSizeFraction = subtitleSize.fraction,
                 onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_PORTRAIT },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -324,6 +346,7 @@ fun HomeScreen() {
                 TopBar(onOpenSettings = { showSettings = true })
                 PlayerSurface(
                     player = player,
+                    subtitleSizeFraction = subtitleSize.fraction,
                     onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_LANDSCAPE },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -357,6 +380,7 @@ fun HomeScreen() {
 @Composable
 private fun PlayerSurface(
     player: Player,
+    subtitleSizeFraction: Float,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -373,6 +397,9 @@ private fun PlayerSurface(
                     setFullscreenButtonClickListener { onToggleFullscreen() }
                 }
             },
+            // Subtitle size lives on the SubtitleView, not the player, so it's
+            // re-applied here whenever the chosen size changes.
+            update = { it.subtitleView?.setFractionalTextSize(subtitleSizeFraction) },
             onRelease = { it.player = null },
         )
     }
@@ -446,7 +473,7 @@ private fun parseAudioTracks(tracks: Tracks): List<AudioTrack> {
             if (!group.isTrackSupported(i)) continue
             result += AudioTrack(
                 id = "$groupIndex:$i",
-                label = audioLabel(group.getTrackFormat(i), i),
+                label = trackLabel(group.getTrackFormat(i), i),
                 group = group.mediaTrackGroup,
                 trackIndex = i,
             )
@@ -455,8 +482,8 @@ private fun parseAudioTracks(tracks: Tracks): List<AudioTrack> {
     return result
 }
 
-/** Human-readable name for an audio track: explicit label, else language, else index. */
-private fun audioLabel(format: Format, index: Int): String {
+/** Human-readable name for a track: explicit label, else language, else index. */
+private fun trackLabel(format: Format, index: Int): String {
     format.label?.let { return it }
     val lang = format.language?.takeIf { it.isNotBlank() && it != "und" }
     return lang?.let { Locale.forLanguageTag(it).displayLanguage.ifBlank { it } } ?: "Track ${index + 1}"
@@ -472,6 +499,47 @@ private fun selectAudio(player: Player, track: AudioTrack?) {
             }
         }
         .build()
+}
+
+/** A selectable subtitle / CC track within the current tracks. */
+private data class TextTrack(val id: String, val label: String, val group: TrackGroup, val trackIndex: Int)
+
+/** Selectable subtitle tracks the current stream exposes, labelled by language. */
+private fun parseTextTracks(tracks: Tracks): List<TextTrack> {
+    val result = mutableListOf<TextTrack>()
+    tracks.groups.forEachIndexed { groupIndex, group ->
+        if (group.type != C.TRACK_TYPE_TEXT) return@forEachIndexed
+        for (i in 0 until group.length) {
+            if (!group.isTrackSupported(i)) continue
+            result += TextTrack(
+                id = "$groupIndex:$i",
+                label = trackLabel(group.getTrackFormat(i), i),
+                group = group.mediaTrackGroup,
+                trackIndex = i,
+            )
+        }
+    }
+    return result
+}
+
+/** Shows [track]'s subtitles, or turns them off (null disables the text type). */
+private fun selectSubtitle(player: Player, track: TextTrack?) {
+    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, track == null)
+        .apply {
+            if (track != null) {
+                addOverride(TrackSelectionOverride(track.group, listOf(track.trackIndex)))
+            }
+        }
+        .build()
+}
+
+/** Subtitle text size as a fraction of the view height (Media3 default ≈ 0.0533). */
+private enum class SubtitleSize(val label: String, val fraction: Float) {
+    SMALL("Small", 0.04f),
+    NORMAL("Normal", 0.0533f),
+    LARGE("Large", 0.08f),
 }
 
 /** Distinct video resolutions the current stream actually exposes, high → low. */
@@ -605,6 +673,11 @@ private fun SettingsScreen(
     audioTracks: List<AudioTrack>,
     selectedAudioId: String?,
     onSelectAudio: (AudioTrack?) -> Unit,
+    subtitleTracks: List<TextTrack>,
+    selectedSubtitleId: String?,
+    onSelectSubtitle: (TextTrack?) -> Unit,
+    subtitleSize: SubtitleSize,
+    onSelectSubtitleSize: (SubtitleSize) -> Unit,
     bufferProfile: BufferProfile,
     onSelectBufferProfile: (BufferProfile) -> Unit,
     cachedBytes: Long,
@@ -614,7 +687,8 @@ private fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding(),
+            .systemBarsPadding()
+            .verticalScroll(rememberScrollState()),
     ) {
         Row(
             modifier = Modifier
@@ -652,6 +726,26 @@ private fun SettingsScreen(
                     label = track.label,
                     selected = track.id == selectedAudioId,
                 ) { onSelectAudio(track) }
+            }
+        }
+
+        // Subtitles / CC — only when the stream carries text tracks. Off by default.
+        if (subtitleTracks.isNotEmpty()) {
+            SettingsSectionHeader("Subtitles")
+            SettingRow(label = "Off", selected = selectedSubtitleId == null) { onSelectSubtitle(null) }
+            subtitleTracks.forEach { track ->
+                SettingRow(
+                    label = track.label,
+                    selected = track.id == selectedSubtitleId,
+                ) { onSelectSubtitle(track) }
+            }
+
+            SettingsSectionHeader("Subtitle size")
+            SubtitleSize.entries.forEach { size ->
+                SettingRow(
+                    label = size.label,
+                    selected = size == subtitleSize,
+                ) { onSelectSubtitleSize(size) }
             }
         }
 
