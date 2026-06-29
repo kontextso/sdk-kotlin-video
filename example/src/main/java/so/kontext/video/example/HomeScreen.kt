@@ -60,6 +60,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackGroup
@@ -94,15 +95,24 @@ fun HomeScreen() {
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
     var fullscreen by remember { mutableStateOf(false) }
 
-    val player = remember(current.id) {
+    val exoPlayer = remember(current.id) {
         Log.d(TAG, "create id=${current.id} url=${current.streamUrl}")
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(current.toMediaItem())
-            repeatMode = Player.REPEAT_MODE_ALL
+            // Play once, then auto-advance to the next film (see STATE_ENDED
+            // below) — no single-item repeat, so the stream actually ends.
+            repeatMode = Player.REPEAT_MODE_OFF
             playWhenReady = true
             addListener(object : Player.Listener {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
                     Log.d(TAG, "[${current.id}] videoSize=${videoSize.width}x${videoSize.height}")
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED) {
+                        Log.d(TAG, "[${current.id}] ended -> autoplay next")
+                        current = filmRelativeTo(current.id, 1).toChannel()
+                    }
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -115,7 +125,40 @@ fun HomeScreen() {
     DisposableEffect(current.id) {
         onDispose {
             Log.d(TAG, "release id=${current.id}")
-            player.release()
+            exoPlayer.release()
+        }
+    }
+
+    // Wrap the player so the controller's skip-previous / skip-next buttons
+    // step through the film list instead of seeking within the single item.
+    // Recreated per film, so it always steps relative to the current one; the
+    // commands are forced available so the buttons stay enabled on a 1-item
+    // timeline.
+    val player = remember(exoPlayer) {
+        object : ForwardingPlayer(exoPlayer) {
+            private fun step(delta: Int) {
+                current = filmRelativeTo(current.id, delta).toChannel()
+            }
+
+            override fun seekToNext() = step(1)
+            override fun seekToNextMediaItem() = step(1)
+            override fun seekToPrevious() = step(-1)
+            override fun seekToPreviousMediaItem() = step(-1)
+
+            override fun isCommandAvailable(command: Int): Boolean = when (command) {
+                Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> true
+                else -> super.isCommandAvailable(command)
+            }
+
+            override fun getAvailableCommands(): Player.Commands =
+                Player.Commands.Builder()
+                    .addAll(super.getAvailableCommands())
+                    .add(Player.COMMAND_SEEK_TO_NEXT)
+                    .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                    .build()
         }
     }
 
@@ -170,7 +213,7 @@ fun HomeScreen() {
 @OptIn(UnstableApi::class)
 @Composable
 private fun PlayerSurface(
-    player: ExoPlayer,
+    player: Player,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -267,7 +310,7 @@ private fun videoQualities(tracks: Tracks): List<VideoQuality> {
 }
 
 /** Pins [quality]'s rendition, or clears the override (null = back to Auto). */
-private fun selectQuality(player: ExoPlayer, quality: VideoQuality?) {
+private fun selectQuality(player: Player, quality: VideoQuality?) {
     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
         .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
         .apply {
@@ -276,6 +319,13 @@ private fun selectQuality(player: ExoPlayer, quality: VideoQuality?) {
             }
         }
         .build()
+}
+
+/** The film [delta] steps from the one with [fromId] in [SAMPLE_FILMS], wrapping around. */
+private fun filmRelativeTo(fromId: String, delta: Int): Film {
+    val size = SAMPLE_FILMS.size
+    val index = SAMPLE_FILMS.indexOfFirst { it.toChannel().id == fromId }.coerceAtLeast(0)
+    return SAMPLE_FILMS[((index + delta) % size + size) % size]
 }
 
 private fun applyFullscreen(activity: Activity?, fullscreen: Boolean) {
