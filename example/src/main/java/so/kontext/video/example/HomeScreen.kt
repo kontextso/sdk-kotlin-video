@@ -71,7 +71,10 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.LoadControl
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import java.util.Locale
@@ -117,13 +120,26 @@ fun HomeScreen() {
     // Selectable audio tracks of the current stream + the chosen one (per film).
     var audioTracks by remember(current.id) { mutableStateOf(emptyList<AudioTrack>()) }
     var selectedAudioId by remember(current.id) { mutableStateOf<String?>(null) }
+    // How aggressively to buffer ahead. Session-wide; changing it rebuilds the
+    // player (LoadControl is fixed at build time) — resume keeps the position.
+    var bufferProfile by remember { mutableStateOf(BufferProfile.DEFAULT) }
+    // Bumped after clearing the disk cache so the "Cached: …" line re-reads.
+    var cacheVersion by remember { mutableIntStateOf(0) }
     // Per-film playback position, remembered for this session so re-opening a
     // film resumes where it was left off (see rememberPosition).
     val resumePositions = remember { mutableMapOf<String, Long>() }
 
-    val exoPlayer = remember(current.id) {
-        Log.d(TAG, "create id=${current.id} url=${current.streamUrl}")
-        ExoPlayer.Builder(context).build().apply {
+    val exoPlayer = remember(current.id, bufferProfile) {
+        Log.d(TAG, "create id=${current.id} url=${current.streamUrl} buffer=${bufferProfile.label}")
+        ExoPlayer.Builder(context)
+            // Read-through disk cache: replays / scrub-backs serve from disk.
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(context)
+                    .setDataSourceFactory(VideoCache.dataSourceFactory(context)),
+            )
+            // Buffer-ahead profile chosen in Settings.
+            .setLoadControl(bufferProfile.toLoadControl())
+            .build().apply {
             setMediaItem(current.toMediaItem())
             // Play once, then auto-advance to the next film (see STATE_ENDED
             // below) — no single-item repeat, so the stream actually ends.
@@ -153,7 +169,9 @@ fun HomeScreen() {
             prepare()
         }
     }
-    DisposableEffect(current.id) {
+    // Keyed on the player instance so a rebuild (film switch OR buffer-profile
+    // change) releases the old player and saves its position first.
+    DisposableEffect(exoPlayer) {
         val savedId = current.id
         onDispose {
             rememberPosition(resumePositions, savedId, exoPlayer)
@@ -207,7 +225,13 @@ fun HomeScreen() {
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 availableHeights = availableVideoHeights(tracks)
-                audioTracks = parseAudioTracks(tracks)
+                val parsed = parseAudioTracks(tracks)
+                audioTracks = parsed
+                // Re-assert a chosen language after a player rebuild (e.g. a
+                // buffer-profile change keeps the film but builds a new player).
+                selectedAudioId?.let { id ->
+                    parsed.firstOrNull { it.id == id }?.let { selectAudio(player, it) }
+                }
             }
         }
         player.addListener(listener)
@@ -261,20 +285,34 @@ fun HomeScreen() {
 
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         when {
-            showSettings -> SettingsScreen(
-                selectedHeight = maxVideoHeight,
-                onSelectQuality = { height ->
-                    maxVideoHeight = height
-                    applyQualityCap(player, height)
-                },
-                audioTracks = audioTracks,
-                selectedAudioId = selectedAudioId,
-                onSelectAudio = { track ->
-                    selectAudio(player, track)
-                    selectedAudioId = track?.id
-                },
-                onBack = { showSettings = false },
-            )
+            showSettings -> {
+                val cachedBytes = remember(cacheVersion) { VideoCache.cachedBytes(context) }
+                SettingsScreen(
+                    selectedHeight = maxVideoHeight,
+                    onSelectQuality = { height ->
+                        maxVideoHeight = height
+                        applyQualityCap(player, height)
+                    },
+                    audioTracks = audioTracks,
+                    selectedAudioId = selectedAudioId,
+                    onSelectAudio = { track ->
+                        selectAudio(player, track)
+                        selectedAudioId = track?.id
+                    },
+                    bufferProfile = bufferProfile,
+                    onSelectBufferProfile = { profile ->
+                        // Save the live position so the rebuilt player resumes in place.
+                        rememberPosition(resumePositions, current.id, player)
+                        bufferProfile = profile
+                    },
+                    cachedBytes = cachedBytes,
+                    onClearCache = {
+                        VideoCache.clear(context)
+                        cacheVersion++
+                    },
+                    onBack = { showSettings = false },
+                )
+            }
 
             fullscreen -> PlayerSurface(
                 player = player,
@@ -359,6 +397,41 @@ private fun applyQualityCap(player: Player, maxHeight: Int?) {
             }
         }
         .build()
+}
+
+/**
+ * How aggressively the player buffers ahead. Maps to Media3's
+ * [DefaultLoadControl] buffer durations (min, max, start-playback,
+ * resume-after-rebuffer in ms). Low latency starts fast and holds little;
+ * Large buffer rides out flaky networks at the cost of more memory / data.
+ */
+private enum class BufferProfile(
+    val label: String,
+    val minMs: Int,
+    val maxMs: Int,
+    val playbackMs: Int,
+    val rebufferMs: Int,
+) {
+    LOW("Low latency", 5_000, 15_000, 1_000, 2_000),
+    DEFAULT("Default", 50_000, 50_000, 2_500, 5_000),
+    LARGE("Large buffer", 60_000, 120_000, 2_500, 5_000),
+}
+
+/** Builds a [LoadControl] with this profile's buffer durations. */
+@OptIn(UnstableApi::class)
+private fun BufferProfile.toLoadControl(): LoadControl =
+    DefaultLoadControl.Builder()
+        .setBufferDurationsMs(minMs, maxMs, playbackMs, rebufferMs)
+        .build()
+
+/** Human-readable byte count for the cache size line, e.g. "12.3 MB". */
+private fun formatBytes(bytes: Long): String {
+    val mb = bytes / (1024.0 * 1024.0)
+    return if (mb >= 1024) {
+        String.format(Locale.US, "%.2f GB", mb / 1024)
+    } else {
+        String.format(Locale.US, "%.1f MB", mb)
+    }
 }
 
 /** A selectable audio track (one language / rendition) within the current tracks. */
@@ -532,6 +605,10 @@ private fun SettingsScreen(
     audioTracks: List<AudioTrack>,
     selectedAudioId: String?,
     onSelectAudio: (AudioTrack?) -> Unit,
+    bufferProfile: BufferProfile,
+    onSelectBufferProfile: (BufferProfile) -> Unit,
+    cachedBytes: Long,
+    onClearCache: () -> Unit,
     onBack: () -> Unit,
 ) {
     Column(
@@ -577,6 +654,19 @@ private fun SettingsScreen(
                 ) { onSelectAudio(track) }
             }
         }
+
+        // How much to buffer ahead (rebuilds the player; resumes in place).
+        SettingsSectionHeader("Buffering")
+        BufferProfile.entries.forEach { profile ->
+            SettingRow(
+                label = profile.label,
+                selected = profile == bufferProfile,
+            ) { onSelectBufferProfile(profile) }
+        }
+
+        // Disk cache — replays serve from disk. Shows current size; tap to clear.
+        SettingsSectionHeader("Cache")
+        SettingRow(label = "Clear cache · ${formatBytes(cachedBytes)}", selected = false) { onClearCache() }
     }
 }
 
