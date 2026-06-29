@@ -105,6 +105,21 @@ val SAMPLE_FILMS: List<Film> = listOf(
         streamUrl = "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4",
     ),
     Film(
+        // VP9 video in a WebM container — Google's royalty-free, web-native
+        // alternative to H.264-in-MP4. Media3 decodes it with no extra
+        // dependency. ExoPlayer's own published test asset (Google CDN), so it
+        // streams reliably to a player (unlike Wikimedia, which rate-limits
+        // hotlinking with HTTP 429). Video-only clip — no audio track.
+        // (VP9 is HW-decoded on real phones, SW-decoded on the emulator —
+        // verify smoothness on a device.)
+        title = "VP9 / WebM — codec demo",
+        subtitle = "Royalty-free · Google test asset",
+        tech = "WebM · VP9 · 360p · video-only",
+        thumbnailUrl = "https://picsum.photos/seed/bbbwebm/240/140",
+        streamUrl = "https://storage.googleapis.com/exoplayer-test-media-1/" +
+            "gen-3/screens/dash-vod-single-segment/video-vp9-360.webm",
+    ),
+    Film(
         title = "Tears of Steel",
         subtitle = "Sci-Fi · 2012 · Blender",
         tech = "HLS · fMP4/CMAF · H.264 + AAC · 1680×750",
