@@ -94,6 +94,9 @@ fun HomeScreen() {
     val activity = context as? Activity
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
     var fullscreen by remember { mutableStateOf(false) }
+    // Per-film playback position, remembered for this session so re-opening a
+    // film resumes where it was left off (see rememberPosition).
+    val resumePositions = remember { mutableMapOf<String, Long>() }
 
     val exoPlayer = remember(current.id) {
         Log.d(TAG, "create id=${current.id} url=${current.streamUrl}")
@@ -103,6 +106,8 @@ fun HomeScreen() {
             // below) — no single-item repeat, so the stream actually ends.
             repeatMode = Player.REPEAT_MODE_OFF
             playWhenReady = true
+            // Resume where this film was left off earlier this session.
+            resumePositions[current.id]?.let { seekTo(it) }
             addListener(object : Player.Listener {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
                     Log.d(TAG, "[${current.id}] videoSize=${videoSize.width}x${videoSize.height}")
@@ -123,8 +128,10 @@ fun HomeScreen() {
         }
     }
     DisposableEffect(current.id) {
+        val savedId = current.id
         onDispose {
-            Log.d(TAG, "release id=${current.id}")
+            rememberPosition(resumePositions, savedId, exoPlayer)
+            Log.d(TAG, "release id=$savedId")
             exoPlayer.release()
         }
     }
@@ -142,7 +149,13 @@ fun HomeScreen() {
 
             override fun seekToNext() = step(1)
             override fun seekToNextMediaItem() = step(1)
-            override fun seekToPrevious() = step(-1)
+
+            // Skip-previous restarts the current film when past the threshold,
+            // else steps to the previous film (standard player behavior).
+            override fun seekToPrevious() {
+                if (exoPlayer.currentPosition > RESTART_THRESHOLD_MS) exoPlayer.seekTo(0) else step(-1)
+            }
+
             override fun seekToPreviousMediaItem() = step(-1)
 
             override fun isCommandAvailable(command: Int): Boolean = when (command) {
@@ -326,6 +339,32 @@ private fun filmRelativeTo(fromId: String, delta: Int): Film {
     val size = SAMPLE_FILMS.size
     val index = SAMPLE_FILMS.indexOfFirst { it.toChannel().id == fromId }.coerceAtLeast(0)
     return SAMPLE_FILMS[((index + delta) % size + size) % size]
+}
+
+/** Past this position, skip-previous restarts the current film instead of stepping back. */
+private const val RESTART_THRESHOLD_MS = 3_000L
+
+/** Below this, a position is "the start" — not worth resuming to. */
+private const val RESUME_MIN_MS = 3_000L
+
+/** Within this of the end, a film counts as watched — restart from 0 next time. */
+private const val RESUME_END_MARGIN_MS = 3_000L
+
+/**
+ * Remembers [player]'s position for [id] so re-opening the film resumes there.
+ * Drops the entry (→ restart from 0) when the film finished, is near its end,
+ * or is still near the start.
+ */
+private fun rememberPosition(positions: MutableMap<String, Long>, id: String, player: Player) {
+    val position = player.currentPosition
+    val duration = player.duration
+    val finished = player.playbackState == Player.STATE_ENDED ||
+        (duration > 0 && position >= duration - RESUME_END_MARGIN_MS)
+    if (finished || position < RESUME_MIN_MS) {
+        positions.remove(id)
+    } else {
+        positions[id] = position
+    }
 }
 
 private fun applyFullscreen(activity: Activity?, fullscreen: Boolean) {
