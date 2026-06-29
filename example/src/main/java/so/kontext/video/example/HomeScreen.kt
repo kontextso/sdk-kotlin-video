@@ -11,7 +11,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -29,8 +28,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -63,8 +60,6 @@ import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.TrackGroup
-import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
@@ -94,6 +89,14 @@ fun HomeScreen() {
     val activity = context as? Activity
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
     var fullscreen by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    // Quality cap chosen in Settings (null = Auto). A standard ladder applied to
+    // every film; the player picks the best rendition at or below it and falls
+    // back gracefully when a stream can't honour the choice.
+    var maxVideoHeight by remember { mutableStateOf<Int?>(null) }
+    // The renditions the current stream actually exposes — shown (small) on the
+    // playing film's row so it's clear which formats a stream supports.
+    var availableHeights by remember(current.id) { mutableStateOf(emptyList<Int>()) }
     // Per-film playback position, remembered for this session so re-opening a
     // film resumes where it was left off (see rememberPosition).
     val resumePositions = remember { mutableMapOf<String, Long>() }
@@ -108,6 +111,8 @@ fun HomeScreen() {
             playWhenReady = true
             // Resume where this film was left off earlier this session.
             resumePositions[current.id]?.let { seekTo(it) }
+            // Apply the session-wide quality cap to this film too.
+            applyQualityCap(this, maxVideoHeight)
             addListener(object : Player.Listener {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
                     Log.d(TAG, "[${current.id}] videoSize=${videoSize.width}x${videoSize.height}")
@@ -175,6 +180,19 @@ fun HomeScreen() {
         }
     }
 
+    // Detect which renditions the current stream exposes (for the "Available:"
+    // line). Detection only — quality selection is the static ladder in Settings.
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onTracksChanged(tracks: Tracks) {
+                availableHeights = availableVideoHeights(tracks)
+            }
+        }
+        player.addListener(listener)
+        availableHeights = availableVideoHeights(player.currentTracks)
+        onDispose { player.removeListener(listener) }
+    }
+
     // Landscape + immersive while fullscreen; restore on exit / leaving.
     LaunchedEffect(fullscreen) { applyFullscreen(activity, fullscreen) }
     DisposableEffect(Unit) {
@@ -183,17 +201,29 @@ fun HomeScreen() {
     if (fullscreen) {
         BackHandler { fullscreen = false }
     }
+    if (showSettings) {
+        BackHandler { showSettings = false }
+    }
 
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
-        if (fullscreen) {
-            PlayerSurface(
+        when {
+            showSettings -> SettingsScreen(
+                selectedHeight = maxVideoHeight,
+                onSelectQuality = { height ->
+                    maxVideoHeight = height
+                    applyQualityCap(player, height)
+                },
+                onBack = { showSettings = false },
+            )
+
+            fullscreen -> PlayerSurface(
                 player = player,
                 onToggleFullscreen = { fullscreen = false },
                 modifier = Modifier.fillMaxSize(),
             )
-        } else {
-            Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
-                TopBar()
+
+            else -> Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+                TopBar(onOpenSettings = { showSettings = true })
                 PlayerSurface(
                     player = player,
                     onToggleFullscreen = { fullscreen = true },
@@ -209,6 +239,7 @@ fun HomeScreen() {
                 FilmList(
                     films = SAMPLE_FILMS,
                     selectedId = current.id,
+                    availableHeights = availableHeights,
                     onClick = { film -> current = film.toChannel() },
                     modifier = Modifier.weight(1f),
                 )
@@ -231,107 +262,58 @@ private fun PlayerSurface(
     modifier: Modifier = Modifier,
 ) {
     key(player) {
-        var qualities by remember { mutableStateOf(emptyList<VideoQuality>()) }
-        var selectedHeight by remember { mutableStateOf<Int?>(null) } // null = Auto (adaptive)
-        var menuOpen by remember { mutableStateOf(false) }
-
-        DisposableEffect(player) {
-            val listener = object : Player.Listener {
-                override fun onTracksChanged(tracks: Tracks) {
-                    qualities = videoQualities(tracks)
-                }
-            }
-            player.addListener(listener)
-            qualities = videoQualities(player.currentTracks)
-            onDispose { player.removeListener(listener) }
-        }
-
-        Box(modifier = modifier) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                        )
-                        setPlayer(player)
-                        setFullscreenButtonClickListener { onToggleFullscreen() }
-                    }
-                },
-                onRelease = { it.player = null },
-            )
-
-            // Quality picker — only when the stream offers more than one
-            // resolution. ExoPlayer is adaptive ("Auto"); picking a height
-            // pins that rendition via a track-selection override.
-            if (qualities.size > 1) {
-                Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
-                    Text(
-                        text = "Quality · " + (selectedHeight?.let { "${it}p" } ?: "Auto"),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xCC000000))
-                            .clickable { menuOpen = true }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+        AndroidView(
+            modifier = modifier,
+            factory = { ctx ->
+                (LayoutInflater.from(ctx).inflate(R.layout.view_player, null) as PlayerView).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Auto") },
-                            onClick = {
-                                selectQuality(player, null)
-                                selectedHeight = null
-                                menuOpen = false
-                            },
-                        )
-                        qualities.forEach { quality ->
-                            DropdownMenuItem(
-                                text = { Text("${quality.height}p") },
-                                onClick = {
-                                    selectQuality(player, quality)
-                                    selectedHeight = quality.height
-                                    menuOpen = false
-                                },
-                            )
-                        }
-                    }
+                    setPlayer(player)
+                    setFullscreenButtonClickListener { onToggleFullscreen() }
                 }
-            }
-        }
+            },
+            onRelease = { it.player = null },
+        )
     }
 }
 
-/** A selectable video rendition (one resolution) within the current tracks. */
-private data class VideoQuality(val height: Int, val group: TrackGroup, val trackIndex: Int)
+/** Standard quality ladder offered (alongside Auto) for every film, high → low. */
+private val QUALITY_OPTIONS = listOf(2160, 1440, 1080, 720, 480, 360, 240)
 
-/** Distinct video resolutions the player can currently switch to, high → low. */
-private fun videoQualities(tracks: Tracks): List<VideoQuality> {
-    val result = mutableListOf<VideoQuality>()
+/**
+ * Caps adaptive selection at [maxHeight] (null = Auto, no cap). Works on any
+ * stream: the player picks the best rendition at or below the cap, and falls
+ * back to the closest available when nothing fits — so an unsupported choice
+ * degrades to default behavior rather than failing.
+ */
+private fun applyQualityCap(player: Player, maxHeight: Int?) {
+    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .apply {
+            if (maxHeight == null) {
+                clearVideoSizeConstraints()
+            } else {
+                setMaxVideoSize(Int.MAX_VALUE, maxHeight)
+            }
+        }
+        .build()
+}
+
+/** Distinct video resolutions the current stream actually exposes, high → low. */
+private fun availableVideoHeights(tracks: Tracks): List<Int> {
+    val heights = mutableListOf<Int>()
     for (group in tracks.groups) {
         if (group.type != C.TRACK_TYPE_VIDEO) continue
         for (i in 0 until group.length) {
             if (!group.isTrackSupported(i)) continue
             val height = group.getTrackFormat(i).height
             if (height != Format.NO_VALUE) {
-                result += VideoQuality(height, group.mediaTrackGroup, i)
+                heights += height
             }
         }
     }
-    return result.distinctBy { it.height }.sortedByDescending { it.height }
-}
-
-/** Pins [quality]'s rendition, or clears the override (null = back to Auto). */
-private fun selectQuality(player: Player, quality: VideoQuality?) {
-    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-        .apply {
-            if (quality != null) {
-                addOverride(TrackSelectionOverride(quality.group, listOf(quality.trackIndex)))
-            }
-        }
-        .build()
+    return heights.distinct().sortedDescending()
 }
 
 /** The film [delta] steps from the one with [fromId] in [SAMPLE_FILMS], wrapping around. */
@@ -383,7 +365,7 @@ private fun applyFullscreen(activity: Activity?, fullscreen: Boolean) {
 }
 
 @Composable
-private fun TopBar() {
+private fun TopBar(onOpenSettings: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -405,10 +387,16 @@ private fun TopBar() {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Cast / search / overflow — visual only for now.
+        // Cast / search are visual only; the overflow (⋮) opens the settings page.
         TopBarIcon(R.drawable.ic_cast, "Cast")
         TopBarIcon(R.drawable.ic_search, "Search")
-        TopBarIcon(R.drawable.ic_more_vert, "More")
+        IconButton(onClick = onOpenSettings) {
+            Icon(
+                painter = painterResource(R.drawable.ic_more_vert),
+                contentDescription = "Settings",
+                tint = Color.White,
+            )
+        }
     }
 }
 
@@ -420,6 +408,84 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String) {
             contentDescription = contentDescription,
             tint = Color.White,
         )
+    }
+}
+
+/**
+ * Full-screen settings page reached from the top bar's ⋮ icon (like Samsung
+ * TV+). Currently one section — Quality: a fixed standard ladder (Auto + the
+ * [QUALITY_OPTIONS] heights) offered for every film, with the current choice
+ * checked. More sections can be added here as the app grows.
+ */
+@Composable
+private fun SettingsScreen(
+    selectedHeight: Int?,
+    onSelectQuality: (Int?) -> Unit,
+    onBack: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Text(text = "←", color = Color.White, fontSize = 24.sp)
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Settings",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        SettingsSectionHeader("Quality")
+        SettingRow(label = "Auto", selected = selectedHeight == null) { onSelectQuality(null) }
+        QUALITY_OPTIONS.forEach { height ->
+            SettingRow(
+                label = "${height}p",
+                selected = selectedHeight == height,
+            ) { onSelectQuality(height) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title,
+        color = Color(0xFF9E9E9E),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 16.sp,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Text(text = "✓", color = Color.White, fontSize = 16.sp)
+        }
     }
 }
 
@@ -469,6 +535,7 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
 private fun FilmList(
     films: List<Film>,
     selectedId: String,
+    availableHeights: List<Int>,
     onClick: (Film) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -477,9 +544,12 @@ private fun FilmList(
         contentPadding = PaddingValues(vertical = 4.dp),
     ) {
         items(films) { film ->
+            val isSelected = film.toChannel().id == selectedId
             FilmRow(
                 film = film,
-                selected = film.toChannel().id == selectedId,
+                selected = isSelected,
+                // Detected renditions are only known for the playing stream.
+                availableHeights = if (isSelected) availableHeights else emptyList(),
                 onClick = { onClick(film) },
             )
         }
@@ -487,7 +557,12 @@ private fun FilmList(
 }
 
 @Composable
-private fun FilmRow(film: Film, selected: Boolean, onClick: () -> Unit) {
+private fun FilmRow(
+    film: Film,
+    selected: Boolean,
+    availableHeights: List<Int>,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -527,6 +602,16 @@ private fun FilmRow(film: Film, selected: Boolean, onClick: () -> Unit) {
                 color = Color(0xFF6E6E6E),
                 fontSize = 11.sp,
             )
+            // Actual renditions detected in the playing stream — for testing
+            // which formats/qualities a given source really exposes.
+            if (availableHeights.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Available: " + availableHeights.joinToString(" · ") { "${it}p" },
+                    color = Color(0xFF4FC3F7),
+                    fontSize = 11.sp,
+                )
+            }
         }
     }
 }
