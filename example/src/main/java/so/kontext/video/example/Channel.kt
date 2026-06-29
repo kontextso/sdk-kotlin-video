@@ -120,6 +120,16 @@ val SAMPLE_FILMS: List<Film> = listOf(
             "gen-3/screens/dash-vod-single-segment/video-vp9-360.webm",
     ),
     Film(
+        // Shaka's "Angel One" — the classic multi-track test asset: 6 audio
+        // languages (en/es/fr/de/it/el) plus subtitle tracks. Exercises audio
+        // (and later subtitle) selection. Google CDN, license-clean.
+        title = "Angel One — multi-audio",
+        subtitle = "Shaka demo · multi-language",
+        tech = "DASH · fMP4 · H.264 + AAC · 6 audio languages + subtitles",
+        thumbnailUrl = "https://picsum.photos/seed/angelone/240/140",
+        streamUrl = "https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd",
+    ),
+    Film(
         title = "Tears of Steel",
         subtitle = "Sci-Fi · 2012 · Blender",
         tech = "HLS · fMP4/CMAF · H.264 + AAC · 1680×750",

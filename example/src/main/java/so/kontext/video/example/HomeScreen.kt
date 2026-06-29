@@ -66,12 +66,15 @@ import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import java.util.Locale
 
 private const val TAG = "VideoExample"
 
@@ -111,6 +114,9 @@ fun HomeScreen() {
     // The rendition actually on screen now (adaptive may change it over time) —
     // used to highlight which of the available formats is currently playing.
     var currentHeight by remember(current.id) { mutableStateOf<Int?>(null) }
+    // Selectable audio tracks of the current stream + the chosen one (per film).
+    var audioTracks by remember(current.id) { mutableStateOf(emptyList<AudioTrack>()) }
+    var selectedAudioId by remember(current.id) { mutableStateOf<String?>(null) }
     // Per-film playback position, remembered for this session so re-opening a
     // film resumes where it was left off (see rememberPosition).
     val resumePositions = remember { mutableMapOf<String, Long>() }
@@ -201,10 +207,12 @@ fun HomeScreen() {
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 availableHeights = availableVideoHeights(tracks)
+                audioTracks = parseAudioTracks(tracks)
             }
         }
         player.addListener(listener)
         availableHeights = availableVideoHeights(player.currentTracks)
+        audioTracks = parseAudioTracks(player.currentTracks)
         onDispose { player.removeListener(listener) }
     }
 
@@ -258,6 +266,12 @@ fun HomeScreen() {
                 onSelectQuality = { height ->
                     maxVideoHeight = height
                     applyQualityCap(player, height)
+                },
+                audioTracks = audioTracks,
+                selectedAudioId = selectedAudioId,
+                onSelectAudio = { track ->
+                    selectAudio(player, track)
+                    selectedAudioId = track?.id
                 },
                 onBack = { showSettings = false },
             )
@@ -342,6 +356,46 @@ private fun applyQualityCap(player: Player, maxHeight: Int?) {
                 clearVideoSizeConstraints()
             } else {
                 setMaxVideoSize(Int.MAX_VALUE, maxHeight)
+            }
+        }
+        .build()
+}
+
+/** A selectable audio track (one language / rendition) within the current tracks. */
+private data class AudioTrack(val id: String, val label: String, val group: TrackGroup, val trackIndex: Int)
+
+/** Selectable audio tracks the current stream exposes, labelled by language. */
+private fun parseAudioTracks(tracks: Tracks): List<AudioTrack> {
+    val result = mutableListOf<AudioTrack>()
+    tracks.groups.forEachIndexed { groupIndex, group ->
+        if (group.type != C.TRACK_TYPE_AUDIO) return@forEachIndexed
+        for (i in 0 until group.length) {
+            if (!group.isTrackSupported(i)) continue
+            result += AudioTrack(
+                id = "$groupIndex:$i",
+                label = audioLabel(group.getTrackFormat(i), i),
+                group = group.mediaTrackGroup,
+                trackIndex = i,
+            )
+        }
+    }
+    return result
+}
+
+/** Human-readable name for an audio track: explicit label, else language, else index. */
+private fun audioLabel(format: Format, index: Int): String {
+    format.label?.let { return it }
+    val lang = format.language?.takeIf { it.isNotBlank() && it != "und" }
+    return lang?.let { Locale.forLanguageTag(it).displayLanguage.ifBlank { it } } ?: "Track ${index + 1}"
+}
+
+/** Pins [track]'s audio rendition, or clears the override (null = back to default). */
+private fun selectAudio(player: Player, track: AudioTrack?) {
+    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+        .apply {
+            if (track != null) {
+                addOverride(TrackSelectionOverride(track.group, listOf(track.trackIndex)))
             }
         }
         .build()
@@ -475,6 +529,9 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String) {
 private fun SettingsScreen(
     selectedHeight: Int?,
     onSelectQuality: (Int?) -> Unit,
+    audioTracks: List<AudioTrack>,
+    selectedAudioId: String?,
+    onSelectAudio: (AudioTrack?) -> Unit,
     onBack: () -> Unit,
 ) {
     Column(
@@ -507,6 +564,18 @@ private fun SettingsScreen(
                 label = "${height}p",
                 selected = selectedHeight == height,
             ) { onSelectQuality(height) }
+        }
+
+        // Audio languages — only when the stream offers a choice.
+        if (audioTracks.size > 1) {
+            SettingsSectionHeader("Audio")
+            SettingRow(label = "Auto", selected = selectedAudioId == null) { onSelectAudio(null) }
+            audioTracks.forEach { track ->
+                SettingRow(
+                    label = track.label,
+                    selected = track.id == selectedAudioId,
+                ) { onSelectAudio(track) }
+            }
         }
     }
 }
