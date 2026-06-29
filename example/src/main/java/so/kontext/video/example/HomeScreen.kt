@@ -2,8 +2,10 @@ package so.kontext.video.example
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.OrientationEventListener
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -90,8 +93,13 @@ private const val TAG = "VideoExample"
 fun HomeScreen() {
     val context = LocalContext.current
     val activity = context as? Activity
+    // Fullscreen mirrors the device orientation: landscape = immersive player,
+    // portrait = docked. The fullscreen button / Back force the opposite
+    // orientation (orientationLock); rotating the device does the rest.
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val fullscreen = isLandscape
+    var orientationLock by remember { mutableStateOf<Int?>(null) }
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
-    var fullscreen by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     // Quality cap chosen in Settings (null = Auto). A standard ladder applied to
     // every film; the player picks the best rendition at or below it and falls
@@ -200,13 +208,44 @@ fun HomeScreen() {
         onDispose { player.removeListener(listener) }
     }
 
-    // Landscape + immersive while fullscreen; restore on exit / leaving.
-    LaunchedEffect(fullscreen) { applyFullscreen(activity, fullscreen) }
+    // Immersive system bars follow fullscreen; restore on leaving.
+    LaunchedEffect(fullscreen) { applyImmersive(activity, fullscreen) }
     DisposableEffect(Unit) {
-        onDispose { applyFullscreen(activity, false) }
+        onDispose { applyImmersive(activity, false) }
     }
+
+    // While a button/Back override is pending, force that orientation; otherwise
+    // follow the sensor so rotating the device drives fullscreen.
+    LaunchedEffect(orientationLock) {
+        activity?.requestedOrientation = when (orientationLock) {
+            Configuration.ORIENTATION_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            Configuration.ORIENTATION_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        }
+    }
+    // Hand control back to the sensor once the device physically reaches the
+    // forced orientation, so the next real rotation toggles fullscreen again.
+    DisposableEffect(activity) {
+        val listener = activity?.let {
+            object : OrientationEventListener(it) {
+                override fun onOrientationChanged(orientation: Int) {
+                    if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) return
+                    val physical = physicalOrientation(orientation) ?: return
+                    if (orientationLock != null && physical == orientationLock) {
+                        orientationLock = null
+                    }
+                }
+            }
+        }
+        listener?.takeIf { it.canDetectOrientation() }?.enable()
+        onDispose { listener?.disable() }
+    }
+    DisposableEffect(Unit) {
+        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
+
     if (fullscreen) {
-        BackHandler { fullscreen = false }
+        BackHandler { orientationLock = Configuration.ORIENTATION_PORTRAIT }
     }
     if (showSettings) {
         BackHandler { showSettings = false }
@@ -225,7 +264,7 @@ fun HomeScreen() {
 
             fullscreen -> PlayerSurface(
                 player = player,
-                onToggleFullscreen = { fullscreen = false },
+                onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_PORTRAIT },
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -233,7 +272,7 @@ fun HomeScreen() {
                 TopBar(onOpenSettings = { showSettings = true })
                 PlayerSurface(
                     player = player,
-                    onToggleFullscreen = { fullscreen = true },
+                    onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_LANDSCAPE },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -357,19 +396,26 @@ private fun rememberPosition(positions: MutableMap<String, Long>, id: String, pl
     }
 }
 
-private fun applyFullscreen(activity: Activity?, fullscreen: Boolean) {
-    Log.d(TAG, "applyFullscreen fullscreen=$fullscreen activity=${activity != null}")
+/** Hides the system bars in fullscreen (immersive), shows them otherwise. */
+private fun applyImmersive(activity: Activity?, fullscreen: Boolean) {
     activity ?: return
     val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
     if (fullscreen) {
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
     } else {
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         controller.show(WindowInsetsCompat.Type.systemBars())
     }
+}
+
+/** Maps a device rotation angle (0–359°) to a portrait/landscape bucket. */
+private fun physicalOrientation(angle: Int): Int? = when (angle) {
+    in 0..30, in 330..360 -> Configuration.ORIENTATION_PORTRAIT
+    in 60..120 -> Configuration.ORIENTATION_LANDSCAPE
+    in 150..210 -> Configuration.ORIENTATION_PORTRAIT
+    in 240..300 -> Configuration.ORIENTATION_LANDSCAPE
+    else -> null
 }
 
 @Composable
