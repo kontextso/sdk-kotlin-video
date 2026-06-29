@@ -48,7 +48,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -97,6 +100,9 @@ fun HomeScreen() {
     // The renditions the current stream actually exposes — shown (small) on the
     // playing film's row so it's clear which formats a stream supports.
     var availableHeights by remember(current.id) { mutableStateOf(emptyList<Int>()) }
+    // The rendition actually on screen now (adaptive may change it over time) —
+    // used to highlight which of the available formats is currently playing.
+    var currentHeight by remember(current.id) { mutableStateOf<Int?>(null) }
     // Per-film playback position, remembered for this session so re-opening a
     // film resumes where it was left off (see rememberPosition).
     val resumePositions = remember { mutableMapOf<String, Long>() }
@@ -115,6 +121,7 @@ fun HomeScreen() {
             applyQualityCap(this, maxVideoHeight)
             addListener(object : Player.Listener {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    currentHeight = videoSize.height.takeIf { it > 0 }
                     Log.d(TAG, "[${current.id}] videoSize=${videoSize.width}x${videoSize.height}")
                 }
 
@@ -240,6 +247,7 @@ fun HomeScreen() {
                     films = SAMPLE_FILMS,
                     selectedId = current.id,
                     availableHeights = availableHeights,
+                    currentHeight = currentHeight,
                     onClick = { film -> current = film.toChannel() },
                     modifier = Modifier.weight(1f),
                 )
@@ -536,6 +544,7 @@ private fun FilmList(
     films: List<Film>,
     selectedId: String,
     availableHeights: List<Int>,
+    currentHeight: Int?,
     onClick: (Film) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -550,6 +559,7 @@ private fun FilmList(
                 selected = isSelected,
                 // Detected renditions are only known for the playing stream.
                 availableHeights = if (isSelected) availableHeights else emptyList(),
+                currentHeight = if (isSelected) currentHeight else null,
                 onClick = { onClick(film) },
             )
         }
@@ -561,6 +571,7 @@ private fun FilmRow(
     film: Film,
     selected: Boolean,
     availableHeights: List<Int>,
+    currentHeight: Int?,
     onClick: () -> Unit,
 ) {
     Row(
@@ -603,18 +614,38 @@ private fun FilmRow(
                 fontSize = 11.sp,
             )
             // Actual renditions detected in the playing stream — for testing
-            // which formats/qualities a given source really exposes.
+            // which formats a source exposes. The one currently on screen
+            // (adaptive picks it) is highlighted brighter + bold.
             if (availableHeights.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Available: " + availableHeights.joinToString(" · ") { "${it}p" },
-                    color = Color(0xFF4FC3F7),
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = AVAILABLE_BLUE)) { append("Available: ") }
+                        availableHeights.forEachIndexed { index, height ->
+                            if (index > 0) {
+                                withStyle(SpanStyle(color = AVAILABLE_BLUE)) { append(" · ") }
+                            }
+                            val playing = height == currentHeight
+                            withStyle(
+                                SpanStyle(
+                                    color = if (playing) PLAYING_BLUE else AVAILABLE_BLUE,
+                                    fontWeight = if (playing) FontWeight.Bold else FontWeight.Normal,
+                                ),
+                            ) {
+                                append("${height}p")
+                            }
+                        }
+                    },
                     fontSize = 11.sp,
                 )
             }
         }
     }
 }
+
+/** "Available:" formats line: base blue for renditions, brighter for the one playing now. */
+private val AVAILABLE_BLUE = Color(0xFF4FC3F7)
+private val PLAYING_BLUE = Color(0xFFB3E5FC)
 
 private val CATEGORIES = listOf(
     "Featured",
