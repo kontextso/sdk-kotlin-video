@@ -802,16 +802,27 @@ private fun SearchScreen(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PlayerSurface(
-                player = player,
-                subtitleSizeFraction = subtitleSizeFraction,
-                showController = false,
-                onToggleFullscreen = {},
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .aspectRatio(16f / 9f)
                     .background(Color.Black),
-            )
+            ) {
+                PlayerSurface(
+                    player = player,
+                    subtitleSizeFraction = subtitleSizeFraction,
+                    showController = false,
+                    onToggleFullscreen = {},
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Transparent overlay on top of the PlayerView (which would
+                // otherwise swallow the touch): tapping the video returns home.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable { onBack() },
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
