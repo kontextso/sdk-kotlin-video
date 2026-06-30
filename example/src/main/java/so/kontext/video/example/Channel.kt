@@ -77,12 +77,35 @@ data class Film(
     val tech: String,
     val thumbnailUrl: String,
     val streamUrl: String,
+    val drm: VideoDrm? = null,
 )
 
 /** Maps a [Film] to a playable [Channel] (unique id so the player reloads). */
-fun Film.toChannel(): Channel = Channel(id = "film:$title", name = title, streamUrl = streamUrl)
+fun Film.toChannel(): Channel =
+    Channel(id = "film:$title", name = title, streamUrl = streamUrl, drm = drm)
 
 val SAMPLE_FILMS: List<Film> = listOf(
+    Film(
+        // Widevine-protected "Tears of Steel" — Google's open test vector. The
+        // .mpd segments are CENC-encrypted; the content key is fetched per
+        // session from Google's UAT license proxy (no auth token needed), so
+        // it exercises the full DRM path end-to-end. These vectors don't
+        // require a secure surface (no HDCP enforcement), so even the
+        // emulator's Widevine L3 (software CDM) renders them visibly — verified
+        // climbing to HD 1920x856. Production DRM (e.g. Netflix) DOES enforce a
+        // secure surface: there the frames decode in a protected path the app
+        // can't read, so the video shows BLACK in screenshots/recordings —
+        // that's the protection working, not a bug.
+        title = "Tears of Steel — Widevine DRM",
+        subtitle = "Encrypted · Google test vector",
+        tech = "DASH · CENC · Widevine · H.264 + AAC · license-clean",
+        thumbnailUrl = "https://picsum.photos/seed/wvtears/240/140",
+        streamUrl = "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears.mpd",
+        drm = VideoDrm(
+            licenseUrl = "https://proxy.uat.widevine.com/proxy",
+            scheme = DrmScheme.WIDEVINE,
+        ),
+    ),
     Film(
         title = "Big Buck Bunny — HLS",
         subtitle = "Animation · 2008 · Blender",
