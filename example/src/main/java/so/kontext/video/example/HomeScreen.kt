@@ -795,10 +795,13 @@ private fun SearchScreen(
         }
 
         // Bottom dock: the playing video (left) + its description (right).
+        // Tapping anywhere on it returns home (the video has its own overlay
+        // below, since the PlayerView would otherwise swallow the touch).
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF161616))
+                .clickable { onBack() }
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
