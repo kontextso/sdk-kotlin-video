@@ -98,7 +98,10 @@ private const val TAG = "VideoExample"
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    isInPipMode: Boolean = false,
+    onPlayerChanged: (Player?) -> Unit = {},
+) {
     val context = LocalContext.current
     val activity = context as? Activity
     // Fullscreen mirrors the device orientation: landscape = immersive player,
@@ -253,6 +256,10 @@ fun HomeScreen() {
         onDispose { player.removeListener(listener) }
     }
 
+    // Report the active player to the Activity so it can drive Picture-in-Picture
+    // (aspect ratio, the Play/Pause action, auto-enter while playing).
+    LaunchedEffect(player) { onPlayerChanged(player) }
+
     // Immersive system bars follow fullscreen; restore on leaving.
     LaunchedEffect(fullscreen) { applyImmersive(activity, fullscreen) }
     DisposableEffect(Unit) {
@@ -298,6 +305,15 @@ fun HomeScreen() {
 
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         when {
+            // In the PiP floating window: just the video, no chrome or controls.
+            isInPipMode -> PlayerSurface(
+                player = player,
+                subtitleSizeFraction = subtitleSize.fraction,
+                showController = false,
+                onToggleFullscreen = {},
+                modifier = Modifier.fillMaxSize(),
+            )
+
             showSettings -> {
                 val cachedBytes = remember(cacheVersion) { VideoCache.cachedBytes(context) }
                 SettingsScreen(
@@ -383,6 +399,7 @@ private fun PlayerSurface(
     subtitleSizeFraction: Float,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
+    showController: Boolean = true,
 ) {
     key(player) {
         AndroidView(
@@ -393,6 +410,8 @@ private fun PlayerSurface(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
+                    // PiP windows are tiny — show only the video, no tap controls.
+                    useController = showController
                     setPlayer(player)
                     setFullscreenButtonClickListener { onToggleFullscreen() }
                 }
