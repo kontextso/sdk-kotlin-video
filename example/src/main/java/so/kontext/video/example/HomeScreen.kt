@@ -41,7 +41,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -797,10 +796,10 @@ private fun physicalOrientation(angle: Int): Int? = when (angle) {
 }
 
 /**
- * Search page reached from the top-bar magnifier. A fresh page — a (placeholder)
- * search box filling the top — with the currently-playing video docked at the
- * bottom: video on the left, its description on the right. It renders the same
- * [player], so moving here keeps playback going (only the surface re-attaches).
+ * Discover page (bottom-nav tab). A fresh page — empty for now apart from the
+ * title — with the currently-playing video docked at the bottom: video on the
+ * left, its description on the right. It renders the same [player], so moving
+ * here keeps playback going (only the surface re-attaches).
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -811,11 +810,10 @@ private fun SearchScreen(
     fallbackTitle: String,
     onBack: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
     // No systemBarsPadding here — the parent (which also hosts the bottom nav)
     // already applies it.
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top: back + search box + (empty) results area, filling the page.
+        // Top: just the title; the empty space below pushes the player dock down.
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Row(
                 modifier = Modifier
@@ -832,30 +830,6 @@ private fun SearchScreen(
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
-                )
-            }
-            TextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                placeholder = { Text("Search films…") },
-                leadingIcon = {
-                    Icon(painter = painterResource(R.drawable.ic_search), contentDescription = null)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (query.isBlank()) "Type to search films" else "No results for \"$query\"",
-                    color = Color(0xFF6E6E6E),
-                    fontSize = 14.sp,
                 )
             }
         }
