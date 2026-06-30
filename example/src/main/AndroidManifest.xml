@@ -7,7 +7,7 @@
     <application
         android:allowBackup="false"
         android:label="Kontext Video Example"
-        android:theme="@android:style/Theme.Material.NoActionBar">
+        android:theme="@style/Theme.KontextVideo">
 
         <activity
             android:name=".MainActivity"
@@ -20,5 +20,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Cast framework discovers our receiver config (default media
+             receiver) from this provider class on first CastContext use. -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="so.kontext.video.example.CastOptionsProvider" />
     </application>
 </manifest>

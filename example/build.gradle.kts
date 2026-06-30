@@ -53,4 +53,8 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.ui)
+
+    // Cast — CastPlayer + the Google Cast framework, to throw the docked video
+    // onto a Chromecast / Cast-built-in TV (e.g. Sony Bravia).
+    implementation(libs.androidx.media3.cast)
 }

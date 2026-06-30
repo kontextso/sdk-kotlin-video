@@ -85,6 +85,11 @@ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", versi
 androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 androidx-media3-exoplayer-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+# Cast extension — CastPlayer (implements the same Player interface) + the
+# Google Cast framework (OptionsProvider / CastButtonFactory) it pulls in
+# transitively, so the docked video can be thrown to a Chromecast / Cast-built-in
+# TV. Only used by :example (Samsung TV+ treats casting as a host-app concern).
+androidx-media3-cast = { module = "androidx.media3:media3-cast", version.ref = "media3" }
 
 # Coil — Compose image loader for film-list thumbnails.
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }

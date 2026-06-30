@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Activity theme. Same Material/no-action-bar look as before, but points
+         the Cast framework at a MediaRouter theme via `mediaRouteTheme`. The
+         framework reads that attr first for both the Cast button and its
+         device-picker dialog; setting it skips MediaRouterThemeHelper's default
+         path, which feeds the (here translucent) colorPrimary into a contrast
+         check that throws "background can not be translucent". -->
+    <!-- Based on AppCompat (dark, no action bar) so the Cast framework's
+         device-picker dialog resolves an opaque colorPrimary from the Activity
+         theme. A plain android Material base leaves appcompat's colorPrimary at
+         #0, which crashes MediaRouterThemeHelper's contrast maths. Compose draws
+         the real UI via MaterialTheme; this mainly sets the window background. -->
+    <style name="Theme.KontextVideo" parent="Theme.AppCompat.NoActionBar">
+        <item name="mediaRouteTheme">@style/Theme.KontextVideo.Cast</item>
+        <item name="colorPrimary">#FF1A1A1A</item>
+        <item name="colorPrimaryDark">#FF000000</item>
+        <item name="colorAccent">#FF4FC3F7</item>
+        <item name="android:colorBackground">#FF000000</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <!-- The theme the Cast button + picker dialog actually render with. Derived
+         from Theme.MediaRouter (which extends Theme.AppCompat), with opaque
+         colour attributes so the contrast maths is well-defined on our dark UI. -->
+    <style name="Theme.KontextVideo.Cast" parent="Theme.MediaRouter">
+        <item name="android:colorBackground">#FF000000</item>
+        <item name="colorPrimary">#FF1A1A1A</item>
+        <item name="colorPrimaryDark">#FF000000</item>
+        <item name="colorAccent">#FF4FC3F7</item>
+    </style>
+</resources>

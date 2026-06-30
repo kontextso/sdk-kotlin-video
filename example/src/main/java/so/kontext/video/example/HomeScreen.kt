@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.OrientationEventListener
 import android.view.ViewGroup
@@ -44,6 +45,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,12 +75,17 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.cast.CastPlayer
+import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.LoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import androidx.mediarouter.app.MediaRouteButton
 import coil.compose.AsyncImage
+import com.google.android.gms.cast.framework.CastButtonFactory
+import com.google.android.gms.cast.framework.CastContext
 import java.util.Locale
 
 private const val TAG = "VideoExample"
@@ -139,6 +146,18 @@ fun HomeScreen(
     // film resumes where it was left off (see rememberPosition).
     val resumePositions = remember { mutableMapOf<String, Long>() }
 
+    // Casting: a CastContext (null if Google Play services / Cast is missing) and
+    // a CastPlayer that drives a connected receiver via the same Player interface
+    // as the local ExoPlayer. While a Cast session is live the docked video plays
+    // on the TV instead of the phone (see the session listener below).
+    val castContext = remember {
+        runCatching { CastContext.getSharedInstance(context.applicationContext) }
+            .onFailure { Log.w(TAG, "Cast unavailable", it) }
+            .getOrNull()
+    }
+    val castPlayer = remember(castContext) { castContext?.let { CastPlayer(it) } }
+    var isCasting by remember { mutableStateOf(castPlayer?.isCastSessionAvailable == true) }
+
     val exoPlayer = remember(current.id, bufferProfile) {
         Log.d(TAG, "create id=${current.id} url=${current.streamUrl} buffer=${bufferProfile.label}")
         ExoPlayer.Builder(context)
@@ -154,7 +173,9 @@ fun HomeScreen(
             // Play once, then auto-advance to the next film (see STATE_ENDED
             // below) — no single-item repeat, so the stream actually ends.
             repeatMode = Player.REPEAT_MODE_OFF
-            playWhenReady = true
+            // Don't start locally if we're already casting — the receiver plays
+            // it (a film switched mid-cast is loaded onto the TV, see below).
+            playWhenReady = !isCasting
             // Resume where this film was left off earlier this session.
             resumePositions[current.id]?.let { seekTo(it) }
             // Apply the session-wide quality cap to this film too.
@@ -260,6 +281,59 @@ fun HomeScreen(
     // (aspect ratio, the Play/Pause action, auto-enter while playing).
     LaunchedEffect(player) { onPlayerChanged(player) }
 
+    // The listener is registered once (castPlayer is stable), but the handoff
+    // needs the *current* film + local player — keep live refs so the callbacks
+    // don't capture stale ones (both are recreated per film).
+    val liveLocal = rememberUpdatedState(exoPlayer)
+    val liveChannel = rememberUpdatedState(current)
+    DisposableEffect(castPlayer) {
+        val cp = castPlayer
+        if (cp == null) {
+            onDispose { }
+        } else {
+            val listener = object : SessionAvailabilityListener {
+                // TV connected: pause locally, hand the film + position to the receiver.
+                override fun onCastSessionAvailable() {
+                    val local = liveLocal.value
+                    val resumeAt = local.currentPosition
+                    local.playWhenReady = false
+                    cp.setMediaItem(liveChannel.value.toMediaItem(), resumeAt)
+                    cp.playWhenReady = true
+                    cp.prepare()
+                    isCasting = true
+                    Log.d(TAG, "cast: connected -> handing off ${liveChannel.value.id} at ${resumeAt}ms")
+                }
+
+                // TV disconnected: resume locally where the receiver left off.
+                override fun onCastSessionUnavailable() {
+                    val local = liveLocal.value
+                    val resumeAt = cp.currentPosition.takeIf { it != C.TIME_UNSET } ?: 0L
+                    local.seekTo(resumeAt)
+                    local.playWhenReady = true
+                    isCasting = false
+                    Log.d(TAG, "cast: disconnected -> resuming local at ${resumeAt}ms")
+                }
+            }
+            cp.setSessionAvailabilityListener(listener)
+            onDispose {
+                cp.setSessionAvailabilityListener(null)
+                cp.release()
+            }
+        }
+    }
+
+    // Switching films while casting loads the new one onto the receiver. Keyed on
+    // the film only: connecting (which flips isCasting) doesn't re-run this, so the
+    // session listener's position-preserving handoff above isn't clobbered.
+    LaunchedEffect(current.id) {
+        if (isCasting && castPlayer != null) {
+            castPlayer.setMediaItem(current.toMediaItem())
+            castPlayer.prepare()
+            castPlayer.playWhenReady = true
+            Log.d(TAG, "cast: load ${current.id} on receiver")
+        }
+    }
+
     // Immersive system bars follow fullscreen; restore on leaving.
     LaunchedEffect(fullscreen) { applyImmersive(activity, fullscreen) }
     DisposableEffect(Unit) {
@@ -303,11 +377,16 @@ fun HomeScreen(
         BackHandler { showSettings = false }
     }
 
+    // The player the surface shows: the receiver-driving CastPlayer while casting,
+    // otherwise the local one. Both implement Player, so the PlayerView and its
+    // controls are agnostic to which is active.
+    val surfacePlayer: Player = if (isCasting && castPlayer != null) castPlayer else player
+
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         when {
             // In the PiP floating window: just the video, no chrome or controls.
             isInPipMode -> PlayerSurface(
-                player = player,
+                player = surfacePlayer,
                 subtitleSizeFraction = subtitleSize.fraction,
                 showController = false,
                 onToggleFullscreen = {},
@@ -352,16 +431,19 @@ fun HomeScreen(
             }
 
             fullscreen -> PlayerSurface(
-                player = player,
+                player = surfacePlayer,
                 subtitleSizeFraction = subtitleSize.fraction,
                 onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_PORTRAIT },
                 modifier = Modifier.fillMaxSize(),
             )
 
             else -> Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
-                TopBar(onOpenSettings = { showSettings = true })
+                TopBar(
+                    castAvailable = castContext != null,
+                    onOpenSettings = { showSettings = true },
+                )
                 PlayerSurface(
-                    player = player,
+                    player = surfacePlayer,
                     subtitleSizeFraction = subtitleSize.fraction,
                     onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_LANDSCAPE },
                     modifier = Modifier
@@ -633,7 +715,7 @@ private fun physicalOrientation(angle: Int): Int? = when (angle) {
 }
 
 @Composable
-private fun TopBar(onOpenSettings: () -> Unit) {
+private fun TopBar(castAvailable: Boolean, onOpenSettings: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -655,8 +737,13 @@ private fun TopBar(onOpenSettings: () -> Unit) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Cast / search are visual only; the overflow (⋮) opens the settings page.
-        TopBarIcon(R.drawable.ic_cast, "Cast")
+        // Real Cast button (device picker + connection state) when Cast is
+        // available; search stays visual; the overflow (⋮) opens settings.
+        if (castAvailable) {
+            CastButton()
+        } else {
+            TopBarIcon(R.drawable.ic_cast, "Cast")
+        }
         TopBarIcon(R.drawable.ic_search, "Search")
         IconButton(onClick = onOpenSettings) {
             Icon(
@@ -666,6 +753,29 @@ private fun TopBar(onOpenSettings: () -> Unit) {
             )
         }
     }
+}
+
+/**
+ * The Google Cast button — a framework [MediaRouteButton] (device picker +
+ * connection state) hosted in Compose. The Activity theme sets `mediaRouteTheme`
+ * so the button and its picker dialog style correctly; the dialog also needs the
+ * host Activity to be a FragmentActivity (see [MainActivity]).
+ */
+@Composable
+private fun CastButton() {
+    AndroidView(
+        modifier = Modifier.size(48.dp),
+        factory = { ctx ->
+            // The button derives its colours from a MediaRouter theme; the
+            // Compose context doesn't carry the Activity theme's attrs, so wrap
+            // it explicitly (its picker dialog uses the Activity context, which
+            // does carry them — see Theme.KontextVideo).
+            val themed = ContextThemeWrapper(ctx, R.style.Theme_KontextVideo_Cast)
+            MediaRouteButton(themed).apply {
+                CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, this)
+            }
+        },
+    )
 }
 
 @Composable

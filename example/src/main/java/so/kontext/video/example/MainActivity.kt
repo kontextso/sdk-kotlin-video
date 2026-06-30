@@ -12,13 +12,13 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.Player
 
 /**
@@ -30,8 +30,12 @@ import androidx.media3.common.Player
  * Play/Pause action) and arms auto-enter so leaving the app while a video
  * plays slides it into a floating window. [HomeScreen] reads [isInPip] to hide
  * its chrome (top bar / list / controls) and show only the video in PiP.
+ *
+ * Extends [FragmentActivity] (not bare ComponentActivity) so the Cast
+ * framework's MediaRouteButton can show its device-picker dialog, which needs a
+ * FragmentManager.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private var player: Player? = null
     private val isInPip = mutableStateOf(false)
