@@ -39,9 +39,13 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -148,6 +152,8 @@ fun HomeScreen(
     // How aggressively to buffer ahead. Session-wide; changing it rebuilds the
     // player (LoadControl is fixed at build time) — resume keeps the position.
     var bufferProfile by remember { mutableStateOf(BufferProfile.DEFAULT) }
+    // Light/dark theme chosen in Settings; re-themes the whole screen.
+    var appTheme by remember { mutableStateOf(AppTheme.DARK) }
     // Bumped after clearing the disk cache so the "Cached: …" line re-reads.
     var cacheVersion by remember { mutableIntStateOf(0) }
     // Per-film playback position, remembered for this session so re-opening a
@@ -393,7 +399,11 @@ fun HomeScreen(
     // controls are agnostic to which is active.
     val surfacePlayer: Player = if (isCasting && castPlayer != null) castPlayer else player
 
-    Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalAppColors provides appTheme.colors) {
+      MaterialTheme(
+        colorScheme = if (appTheme == AppTheme.DARK) darkColorScheme() else lightColorScheme(),
+      ) {
+        Surface(color = appTheme.colors.background, modifier = Modifier.fillMaxSize()) {
         when {
             // In the PiP floating window: just the video, no chrome or controls.
             isInPipMode -> PlayerSurface(
@@ -414,6 +424,8 @@ fun HomeScreen(
                     },
                     subtitleSize = subtitleSize,
                     onSelectSubtitleSize = { subtitleSize = it },
+                    appTheme = appTheme,
+                    onSelectTheme = { appTheme = it },
                     bufferProfile = bufferProfile,
                     onSelectBufferProfile = { profile ->
                         // Save the live position so the rebuilt player resumes in place.
@@ -464,6 +476,8 @@ fun HomeScreen(
                 BottomNavBar(selected = selectedTab, onSelect = { selectedTab = it })
             }
         }
+        }
+      }
     }
 }
 
@@ -542,7 +556,7 @@ private fun BottomNavBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF0A0A0A))
+            .background(LocalAppColors.current.bar)
             .padding(top = 6.dp, bottom = 6.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
@@ -564,7 +578,8 @@ private fun BottomNavBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
 
 @Composable
 private fun BottomNavItem(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
-    val tint = if (selected) Color.White else Color(0xFF8A8A8A)
+    val c = LocalAppColors.current
+    val tint = if (selected) c.textPrimary else c.navUnselected
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
@@ -810,6 +825,7 @@ private fun SearchScreen(
     fallbackTitle: String,
     onBack: () -> Unit,
 ) {
+    val c = LocalAppColors.current
     // No systemBarsPadding here — the parent (which also hosts the bottom nav)
     // already applies it.
     Column(modifier = Modifier.fillMaxSize()) {
@@ -822,12 +838,12 @@ private fun SearchScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Text(text = "←", color = Color.White, fontSize = 24.sp)
+                    Text(text = "←", color = c.textPrimary, fontSize = 24.sp)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "Discover",
-                    color = Color.White,
+                    color = c.textPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -840,7 +856,7 @@ private fun SearchScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF161616))
+                .background(c.dock)
                 .clickable { onBack() }
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -870,15 +886,15 @@ private fun SearchScreen(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = film?.title ?: fallbackTitle,
-                    color = Color.White,
+                    color = c.textPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
                 if (film != null) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = film.subtitle, color = Color(0xFF9E9E9E), fontSize = 12.sp)
+                    Text(text = film.subtitle, color = c.textSecondary, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = film.tech, color = Color(0xFF6E6E6E), fontSize = 11.sp)
+                    Text(text = film.tech, color = c.textTertiary, fontSize = 11.sp)
                 }
             }
         }
@@ -890,6 +906,7 @@ private fun TopBar(
     castAvailable: Boolean,
     onOpenSettings: () -> Unit,
 ) {
+    val c = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -904,7 +921,7 @@ private fun TopBar(
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = "Samsung TV Plus",
-            color = Color.White,
+            color = c.textPrimary,
             fontSize = 19.sp,
             fontWeight = FontWeight.SemiBold,
         )
@@ -924,7 +941,7 @@ private fun TopBar(
             Icon(
                 painter = painterResource(R.drawable.ic_more_vert),
                 contentDescription = "Settings",
-                tint = Color.White,
+                tint = c.textPrimary,
             )
         }
     }
@@ -959,7 +976,7 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String, onClick: () -> 
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
-            tint = Color.White,
+            tint = LocalAppColors.current.textPrimary,
         )
     }
 }
@@ -976,12 +993,15 @@ private fun SettingsScreen(
     onSelectQuality: (Int?) -> Unit,
     subtitleSize: SubtitleSize,
     onSelectSubtitleSize: (SubtitleSize) -> Unit,
+    appTheme: AppTheme,
+    onSelectTheme: (AppTheme) -> Unit,
     bufferProfile: BufferProfile,
     onSelectBufferProfile: (BufferProfile) -> Unit,
     cachedBytes: Long,
     onClearCache: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val c = LocalAppColors.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -995,12 +1015,12 @@ private fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Text(text = "←", color = Color.White, fontSize = 24.sp)
+                Text(text = "←", color = c.textPrimary, fontSize = 24.sp)
             }
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "Settings",
-                color = Color.White,
+                color = c.textPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -1008,6 +1028,13 @@ private fun SettingsScreen(
 
         // Each setting is a collapsed select (current value + dropdown), so the
         // page stays short instead of listing every option inline.
+        SettingSelect(
+            label = "Theme",
+            options = AppTheme.entries,
+            optionLabel = { it.label },
+            selected = appTheme,
+            onSelect = onSelectTheme,
+        )
         SettingSelect(
             label = "Quality",
             options = QUALITY_CHOICES,
@@ -1055,6 +1082,7 @@ private fun <T> SettingSelect(
     selected: T,
     onSelect: (T) -> Unit,
 ) {
+    val c = LocalAppColors.current
     var expanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
@@ -1063,14 +1091,14 @@ private fun <T> SettingSelect(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Text(text = label, color = c.textPrimary, fontSize = 16.sp, modifier = Modifier.weight(1f))
         // Anchor the menu to the value (right side) so it drops under it, not at
         // the row's left edge (a DropdownMenu pops from its parent's start).
         Box {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = optionLabel(selected), color = Color(0xFF9E9E9E), fontSize = 15.sp)
+                Text(text = optionLabel(selected), color = c.textSecondary, fontSize = 15.sp)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "▾", color = Color(0xFF9E9E9E), fontSize = 14.sp)
+                Text(text = "▾", color = c.textSecondary, fontSize = 14.sp)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { option ->
@@ -1090,6 +1118,7 @@ private fun <T> SettingSelect(
 
 @Composable
 private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    val c = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1099,12 +1128,12 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            color = Color.White,
+            color = c.textPrimary,
             fontSize = 16.sp,
             modifier = Modifier.weight(1f),
         )
         if (selected) {
-            Text(text = "✓", color = Color.White, fontSize = 16.sp)
+            Text(text = "✓", color = c.textPrimary, fontSize = 16.sp)
         }
     }
 }
@@ -1146,14 +1175,15 @@ private fun CategoryChips(
 
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val c = LocalAppColors.current
     Text(
         text = label,
-        color = if (selected) Color.Black else Color(0xFFBBBBBB),
+        color = if (selected) c.chipSelectedText else c.chipUnselectedText,
         fontSize = 15.sp,
         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
         modifier = Modifier
             .clip(RoundedCornerShape(percent = 50))
-            .background(if (selected) Color.White else Color.Transparent)
+            .background(if (selected) c.chipSelectedBg else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
@@ -1229,7 +1259,7 @@ private fun FilmList(
 private fun CategorySectionHeader(category: String) {
     Text(
         text = category,
-        color = Color.White,
+        color = LocalAppColors.current.textPrimary,
         fontSize = 15.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
@@ -1244,12 +1274,13 @@ private fun FilmRow(
     currentHeight: Int?,
     onClick: () -> Unit,
 ) {
+    val c = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) Color(0xFF2A2A2A) else Color.Transparent)
+            .background(if (selected) c.rowHighlight else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1261,26 +1292,26 @@ private fun FilmRow(
             modifier = Modifier
                 .size(width = 96.dp, height = 56.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(Color(0xFF222222)),
+                .background(c.thumbnailBg),
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column {
             Text(
                 text = film.title,
-                color = Color.White,
+                color = c.textPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = film.subtitle,
-                color = Color(0xFF9E9E9E),
+                color = c.textSecondary,
                 fontSize = 13.sp,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = film.tech,
-                color = Color(0xFF6E6E6E),
+                color = c.textTertiary,
                 fontSize = 11.sp,
             )
             // Actual renditions detected in the playing stream — for testing
@@ -1290,15 +1321,15 @@ private fun FilmRow(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = AVAILABLE_BLUE)) { append("Available: ") }
+                        withStyle(SpanStyle(color = c.availableAccent)) { append("Available: ") }
                         availableHeights.forEachIndexed { index, height ->
                             if (index > 0) {
-                                withStyle(SpanStyle(color = AVAILABLE_BLUE)) { append(" · ") }
+                                withStyle(SpanStyle(color = c.availableAccent)) { append(" · ") }
                             }
                             val playing = height == currentHeight
                             withStyle(
                                 SpanStyle(
-                                    color = if (playing) PLAYING_BLUE else AVAILABLE_BLUE,
+                                    color = if (playing) c.playingAccent else c.availableAccent,
                                     fontWeight = if (playing) FontWeight.Bold else FontWeight.Normal,
                                 ),
                             ) {
@@ -1312,7 +1343,3 @@ private fun FilmRow(
         }
     }
 }
-
-/** "Available:" formats line: base blue for renditions, brighter for the one playing now. */
-private val AVAILABLE_BLUE = Color(0xFF4FC3F7)
-private val PLAYING_BLUE = Color(0xFFB3E5FC)
