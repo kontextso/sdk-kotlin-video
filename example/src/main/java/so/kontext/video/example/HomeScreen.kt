@@ -135,9 +135,6 @@ fun HomeScreen(
     // The rendition actually on screen now (adaptive may change it over time) —
     // used to highlight which of the available formats is currently playing.
     var currentHeight by remember(current.id) { mutableStateOf<Int?>(null) }
-    // Selectable audio tracks of the current stream + the chosen one (per film).
-    var audioTracks by remember(current.id) { mutableStateOf(emptyList<AudioTrack>()) }
-    var selectedAudioId by remember(current.id) { mutableStateOf<String?>(null) }
     // Selectable subtitle/CC tracks + the chosen one (per film); null = Off.
     var subtitleTracks by remember(current.id) { mutableStateOf(emptyList<TextTrack>()) }
     var selectedSubtitleId by remember(current.id) { mutableStateOf<String?>(null) }
@@ -262,15 +259,11 @@ fun HomeScreen(
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 availableHeights = availableVideoHeights(tracks)
-                val parsedAudio = parseAudioTracks(tracks)
-                audioTracks = parsedAudio
                 val parsedText = parseTextTracks(tracks)
                 subtitleTracks = parsedText
-                // Re-assert chosen audio / subtitle after a player rebuild (e.g. a
+                // Re-assert the chosen subtitle after a player rebuild (e.g. a
                 // buffer-profile change keeps the film but builds a new player).
-                selectedAudioId?.let { id ->
-                    parsedAudio.firstOrNull { it.id == id }?.let { selectAudio(player, it) }
-                }
+                // (Audio selection lives in the player's own track menu now.)
                 selectedSubtitleId?.let { id ->
                     parsedText.firstOrNull { it.id == id }?.let { selectSubtitle(player, it) }
                 }
@@ -278,7 +271,6 @@ fun HomeScreen(
         }
         player.addListener(listener)
         availableHeights = availableVideoHeights(player.currentTracks)
-        audioTracks = parseAudioTracks(player.currentTracks)
         subtitleTracks = parseTextTracks(player.currentTracks)
         onDispose { player.removeListener(listener) }
     }
@@ -409,12 +401,6 @@ fun HomeScreen(
                     onSelectQuality = { height ->
                         maxVideoHeight = height
                         applyQualityCap(player, height)
-                    },
-                    audioTracks = audioTracks,
-                    selectedAudioId = selectedAudioId,
-                    onSelectAudio = { track ->
-                        selectAudio(player, track)
-                        selectedAudioId = track?.id
                     },
                     subtitleTracks = subtitleTracks,
                     selectedSubtitleId = selectedSubtitleId,
@@ -580,44 +566,11 @@ private fun formatBytes(bytes: Long): String {
     }
 }
 
-/** A selectable audio track (one language / rendition) within the current tracks. */
-private data class AudioTrack(val id: String, val label: String, val group: TrackGroup, val trackIndex: Int)
-
-/** Selectable audio tracks the current stream exposes, labelled by language. */
-private fun parseAudioTracks(tracks: Tracks): List<AudioTrack> {
-    val result = mutableListOf<AudioTrack>()
-    tracks.groups.forEachIndexed { groupIndex, group ->
-        if (group.type != C.TRACK_TYPE_AUDIO) return@forEachIndexed
-        for (i in 0 until group.length) {
-            if (!group.isTrackSupported(i)) continue
-            result += AudioTrack(
-                id = "$groupIndex:$i",
-                label = trackLabel(group.getTrackFormat(i), i),
-                group = group.mediaTrackGroup,
-                trackIndex = i,
-            )
-        }
-    }
-    return result
-}
-
 /** Human-readable name for a track: explicit label, else language, else index. */
 private fun trackLabel(format: Format, index: Int): String {
     format.label?.let { return it }
     val lang = format.language?.takeIf { it.isNotBlank() && it != "und" }
     return lang?.let { Locale.forLanguageTag(it).displayLanguage.ifBlank { it } } ?: "Track ${index + 1}"
-}
-
-/** Pins [track]'s audio rendition, or clears the override (null = back to default). */
-private fun selectAudio(player: Player, track: AudioTrack?) {
-    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-        .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-        .apply {
-            if (track != null) {
-                addOverride(TrackSelectionOverride(track.group, listOf(track.trackIndex)))
-            }
-        }
-        .build()
 }
 
 /** A selectable subtitle / CC track within the current tracks. */
@@ -934,9 +887,6 @@ private fun TopBarIcon(iconRes: Int, contentDescription: String, onClick: () -> 
 private fun SettingsScreen(
     selectedHeight: Int?,
     onSelectQuality: (Int?) -> Unit,
-    audioTracks: List<AudioTrack>,
-    selectedAudioId: String?,
-    onSelectAudio: (AudioTrack?) -> Unit,
     subtitleTracks: List<TextTrack>,
     selectedSubtitleId: String?,
     onSelectSubtitle: (TextTrack?) -> Unit,
@@ -981,17 +931,8 @@ private fun SettingsScreen(
             ) { onSelectQuality(height) }
         }
 
-        // Audio languages — only when the stream offers a choice.
-        if (audioTracks.size > 1) {
-            SettingsSectionHeader("Audio")
-            SettingRow(label = "Auto", selected = selectedAudioId == null) { onSelectAudio(null) }
-            audioTracks.forEach { track ->
-                SettingRow(
-                    label = track.label,
-                    selected = track.id == selectedAudioId,
-                ) { onSelectAudio(track) }
-            }
-        }
+        // (Audio language selection lives in the player's own track menu — the
+        // gear in the playback controls — so it isn't duplicated here.)
 
         // Subtitles / CC — only when the stream carries text tracks. Off by default.
         if (subtitleTracks.isNotEmpty()) {
