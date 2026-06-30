@@ -34,6 +34,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -136,6 +138,10 @@ fun HomeScreen(
     // Subtitle text size (session-wide); applied to the PlayerView's SubtitleView.
     // (Which subtitle track to show is chosen in the player's own CC button.)
     var subtitleSize by remember { mutableStateOf(SubtitleSize.NORMAL) }
+    // Remembered subtitle language (session-wide; null = off). Captured from the
+    // player's CC button and re-applied to each new film, so the viewer's choice
+    // carries over instead of resetting per video.
+    var preferredSubtitleLang by remember { mutableStateOf<String?>(null) }
     // How aggressively to buffer ahead. Session-wide; changing it rebuilds the
     // player (LoadControl is fixed at build time) — resume keeps the position.
     var bufferProfile by remember { mutableStateOf(BufferProfile.DEFAULT) }
@@ -179,6 +185,8 @@ fun HomeScreen(
             resumePositions[current.id]?.let { seekTo(it) }
             // Apply the session-wide quality cap to this film too.
             applyQualityCap(this, maxVideoHeight)
+            // Carry over the remembered subtitle language (null = leave off).
+            applyPreferredSubtitle(this, preferredSubtitleLang)
             addListener(object : Player.Listener {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
                     currentHeight = videoSize.height.takeIf { it > 0 }
@@ -255,6 +263,18 @@ fun HomeScreen(
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 availableHeights = availableVideoHeights(tracks)
+                // Remember the viewer's CC choice so the next film keeps it.
+                val lang = selectedTextLanguage(tracks)
+                val pref = preferredSubtitleLang
+                when {
+                    // A subtitle is on → remember its language.
+                    lang != null -> preferredSubtitleLang = lang
+                    // Nothing on, but the remembered language IS in this stream →
+                    // the viewer turned subtitles off; remember that.
+                    pref != null && hasLanguage(tracks, pref) -> preferredSubtitleLang = null
+                    // Otherwise (no text tracks, or our language just isn't in this
+                    // film) keep the preference so it applies to films that have it.
+                }
             }
         }
         player.addListener(listener)
@@ -514,6 +534,39 @@ private fun applyQualityCap(player: Player, maxHeight: Int?) {
             }
         }
         .build()
+}
+
+/**
+ * Auto-selects the [language] subtitle track on this player (null = none).
+ * Setting a preferred text language makes Media3 pick that language's text
+ * track when the film has it; the player's CC button can still override it.
+ */
+private fun applyPreferredSubtitle(player: Player, language: String?) {
+    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .setPreferredTextLanguage(language)
+        .build()
+}
+
+/** Language of the currently-selected subtitle track, or null if none is on. */
+private fun selectedTextLanguage(tracks: Tracks): String? {
+    for (group in tracks.groups) {
+        if (group.type != C.TRACK_TYPE_TEXT) continue
+        for (i in 0 until group.length) {
+            if (group.isTrackSelected(i)) return group.getTrackFormat(i).language
+        }
+    }
+    return null
+}
+
+/** True if any subtitle track in the current stream is in [language]. */
+private fun hasLanguage(tracks: Tracks, language: String): Boolean {
+    for (group in tracks.groups) {
+        if (group.type != C.TRACK_TYPE_TEXT) continue
+        for (i in 0 until group.length) {
+            if (group.getTrackFormat(i).language == language) return true
+        }
+    }
+    return false
 }
 
 /**
@@ -863,51 +916,86 @@ private fun SettingsScreen(
             )
         }
 
-        SettingsSectionHeader("Quality")
-        SettingRow(label = "Auto", selected = selectedHeight == null) { onSelectQuality(null) }
-        QUALITY_OPTIONS.forEach { height ->
-            SettingRow(
-                label = "${height}p",
-                selected = selectedHeight == height,
-            ) { onSelectQuality(height) }
-        }
-
+        // Each setting is a collapsed select (current value + dropdown), so the
+        // page stays short instead of listing every option inline.
+        SettingSelect(
+            label = "Quality",
+            options = QUALITY_CHOICES,
+            optionLabel = { it?.let { h -> "${h}p" } ?: "Auto" },
+            selected = selectedHeight,
+            onSelect = onSelectQuality,
+        )
         // Audio & subtitle *track* selection both live in the player's own
         // controls (the gear's audio menu / the CC button), so they aren't
         // duplicated here. Only the subtitle text size is a true app setting —
         // always shown, so Settings doesn't change with the current video.
-        SettingsSectionHeader("Subtitle size")
-        SubtitleSize.entries.forEach { size ->
-            SettingRow(
-                label = size.label,
-                selected = size == subtitleSize,
-            ) { onSelectSubtitleSize(size) }
-        }
-
-        // How much to buffer ahead (rebuilds the player; resumes in place).
-        SettingsSectionHeader("Buffering")
-        BufferProfile.entries.forEach { profile ->
-            SettingRow(
-                label = profile.label,
-                selected = profile == bufferProfile,
-            ) { onSelectBufferProfile(profile) }
-        }
+        SettingSelect(
+            label = "Subtitle size",
+            options = SubtitleSize.entries,
+            optionLabel = { it.label },
+            selected = subtitleSize,
+            onSelect = onSelectSubtitleSize,
+        )
+        SettingSelect(
+            label = "Buffering",
+            options = BufferProfile.entries,
+            optionLabel = { it.label },
+            selected = bufferProfile,
+            onSelect = onSelectBufferProfile,
+        )
 
         // Disk cache — replays serve from disk. Shows current size; tap to clear.
-        SettingsSectionHeader("Cache")
         SettingRow(label = "Clear cache · ${formatBytes(cachedBytes)}", selected = false) { onClearCache() }
     }
 }
 
+/** Quality choices for the select: Auto (null) then the standard ladder. */
+private val QUALITY_CHOICES: List<Int?> = listOf(null) + QUALITY_OPTIONS
+
+/**
+ * A settings row that shows its label + current value and opens a dropdown of
+ * [options] on tap (the chosen one checked), so the page stays compact instead
+ * of listing every option inline.
+ */
 @Composable
-private fun SettingsSectionHeader(title: String) {
-    Text(
-        text = title,
-        color = Color(0xFF9E9E9E),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 4.dp),
-    )
+private fun <T> SettingSelect(
+    label: String,
+    options: List<T>,
+    optionLabel: (T) -> String,
+    selected: T,
+    onSelect: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = true }
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        // Anchor the menu to the value (right side) so it drops under it, not at
+        // the row's left edge (a DropdownMenu pops from its parent's start).
+        Box {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = optionLabel(selected), color = Color(0xFF9E9E9E), fontSize = 15.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "▾", color = Color(0xFF9E9E9E), fontSize = 14.sp)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(optionLabel(option)) },
+                        trailingIcon = { if (option == selected) Text(text = "✓") },
+                        onClick = {
+                            onSelect(option)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
