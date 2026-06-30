@@ -14,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -119,6 +121,10 @@ fun HomeScreen(
     var orientationLock by remember { mutableStateOf<Int?>(null) }
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
     var showSettings by remember { mutableStateOf(false) }
+    // Search page (top-bar magnifier): a fresh page with the playing video
+    // docked at the bottom (video left, description right). Same player, so
+    // playback is continuous.
+    var showSearch by remember { mutableStateOf(false) }
     // Quality cap chosen in Settings (null = Auto). A standard ladder applied to
     // every film; the player picks the best rendition at or below it and falls
     // back gracefully when a stream can't honour the choice.
@@ -376,6 +382,9 @@ fun HomeScreen(
     if (showSettings) {
         BackHandler { showSettings = false }
     }
+    if (showSearch) {
+        BackHandler { showSearch = false }
+    }
 
     // The player the surface shows: the receiver-driving CastPlayer while casting,
     // otherwise the local one. Both implement Player, so the PlayerView and its
@@ -430,6 +439,14 @@ fun HomeScreen(
                 )
             }
 
+            showSearch -> SearchScreen(
+                player = surfacePlayer,
+                subtitleSizeFraction = subtitleSize.fraction,
+                film = SAMPLE_FILMS.firstOrNull { it.toChannel().id == current.id },
+                fallbackTitle = current.name,
+                onBack = { showSearch = false },
+            )
+
             fullscreen -> PlayerSurface(
                 player = surfacePlayer,
                 subtitleSizeFraction = subtitleSize.fraction,
@@ -440,6 +457,7 @@ fun HomeScreen(
             else -> Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
                 TopBar(
                     castAvailable = castContext != null,
+                    onOpenSearch = { showSearch = true },
                     onOpenSettings = { showSettings = true },
                 )
                 PlayerSurface(
@@ -714,8 +732,111 @@ private fun physicalOrientation(angle: Int): Int? = when (angle) {
     else -> null
 }
 
+/**
+ * Search page reached from the top-bar magnifier. A fresh page — a (placeholder)
+ * search box filling the top — with the currently-playing video docked at the
+ * bottom: video on the left, its description on the right. It renders the same
+ * [player], so moving here keeps playback going (only the surface re-attaches).
+ */
+@OptIn(UnstableApi::class)
 @Composable
-private fun TopBar(castAvailable: Boolean, onOpenSettings: () -> Unit) {
+private fun SearchScreen(
+    player: Player,
+    subtitleSizeFraction: Float,
+    film: Film?,
+    fallbackTitle: String,
+    onBack: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+        // Top: back + search box + (empty) results area, filling the page.
+        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Text(text = "←", color = Color.White, fontSize = 24.sp)
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Search",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            TextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text("Search films…") },
+                leadingIcon = {
+                    Icon(painter = painterResource(R.drawable.ic_search), contentDescription = null)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (query.isBlank()) "Type to search films" else "No results for \"$query\"",
+                    color = Color(0xFF6E6E6E),
+                    fontSize = 14.sp,
+                )
+            }
+        }
+
+        // Bottom dock: the playing video (left) + its description (right).
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF161616))
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlayerSurface(
+                player = player,
+                subtitleSizeFraction = subtitleSizeFraction,
+                showController = false,
+                onToggleFullscreen = {},
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(16f / 9f)
+                    .background(Color.Black),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = film?.title ?: fallbackTitle,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (film != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = film.subtitle, color = Color(0xFF9E9E9E), fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = film.tech, color = Color(0xFF6E6E6E), fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopBar(
+    castAvailable: Boolean,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -744,7 +865,7 @@ private fun TopBar(castAvailable: Boolean, onOpenSettings: () -> Unit) {
         } else {
             TopBarIcon(R.drawable.ic_cast, "Cast")
         }
-        TopBarIcon(R.drawable.ic_search, "Search")
+        TopBarIcon(R.drawable.ic_search, "Search", onClick = onOpenSearch)
         IconButton(onClick = onOpenSettings) {
             Icon(
                 painter = painterResource(R.drawable.ic_more_vert),
@@ -779,8 +900,8 @@ private fun CastButton() {
 }
 
 @Composable
-private fun TopBarIcon(iconRes: Int, contentDescription: String) {
-    IconButton(onClick = { }) {
+private fun TopBarIcon(iconRes: Int, contentDescription: String, onClick: () -> Unit = {}) {
+    IconButton(onClick = onClick) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
