@@ -2,6 +2,7 @@ package so.kontext.video.example
 
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 
 /**
  * Per-stream DRM config. Mirrors Samsung TV+'s
@@ -35,6 +36,11 @@ fun Channel.toMediaItem(): MediaItem =
     MediaItem.Builder()
         .setUri(streamUrl)
         .apply {
+            // The local ExoPlayer infers the container from the stream, but the
+            // Cast receiver doesn't — CastPlayer's DefaultMediaItemConverter
+            // *requires* an explicit mimeType ("The item must specify its
+            // mimeType") or it throws when handing off. Infer it from the URL.
+            mimeTypeFor(streamUrl)?.let { setMimeType(it) }
             drm?.let { d ->
                 val uuid = when (d.scheme) {
                     DrmScheme.WIDEVINE -> C.WIDEVINE_UUID
@@ -52,6 +58,20 @@ fun Channel.toMediaItem(): MediaItem =
             }
         }
         .build()
+
+/**
+ * Best-effort MIME type from a stream URL's extension, so the Cast receiver
+ * knows the container. Covers the formats our samples use; null (unknown) lets
+ * the local player fall back to inference. Strips any query string first.
+ */
+private fun mimeTypeFor(url: String): String? =
+    when (url.substringBefore('?').substringAfterLast('.').lowercase()) {
+        "m3u8" -> MimeTypes.APPLICATION_M3U8
+        "mpd" -> MimeTypes.APPLICATION_MPD
+        "mp4" -> MimeTypes.VIDEO_MP4
+        "webm" -> MimeTypes.VIDEO_WEBM
+        else -> null
+    }
 
 /**
  * Default sample — Apple's advanced fMP4 multi-variant HLS, the format
