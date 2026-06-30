@@ -125,10 +125,10 @@ fun HomeScreen(
     var orientationLock by remember { mutableStateOf<Int?>(null) }
     var current by remember { mutableStateOf(SAMPLE_FILMS.first().toChannel()) }
     var showSettings by remember { mutableStateOf(false) }
-    // Search page (top-bar magnifier): a fresh page with the playing video
-    // docked at the bottom (video left, description right). Same player, so
-    // playback is continuous.
-    var showSearch by remember { mutableStateOf(false) }
+    // Bottom-nav tab. Live TV is the full home; Discover is a fresh page with the
+    // playing video minimized to a dock at the bottom (same player, so playback
+    // is continuous). Reached via the bottom nav, not the (now inert) search icon.
+    var selectedTab by remember { mutableStateOf(HomeTab.LIVE_TV) }
     // Quality cap chosen in Settings (null = Auto). A standard ladder applied to
     // every film; the player picks the best rendition at or below it and falls
     // back gracefully when a stream can't honour the choice.
@@ -385,8 +385,8 @@ fun HomeScreen(
     if (showSettings) {
         BackHandler { showSettings = false }
     }
-    if (showSearch) {
-        BackHandler { showSearch = false }
+    if (selectedTab == HomeTab.DISCOVER) {
+        BackHandler { selectedTab = HomeTab.LIVE_TV }
     }
 
     // The player the surface shows: the receiver-driving CastPlayer while casting,
@@ -430,14 +430,6 @@ fun HomeScreen(
                 )
             }
 
-            showSearch -> SearchScreen(
-                player = surfacePlayer,
-                subtitleSizeFraction = subtitleSize.fraction,
-                film = SAMPLE_FILMS.firstOrNull { it.toChannel().id == current.id },
-                fallbackTitle = current.name,
-                onBack = { showSearch = false },
-            )
-
             fullscreen -> PlayerSurface(
                 player = surfacePlayer,
                 subtitleSizeFraction = subtitleSize.fraction,
@@ -445,64 +437,155 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
+            // Live TV / Discover tabs share a persistent bottom nav.
             else -> Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
-                // The film list is grouped into category sections; the chips are
-                // those categories. A shared list state syncs the two: scrolling
-                // highlights the visible section's chip, tapping a chip scrolls
-                // to that section (mirroring Samsung TV+).
-                val filmRows = remember { buildFilmRows(SAMPLE_FILMS) }
-                val categories = remember { SAMPLE_FILMS.map { it.category }.distinct() }
-                val categoryByRow = remember(filmRows) { filmRows.map { it.category } }
-                val headerIndexByCategory = remember(filmRows) {
-                    filmRows.withIndex()
-                        .filter { it.value is FilmListRow.CategoryHeader }
-                        .associate { (index, row) -> row.category to index }
-                }
-                val listState = rememberLazyListState()
-                val scope = rememberCoroutineScope()
-                val currentCategory by remember {
-                    derivedStateOf { categoryByRow.getOrNull(listState.firstVisibleItemIndex) }
-                }
+                Box(modifier = Modifier.weight(1f)) {
+                    when (selectedTab) {
+                        HomeTab.LIVE_TV -> LiveTvContent(
+                            player = surfacePlayer,
+                            castAvailable = castContext != null,
+                            subtitleSizeFraction = subtitleSize.fraction,
+                            selectedId = current.id,
+                            availableHeights = availableHeights,
+                            currentHeight = currentHeight,
+                            onSelectFilm = { film -> current = film.toChannel() },
+                            onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_LANDSCAPE },
+                            onOpenSettings = { showSettings = true },
+                        )
 
-                TopBar(
-                    castAvailable = castContext != null,
-                    onOpenSearch = { showSearch = true },
-                    onOpenSettings = { showSettings = true },
-                )
-                PlayerSurface(
-                    player = surfacePlayer,
-                    subtitleSizeFraction = subtitleSize.fraction,
-                    onToggleFullscreen = { orientationLock = Configuration.ORIENTATION_LANDSCAPE },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .aspectRatio(16f / 9f)
-                        .background(Color.Black),
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                CategoryChips(
-                    categories = categories,
-                    selected = currentCategory,
-                    onSelect = { category ->
-                        headerIndexByCategory[category]?.let { index ->
-                            scope.launch { listState.animateScrollToItem(index) }
-                        }
-                    },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                FilmList(
-                    rows = filmRows,
-                    listState = listState,
-                    selectedId = current.id,
-                    availableHeights = availableHeights,
-                    currentHeight = currentHeight,
-                    onClick = { film -> current = film.toChannel() },
-                    modifier = Modifier.weight(1f),
-                )
+                        HomeTab.DISCOVER -> SearchScreen(
+                            player = surfacePlayer,
+                            subtitleSizeFraction = subtitleSize.fraction,
+                            film = SAMPLE_FILMS.firstOrNull { it.toChannel().id == current.id },
+                            fallbackTitle = current.name,
+                            onBack = { selectedTab = HomeTab.LIVE_TV },
+                        )
+                    }
+                }
+                BottomNavBar(selected = selectedTab, onSelect = { selectedTab = it })
             }
         }
     }
 }
+
+/** The Live TV home: top bar, docked player, category chips, grouped film list. */
+@OptIn(UnstableApi::class)
+@Composable
+private fun LiveTvContent(
+    player: Player,
+    castAvailable: Boolean,
+    subtitleSizeFraction: Float,
+    selectedId: String,
+    availableHeights: List<Int>,
+    currentHeight: Int?,
+    onSelectFilm: (Film) -> Unit,
+    onToggleFullscreen: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // The film list is grouped into category sections; the chips are those
+        // categories. A shared list state syncs the two: scrolling highlights the
+        // visible section's chip, tapping a chip scrolls to that section.
+        val filmRows = remember { buildFilmRows(SAMPLE_FILMS) }
+        val categories = remember { SAMPLE_FILMS.map { it.category }.distinct() }
+        val categoryByRow = remember(filmRows) { filmRows.map { it.category } }
+        val headerIndexByCategory = remember(filmRows) {
+            filmRows.withIndex()
+                .filter { it.value is FilmListRow.CategoryHeader }
+                .associate { (index, row) -> row.category to index }
+        }
+        val listState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        val currentCategory by remember {
+            derivedStateOf { categoryByRow.getOrNull(listState.firstVisibleItemIndex) }
+        }
+
+        TopBar(
+            castAvailable = castAvailable,
+            onOpenSettings = onOpenSettings,
+        )
+        PlayerSurface(
+            player = player,
+            subtitleSizeFraction = subtitleSizeFraction,
+            onToggleFullscreen = onToggleFullscreen,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .aspectRatio(16f / 9f)
+                .background(Color.Black),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        CategoryChips(
+            categories = categories,
+            selected = currentCategory,
+            onSelect = { category ->
+                headerIndexByCategory[category]?.let { index ->
+                    scope.launch { listState.animateScrollToItem(index) }
+                }
+            },
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        FilmList(
+            rows = filmRows,
+            listState = listState,
+            selectedId = selectedId,
+            availableHeights = availableHeights,
+            currentHeight = currentHeight,
+            onClick = onSelectFilm,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** Bottom navigation: Live TV (full home) and Discover (minimized-player page). */
+@Composable
+private fun BottomNavBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0A0A0A))
+            .padding(top = 6.dp, bottom = 6.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BottomNavItem(
+            iconRes = R.drawable.ic_live_tv,
+            label = "Live TV",
+            selected = selected == HomeTab.LIVE_TV,
+            onClick = { onSelect(HomeTab.LIVE_TV) },
+        )
+        BottomNavItem(
+            iconRes = R.drawable.ic_explore,
+            label = "Discover",
+            selected = selected == HomeTab.DISCOVER,
+            onClick = { onSelect(HomeTab.DISCOVER) },
+        )
+    }
+}
+
+@Composable
+private fun BottomNavItem(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
+    val tint = if (selected) Color.White else Color(0xFF8A8A8A)
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = label, color = tint, fontSize = 12.sp)
+    }
+}
+
+/** Bottom-nav tabs. */
+private enum class HomeTab { LIVE_TV, DISCOVER }
 
 /**
  * Renders [player] in a Media3 [PlayerView]. Keyed by the player instance so a
@@ -729,7 +812,9 @@ private fun SearchScreen(
     onBack: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+    // No systemBarsPadding here — the parent (which also hosts the bottom nav)
+    // already applies it.
+    Column(modifier = Modifier.fillMaxSize()) {
         // Top: back + search box + (empty) results area, filling the page.
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Row(
@@ -743,7 +828,7 @@ private fun SearchScreen(
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Search",
+                    text = "Discover",
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -829,7 +914,6 @@ private fun SearchScreen(
 @Composable
 private fun TopBar(
     castAvailable: Boolean,
-    onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Row(
@@ -854,13 +938,14 @@ private fun TopBar(
         Spacer(modifier = Modifier.weight(1f))
 
         // Real Cast button (device picker + connection state) when Cast is
-        // available; search stays visual; the overflow (⋮) opens settings.
+        // available; search is visual only (Discover lives in the bottom nav);
+        // the overflow (⋮) opens settings.
         if (castAvailable) {
             CastButton()
         } else {
             TopBarIcon(R.drawable.ic_cast, "Cast")
         }
-        TopBarIcon(R.drawable.ic_search, "Search", onClick = onOpenSearch)
+        TopBarIcon(R.drawable.ic_search, "Search")
         IconButton(onClick = onOpenSettings) {
             Icon(
                 painter = painterResource(R.drawable.ic_more_vert),
