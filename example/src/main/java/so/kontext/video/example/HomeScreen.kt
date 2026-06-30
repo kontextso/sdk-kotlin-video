@@ -28,9 +28,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -44,11 +45,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -89,6 +92,7 @@ import coil.compose.AsyncImage
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private const val TAG = "VideoExample"
 
@@ -442,6 +446,24 @@ fun HomeScreen(
             )
 
             else -> Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+                // The film list is grouped into category sections; the chips are
+                // those categories. A shared list state syncs the two: scrolling
+                // highlights the visible section's chip, tapping a chip scrolls
+                // to that section (mirroring Samsung TV+).
+                val filmRows = remember { buildFilmRows(SAMPLE_FILMS) }
+                val categories = remember { SAMPLE_FILMS.map { it.category }.distinct() }
+                val categoryByRow = remember(filmRows) { filmRows.map { it.category } }
+                val headerIndexByCategory = remember(filmRows) {
+                    filmRows.withIndex()
+                        .filter { it.value is FilmListRow.CategoryHeader }
+                        .associate { (index, row) -> row.category to index }
+                }
+                val listState = rememberLazyListState()
+                val scope = rememberCoroutineScope()
+                val currentCategory by remember {
+                    derivedStateOf { categoryByRow.getOrNull(listState.firstVisibleItemIndex) }
+                }
+
                 TopBar(
                     castAvailable = castContext != null,
                     onOpenSearch = { showSearch = true },
@@ -458,10 +480,19 @@ fun HomeScreen(
                         .background(Color.Black),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                CategoryChips()
+                CategoryChips(
+                    categories = categories,
+                    selected = currentCategory,
+                    onSelect = { category ->
+                        headerIndexByCategory[category]?.let { index ->
+                            scope.launch { listState.animateScrollToItem(index) }
+                        }
+                    },
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 FilmList(
-                    films = SAMPLE_FILMS,
+                    rows = filmRows,
+                    listState = listState,
                     selectedId = current.id,
                     availableHeights = availableHeights,
                     currentHeight = currentHeight,
@@ -1020,23 +1051,35 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Horizontally-scrollable category chips below the player (Featured /
- * Favorites / Recent / …). Selection is cosmetic for now.
+ * Horizontally-scrollable category chips below the player. [selected] is driven
+ * by the film list's scroll position (the visible section), and tapping a chip
+ * scrolls the list to that section via [onSelect]. The row auto-scrolls to keep
+ * the selected chip in view.
  */
 @Composable
-private fun CategoryChips(modifier: Modifier = Modifier) {
-    var selected by remember { mutableIntStateOf(1) }
+private fun CategoryChips(
+    categories: List<String>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val rowState = rememberLazyListState()
+    LaunchedEffect(selected) {
+        val index = categories.indexOf(selected)
+        if (index >= 0) rowState.animateScrollToItem(index)
+    }
     LazyRow(
+        state = rowState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        itemsIndexed(CATEGORIES) { index, label ->
+        items(categories) { category ->
             CategoryChip(
-                label = label,
-                selected = selected == index,
-                onClick = { selected = index },
+                label = category,
+                selected = category == selected,
+                onClick = { onSelect(category) },
             )
         }
     }
@@ -1057,13 +1100,41 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
     )
 }
 
+/** A row in the film list: either a category header or a film. */
+private sealed interface FilmListRow {
+    val category: String
+
+    data class CategoryHeader(override val category: String) : FilmListRow
+    data class FilmItem(val film: Film) : FilmListRow {
+        override val category: String get() = film.category
+    }
+}
+
 /**
- * Vertically-scrollable list of films; tapping a row plays it. The row whose
- * channel is currently playing ([selectedId]) gets a highlighted background.
+ * Flattens the (already category-grouped) [films] into header + film rows,
+ * inserting a [FilmListRow.CategoryHeader] each time the category changes.
+ */
+private fun buildFilmRows(films: List<Film>): List<FilmListRow> = buildList {
+    var lastCategory: String? = null
+    films.forEach { film ->
+        if (film.category != lastCategory) {
+            add(FilmListRow.CategoryHeader(film.category))
+            lastCategory = film.category
+        }
+        add(FilmListRow.FilmItem(film))
+    }
+}
+
+/**
+ * Vertically-scrollable list of films grouped into category sections; tapping a
+ * film row plays it. The row whose channel is currently playing ([selectedId])
+ * gets a highlighted background. [listState] is shared with the chips so scroll
+ * position and chip selection stay in sync.
  */
 @Composable
 private fun FilmList(
-    films: List<Film>,
+    rows: List<FilmListRow>,
+    listState: LazyListState,
     selectedId: String,
     availableHeights: List<Int>,
     currentHeight: Int?,
@@ -1071,21 +1142,39 @@ private fun FilmList(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(vertical = 4.dp),
     ) {
-        items(films) { film ->
-            val isSelected = film.toChannel().id == selectedId
-            FilmRow(
-                film = film,
-                selected = isSelected,
-                // Detected renditions are only known for the playing stream.
-                availableHeights = if (isSelected) availableHeights else emptyList(),
-                currentHeight = if (isSelected) currentHeight else null,
-                onClick = { onClick(film) },
-            )
+        items(rows) { row ->
+            when (row) {
+                is FilmListRow.CategoryHeader -> CategorySectionHeader(row.category)
+                is FilmListRow.FilmItem -> {
+                    val isSelected = row.film.toChannel().id == selectedId
+                    FilmRow(
+                        film = row.film,
+                        selected = isSelected,
+                        // Detected renditions are only known for the playing stream.
+                        availableHeights = if (isSelected) availableHeights else emptyList(),
+                        currentHeight = if (isSelected) currentHeight else null,
+                        onClick = { onClick(row.film) },
+                    )
+                }
+            }
         }
     }
+}
+
+/** Section header above each category's films (e.g. "Sci-Fi"). */
+@Composable
+private fun CategorySectionHeader(category: String) {
+    Text(
+        text = category,
+        color = Color.White,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
+    )
 }
 
 @Composable
@@ -1168,13 +1257,3 @@ private fun FilmRow(
 /** "Available:" formats line: base blue for renditions, brighter for the one playing now. */
 private val AVAILABLE_BLUE = Color(0xFF4FC3F7)
 private val PLAYING_BLUE = Color(0xFFB3E5FC)
-
-private val CATEGORIES = listOf(
-    "Featured",
-    "Favorites",
-    "Recent",
-    "News & Opinion",
-    "Sports",
-    "Movies",
-    "Entertainment",
-)

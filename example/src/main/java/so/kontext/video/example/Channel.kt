@@ -98,13 +98,22 @@ data class Film(
     val thumbnailUrl: String,
     val streamUrl: String,
     val drm: VideoDrm? = null,
+    // Category this film belongs to. The home screen groups the list into
+    // category sections (with headers) and drives the breadcrumb chips from
+    // them, mirroring Samsung TV+. Films of the same category are kept
+    // contiguous in [SAMPLE_FILMS] so a section is one unbroken run.
+    val category: String = "Other",
 )
 
 /** Maps a [Film] to a playable [Channel] (unique id so the player reloads). */
 fun Film.toChannel(): Channel =
     Channel(id = "film:$title", name = title, streamUrl = streamUrl, drm = drm)
 
+// Grouped by [Film.category] — same-category films are kept contiguous so each
+// home-screen section is one unbroken run. Category order here is the order the
+// breadcrumb chips appear in.
 val SAMPLE_FILMS: List<Film> = listOf(
+    // ---- Sci-Fi ----
     Film(
         // Widevine-protected "Tears of Steel" — Google's open test vector. The
         // .mpd segments are CENC-encrypted; the content key is fetched per
@@ -125,13 +134,33 @@ val SAMPLE_FILMS: List<Film> = listOf(
             licenseUrl = "https://proxy.uat.widevine.com/proxy",
             scheme = DrmScheme.WIDEVINE,
         ),
+        category = "Sci-Fi",
     ),
+    Film(
+        title = "Tears of Steel",
+        subtitle = "Sci-Fi · 2012 · Blender",
+        tech = "HLS · fMP4/CMAF · H.264 + AAC · 1680×750",
+        thumbnailUrl = "https://picsum.photos/seed/tearsofsteel/240/140",
+        streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+        category = "Sci-Fi",
+    ),
+    Film(
+        title = "Tears of Steel — 4K demo",
+        subtitle = "Sci-Fi · 2012 · Blender",
+        tech = "HLS · fMP4 · H.264 + AAC · audio + WebVTT/TTML subtitle tracks",
+        thumbnailUrl = "https://picsum.photos/seed/tos4k/240/140",
+        streamUrl = "https://test-streams.mux.dev/tos_ismc/main.m3u8",
+        category = "Sci-Fi",
+    ),
+
+    // ---- Animation ----
     Film(
         title = "Big Buck Bunny — HLS",
         subtitle = "Animation · 2008 · Blender",
         tech = "HLS · MPEG-TS · H.264 + AAC · up to 1080p",
         thumbnailUrl = "https://picsum.photos/seed/bigbuckbunny/240/140",
         streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+        category = "Animation",
     ),
     Film(
         title = "Big Buck Bunny — DASH",
@@ -139,6 +168,7 @@ val SAMPLE_FILMS: List<Film> = listOf(
         tech = "DASH · .mpd · fMP4 · H.264 + AAC · adaptive, up to 2160p (4K)",
         thumbnailUrl = "https://picsum.photos/seed/bbbdash/240/140",
         streamUrl = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
+        category = "Animation",
     ),
     Film(
         title = "Big Buck Bunny — MP4",
@@ -146,7 +176,10 @@ val SAMPLE_FILMS: List<Film> = listOf(
         tech = "Progressive MP4 · single file · H.264 + AAC · 320×180 · full ~10 min",
         thumbnailUrl = "https://picsum.photos/seed/bbbmp4/240/140",
         streamUrl = "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4",
+        category = "Animation",
     ),
+
+    // ---- Codecs ----
     Film(
         // VP9 video in a WebM container — Google's royalty-free, web-native
         // alternative to H.264-in-MP4. Media3 decodes it with no extra
@@ -161,7 +194,10 @@ val SAMPLE_FILMS: List<Film> = listOf(
         thumbnailUrl = "https://picsum.photos/seed/bbbwebm/240/140",
         streamUrl = "https://storage.googleapis.com/exoplayer-test-media-1/" +
             "gen-3/screens/dash-vod-single-segment/video-vp9-360.webm",
+        category = "Codecs",
     ),
+
+    // ---- World ----
     Film(
         // Shaka's "Angel One" — the classic multi-track test asset: 6 audio
         // languages (en/es/fr/de/it/el) plus subtitle tracks. Exercises audio
@@ -171,27 +207,17 @@ val SAMPLE_FILMS: List<Film> = listOf(
         tech = "DASH · fMP4 · H.264 + AAC · 6 audio languages + subtitles",
         thumbnailUrl = "https://picsum.photos/seed/angelone/240/140",
         streamUrl = "https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd",
+        category = "World",
     ),
-    Film(
-        title = "Tears of Steel",
-        subtitle = "Sci-Fi · 2012 · Blender",
-        tech = "HLS · fMP4/CMAF · H.264 + AAC · 1680×750",
-        thumbnailUrl = "https://picsum.photos/seed/tearsofsteel/240/140",
-        streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-    ),
-    Film(
-        title = "Tears of Steel — 4K demo",
-        subtitle = "Sci-Fi · 2012 · Blender",
-        tech = "HLS · fMP4 · H.264 + AAC · audio + WebVTT/TTML subtitle tracks",
-        thumbnailUrl = "https://picsum.photos/seed/tos4k/240/140",
-        streamUrl = "https://test-streams.mux.dev/tos_ismc/main.m3u8",
-    ),
+
+    // ---- Reference ----
     Film(
         title = "BipBop Advanced (fMP4)",
         subtitle = "Apple reference stream",
         tech = "HLS · fMP4 · H.264 + AAC/AC-3 · CC + subs · 60fps · to 1080p",
         thumbnailUrl = "https://picsum.photos/seed/bipbopadv/240/140",
         streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
+        category = "Reference",
     ),
     Film(
         title = "BipBop Classic (4:3)",
@@ -199,6 +225,7 @@ val SAMPLE_FILMS: List<Film> = listOf(
         tech = "HLS · MPEG-TS · H.264 + AAC · 4:3 (legacy)",
         thumbnailUrl = "https://picsum.photos/seed/bipbop43/240/140",
         streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
+        category = "Reference",
     ),
     Film(
         title = "Mux Reference Stream",
@@ -206,6 +233,7 @@ val SAMPLE_FILMS: List<Film> = listOf(
         tech = "HLS · MPEG-TS · reference / conformance",
         thumbnailUrl = "https://picsum.photos/seed/muxref/240/140",
         streamUrl = "https://test-streams.mux.dev/test_001/stream.m3u8",
+        category = "Reference",
     ),
     Film(
         title = "Time-Shift Demo",
@@ -213,5 +241,6 @@ val SAMPLE_FILMS: List<Film> = listOf(
         tech = "HLS · MPEG-TS · shifted PTS timestamps",
         thumbnailUrl = "https://picsum.photos/seed/ptsshift/240/140",
         streamUrl = "https://test-streams.mux.dev/pts_shift/master.m3u8",
+        category = "Reference",
     ),
 )
