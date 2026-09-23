@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "so.kontext.video.example"
-        minSdk = 30
+        minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -33,28 +33,16 @@ android {
 dependencies {
     implementation(project(":video"))
 
-    // Jetpack Compose + Material3 — mirrors Samsung TV+'s UI stack (exact
-    // versions pinned in the catalog). The Media3 PlayerView is hosted via
-    // AndroidView interop.
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // Coil — loads the film-list thumbnails.
-    implementation(libs.coil.compose)
-
-    // Media3 (ExoPlayer) — HLS + DASH adaptive streaming and progressive MP4
-    // playback in the docked PlayerView.
+    // The example's content player. The SDK never depends on it.
     implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.exoplayer.hls)
-    implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.ui)
-
-    // Cast — CastPlayer + the Google Cast framework, to throw the docked video
-    // onto a Chromecast / Cast-built-in TV (e.g. Sony Bravia).
-    implementation(libs.androidx.media3.cast)
 }

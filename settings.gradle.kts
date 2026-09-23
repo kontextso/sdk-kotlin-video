@@ -39,7 +39,7 @@ dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
 
     repositories {
-        // AndroidX, Material, Play Services, Media3.
+        // AndroidX, Material, Media3.
         google {
             content {
                 includeGroupByRegex("com\\.android.*")

@@ -1,8 +1,6 @@
 # Gradle Version Catalog — single source of truth for plugin and
 # library versions. Referenced from build.gradle.kts via
-# `alias(libs.plugins.foo)` and `implementation(libs.bar)`. Letting
-# Gradle generate the type-safe accessors means version bumps happen
-# in one place and IDE autocomplete works across all build files.
+# `alias(libs.plugins.foo)` and `implementation(libs.bar)`.
 
 [versions]
 
@@ -11,37 +9,26 @@
 # `./gradlew :video:publish -PsdkVersion=X.Y.Z` so CI can cut patch
 # releases without bumping this file. Read at runtime as
 # `BuildConfig.SDK_VERSION` (see video/build.gradle.kts).
-sdk-kotlin-video = "0.0.1"
+sdk-kotlin-video = "0.1.0"
 
 # ---- Build tooling ----
-# Pinned to exactly match the tvplus-test-player reference repo so the
-# example and that app build against an identical toolchain.
-agp = "8.6.1"                       # Android Gradle Plugin (matches tvplus-test-player)
-kotlin = "2.0.21"                   # Kotlin compiler version (matches tvplus-test-player)
+agp = "8.6.1"                       # Android Gradle Plugin
+kotlin = "2.0.21"                   # Kotlin compiler version
 
 # ---- AndroidX ----
-# Versions pinned to match the actual Samsung TV+ APK (1.0.28.6) decompile.
-androidx-activity = "1.8.2"             # matches Samsung TV+ (activity / activity-compose)
-androidx-lifecycle = "2.8.4"            # matches Samsung TV+ (lifecycle-runtime-ktx)
-androidx-core = "1.13.1"                # core-ktx — Samsung ships a 2.x-sesl8 fork (not on public Maven)
+androidx-activity = "1.8.2"             # ComponentActivity (interstitial back-press, example)
+androidx-annotation = "1.8.0"
+androidx-browser = "1.8.0"              # Chrome Custom Tabs for the click-through
+androidx-core = "1.13.1"
+androidx-lifecycle = "2.8.4"
 
-# Compose — pinned to the exact versions Samsung TV+ ships (Compose 1.7.7,
-# Material3 1.3.1) rather than via a BOM, so the resolved graph matches the
-# APK exactly. Samsung renders its Media3 PlayerView inside Compose + Material3.
+# Compose — the example app only; the SDK renders classic Views into the
+# container the app hands it.
 compose = "1.7.7"
 compose-material3 = "1.3.1"
 
-
-# ---- Media3 (ExoPlayer) ----
-# Pinned to the version Samsung TV+ ships (embedded tag [AndroidXMedia3/1.6.0]).
-# Samsung is HLS-only (no DASH) and pipes playback through an OkHttp data
-# source; it wraps ExoPlayer in a MediaSession + Cast options provider.
+# ---- Media3 (ExoPlayer) — the example's content player only ----
 media3 = "1.6.0"
-
-# ---- Coil ----
-# Compose image loader for the :example film-list thumbnails. (Samsung TV+
-# uses Glide; Coil is the Compose-idiomatic equivalent.)
-coil = "2.7.0"
 
 # ---- Kotlin libraries ----
 kotlinx-coroutines = "1.8.1"
@@ -67,11 +54,12 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 # AndroidX
 androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }
+androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
 
-# Jetpack Compose — pinned explicitly to Samsung TV+'s versions (1.7.7 /
-# Material3 1.3.1) instead of via a BOM, so our resolved graph matches the APK.
+# Jetpack Compose (example only)
 androidx-compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = "compose" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose" }
@@ -79,20 +67,9 @@ androidx-compose-runtime = { module = "androidx.compose.runtime:runtime", versio
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "compose" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 
-# Media3 (ExoPlayer) — HLS + DASH adaptive streaming and progressive MP4
-# (core). DRM (Widevine/PlayReady) lives in the core, no extra module.
+# Media3 (ExoPlayer) — example only
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
-androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
-androidx-media3-exoplayer-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
-# Cast extension — CastPlayer (implements the same Player interface) + the
-# Google Cast framework (OptionsProvider / CastButtonFactory) it pulls in
-# transitively, so the docked video can be thrown to a Chromecast / Cast-built-in
-# TV. Only used by :example (Samsung TV+ treats casting as a host-app concern).
-androidx-media3-cast = { module = "androidx.media3:media3-cast", version.ref = "media3" }
-
-# Coil — Compose image loader for film-list thumbnails.
-coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }

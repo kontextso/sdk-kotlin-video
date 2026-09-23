@@ -1,20 +1,27 @@
 package so.kontext.video
 
+import android.content.Context
+
 /**
- * Public entry point for the Kontext Video SDK.
+ * Static entry point of the Kontext Video SDK.
  *
- * Declared as an `object` so the type cannot be instantiated — it's a pure
- * namespace, the Kotlin equivalent of sdk-swift's case-less enum.
- *
- * This is intentionally a near-empty placeholder: the video SDK does
- * nothing yet. Session creation, ad loading, and player integration will
- * be added here incrementally. See the sibling `sdk-kotlin` repo for the
- * shape the public API is expected to converge on
- * (`KontextAds.createSession(...)` → `Session` → `createAd(...)`).
+ * ```kotlin
+ * val session = KontextVideo.createSession(
+ *     context = applicationContext,
+ *     options = VideoSessionOptions(publisherToken = "pub-xxxx", userId = "user-123"),
+ * )
+ * ```
  */
 public object KontextVideo {
-
     /** Version of the SDK, as reported to the ad server. */
     public val version: String
         get() = SDKInfo.VERSION
+
+    /**
+     * Creates a new video session. One session per app user; it survives
+     * across episodes and videos. The `context` is unwrapped to its
+     * application context, so an Activity is never retained.
+     */
+    public fun createSession(context: Context, options: VideoSessionOptions): VideoSession =
+        VideoSession(context.applicationContext, options)
 }

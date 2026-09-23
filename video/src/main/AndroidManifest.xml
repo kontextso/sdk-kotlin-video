@@ -1,9 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- The video SDK's own HTTP (ad requests, tracking) will live here
-         once implemented. INTERNET is the only permission needed today;
-         ACCESS_NETWORK_STATE + com.google.android.gms.permission.AD_ID
-         are declared by KontextKit and auto-merge into the consuming app. -->
+    <!-- The SDK's own HTTP: /init, /instream/preload, tracking pings. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <application>
+        <!-- The interstitial's full-screen host. configChanges keeps the
+             Activity (and the ad's player) alive across rotation; the
+             portrait lock matches the short-drama hosts. -->
+        <activity
+            android:name=".ads.interstitial.InterstitialAdActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.KontextVideo.Interstitial" />
+    </application>
 </manifest>

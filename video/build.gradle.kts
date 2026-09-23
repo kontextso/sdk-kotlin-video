@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.spotless)
@@ -20,41 +19,16 @@ group = "so.kontext"
 version = sdkVersion
 
 android {
-    // Java/Kotlin package prefix used to generate BuildConfig + R.
-    // Must match the Kotlin source package of the public API
-    // (`so.kontext.video.*`).
     namespace = "so.kontext.video"
-
-    // SDK we compile against — Android 15. Matches the tvplus-test-player
-    // reference app and the Samsung TV+ target host.
     compileSdk = 35
 
     defaultConfig {
-        // Minimum runtime API. Android 11 — matches Samsung TV+'s floor
-        // and the tvplus-test-player.
-        minSdk = 30
-
-        // ProGuard rules packaged into the .aar; auto-applied during
-        // the consuming app's R8 pass.
+        minSdk = 24
         consumerProguardFiles("consumer-proguard-rules.pro")
-
-        // SDK version baked in at build time. Read via
-        // `BuildConfig.SDK_VERSION` from `SDKInfo.kt` so the version
-        // sent to the ad server can never drift from the published
-        // Maven artifact version.
         buildConfigField("String", "SDK_VERSION", "\"$sdkVersion\"")
     }
 
     buildFeatures {
-        // Enables the `androidx.compose.*` source sets and Compose
-        // compiler integration, so the SDK can expose `@Composable` ad
-        // surfaces. Samsung TV+ and other target hosts are Compose apps.
-        // Compose compiler is configured by the
-        // `org.jetbrains.kotlin.plugin.compose` plugin (applied above) —
-        // no `composeOptions` block needed on Kotlin 2.x.
-        compose = true
-        // Generates `BuildConfig.java` so `buildConfigField` values are
-        // reachable from Kotlin source.
         buildConfig = true
     }
 
@@ -72,7 +46,6 @@ android {
 
     testOptions {
         unitTests.all {
-            // JUnit 5 (Jupiter).
             it.useJUnitPlatform()
         }
         // Stubs Android framework methods called from unit tests
@@ -83,14 +56,9 @@ android {
 }
 
 kotlin {
-    // Requires every top-level / member declaration to specify
-    // `public` / `internal` / `private` explicitly. Catches the
-    // case where someone forgets a visibility modifier and a class
-    // accidentally leaks to consumers.
+    // Every public declaration must spell out its visibility, so nothing
+    // leaks to consumers by accident.
     explicitApi()
-
-    // All Kotlin compilation + tests run against JDK 17 regardless of
-    // the developer's locally installed JDK.
     jvmToolchain(17)
 }
 
@@ -106,7 +74,7 @@ mavenPublishing {
 
     pom {
         name.set("Kontext Kotlin Video SDK")
-        description.set("Android SDK for integrating Kontext's AI-powered ads into video experiences.")
+        description.set("Android SDK for integrating Kontext video ads into short-drama and other video-first apps.")
         url.set("https://www.kontext.so/advertisers")
 
         licenses {
@@ -159,30 +127,21 @@ spotless {
 }
 
 detekt {
-    // Layer our config on top of detekt's bundled defaults.
     buildUponDefaultConfig = true
     config.from("${rootDir.absolutePath}/extras/detekt.yml")
     parallel = true
 }
 
 dependencies {
-    // ---- Kotlin runtime libraries ----
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    // ---- AndroidX ----
+    // ComponentActivity for the interstitial screen (back-press control).
     implementation(libs.androidx.activity)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.annotation)
+    // Chrome Custom Tabs for the click-through.
+    implementation(libs.androidx.browser)
 
-    // ---- Jetpack Compose ----
-    // Pinned to Samsung TV+'s exact versions in the catalog. Only
-    // ui / runtime / foundation are needed for SDK-side Composable
-    // surfaces (material lives in the host app).
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.runtime)
-    implementation(libs.androidx.compose.foundation)
-
-    // ---- Testing ----
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)

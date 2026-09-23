@@ -2,8 +2,15 @@ complexity:
   LongMethod:
     threshold: 150
   LongParameterList:
+    # Wire models and view constructors legitimately carry many named,
+    # defaulted parameters; the public API mirrors sdk-swift-video's.
+    functionThreshold: 8
+    constructorThreshold: 16
+    ignoreDefaultParameters: true
     ignoreAnnotated:
       - androidx.compose.runtime.Composable
+  ComplexCondition:
+    threshold: 6
   TooManyFunctions:
     thresholdInFiles: 20
     thresholdInClasses: 20
