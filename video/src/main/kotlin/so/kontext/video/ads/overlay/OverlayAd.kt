@@ -104,8 +104,11 @@ public class OverlayAd internal constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    // Just end this job: a finished job is inert, and `Main.immediate`
+                    // runs the first read inside `trackPlayhead` before `playheadJob`
+                    // is even assigned, so clearing the field here could never be
+                    // relied on.
                     log("overlay: trackPlayhead lambda threw, tracking stopped: $e")
-                    playheadJob = null
                     return@launch
                 }
                 playheadMs = ms
