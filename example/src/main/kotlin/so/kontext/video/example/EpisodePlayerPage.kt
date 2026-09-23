@@ -62,7 +62,7 @@ fun EpisodePlayerPage(story: Story, episode: Episode, isActive: Boolean, ads: Vi
     fun showInterstitialIfDue(positionMs: Long) {
         val ads = currentAds ?: return
         val activity = context.findActivity() ?: return
-        if (positionMs < 3_000 || didShowInterstitial || !player.isPlaying || !ads.interstitial.isReady) return
+        if (positionMs < 3_000 || didShowInterstitial || !player.isPlaying || ads.interstitial.nextAd == null) return
         didShowInterstitial = true
         isInterstitialShowing = true
         ads.overlay.hide()
@@ -75,7 +75,9 @@ fun EpisodePlayerPage(story: Story, episode: Episode, isActive: Boolean, ads: Vi
 
     fun showPauseAd() {
         val ads = currentAds ?: return
-        if (ads.pause.isReady) ads.pause.show(container, style = bannerStyle)
+        // `nextAd` is where an app with its own auction would read `ecpm`; the demo shows whatever is ready.
+        ads.pause.nextAd ?: return
+        ads.pause.show(container, style = bannerStyle)
     }
 
     fun pause() {
@@ -115,14 +117,14 @@ fun EpisodePlayerPage(story: Story, episode: Episode, isActive: Boolean, ads: Vi
     }
 
     // The overlay glue: the SDK reads the playhead 4× a second and calls back
-    // when a window opens or closes; showing stays this app's call. The
-    // interstitial moment is checked from this page's own loop.
+    // when a window opens; showing stays this app's call, and the SDK takes
+    // the banner down when the window ends. The interstitial moment is
+    // checked from this page's own loop.
     LaunchedEffect(isActive, ads) {
         val ads = ads ?: return@LaunchedEffect
         if (!isActive) return@LaunchedEffect
         // A window can open while the content is paused (the pause ad is up): overlays only play over playing video.
-        ads.overlay.onWindowOpen = { if (player.isPlaying) ads.overlay.show(container, style = bannerStyle) }
-        ads.overlay.onWindowClose = { ads.overlay.hide() }
+        ads.overlay.onWindowOpen = { ad -> if (player.isPlaying) ads.overlay.show(ad, container, style = bannerStyle) }
         ads.overlay.trackPlayhead { player.currentPosition }
         try {
             while (true) {

@@ -63,10 +63,12 @@ val ads = session.createAds(
 ads.load(listOf(VideoAdFormat.PAUSE, VideoAdFormat.INTERSTITIAL, VideoAdFormat.OVERLAY))
 
 // 3. You control the player, so you tell the SDK when to show and hide.
-//    One placement object per format; each ad is shown once, then
-//    `isReady` is false again. The ad shows immediately on pause.
+//    One placement object per format. `nextAd` is the ad `show` would
+//    present, or null when nothing is ready (each ad is shown once); read
+//    its `ecpm` first if you run your own auction. The ad shows immediately
+//    on pause.
 fun didPause() {
-    val ad = ads.pause.pending.firstOrNull() ?: return
+    val ad = ads.pause.nextAd ?: return
     if (ad.ecpm >= myFloor) {
         ads.pause.show(playerContainer, position = BannerPosition.TOP, style = BannerStyle(marginTopDp = 24))
     }
@@ -84,16 +86,18 @@ fun didResume() {
 //    (after the server's `skip_after_ms`, or after the video ended — the
 //    last frame stays up like a MAX end card), media failed, or your `hide()`.
 fun didReachAdMoment() {
-    if (ads.interstitial.isReady) {
-        player.pause()
-        ads.interstitial.show(activity) { player.play() }
-    }
+    val ad = ads.interstitial.nextAd ?: return
+    if (ad.ecpm < myFloor) return
+    player.pause()
+    ads.interstitial.show(activity) { player.play() }
 }
 
-// 5. Overlay, windowed mode (we know your content): set the callbacks once;
-//    the SDK calls them when a scene window opens or closes. Showing is your call.
-ads.overlay.onWindowOpen = { ads.overlay.show(playerContainer, style = BannerStyle(marginBottomDp = 96)) }
-ads.overlay.onWindowClose = { ads.overlay.hide() }
+// 5. Overlay, windowed mode (we know your content): set the callback once;
+//    the SDK calls it when a scene window opens. Showing is your call; the
+//    SDK removes the banner itself when the window ends.
+ads.overlay.onWindowOpen = { ad ->
+    if (ad.ecpm >= myFloor) ads.overlay.show(ad, playerContainer, style = BannerStyle(marginBottomDp = 96))
+}
 //    When the episode starts playing, hand the SDK a way to read the playhead.
 //    It reads it 4× a second on the main thread and stops on `ads.destroy()`
 //    (or `stopTrackingPlayhead()` when the episode goes off screen).
@@ -102,7 +106,8 @@ ads.overlay.trackPlayhead { player.currentPosition }
 //    Overlay, manual mode (we never saw your content, so there are no
 //    windows — the ads come with `trigger.kind == "manual"`): decide the
 //    moment yourself, exactly like the pause ad.
-if (ads.overlay.isReady) ads.overlay.show(playerContainer)
+val ad = ads.overlay.nextAd
+if (ad != null && ad.ecpm >= myFloor) ads.overlay.show(playerContainer)
 ads.overlay.hide()
 
 // 6. Done with the video: release its ads. Nothing releases a handle for

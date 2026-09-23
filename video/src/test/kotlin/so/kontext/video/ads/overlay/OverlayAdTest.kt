@@ -161,7 +161,37 @@ class OverlayAdTest {
         assertEquals(200L, overlay.playheadMs)
     }
 
-    private fun windowedAd(id: String, fromMs: Long, toMs: Long) = VideoAd(
+    @Test
+    fun `nextAd is null until something is loaded`() {
+        val overlay = OverlayAd("v1") {}
+        assertNull(overlay.nextAd)
+        overlay.append(listOf(manualAd("m")))
+        assertEquals("m", overlay.nextAd?.adId)
+        overlay.destroy()
+        assertNull(overlay.nextAd)
+    }
+
+    @Test
+    fun `nextAd prefers the open window, then manual, then the next pending`() {
+        val overlay = OverlayAd("v1") {}
+        overlay.append(listOf(windowedAd("early", fromMs = 3_000, toMs = 9_000), windowedAd("late", fromMs = 20_000, toMs = 30_000)))
+        assertEquals("early", overlay.nextAd?.adId, "nothing manual, no open window: the next pending")
+
+        overlay.append(listOf(manualAd("m")))
+        assertEquals("m", overlay.nextAd?.adId, "a manual ad beats a scheduled one whose window is not open")
+
+        overlay.playheadMs = 25_000
+        assertEquals("late", overlay.nextAd?.adId, "the open window wins")
+
+        overlay.playheadMs = 31_000
+        assertEquals("m", overlay.nextAd?.adId)
+    }
+
+    private fun manualAd(id: String) = windowedAd(id, fromMs = null, toMs = null).let {
+        it.copy(trigger = VideoAd.Trigger(kind = "manual"))
+    }
+
+    private fun windowedAd(id: String, fromMs: Long?, toMs: Long?) = VideoAd(
         format = VideoAdFormat.OVERLAY,
         adId = id,
         ecpm = 1.0,

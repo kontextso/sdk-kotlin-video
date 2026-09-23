@@ -38,6 +38,14 @@ public abstract class AdPlacement internal constructor(
     public val isReady: Boolean
         get() = !isDestroyed && view == null && revealJob == null && queue.isNotEmpty()
 
+    /**
+     * The ad `show` would present now, or `null` when [isReady] is `false`
+     * (nothing loaded, an ad on screen or about to be, destroyed). Read its
+     * `ecpm` to rank it against your other demand before you show it.
+     */
+    public open val nextAd: VideoAd?
+        get() = if (isReady) queue.first() else null
+
     public var isDestroyed: Boolean = false
         private set
 

@@ -26,12 +26,12 @@ import so.kontext.video.model.VideoAdFormat
  *
  * **Windowed** (`trigger { kind: "range", from_ms, to_ms }`) — the server
  * knows the content and derived scene windows. The SDK never touches the
- * player: the app feeds it the playhead and is *told* when a window opens or
- * closes; showing is always the app's call:
+ * player: the app feeds it the playhead and is *told* when a window opens;
+ * showing is always the app's call, and the SDK takes the banner down itself
+ * when the window ends:
  *
  * ```kotlin
- * ads.overlay.onWindowOpen = { ad -> ads.overlay.show(ad, playerContainer) }
- * ads.overlay.onWindowClose = { ads.overlay.hide() }
+ * ads.overlay.onWindowOpen = { ad -> if (ad.ecpm >= myFloor) ads.overlay.show(ad, playerContainer) }
  * // when the episode starts playing: the SDK reads the position 4× a second
  * ads.overlay.trackPlayhead { player.currentPosition }
  * ```
@@ -40,14 +40,15 @@ import so.kontext.video.model.VideoAdFormat
  * so there are no windows; the app decides the moment, exactly like the pause ad:
  *
  * ```kotlin
- * if (ads.overlay.isReady) ads.overlay.show(playerContainer)
+ * val ad = ads.overlay.nextAd
+ * if (ad != null && ad.ecpm >= myFloor) ads.overlay.show(playerContainer)
  * ads.overlay.hide()
  * ```
  *
- * The modes mix: `show` prefers the ad whose window is open now, then manual
- * ads, then anything pending — so a manual `show` never steals an ad the
- * server scheduled for a later scene. Windows are hints; an ignored window
- * leaves the ad in `pending`.
+ * The modes mix: `show` (and [nextAd]) prefers the ad whose window is open
+ * now, then manual ads, then anything pending — so a manual `show` never
+ * steals an ad the server scheduled for a later scene. Windows are hints; an
+ * ignored window leaves the ad in `pending`.
  */
 public class OverlayAd internal constructor(
     videoId: String,
@@ -68,8 +69,24 @@ public class OverlayAd internal constructor(
     /** A pending ad's window contains the playhead. Show it (or don't). */
     public var onWindowOpen: ((VideoAd) -> Unit)? = null
 
-    /** The window of the ad on screen (or the last opened one) ended. Typically `hide()`. */
+    /**
+     * The window of the ad on screen (or the last opened one) ended. If the
+     * ad was on screen the SDK has already hidden it; nothing to do unless
+     * you want to know.
+     */
     public var onWindowClose: ((VideoAd) -> Unit)? = null
+
+    /**
+     * The ad [show] would present now: the ad whose window is open, else the
+     * first manual (window-less) ad, else the next pending. `null` when
+     * [isReady] is `false`.
+     */
+    override val nextAd: VideoAd?
+        get() {
+            if (!isReady) return null
+            val open = openWindowAd?.let { open -> pending.firstOrNull { it.adId == open.adId } }
+            return open ?: pending.firstOrNull { it.trigger.fromMs == null } ?: pending.first()
+        }
 
     /** The ad whose window is open right now, if any. */
     public var openWindowAd: VideoAd? = null
@@ -127,10 +144,10 @@ public class OverlayAd internal constructor(
     }
 
     /**
-     * Shows an overlay inside `container` and consumes it, preferring the ad
-     * whose window is open now, then manual (window-less) ads, then the next
-     * pending — so a manual show never steals an ad scheduled for a later
-     * scene. Position defaults to the server's `placement.position`, then
+     * Shows [nextAd] inside `container` and consumes it: the ad whose window
+     * is open now, then manual (window-less) ads, then the next pending — so
+     * a manual show never steals an ad scheduled for a later scene. Position
+     * defaults to the server's `placement.position`, then
      * [BannerPosition.BOTTOM]. Returns `false` when [isReady] is `false`.
      *
      * `container` is the view that fills the video area — any `ViewGroup`
@@ -141,12 +158,9 @@ public class OverlayAd internal constructor(
         position: BannerPosition? = null,
         style: BannerStyle = BannerStyle(),
     ): Boolean {
-        if (!isReady) return false
-        val preferred = openWindowAd ?: pending.firstOrNull { it.trigger.fromMs == null }
-        if (preferred != null) {
-            val index = pending.indexOfFirst { it.adId == preferred.adId }
-            if (index > 0) moveToFront(index)
-        }
+        val ad = nextAd ?: return false
+        val index = pending.indexOfFirst { it.adId == ad.adId }
+        if (index > 0) moveToFront(index)
         this.position = position
         this.style = style
         return present(container)
@@ -188,6 +202,7 @@ public class OverlayAd internal constructor(
     }
 
     private fun evaluateWindows() {
+        if (isDestroyed) return
         val now = playheadMs
         fun isOpen(ad: VideoAd): Boolean {
             val from = ad.trigger.fromMs ?: return false
@@ -199,6 +214,8 @@ public class OverlayAd internal constructor(
         val open = openWindowAd
         if (open != null && nowOpen?.adId != open.adId) {
             openWindowAd = null
+            // The window of the ad on screen ended: take it down, then tell the app.
+            if (current?.adId == open.adId) hide()
             onWindowClose?.invoke(open)
         }
         if (nowOpen != null && openWindowAd?.adId != nowOpen.adId) {
