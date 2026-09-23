@@ -3,11 +3,17 @@ package so.kontext.video.ads.overlay
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import so.kontext.video.Constants
 import so.kontext.video.ads.AdPlacement
 import so.kontext.video.ads.BannerAdView
 import so.kontext.video.ads.BannerPosition
 import so.kontext.video.ads.BannerStyle
 import so.kontext.video.ads.mountBanner
+import so.kontext.video.internal.log
 import so.kontext.video.model.VideoAd
 import so.kontext.video.model.VideoAdEvent
 import so.kontext.video.model.VideoAdFormat
@@ -24,10 +30,10 @@ import so.kontext.video.model.VideoAdFormat
  * closes; showing is always the app's call:
  *
  * ```kotlin
- * ads.overlay.onWindowOpen = { ads.overlay.show(playerContainer) }
+ * ads.overlay.onWindowOpen = { ad -> ads.overlay.show(ad, playerContainer) }
  * ads.overlay.onWindowClose = { ads.overlay.hide() }
- * // from your player's progress callback, a few times per second
- * ads.overlay.playheadMs = player.currentPosition
+ * // when the episode starts playing: the SDK reads the position 4× a second
+ * ads.overlay.trackPlayhead { player.currentPosition }
  * ```
  *
  * **Manual** (`trigger { kind: "manual" }`) — the publisher shared no content,
@@ -48,9 +54,10 @@ public class OverlayAd internal constructor(
     emit: (VideoAdEvent) -> Unit,
 ) : AdPlacement(VideoAdFormat.OVERLAY, videoId, emit) {
     /**
-     * Current playback position of the episode, in milliseconds. Set it from
-     * your player's progress callback; the SDK compares it with the pending
-     * ads' windows and calls [onWindowOpen] / [onWindowClose].
+     * Current playback position of the episode, in milliseconds. The SDK
+     * compares it with the pending ads' windows and calls [onWindowOpen] /
+     * [onWindowClose]. Most apps let [trackPlayhead] set it; set it yourself
+     * only when your player has a progress callback you'd rather use.
      */
     public var playheadMs: Long = 0
         set(value) {
@@ -70,6 +77,51 @@ public class OverlayAd internal constructor(
 
     private var style = BannerStyle()
     private var position: BannerPosition? = null
+    private var playheadJob: Job? = null
+
+    /**
+     * Keeps [playheadMs] up to date for you: the SDK calls [playhead] on the
+     * main thread every 250 ms and feeds the result in, so windows open and
+     * close without a ticker in your app. Call it when the episode starts
+     * playing:
+     *
+     * ```kotlin
+     * ads.overlay.trackPlayhead { player.currentPosition }
+     * ```
+     *
+     * Tracking stops on [stopTrackingPlayhead] and on `VideoAds.destroy()`, so
+     * a destroyed handle never keeps your player alive. Calling it again
+     * replaces the previous [playhead]. If [playhead] throws (a released
+     * player, say), tracking stops and the error is logged.
+     */
+    public fun trackPlayhead(playhead: () -> Long) {
+        stopTrackingPlayhead()
+        if (isDestroyed) return
+        playheadJob = scope.launch {
+            while (true) {
+                val ms = try {
+                    playhead()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log("overlay: trackPlayhead lambda threw, tracking stopped: $e")
+                    playheadJob = null
+                    return@launch
+                }
+                playheadMs = ms
+                delay(Constants.PLAYHEAD_POLL_MS)
+            }
+        }
+    }
+
+    /**
+     * Stops [trackPlayhead] — for example while the episode is off screen but
+     * its handle stays alive for later. [playheadMs] keeps its last value.
+     */
+    public fun stopTrackingPlayhead() {
+        playheadJob?.cancel()
+        playheadJob = null
+    }
 
     /**
      * Shows an overlay inside `container` and consumes it, preferring the ad
@@ -110,6 +162,11 @@ public class OverlayAd internal constructor(
         this.position = position
         this.style = style
         return present(container)
+    }
+
+    override fun destroy() {
+        stopTrackingPlayhead()
+        super.destroy()
     }
 
     override fun makeView(context: Context, ad: VideoAd): View = BannerAdView(

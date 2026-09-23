@@ -94,15 +94,10 @@ fun didReachAdMoment() {
 //    the SDK calls them when a scene window opens or closes. Showing is your call.
 ads.overlay.onWindowOpen = { ads.overlay.show(playerContainer, style = BannerStyle(marginBottomDp = 96)) }
 ads.overlay.onWindowClose = { ads.overlay.hide() }
-//    Feed the playhead continuously while the episode plays, a few times per
-//    second. Most Android players have no progress callback, so poll it:
-val playheadTicker = object : Runnable {
-    override fun run() {
-        ads.overlay.playheadMs = player.currentPosition
-        handler.postDelayed(this, 250)
-    }
-}
-handler.post(playheadTicker)              // handler.removeCallbacks(playheadTicker) when leaving the episode
+//    When the episode starts playing, hand the SDK a way to read the playhead.
+//    It reads it 4× a second on the main thread and stops on `ads.destroy()`
+//    (or `stopTrackingPlayhead()` when the episode goes off screen).
+ads.overlay.trackPlayhead { player.currentPosition }
 
 //    Overlay, manual mode (we never saw your content, so there are no
 //    windows — the ads come with `trigger.kind == "manual"`): decide the

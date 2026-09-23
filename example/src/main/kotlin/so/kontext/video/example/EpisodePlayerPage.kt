@@ -114,20 +114,24 @@ fun EpisodePlayerPage(story: Story, episode: Episode, isActive: Boolean, ads: Vi
         }
     }
 
-    // The overlay glue: the SDK gets the playhead 4× a second and calls back
+    // The overlay glue: the SDK reads the playhead 4× a second and calls back
     // when a window opens or closes; showing stays this app's call. The
-    // interstitial moment is checked from the same loop.
+    // interstitial moment is checked from this page's own loop.
     LaunchedEffect(isActive, ads) {
         val ads = ads ?: return@LaunchedEffect
         if (!isActive) return@LaunchedEffect
         // A window can open while the content is paused (the pause ad is up): overlays only play over playing video.
         ads.overlay.onWindowOpen = { if (player.isPlaying) ads.overlay.show(container, style = bannerStyle) }
         ads.overlay.onWindowClose = { ads.overlay.hide() }
-        while (isActive) {
-            val positionMs = player.currentPosition
-            ads.overlay.playheadMs = positionMs
-            showInterstitialIfDue(positionMs)
-            delay(250)
+        ads.overlay.trackPlayhead { player.currentPosition }
+        try {
+            while (true) {
+                showInterstitialIfDue(player.currentPosition)
+                delay(250)
+            }
+        } finally {
+            // The page went off screen (or the handle changed); its handle may live on for a swipe back.
+            ads.overlay.stopTrackingPlayhead()
         }
     }
 

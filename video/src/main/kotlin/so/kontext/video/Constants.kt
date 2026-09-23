@@ -34,5 +34,8 @@ public object Constants {
      */
     internal const val TEARDOWN_DELAY_MS: Long = 1_000
 
+    /** How often `OverlayAd.trackPlayhead` reads the app's playhead: 4× a second, well inside any scene window. */
+    internal const val PLAYHEAD_POLL_MS: Long = 250
+
     internal const val LOG_TAG: String = "KontextVideo"
 }
