@@ -25,7 +25,8 @@ internal object Logger {
     fun describe(url: String): String {
         val match = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*):(//([^/?#]*))?").find(url) ?: return "(no scheme)"
         val scheme = match.groupValues[1] + ":"
-        val host = match.groups[3]?.value?.substringAfterLast('@')
+        // The host alone: the user info and the port go, as they do in the Swift SDK's log.
+        val host = match.groups[3]?.value?.substringAfterLast('@')?.replace(Regex(":\\d*$"), "")
         return if (host.isNullOrEmpty()) scheme else "$scheme//$host"
     }
 

@@ -66,6 +66,9 @@ internal class ApiClient(
                     connection.doOutput = true
                     connection.useCaches = false
                     connection.setRequestProperty("Content-Type", "application/json")
+                    // A streamed body cannot be replayed: without it the HTTP stack silently sends the POST again
+                    // when the connection drops before the answer, and one attempt becomes two.
+                    connection.setFixedLengthStreamingMode(bytes.size)
                     connection.outputStream.use { it.write(bytes) }
                     val status = connection.responseCode
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream

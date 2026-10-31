@@ -16,6 +16,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.abs
 
 /**
  * Sends the SDK's debug events to `POST /debug`, only when `/config` asked for it (`reportDebug`). Events are
@@ -33,6 +34,9 @@ internal object DebugReporter {
     var intervalMillis = 100L
     const val MAX_BUFFERED = 500
     const val HISTORY_LENGTH = 30
+
+    /** 2^53: every whole Double below it is exact as a Long. */
+    private const val WHOLE_LIMIT = 9_007_199_254_740_992.0
 
     /** The state keys an error report's history may carry; anything else stays on the device. */
     val historyKeys = setOf("held", "playhead", "format", "filled", "reason", "enabled", "code", "durationMs", "step", "domain")
@@ -89,7 +93,8 @@ internal object DebugReporter {
     }
 
     private fun describe(value: Any): String = when (value) {
-        is Double -> if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
+        // A whole number prints as one only within the range a Long holds exactly; beyond it `toLong` would clamp.
+        is Double -> if (value % 1.0 == 0.0 && abs(value) < WHOLE_LIMIT) value.toLong().toString() else value.toString()
         else -> value.toString()
     }
 
