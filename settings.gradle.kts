@@ -51,4 +51,4 @@ dependencyResolutionManagement {
     }
 }
 
-include(":video", ":video-media3")
+include(":video", ":video-media3", ":example")

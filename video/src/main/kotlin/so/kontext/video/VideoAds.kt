@@ -91,6 +91,7 @@ public class VideoAds @JvmOverloads constructor(
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
         // The ad on screen hears of the player: an overlay ends when the content stops, and counts its time.
         playback.onChange = { change -> showing?.contentDidChange(change) }
+        playback.isOverlayShown = { showing?.let { it.format == AdFormat.OVERLAY && !it.hasEnded } ?: false }
         Logger.debug { "VideoAds created for video ${content.id}" }
     }
 

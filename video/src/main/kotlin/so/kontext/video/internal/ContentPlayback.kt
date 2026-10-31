@@ -25,6 +25,9 @@ internal class ContentPlayback {
 
     var onChange: ((Change) -> Unit)? = null
 
+    /** Whether an overlay of the `VideoAds` is on screen now; set by the `VideoAds`. */
+    var isOverlayShown: () -> Boolean = { false }
+
     /** `track` was called and [stop] was not since. */
     var isTracking = false
         private set
@@ -59,8 +62,13 @@ internal class ContentPlayback {
 
     /** Replaces whatever was tracked. An overlay on screen followed the old player: once bound, it hears `ContentChanged`. */
     fun track(player: VideoAdsPlayer) {
-        val overlayWasShown = isTicking
+        val expected = generation + 1
         stop()
+        // Removing the old listener is app code: a `track` or `destroy()` there won, and this call stops.
+        if (generation != expected) return
+        // Asked of the ad on screen, not of the ticks: a `track` nested in that removal runs after `stop()`
+        // turned them off, and must still hand the overlay over.
+        val overlayWasShown = isOverlayShown()
         isTracking = true
         isTicking = overlayWasShown
         this.player = player
@@ -85,6 +93,7 @@ internal class ContentPlayback {
         this.listener = null
         isTracking = false
         isTicking = false
+        // Last, with every property settled: a `track` or `destroy()` in the removal finds a stopped playback.
         if (player != null && listener != null) runCatching { player.removeIsPlayingListener(listener) }
     }
 
