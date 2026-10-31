@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.wire.AdPayload
+import java.math.BigDecimal
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -13,6 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -100,7 +102,7 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
             .replace("[KONTEXT_FIREID]", fireId)
             .replace("[KONTEXT_VIEWDURATION]", viewDurationMillis?.toString() ?: "")
             .replace("[KONTEXT_REASON]", notUsed?.reason ?: "")
-            .replace("[KONTEXT_WINNINGPRICE]", encode(notUsed?.winningPrice?.toString() ?: ""))
+            .replace("[KONTEXT_WINNINGPRICE]", encode(notUsed?.winningPrice?.let(::number) ?: ""))
             .replace("[KONTEXT_WINNER]", encode(notUsed?.winner ?: ""))
             .replace("[", "%5B")
             .replace("]", "%5D")
@@ -149,6 +151,24 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         fun timestamp(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date())
 
         /** A value inside one query parameter: only RFC 3986's unreserved characters stay. */
+        /**
+         * A number as the Swift SDK writes it, so both send the same macro: decimals from 1e-4 to 2^53 (`3.0`,
+         * `0.0005`), the shortest exponent form beyond (`1e-05`, `1e+20`), and `nan`, `inf`.
+         */
+        fun number(value: Double): String {
+            if (value.isNaN()) return "nan"
+            if (value.isInfinite()) return if (value > 0) "inf" else "-inf"
+            if (value == 0.0) return if (1 / value < 0) "-0.0" else "0.0"
+            val digits = BigDecimal(value.toString()).stripTrailingZeros()
+            if (abs(value) in 1e-4..9_007_199_254_740_992.0) {
+                val plain = digits.toPlainString()
+                return if ('.' in plain) plain else "$plain.0"
+            }
+            val exponent = digits.precision() - digits.scale() - 1
+            val sign = if (exponent < 0) "-" else "+"
+            return "${digits.movePointLeft(exponent).toPlainString()}e$sign${abs(exponent).toString().padStart(2, '0')}"
+        }
+
         fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
     }
 }

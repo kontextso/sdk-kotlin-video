@@ -729,7 +729,7 @@ class ParitySupportTest : ParityHarness() {
         DebugReporter.event(heavy, adId = heavy, state = mapOf("format" to heavy))
         ErrorReporter.configure(true)
         repeat(20) { index ->
-            ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = long)
+            ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = ErrorReporter.Underlying(long, 0))
         }
         await { errorReports().size == 20 }
         for (report in errorReports()) {
@@ -785,7 +785,9 @@ class ParitySupportTest : ParityHarness() {
         val error: WebResourceError = mockk { every { errorCode } returns -2 }
         bridge.webView.webViewClient.onReceivedError(bridge.webView, request, error)
         await { errorReports("frame.load_failed").isNotEmpty() }
-        assertEquals("webview.-2", errorReports("frame.load_failed").single()["underlying"]!!.jsonObject.str("domain"))
+        val underlying = errorReports("frame.load_failed").single()["underlying"]!!.jsonObject
+        assertEquals("webview", underlying.str("domain"))
+        assertEquals("-2", underlying["code"].toString())
     }
 
     @Test fun integrationMistakesAreReportedOnceTheServerAllowsIt() {

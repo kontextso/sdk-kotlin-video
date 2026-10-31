@@ -29,7 +29,7 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
      * The request failed: no network, a timeout, a server error, an unexpected answer ([cause] says which).
      * Thrown only when the SDK holds no valid ad for the format; otherwise `format()` returns that one.
      */
-    public class Request(cause: Throwable) : VideoAdException("request failed: $cause", cause)
+    public class Request(cause: Throwable) : VideoAdException("request failed: ${cause.message ?: cause.javaClass.simpleName}", cause)
 
     /**
      * The creative failed. Thrown by `load()` when the frame page failed or did not report it loaded within

@@ -379,7 +379,7 @@ class ParityPayloadsTest {
         )
         for ((error, expected) in cases) assertEquals(expected, error.message)
         val request = VideoAdException.Request(ApiException.Http(500, emptyList()))
-        assertTrue(request.message!!.startsWith("request failed: ") && request.message!!.endsWith("HTTP 500"), "the underlying error is kept: ${request.message}")
+        assertEquals("request failed: HTTP 500", request.message, "the underlying error's own words, no internal class name")
         assertTrue(request.cause is ApiException.Http)
     }
 

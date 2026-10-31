@@ -209,11 +209,11 @@ class ReportersTest {
         assertNull(http.underlying)
         val transport = ErrorReporter.RequestFailure(ApiException.Transport(IOException("down")))
         assertEquals("network", transport.detail)
-        assertEquals("java.io.IOException", transport.underlying)
+        assertEquals(ErrorReporter.Underlying("java.io.IOException", 0), transport.underlying)
         val decoding = ErrorReporter.RequestFailure(ApiException.Decoding(IllegalArgumentException("bad")))
-        assertEquals("java.lang.IllegalArgumentException", decoding.underlying)
+        assertEquals(ErrorReporter.Underlying("java.lang.IllegalArgumentException", 0), decoding.underlying)
         assertNull(decoding.detail)
-        assertEquals("java.lang.IllegalStateException", ErrorReporter.RequestFailure(IllegalStateException()).underlying)
+        assertEquals(ErrorReporter.Underlying("java.lang.IllegalStateException", 0), ErrorReporter.RequestFailure(IllegalStateException()).underlying)
     }
 
     @Test fun debugEventsLeaveOnlyWhenTheServerAsked() {

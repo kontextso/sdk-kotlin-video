@@ -64,13 +64,18 @@ internal object ErrorReporter {
         DID_END_DELIVERED("did_end_delivered"),
     }
 
+    /** A system error as a domain and a code only, as the Swift SDK sends it; its text can carry anything. */
+    data class Underlying(val domain: String, val code: Int)
+
     /** A request's failure as the report's fields: an HTTP status, or the exception's class with `network`. */
     class RequestFailure(error: Throwable) {
         val httpStatus: Int? = (error as? ApiException.Http)?.status
-        val underlying: String? = when (error) {
+
+        // A Java exception has no code of its own: 0.
+        val underlying: Underlying? = when (error) {
             is ApiException.Http -> null
-            is ApiException.Transport, is ApiException.Decoding -> error.cause?.javaClass?.name
-            else -> error.javaClass.name
+            is ApiException.Transport, is ApiException.Decoding -> error.cause?.javaClass?.name?.let { Underlying(it, 0) }
+            else -> Underlying(error.javaClass.name, 0)
         }
         val detail: String? = if (error is ApiException.Transport) "network" else null
     }
@@ -137,7 +142,7 @@ internal object ErrorReporter {
         adId: String? = null,
         vastCode: Int? = null,
         httpStatus: Int? = null,
-        underlying: String? = null,
+        underlying: Underlying? = null,
         detail: String? = null,
         recovery: Recovery? = null,
     ) {
@@ -152,7 +157,15 @@ internal object ErrorReporter {
             putIfNotNull("adId", adId?.let(::capped))
             putIfNotNull("vastCode", vastCode)
             putIfNotNull("httpStatus", httpStatus)
-            underlying?.let { put("underlying", buildJsonObject { put("domain", capped(it)) }) }
+            underlying?.let {
+                put(
+                    "underlying",
+                    buildJsonObject {
+                        put("domain", capped(it.domain))
+                        put("code", it.code)
+                    },
+                )
+            }
             putIfNotNull("detail", detail?.let(::capped))
             putIfNotNull("recovery", recovery?.wire)
             put(

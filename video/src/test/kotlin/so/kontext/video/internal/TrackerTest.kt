@@ -76,4 +76,15 @@ class TrackerTest {
     @Test fun theClickThroughCarriesTheClicksFireId() {
         assertEquals("https://brand.test/?fid=abc", tracker().clickThrough("https://brand.test/?fid=%5BKONTEXT_FIREID%5D", "abc"))
     }
+
+    @Test fun aWinningPriceIsWrittenAsTheSwiftSdkWritesIt() {
+        // What Swift's String(Double) printed for each value.
+        val swift = mapOf(
+            3.0 to "3.0", 2.4 to "2.4", 0.0001 to "0.0001", 0.00001 to "1e-05", 0.0005 to "0.0005", 1e15 to "1000000000000000.0",
+            9_007_199_254_740_992.0 to "9007199254740992.0", 9_007_199_254_740_994.0 to "9.007199254740994e+15", 1e16 to "1e+16",
+            1e20 to "1e+20", 1.5e20 to "1.5e+20", 1.5e-7 to "1.5e-07", 123456789.123 to "123456789.123", -2.5 to "-2.5", 0.1 to "0.1",
+            Double.NaN to "nan", Double.POSITIVE_INFINITY to "inf", Double.NEGATIVE_INFINITY to "-inf", 1e-300 to "1e-300",
+        )
+        assertEquals(swift, swift.mapValues { (value, _) -> Tracker.number(value) })
+    }
 }

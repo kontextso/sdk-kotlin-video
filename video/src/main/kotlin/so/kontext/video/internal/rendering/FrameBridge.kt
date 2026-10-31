@@ -59,7 +59,7 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         private set
     var failureCause: FailureCause? = null
         private set
-    var failureUnderlying: String? = null
+    var failureUnderlying: ErrorReporter.Underlying? = null
         private set
     var onEvent: ((FrameEvent) -> Unit)? = null
 
@@ -344,11 +344,11 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-            if (request.isForMainFrame) loadFailed("webview.${error.errorCode}")
+            if (request.isForMainFrame) loadFailed(ErrorReporter.Underlying("webview", error.errorCode))
         }
 
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
-            if (request.isForMainFrame) loadFailed("http.${errorResponse.statusCode}")
+            if (request.isForMainFrame) loadFailed(ErrorReporter.Underlying("http", errorResponse.statusCode))
         }
 
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
@@ -360,9 +360,9 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
     }
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
-    private fun loadFailed(underlying: String) {
+    private fun loadFailed(underlying: ErrorReporter.Underlying) {
         if (state != State.LOADING) return
-        Logger.warning { "frame ${adId.take(8)}: page failed to load ($underlying)" }
+        Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(loadErrorCode), FailureCause.LOAD_FAILED)
     }
