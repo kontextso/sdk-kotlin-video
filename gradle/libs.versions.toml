@@ -9,7 +9,7 @@
 # `./gradlew :video:publish -PsdkVersion=X.Y.Z` so CI can cut patch
 # releases without bumping this file. Read at runtime as
 # `BuildConfig.SDK_VERSION` (see video/build.gradle.kts).
-sdk-kotlin-video = "0.2.0"
+sdk-kotlin-video = "0.1.0"
 
 # ---- Build tooling ----
 agp = "8.7.3"                       # Android Gradle Plugin

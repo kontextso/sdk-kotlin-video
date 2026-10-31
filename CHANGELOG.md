@@ -1,11 +1,10 @@
 # Changelog
 
-## 0.2.0
+## 0.1.0
 
 In progress.
 
-### Breaking
-A new SDK on the v2 contract, the Android twin of sdk-swift-video 0.2.0; nothing of 0.1.0's API remains.
+The first release: an SDK on the v2 contract, the Android twin of sdk-swift-video 0.2.0.
 
 * `KontextVideo.initialize(context, Configuration(token))` once at launch; `user`, `regulatory`, `variantId`.
 * `VideoAds(content, labels)` per episode; `format(AdFormat)` returns a `VideoAd` (suspend, or a callback for Java);

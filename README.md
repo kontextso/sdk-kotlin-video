@@ -7,8 +7,8 @@ Android twin of the [Swift Video SDK](https://github.com/kontextso/sdk-swift-vid
 
 ```kotlin
 dependencies {
-    implementation("so.kontext:video:0.2.0")
-    implementation("so.kontext:video-media3:0.2.0") // optional: ads.track(exoPlayer)
+    implementation("so.kontext:video:0.1.0")
+    implementation("so.kontext:video-media3:0.1.0") // optional: ads.track(exoPlayer)
 }
 ```
 
