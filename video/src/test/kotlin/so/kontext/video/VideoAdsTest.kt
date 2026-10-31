@@ -137,9 +137,19 @@ class VideoAdsTest {
 
     @Test fun aNoFillSaysWhy() {
         initialize()
-        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", noFill = "frequencyCap")).toString())
-        val error = format(VideoAds(Content("ep", "en")), AdFormat.PAUSE).exceptionOrNull()
+        adsAnswer = MockResponse().setBody(
+            Fixtures.ads(
+                Fixtures.entry("pause", noFill = "frequencyCap"),
+                Fixtures.entry("overlay", noFill = "formatNotEnabled"),
+                Fixtures.entry("linear", noFill = "somethingNew"),
+            ).toString(),
+        )
+        val ads = VideoAds(Content("ep", "en"))
+        val error = format(ads, AdFormat.PAUSE).exceptionOrNull()
         assertEquals(NoFillReason.FrequencyCap, (error as VideoAdException.NoFill).reason)
+        assertEquals(NoFillReason.FormatNotEnabled, (format(ads, AdFormat.OVERLAY).exceptionOrNull() as VideoAdException.NoFill).reason)
+        assertEquals("a reason this SDK does not know yet", NoFillReason.Other("somethingNew"), (format(ads, AdFormat.LINEAR).exceptionOrNull() as VideoAdException.NoFill).reason)
+        ads.destroy()
     }
 
     @Test fun aFailedRequestReturnsTheHeldAdAndOtherwiseThrows() {
@@ -151,6 +161,9 @@ class VideoAdsTest {
         assertSame(held, format(ads, AdFormat.PAUSE).getOrThrow())
         val error = format(ads, AdFormat.OVERLAY).exceptionOrNull()
         assertTrue(error is VideoAdException.Request)
+        val now = Environment.now()
+        Environment.now = { now + 600_001 }
+        assertTrue("an expired held ad is not a fallback", format(ads, AdFormat.PAUSE).exceptionOrNull() is VideoAdException.Request)
         ads.destroy()
     }
 
