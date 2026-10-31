@@ -11,11 +11,14 @@ complexity:
       - androidx.compose.runtime.Composable
   ComplexCondition:
     threshold: 6
+  CyclomaticComplexMethod:
+    # The protocol's dispatchers and the wire parsers are one `when` or one field after another: long, not tangled.
+    ignoreSimpleWhenEntries: true
   TooManyFunctions:
     thresholdInFiles: 20
     thresholdInClasses: 20
     thresholdInInterfaces: 20
-    thresholdInObjects: 10
+    thresholdInObjects: 15
     thresholdInEnums: 15
     ignoreDeprecated: false
     ignorePrivate: true

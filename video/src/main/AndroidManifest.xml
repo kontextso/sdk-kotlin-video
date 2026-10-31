@@ -2,4 +2,14 @@
 
     <!-- /config, ads requests, beacons, creative pages. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- The linear ad's full-screen host. configChanges keeps the Activity, and the ad's page, alive
+             across rotation and resizing. -->
+        <activity
+            android:name="so.kontext.video.internal.LinearAdActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:theme="@style/Theme.KontextVideo.Linear" />
+    </application>
 </manifest>

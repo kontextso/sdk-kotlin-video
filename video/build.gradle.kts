@@ -148,6 +148,8 @@ dependencies {
 
     // ComponentActivity for the linear ad's screen (back-press control).
     implementation(libs.androidx.activity)
+    // The frame page's messages, with the frame and origin they came from.
+    implementation(libs.androidx.webkit)
     // Insets in show(container, insets), @MainThread.
     api(libs.androidx.core.ktx)
     api(libs.androidx.annotation)
