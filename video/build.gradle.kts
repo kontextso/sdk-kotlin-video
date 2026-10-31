@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.spotless)
     alias(libs.plugins.detekt)
@@ -21,6 +20,9 @@ version = sdkVersion
 android {
     namespace = "so.kontext.video"
     compileSdk = 35
+
+    // Every resource of the SDK starts with this, so none collides with an app's.
+    resourcePrefix = "kontext_video_"
 
     defaultConfig {
         minSdk = 24

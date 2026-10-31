@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.wire
 
 import android.content.Context
 import kotlinx.serialization.json.JsonArray
@@ -9,6 +9,11 @@ import kotlinx.serialization.json.put
 import so.kontext.video.Content
 import so.kontext.video.Regulatory
 import so.kontext.video.User
+import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.device.Consent
+import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.network.putIfNotNull
+import so.kontext.video.internal.support.Environment
 import java.util.UUID
 import kotlin.math.roundToInt
 

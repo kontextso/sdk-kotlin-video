@@ -1,8 +1,10 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.rendering
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.Logger
 
 /**
  * The time an overlay or pause ad spends on screen while its window is visible (the Activity started):

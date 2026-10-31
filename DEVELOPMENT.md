@@ -14,8 +14,8 @@ Gradle 8.11 is downloaded by the wrapper on first build.
 
 ```
 sdk-kotlin-video/
-├── video/src/main/kotlin/so/kontext/video/   # the public API at the root (KontextVideo, VideoAds, VideoAd, …)
-│   └── internal/                             #   everything else: the frame bridge, tracker, meter, wire, …
+├── video/src/main/kotlin/so/kontext/video/   # the public API only (KontextVideo, VideoAds, VideoAd, …)
+│   └── internal/                             #   Sdk.kt, then ad/ rendering/ playback/ wire/ network/ device/ support/
 ├── video/src/test/                           # JUnit 5 and Robolectric tests
 ├── video/api/video.api                       # the public API, checked by apiCheck
 ├── video-media3/                             # VideoAds.track(Player) for a Media3 player

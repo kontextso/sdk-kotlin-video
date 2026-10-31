@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.support
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -8,6 +8,11 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.putIfNotNull
 import java.util.UUID
 import kotlin.math.min
 import kotlin.math.pow

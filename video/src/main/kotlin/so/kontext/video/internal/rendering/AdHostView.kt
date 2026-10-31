@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.rendering
 
 import android.annotation.SuppressLint
 import android.content.Context

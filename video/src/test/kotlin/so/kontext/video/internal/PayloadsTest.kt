@@ -8,6 +8,12 @@ import org.junit.jupiter.api.assertThrows
 import so.kontext.video.AdFormat
 import so.kontext.video.NoFillReason
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.wire.AdPayload
+import so.kontext.video.internal.wire.AdsResponse
+import so.kontext.video.internal.wire.ConfigResponse
+import so.kontext.video.internal.wire.UNKNOWN_REASON
 
 class PayloadsTest {
     @Test fun anOverlayDecodesWithEveryFact() {

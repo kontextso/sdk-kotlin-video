@@ -43,11 +43,19 @@ adb logcat -s KontextVideo
 - `VideoAd`: the facts (`price`, `durationMillis`), `load()` (shared), `reject()`, `show(container, insets)` for
   overlay and pause, `show(activity)` for linear, `dismiss()`; the page's events mapped to beacons and the listener;
   `end()` is the only terminal path.
-- `internal/`: `FrameBridge` (the WebView and the frame protocol; the page's messages come through
-  `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `Tracker`
-  (beacons), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView` (the transparent layer over the app's container),
-  `LinearAdActivity`, `ContentPlayback` (the tracked player), `Payloads`/`AdsRequest` (the wire), `DeviceFacts` and
-  `Consent` (through KontextKit), `Environment` (the seams the tests replace).
+- `internal/`, mirroring the Swift SDK's folders:
+  - `Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
+  - `ad/`: `VideoAd`'s logic outside its class: the page's events, and the overlay-follows-content rules.
+  - `rendering/`: `FrameBridge` (the WebView and the frame protocol; the page's messages come through
+    `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,
+    `Tracker` (beacons), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdPlacement`, `LinearAdActivity`.
+  - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time).
+  - `wire/`: `AdPayload`, `AdsResponse`, `ConfigResponse`, `AdsRequest`.
+  - `network/`: `ApiClient`, `ApiException`, the JSON helpers.
+  - `device/`: `DeviceFacts`, `Consent` (through KontextKit).
+  - `support/`: `Environment` (the seams the tests replace), `ActivityTracker`, `Logger`, `Labels`,
+    `ErrorReporter`, `DebugReporter`.
+- One main type per file. The root package holds the public API only.
 
 ## Rules
 

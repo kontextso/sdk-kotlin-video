@@ -12,6 +12,13 @@ import so.kontext.video.KontextVideo.State
 import so.kontext.video.Regulatory
 import so.kontext.video.User
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.support.DebugReporter
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.wire.ConfigResponse
 import java.util.UUID
 
 /** What `KontextVideo` holds: the configuration, where `/config` got to, and the one ad on screen. Main thread only. */

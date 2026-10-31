@@ -26,7 +26,7 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: >
-          ./gradlew :video:publish
+          ./gradlew :video:publish :video-media3:publish
           -PsdkVersion=${{ github.ref_name }}
           -PmavenCentralUsername="$MAVEN_USERNAME"
           -PmavenCentralPassword="$MAVEN_PASSWORD"

@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.support
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -8,6 +8,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.network.putIfNotNull
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

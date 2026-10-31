@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.support
 
 /**
  * The checks behind `VideoAds(content, labels)`: what the SDK sends, and what it drops with a warning. The

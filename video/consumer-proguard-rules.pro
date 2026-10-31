@@ -1,16 +1,6 @@
-# Kontext Video SDK consumer ProGuard rules.
+# Kontext Video SDK consumer ProGuard rules, applied by R8 in the consuming app's release build.
 #
-# Packaged in the AAR; auto-applied by R8 in the consuming app's release
-# build. Keeps the public API and the serializers kotlinx.serialization
-# generates for the wire models.
-
--keep public class so.kontext.video.** { public *; }
-
--keepattributes *Annotation*, InnerClasses
--dontnote kotlinx.serialization.AnnotationsKt
--keepclassmembers class so.kontext.video.** {
-    *** Companion;
-}
--keepclasseswithmembers class so.kontext.video.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
+# None are needed: nothing in the SDK is reached by reflection or by name. The linear ad's Activity is kept
+# through the merged manifest, the frame page's messages arrive through androidx.webkit's listener (no
+# @JavascriptInterface), and JSON is read and written as JsonElement trees, without generated serializers.
+# The app's R8 pass may shrink and obfuscate everything else.

@@ -1,9 +1,10 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.rendering
 
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import so.kontext.video.internal.support.Environment
 import java.lang.ref.WeakReference
 
 /**
@@ -131,7 +132,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             val root = IntArray(2).also { view.rootView.getLocationOnScreen(it) }
             // getGlobalVisibleRect is in the root view's coordinates; the page wants the view's own.
             val visible = Rect(global).apply { offset(root[0] - location[0], root[1] - location[1]) }
-            visible.intersect(0, 0, view.width, view.height)
+            if (!visible.intersect(0, 0, view.width, view.height)) visible.setEmpty()
             return (seen / whole).coerceIn(0.0, 1.0) to visible
         }
     }

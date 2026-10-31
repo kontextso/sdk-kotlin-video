@@ -1,25 +1,28 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.support
 
-import android.app.Activity
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.os.Bundle
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.rendering.Tracker
 
 /**
  * The SDK's seams: what tests replace and production never touches. Every value has its production
  * default; [reset] restores them all.
  */
+@SuppressLint("StaticFieldLeak") // holds the application context only (see `context`)
 internal object Environment {
-    /** The application context, set by `KontextVideo.initialize`. */
+    /** The application context, set by `KontextVideo.initialize`; never an Activity's, so nothing leaks. */
+    @SuppressLint("StaticFieldLeak") // the application context lives as long as the process
     var context: Context? = null
         set(value) {
-            field = value
-            (value as? Application)?.let(ActivityTracker::register)
+            field = value?.applicationContext
+            (field as? Application)?.let(ActivityTracker::register)
         }
 
     /** Whether an Activity of the app is started: the clocks that count only time in front read it. */
@@ -62,31 +65,4 @@ internal object Environment {
     }
 
     private fun newScope() = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-}
-
-/** Counts the app's started Activities, so the SDK knows whether the app is in front. */
-internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
-    var startedCount = 0
-        private set
-    private var registered = false
-
-    fun register(application: Application) {
-        if (registered) return
-        registered = true
-        application.registerActivityLifecycleCallbacks(this)
-    }
-
-    override fun onActivityStarted(activity: Activity) {
-        startedCount += 1
-    }
-
-    override fun onActivityStopped(activity: Activity) {
-        startedCount = maxOf(0, startedCount - 1)
-    }
-
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
-    override fun onActivityResumed(activity: Activity) = Unit
-    override fun onActivityPaused(activity: Activity) = Unit
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
-    override fun onActivityDestroyed(activity: Activity) = Unit
 }

@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.device
 
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +15,8 @@ import so.kontext.kit.deviceinfo.HardwareInfoProvider
 import so.kontext.kit.deviceinfo.InstallIdProvider
 import so.kontext.kit.deviceinfo.NetworkInfoProvider
 import so.kontext.kit.deviceinfo.OSInfoProvider
+import so.kontext.video.internal.network.putIfNotNull
+import so.kontext.video.internal.support.Environment
 import kotlin.math.roundToInt
 import android.content.res.Configuration as AndroidConfiguration
 

@@ -1,8 +1,11 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.rendering
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.wire.AdPayload
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder

@@ -17,22 +17,25 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import so.kontext.video.internal.ActiveTimeClock
-import so.kontext.video.internal.AdHostView
-import so.kontext.video.internal.AdPayload
-import so.kontext.video.internal.AdPlacement
-import so.kontext.video.internal.ContentPlayback
-import so.kontext.video.internal.ContentProgress
-import so.kontext.video.internal.DebugReporter
-import so.kontext.video.internal.Environment
-import so.kontext.video.internal.ErrorReporter
-import so.kontext.video.internal.FrameBridge
-import so.kontext.video.internal.FrameEvent
-import so.kontext.video.internal.LinearAdActivity
-import so.kontext.video.internal.Logger
 import so.kontext.video.internal.Sdk
-import so.kontext.video.internal.Tracker
-import so.kontext.video.internal.ViewabilityMeter
+import so.kontext.video.internal.ad.endIfContentStopped
+import so.kontext.video.internal.ad.followsContent
+import so.kontext.video.internal.ad.handle
+import so.kontext.video.internal.ad.runAppCodeBeforeShow
+import so.kontext.video.internal.ad.startFollowingContent
+import so.kontext.video.internal.playback.ContentProgress
+import so.kontext.video.internal.rendering.ActiveTimeClock
+import so.kontext.video.internal.rendering.AdHostView
+import so.kontext.video.internal.rendering.AdPlacement
+import so.kontext.video.internal.rendering.FrameBridge
+import so.kontext.video.internal.rendering.LinearAdActivity
+import so.kontext.video.internal.rendering.Tracker
+import so.kontext.video.internal.rendering.ViewabilityMeter
+import so.kontext.video.internal.support.DebugReporter
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.wire.AdPayload
 import java.lang.ref.WeakReference
 
 /**
@@ -63,7 +66,7 @@ public class VideoAd internal constructor(
 
     /** `load()` finished: the creative is rendered off screen. */
     public var isLoaded: Boolean = false
-        private set
+        internal set
 
     /** Loaded and still usable: `show` will not throw `NotLoaded` or `Invalidated`. */
     public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired
@@ -78,23 +81,23 @@ public class VideoAd internal constructor(
 
     /** The ad began to end; `onAdEnded` follows at once for an overlay or pause ad, once its screen is gone for a linear ad. */
     public var hasEnded: Boolean = false
-        private set
+        internal set
 
     /** The creative ran to its end: an overlay's duration elapsed, a linear video played through. */
     public var isCompleted: Boolean = false
-        private set
+        internal set
 
     /** The moments on screen. Held until `onAdEnded` has run. */
     public var listener: VideoAdListener? = null
 
-    private val owner = WeakReference(owner)
+    internal val owner = WeakReference(owner)
     internal val tracker = Tracker(payload.id, payload.tracking).apply {
         contentPlayhead = { this@VideoAd.owner.get()?.playheadMillis ?: 0 }
     }
-    private var loadedBridge: FrameBridge? = null
+    internal var loadedBridge: FrameBridge? = null
     private val contextWrapper by lazy { MutableContextWrapper(Environment.context) }
     private var loading: Deferred<Unit>? = null
-    private var loadSignal: CompletableDeferred<Unit>? = null
+    internal var loadSignal: CompletableDeferred<Unit>? = null
     private var hostView: AdHostView? = null
     private var extraInsets = Rect()
     private var chosenSize: AdPayload.Size? = null
@@ -104,10 +107,10 @@ public class VideoAd internal constructor(
     private var finished = false
     private var pendingFinish: EndReason? = null
     private var failure: VideoAdException? = null
-    private var meter: ViewabilityMeter? = null
-    private var videoPlaying = false
-    private var clock: ActiveTimeClock? = null
-    private var contentProgress: ContentProgress? = null
+    internal var meter: ViewabilityMeter? = null
+    internal var videoPlaying = false
+    internal var clock: ActiveTimeClock? = null
+    internal var contentProgress: ContentProgress? = null
     private var impressionRecorded = false
 
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
@@ -455,7 +458,7 @@ public class VideoAd internal constructor(
 
     // region Measurement
 
-    private fun recordImpression() {
+    internal fun recordImpression() {
         if (impressionRecorded || hasEnded) return
         impressionRecorded = true
         tracker.fire("impression")
@@ -493,7 +496,7 @@ public class VideoAd internal constructor(
 
     // region Ending
 
-    private fun fail(error: VideoAdException) {
+    internal fun fail(error: VideoAdException) {
         if (!wasShown || hasEnded) return
         failure = error
         end(EndReason.FAILED)
@@ -558,7 +561,7 @@ public class VideoAd internal constructor(
 
     // region Clicks
 
-    private fun open(url: String, fallback: String?) {
+    internal fun open(url: String, fallback: String?) {
         val context = Environment.context ?: return
         if (startView(context, url)) return
         if (fallback != null && startView(context, fallback)) return
@@ -572,136 +575,6 @@ public class VideoAd internal constructor(
         false
     } catch (_: SecurityException) {
         false
-    }
-
-    // endregion
-
-    // region The page's events
-
-    private fun handle(event: FrameEvent) {
-        val urls = if (event is FrameEvent.Click) listOfNotNull(event.url, event.fallbackUrl) else emptyList()
-        withContentPlayhead(urls) { handleNow(event) }
-    }
-
-    // One branch per event of the frame protocol.
-    @Suppress("CyclomaticComplexMethod")
-    private fun handleNow(event: FrameEvent) {
-        if (hasEnded || invalidationReason != null) return
-        when (event) {
-            FrameEvent.Loaded -> {
-                isLoaded = true
-                tracker.fire("loaded")
-                loadSignal?.complete(Unit)
-                loadSignal = null
-            }
-            is FrameEvent.Error -> {
-                tracker.fire("error", errorCode = event.code)
-                reportCreativeError(event.code)
-                val signal = loadSignal
-                when {
-                    signal != null -> {
-                        loadSignal = null
-                        Logger.warning { "ad ${id.take(8)}: creative failed to load, VAST error ${event.code}" }
-                        signal.completeExceptionally(VideoAdException.CreativeFailed(event.code))
-                    }
-                    wasShown -> {
-                        Logger.warning { "ad ${id.take(8)}: creative failed after show, VAST error ${event.code}" }
-                        fail(VideoAdException.CreativeFailed(event.code))
-                    }
-                    // Died while waiting to be shown: the ad ends; `show` will throw.
-                    else -> invalidate(InvalidationReason.CreativeFailed(event.code))
-                }
-            }
-            is FrameEvent.Click -> {
-                Logger.info { "ad ${id.take(8)}: click (${event.area}) ${Logger.describe(event.url)}" }
-                // One occurrence: the beacon and the click-through carry the same fire id.
-                val fireId = tracker.fire("click", part = if (event.area == Click.Area.EndCard) "endCard" else null)
-                open(tracker.clickThrough(event.url, fireId), event.fallbackUrl?.let { tracker.clickThrough(it, fireId) })
-                if (hasEnded) return
-                listener?.onAdClicked(this, Click(event.area))
-            }
-            is FrameEvent.Open -> {
-                Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${Logger.describe(event.url)}" }
-                if (event.purpose == "adChoices") tracker.fire("iconClick")
-                open(event.url, null)
-            }
-            is FrameEvent.Close -> closeByPage(event.reason)
-            is FrameEvent.Skip -> {
-                tracker.adPlayheadMillis = event.playheadMillis
-                tracker.fireProgress(event.playheadMillis)
-                tracker.fire("skip")
-                end(EndReason.SKIPPED)
-            }
-            is FrameEvent.Video -> {
-                tracker.adPlayheadMillis = event.playheadMillis
-                when (event.event) {
-                    FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> videoPlaying = true
-                    FrameEvent.VideoEvent.PAUSE -> videoPlaying = false
-                    else -> Unit
-                }
-                meter?.countsTime = videoPlaying
-                tracker.fire(event.event.wire)
-                tracker.fireProgress(event.playheadMillis)
-                // The listener last: it may end the ad on the spot.
-                if (event.event == FrameEvent.VideoEvent.START) recordImpression()
-            }
-            is FrameEvent.Progress -> {
-                tracker.adPlayheadMillis = event.playheadMillis
-                tracker.fireProgress(maxOf(event.offsetMillis, event.playheadMillis))
-            }
-            is FrameEvent.Complete -> {
-                tracker.adPlayheadMillis = event.playheadMillis
-                isCompleted = true
-                videoPlaying = false
-                meter?.countsTime = false
-                tracker.fireProgress(event.playheadMillis)
-                tracker.fire("complete")
-                // The end card, when there is one, becomes visible now.
-                tracker.fire("creativeView", part = "endCard")
-                Logger.info { "ad ${id.take(8)}: complete" }
-            }
-        }
-    }
-
-    /**
-     * The page's own close control. A linear ad's close before `complete` is a skip; `complete` is the page
-     * ending itself after the video with no end card: nobody closed anything, so no `close` fires.
-     */
-    private fun closeByPage(reason: FrameEvent.CloseReason) {
-        if (format == AdFormat.LINEAR && !isCompleted) {
-            tracker.fire("skip")
-            end(EndReason.SKIPPED)
-            return
-        }
-        when (reason) {
-            FrameEvent.CloseReason.COMPLETE -> end(EndReason.COMPLETED)
-            FrameEvent.CloseReason.RESUME -> {
-                tracker.fire("close")
-                end(EndReason.RESUMED)
-            }
-            FrameEvent.CloseReason.CLOSE -> {
-                tracker.fire("close")
-                end(EndReason.CLOSED)
-            }
-        }
-    }
-
-    private fun reportCreativeError(vastCode: Int) {
-        val code = when (loadedBridge?.failureCause ?: FrameBridge.FailureCause.PAGE) {
-            FrameBridge.FailureCause.PAGE -> ErrorReporter.Code.CREATIVE_FAILED
-            FrameBridge.FailureCause.LOAD_TIMEOUT -> ErrorReporter.Code.LOAD_TIMEOUT
-            FrameBridge.FailureCause.LOAD_FAILED -> ErrorReporter.Code.FRAME_LOAD_FAILED
-            FrameBridge.FailureCause.PROCESS_TERMINATED -> ErrorReporter.Code.PROCESS_TERMINATED
-        }
-        ErrorReporter.report(
-            code,
-            if (wasShown) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
-            sessionId = owner.get()?.sessionId,
-            adId = id,
-            vastCode = vastCode,
-            underlying = loadedBridge?.failureUnderlying,
-            recovery = if (wasShown) ErrorReporter.Recovery.AD_ENDED_FAILED else ErrorReporter.Recovery.AD_DROPPED_BEFORE_SHOW,
-        )
     }
 
     // endregion
@@ -724,64 +597,6 @@ public class VideoAd internal constructor(
 
     private fun error(reason: InvalidationReason): VideoAdException =
         if (reason == InvalidationReason.Destroyed) VideoAdException.Destroyed() else VideoAdException.Invalidated(reason)
-
-    // endregion
-
-    // region The content: an overlay lives only while it plays, when a player is tracked
-
-    /** This overlay follows the content: its `VideoAds` tracks a player. */
-    private val followsContent: Boolean get() = format == AdFormat.OVERLAY && owner.get()?.playback?.isTracking == true
-
-    /**
-     * The app code a `show` runs before its checks: an overlay over stopped content ends (its `onAdEnded`), and
-     * the player is read. Returns whether this overlay's content is paused.
-     */
-    private fun runAppCodeBeforeShow(): Boolean {
-        if (!wasShown) Sdk.adOnScreen?.endIfContentStopped()
-        if (!followsContent || owner.get()?.playback?.isPlaying != false) return false
-        Logger.warning { "ad ${id.take(8)}: cannot show the overlay, the content is paused" }
-        return true
-    }
-
-    /** The overlay is on screen: its duration counts from the playhead now, and again from it whenever its window comes back. */
-    private fun startFollowingContent() {
-        val duration = durationMillis ?: return
-        val playback = owner.get()?.playback ?: return
-        if (!followsContent) return
-        contentProgress = ContentProgress(duration, playback.playheadMillis)
-        clock?.onActivate = { contentProgress?.resync(playback.playheadMillis) }
-    }
-
-    /** The tracked player changed or a tick came. A pause while the overlay's view is being attached ends it before any impression. */
-    internal fun contentDidChange(change: ContentPlayback.Change) {
-        val playback = owner.get()?.playback ?: return
-        if (!followsContent || !wasShown || hasEnded) return
-        if (change == ContentPlayback.Change.ContentChanged) {
-            Logger.info { "ad ${id.take(8)}: the content changed; the overlay ends" }
-            end(EndReason.INTERRUPTED)
-            return
-        }
-        if (change is ContentPlayback.Change.Playback && change.isPlaying == false || !playback.isPlaying) {
-            Logger.info { "ad ${id.take(8)}: the content paused or its player is gone; the overlay ends" }
-            end(EndReason.INTERRUPTED)
-            return
-        }
-        val progress = contentProgress ?: return
-        if (change != ContentPlayback.Change.Tick) return
-        if (progress.advance(playback.playheadMillis, counting = clock?.isCounting == true)) {
-            Logger.debug { "ad ${id.take(8)}: overlay duration of ${progress.durationMillis} ms of video elapsed" }
-            isCompleted = true
-            end(EndReason.COMPLETED)
-        }
-    }
-
-    /** An overlay over content that no longer plays ends: before another ad's `show`, and once its own view is attached. */
-    internal fun endIfContentStopped() {
-        if (format != AdFormat.OVERLAY || !wasShown || hasEnded || !followsContent) return
-        if (owner.get()?.playback?.isPlaying != false) return
-        Logger.info { "ad ${id.take(8)}: the content paused; the overlay ends" }
-        end(EndReason.INTERRUPTED)
-    }
 
     // endregion
 

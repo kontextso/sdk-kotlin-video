@@ -10,19 +10,20 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import so.kontext.video.internal.AdPayload
-import so.kontext.video.internal.AdsRequest
-import so.kontext.video.internal.AdsResponse
-import so.kontext.video.internal.ApiClient
-import so.kontext.video.internal.ApiException
-import so.kontext.video.internal.ContentPlayback
-import so.kontext.video.internal.DebugReporter
-import so.kontext.video.internal.Environment
-import so.kontext.video.internal.ErrorReporter
-import so.kontext.video.internal.Labels
-import so.kontext.video.internal.Logger
 import so.kontext.video.internal.Sdk
-import so.kontext.video.internal.Tracker
+import so.kontext.video.internal.ad.contentDidChange
+import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.playback.ContentPlayback
+import so.kontext.video.internal.rendering.Tracker
+import so.kontext.video.internal.support.DebugReporter
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.Labels
+import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.wire.AdPayload
+import so.kontext.video.internal.wire.AdsRequest
+import so.kontext.video.internal.wire.AdsResponse
 import java.util.UUID
 import android.content.res.Configuration as AndroidConfiguration
 

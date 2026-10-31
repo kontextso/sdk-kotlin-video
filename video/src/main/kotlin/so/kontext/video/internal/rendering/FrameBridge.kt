@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.rendering
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -30,6 +30,14 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.network.double
+import so.kontext.video.internal.network.long
+import so.kontext.video.internal.network.obj
+import so.kontext.video.internal.network.str
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.wire.AdPayload
 
 /**
  * Owns the WebView of one ad and speaks the Kontext Frame Protocol v2 with its page. The page posts to
@@ -398,42 +406,6 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
             is Boolean -> JsonPrimitive(value)
             null -> kotlinx.serialization.json.JsonNull
             else -> JsonPrimitive(value.toString())
-        }
-    }
-}
-
-/** What the frame page told the bridge, accepted after the bridge's checks. */
-internal sealed class FrameEvent {
-    object Loaded : FrameEvent()
-    class Click(val url: String, val fallbackUrl: String?, val area: VideoAd.Click.Area) : FrameEvent()
-    class Open(val url: String, val purpose: String) : FrameEvent()
-    class Close(val reason: CloseReason) : FrameEvent()
-    class Skip(val playheadMillis: Long) : FrameEvent()
-    class Video(val event: VideoEvent, val playheadMillis: Long) : FrameEvent()
-    class Progress(val offsetMillis: Long, val playheadMillis: Long) : FrameEvent()
-    class Complete(val playheadMillis: Long) : FrameEvent()
-    class Error(val code: Int) : FrameEvent()
-
-    /** The video moments a page reports (`video.<name>`), named as their VAST beacons. */
-    enum class VideoEvent(val wire: String) {
-        START("start"), FIRST_QUARTILE("firstQuartile"), MIDPOINT("midpoint"), THIRD_QUARTILE("thirdQuartile"),
-        PAUSE("pause"), RESUME("resume"), MUTE("mute"), UNMUTE("unmute");
-
-        companion object {
-            fun from(name: String): VideoEvent? = entries.firstOrNull { it.wire == name }
-        }
-    }
-
-    /** Why the page ended itself. A reason the SDK does not know reads as close. */
-    enum class CloseReason {
-        CLOSE, RESUME, COMPLETE;
-
-        companion object {
-            fun from(raw: String?): CloseReason = when (raw) {
-                "resume" -> RESUME
-                "complete" -> COMPLETE
-                else -> CLOSE
-            }
         }
     }
 }

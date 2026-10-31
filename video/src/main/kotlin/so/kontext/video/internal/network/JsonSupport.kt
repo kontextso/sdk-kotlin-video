@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.network
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement

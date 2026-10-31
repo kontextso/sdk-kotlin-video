@@ -21,9 +21,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import so.kontext.video.internal.Environment
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.support.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /** `KontextVideo` and `VideoAds` against a local HTTP server: the SDK's own requests run unchanged. */

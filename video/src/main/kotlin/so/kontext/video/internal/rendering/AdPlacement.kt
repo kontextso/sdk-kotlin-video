@@ -1,7 +1,8 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.rendering
 
 import android.graphics.Rect
 import android.view.View
+import so.kontext.video.internal.wire.AdPayload
 import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.roundToInt

@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.device
 
 import android.content.Context
 import so.kontext.kit.privacy.TCFDataProvider
