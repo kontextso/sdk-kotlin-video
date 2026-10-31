@@ -1,0 +1,243 @@
+package so.kontext.video
+
+import androidx.test.core.app.ApplicationProvider
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.rendering.ActiveTimeClock
+import so.kontext.video.internal.rendering.AdHostView
+import so.kontext.video.internal.rendering.FrameBridge
+import so.kontext.video.internal.rendering.FrameEvent
+import so.kontext.video.internal.rendering.Tracker
+import so.kontext.video.internal.support.ActivityTracker
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.Logger
+import java.util.concurrent.TimeUnit
+
+/** The pieces around an ad: the host view, the clock, the bridge's remaining paths, beacons, logging and the facade. */
+@RunWith(RobolectricTestRunner::class)
+class PartsTest : SdkTest() {
+    @Test fun theHostRefitsTheAdWhenTheContainerResizesAndEndsItWhenTooSmall() {
+        val recorder = Recorder()
+        val ad = overlay()
+        ad.listener = recorder
+        // Inside Robolectric's window, whose system insets the host keeps the ad clear of.
+        val container = container(width = 320, height = 400)
+        ad.show(container)
+        val host = container.getChildAt(0) as AdHostView
+        // What the host lays the ad out at, for the container's size and insets (Robolectric's WebView keeps no bounds).
+        val place = host.place!!
+        assertEquals(android.graphics.Rect(0, 320, 320, 400), place(320, 400, android.graphics.Rect()))
+        assertEquals("follows a shorter container", android.graphics.Rect(0, 220, 320, 300), place(320, 300, android.graphics.Rect()))
+        assertEquals("kept clear of the insets", android.graphics.Rect(0, 200, 320, 280), place(320, 300, android.graphics.Rect(0, 0, 0, 20)))
+        assertNull("no room", place(100, 300, android.graphics.Rect()))
+        host.forceLayout()
+        host.layout(0, 0, 100, 300) // too narrow for any variant at half size
+        idle()
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun theClockCountsOnlyWhileTheWindowShowsAndTellsWhenItComesBack() {
+        var now = 0L
+        Environment.now = { now }
+        var elapsed = false
+        var activations = 0
+        val clock = ActiveTimeClock(durationMillis = 3_000, adId = "ad-1") { elapsed = true }
+        clock.onActivate = { activations++ }
+        clock.start(visible = true)
+        now = 1_000
+        clock.windowVisibilityChanged(false)
+        assertFalse(clock.isCounting)
+        now = 50_000 // hidden time counts nothing
+        clock.windowVisibilityChanged(true)
+        assertEquals(1, activations)
+        now = 51_500
+        assertEquals(2_500, clock.elapsedMillis)
+        assertEquals(2_500, clock.stop())
+        clock.windowVisibilityChanged(true) // stopped: nothing
+        assertFalse(elapsed)
+    }
+
+    @Test fun theBridgeIgnoresWhatDoesNotFitItsOrderAndReportsABrokenEnvelopeOnce() {
+        val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = true)
+        val sent = mutableListOf<String>()
+        bridge.onSend = { type, _ -> sent += type }
+        val events = mutableListOf<FrameEvent>()
+        bridge.onEvent = { events += it }
+        val page = FrameBridge.Origin.of("https://frames.test")
+        bridge.show() // before loaded: ignored
+        assertTrue(sent.isEmpty())
+        bridge.receive("not json", page, true)
+        bridge.receive("""{"type":"ad.loaded"}""", page, true)
+        assertEquals("one report for a broken page", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
+        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+        bridge.chosenSize = so.kontext.video.internal.wire.AdPayload.Size(320, 80)
+        bridge.show()
+        bridge.exposure(0.5, 0.0, 0.0, 10.0, 10.0)
+        bridge.receive("""{"adId":"ad-1","type":"something.new"}""", page, true)
+        bridge.receive("""{"adId":"ad-1","type":"video.progress","offset":"soon"}""", page, true)
+        bridge.receive("""{"adId":"ad-1","type":"video.mute","playhead":1234}""", page, true)
+        bridge.receive("""{"adId":"ad-1","type":"video.complete","playhead":30000}""", page, true)
+        assertEquals(listOf("ad.show", "ad.exposure"), sent)
+        assertEquals(3, events.size)
+        assertEquals(FrameEvent.VideoEvent.MUTE, (events[1] as FrameEvent.Video).event)
+        assertEquals(1234, (events[1] as FrameEvent.Video).playheadMillis)
+        bridge.hide()
+        assertEquals("ad.hide", sent.last())
+        assertEquals(FrameBridge.State.ENDED, bridge.state)
+        bridge.receive("""{"adId":"ad-1","type":"video.start"}""", page, true) // ended: nothing
+        assertEquals(3, events.size)
+    }
+
+    @Test fun aPageErrorAfterShowDefaultsTo405AndBeforeToTheLoadCode() {
+        val page = FrameBridge.Origin.of("https://frames.test")
+        val video = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/a", isVideo = true)
+        var code = 0
+        video.onEvent = { if (it is FrameEvent.Error) code = it.code }
+        video.receive("""{"adId":"ad-1","type":"ad.error"}""", page, true)
+        assertEquals("a video's load code", 400, code)
+        val shown = FrameBridge(Environment.context!!, "ad-2", "https://frames.test/b", isVideo = false)
+        shown.onEvent = { if (it is FrameEvent.Error) code = it.code }
+        shown.receive("""{"adId":"ad-2","type":"ad.loaded"}""", page, true)
+        shown.show()
+        shown.receive("""{"adId":"ad-2","type":"ad.error"}""", page, true)
+        assertEquals(405, code)
+    }
+
+    @Test fun onlyLinksToSomewhereMayOpen() {
+        assertTrue(FrameBridge.isAllowed("https://brand.test"))
+        assertTrue(FrameBridge.isAllowed("market://details?id=x"))
+        assertFalse(FrameBridge.isAllowed("intent://x#Intent;end"))
+        assertFalse(FrameBridge.isAllowed("javascript:alert(1)"))
+        assertFalse(FrameBridge.isAllowed("no scheme"))
+        assertEquals(FrameBridge.Origin("https", "frames.test", 443), FrameBridge.Origin.of("HTTPS://Frames.Test/path"))
+        assertEquals("https://frames.test:8443", FrameBridge.Origin.of("https://frames.test:8443/x")!!.rule)
+        assertNull(FrameBridge.Origin.of("file:///x"))
+    }
+
+    @Test fun aBeaconIsOneGetToItsUrl() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setResponseCode(204))
+            Tracker.get(server.url("/beacon?e=impression").toString(), "ad: impression")
+            val deadline = System.currentTimeMillis() + 5_000
+            var request: okhttp3.mockwebserver.RecordedRequest? = null
+            while (request == null && System.currentTimeMillis() < deadline) {
+                idle(10)
+                request = server.takeRequest(10, TimeUnit.MILLISECONDS)
+            }
+            assertEquals("GET /beacon?e=impression HTTP/1.1", request!!.requestLine)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun theLogShowsOnlyWhatItsLevelLets() {
+        val lines = mutableListOf<String>()
+        Logger.sink = { _, message -> lines += message }
+        try {
+            Logger.level = Configuration.LogLevel.WARNING
+            Logger.debug { "debug" }
+            Logger.info { "info" }
+            Logger.warning { "warning" }
+            Logger.error { "error" }
+            Logger.level = Configuration.LogLevel.NONE
+            Logger.error { "silent" }
+            assertEquals(listOf("warning", "error"), lines)
+        } finally {
+            Logger.sink = null
+            Logger.level = Configuration.LogLevel.WARNING
+        }
+    }
+
+    @Test fun startedActivitiesAreCounted() {
+        val before = ActivityTracker.startedCount
+        val activity = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).create()
+        ActivityTracker.onActivityStarted(activity.get())
+        assertEquals(before + 1, ActivityTracker.startedCount)
+        ActivityTracker.onActivityStopped(activity.get())
+        ActivityTracker.onActivityStopped(activity.get())
+        assertEquals("never below zero", maxOf(0, before - 1).coerceAtLeast(0), ActivityTracker.startedCount.coerceAtMost(maxOf(0, before - 1)))
+    }
+
+    @Test fun theFacadeHoldsWhatTheAppSets() {
+        val user = User { id = "u-1" }
+        KontextVideo.user = user
+        KontextVideo.regulatory = Regulatory { coppa = true }
+        KontextVideo.variantId = "b"
+        assertSame(user, KontextVideo.user)
+        assertEquals(true, KontextVideo.regulatory?.coppa)
+        assertEquals("b", KontextVideo.variantId)
+        assertEquals(KontextVideo.State.Enabled, KontextVideo.state)
+        var asserted: String? = null
+        Environment.assertionFailure = { asserted = it }
+        KontextVideo.user = User { id = "" }
+        assertNotNull("an empty id is a programmer error", asserted)
+        assertTrue(KontextVideo.VERSION.isNotEmpty())
+    }
+
+    @Test fun aSecondInitializeIsIgnored() {
+        val configuration = Sdk.configuration
+        KontextVideo.initialize(ApplicationProvider.getApplicationContext(), Configuration("other"))
+        assertSame(configuration, Sdk.configuration)
+    }
+
+    @Test fun formatWithACallbackDeliversTheError() {
+        Sdk.disable("paused")
+        var error: VideoAdException? = null
+        owner().format(
+            AdFormat.PAUSE,
+            object : VideoAdsCallback<VideoAd> {
+                override fun onSuccess(result: VideoAd) = org.junit.Assert.fail("disabled")
+
+                override fun onError(error: VideoAdException) {
+                    this@PartsTest.callbackError = error
+                }
+            },
+        )
+        idle()
+        error = callbackError
+        assertTrue(error is VideoAdException.Disabled)
+    }
+
+    private var callbackError: VideoAdException? = null
+
+    @Test fun aVideoAdsWithoutAnIdAsksAndAfterDestroyRefusesEverything() {
+        var asserted: String? = null
+        Environment.assertionFailure = { asserted = it }
+        val ads = owner(Content("", "en"))
+        assertNotNull(asserted)
+        assertTrue("ep" !in ads.toString())
+        ads.destroy()
+        assertTrue(ads.isDestroyed)
+        ads.track(object : VideoAdsPlayer {
+            override val currentPositionMillis = 0L
+            override val isPlaying = true
+        })
+        assertFalse(ads.playback.isTracking)
+    }
+
+    @Test fun memoryPressureReleasesExpiredAdsOnly() {
+        var now = 0L
+        Environment.now = { now }
+        val owner = owner()
+        val ad = overlay(owner)
+        owner.ads[AdFormat.OVERLAY] = ad
+        Environment.context!!.applicationContext.let { (it as android.app.Application).onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) }
+        assertNull("valid: kept", ad.invalidationReason)
+        now = 10_000_000
+        (Environment.context as android.app.Application).onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW)
+        assertEquals(VideoAd.InvalidationReason.Expired, ad.invalidationReason)
+    }
+}

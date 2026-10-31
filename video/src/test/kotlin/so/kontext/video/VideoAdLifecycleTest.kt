@@ -1,0 +1,400 @@
+package so.kontext.video
+
+import android.content.Intent
+import android.widget.FrameLayout
+import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.launch
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.rendering.FrameBridge
+import so.kontext.video.internal.rendering.LinearAdActivity
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.wire.AdPayload
+
+/** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
+@RunWith(RobolectricTestRunner::class)
+class VideoAdLifecycleTest : SdkTest() {
+    private inline fun <reified T : VideoAdException> assertThrows(block: () -> Unit): T {
+        try {
+            block()
+        } catch (error: VideoAdException) {
+            if (error is T) return error
+            fail("threw ${error::class.simpleName}, expected ${T::class.simpleName}")
+        }
+        fail("threw nothing, expected ${T::class.simpleName}")
+        error("unreachable")
+    }
+
+    private fun opened(): Intent? = shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>()).nextStartedActivity
+
+    // region Showing an overlay or pause ad
+
+    @Test fun anImageOverlayRecordsItsImpressionAtShow() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("creativeView", "iconView", "impression"))
+        ad.listener = recorder
+        ad.show(container())
+        assertTrue(ad.wasShown)
+        assertSame(ad, Sdk.adOnScreen)
+        assertEquals(listOf("creativeView", "iconView", "impression"), events)
+        assertEquals(listOf("impression"), recorder.heard)
+        assertEquals(FrameBridge.State.SHOWN, ad.loadedBridge?.state)
+    }
+
+    @Test fun dismissEndsItAtOnceWithItsViewDuration() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("overlayViewDuration"))
+        ad.listener = recorder
+        val container = container()
+        ad.show(container)
+        ad.dismiss()
+        assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+        assertTrue(ad.hasEnded)
+        assertNull(Sdk.adOnScreen)
+        assertEquals("the host left the container", 0, container.childCount)
+        assertEquals(listOf("overlayViewDuration"), events)
+        assertNull("the listener is let go", ad.listener)
+        ad.dismiss() // after the end: nothing
+        assertEquals(1, recorder.reasons.size)
+    }
+
+    @Test fun anOverlayWithoutAPlayerEndsWhenItsDurationElapses() {
+        val recorder = Recorder()
+        val ad = overlay(duration = "1000")
+        ad.listener = recorder
+        ad.show(container())
+        idle(500)
+        assertFalse(ad.hasEnded)
+        idle(600)
+        assertEquals(listOf(VideoAd.EndReason.COMPLETED), recorder.reasons)
+        assertTrue(ad.isCompleted)
+    }
+
+    @Test fun theOverlaysCloseControlEndsItAsClosed() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("close"))
+        ad.listener = recorder
+        ad.show(container())
+        page(ad, "ad.close")
+        assertEquals(listOf(VideoAd.EndReason.CLOSED), recorder.reasons)
+        assertTrue("close" in events)
+    }
+
+    @Test fun aFullScreenPauseAdsResumeEndsItAsResumed() {
+        val recorder = Recorder()
+        val ad = pause(position = "fullscreen")
+        ad.listener = recorder
+        ad.show(container())
+        page(ad, "ad.close", """"reason": "resume"""")
+        assertEquals(listOf(VideoAd.EndReason.RESUMED), recorder.reasons)
+    }
+
+    @Test fun thePageEndingItselfIsCompletedWithoutAClose() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("close"))
+        ad.listener = recorder
+        ad.show(container())
+        page(ad, "ad.close", """"reason": "complete"""")
+        assertEquals(listOf(VideoAd.EndReason.COMPLETED), recorder.reasons)
+        assertFalse("nobody closed anything", "close" in events)
+    }
+
+    @Test fun aClickAfterATouchFiresItsBeaconOpensTheTargetAndTellsTheListener() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("click"))
+        ad.listener = recorder
+        ad.show(container())
+        page(ad, "ad.click", """"url": "https://brand.test/?fid=[KONTEXT_FIREID]", "area": "cta"""")
+        assertTrue("no touch, no click", recorder.clicks.isEmpty())
+        ad.loadedBridge!!.noteTouch()
+        page(ad, "ad.click", """"url": "https://brand.test/?fid=[KONTEXT_FIREID]", "area": "cta"""")
+        assertEquals(listOf(VideoAd.Click(VideoAd.Click.Area.Other("cta"))), recorder.clicks)
+        assertEquals(1, events.count { it == "click" })
+        val intent = opened()!!
+        assertEquals(Intent.ACTION_VIEW, intent.action)
+        assertTrue("the click-through carries a fire id", intent.dataString!!.startsWith("https://brand.test/?fid=") && "KONTEXT" !in intent.dataString!!)
+    }
+
+    @Test fun theAdChoicesLinkFiresTheIconClickAndOpens() {
+        val ad = overlay(tracking = tracking("iconClick", "click"))
+        ad.show(container())
+        ad.loadedBridge!!.noteTouch()
+        page(ad, "ad.open", """"url": "https://adchoices.test", "purpose": "adChoices"""")
+        assertEquals(listOf("iconClick"), events)
+        assertEquals("https://adchoices.test", opened()!!.dataString)
+    }
+
+    @Test fun aCreativeThatBreaksOnScreenFailsThenEnds() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("error"))
+        ad.listener = recorder
+        ad.show(container())
+        page(ad, "ad.error", """"code": 402""")
+        assertEquals(listOf("impression", "failed", "ended"), recorder.heard)
+        assertEquals(402, (recorder.errors.single() as VideoAdException.CreativeFailed).code)
+        assertEquals(listOf(VideoAd.EndReason.FAILED), recorder.reasons)
+        assertTrue(beacons.single { "e=error" in it }.isNotEmpty())
+    }
+
+    @Test fun aCreativeThatDiesBeforeShowEndsTheAdAndShowSaysSo() {
+        val ad = overlay()
+        page(ad, "ad.error", """"code": 405""")
+        assertEquals(VideoAd.InvalidationReason.CreativeFailed(405), ad.invalidationReason)
+        val error = assertThrows<VideoAdException.Invalidated> { ad.show(container()) }
+        assertEquals(VideoAd.InvalidationReason.CreativeFailed(405), error.reason)
+    }
+
+    // endregion
+
+    // region What show refuses
+
+    @Test fun showRefusesTheWrongPresentation() {
+        val linear = linear()
+        assertThrows<VideoAdException.WrongPresentation> { linear.show(container()) }
+        assertThrows<VideoAdException.WrongPresentation> { linear.dismiss() }
+        assertThrows<VideoAdException.WrongPresentation> { overlay().show(activity()) }
+    }
+
+    @Test fun showRefusesAnAdNotLoaded() {
+        val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
+        assertThrows<VideoAdException.NotLoaded> { ad.show(container()) }
+        assertFalse(ad.wasShown)
+    }
+
+    @Test fun showRefusesASecondShowAndASecondAdOnScreen() {
+        val owner = owner()
+        val first = overlay(owner)
+        val second = pause(owner)
+        val container = container()
+        first.show(container)
+        assertThrows<VideoAdException.AnotherAdShowing> { second.show(container) }
+        assertTrue("the other ad stays ready", second.isReady)
+        first.dismiss()
+        assertThrows<VideoAdException.AlreadyShown> { first.show(container) }
+        assertThrows<VideoAdException.AlreadyShown> { first.reject() }
+        second.show(container)
+        assertSame(second, Sdk.adOnScreen)
+    }
+
+    @Test fun showRefusesAContainerNotOnScreen() {
+        val detached = FrameLayout(ApplicationProvider.getApplicationContext())
+        assertThrows<VideoAdException.PresenterUnavailable> { overlay().show(detached) }
+        val hidden = container().apply { visibility = android.view.View.INVISIBLE }
+        assertThrows<VideoAdException.PresenterUnavailable> { overlay().show(hidden) }
+    }
+
+    @Test fun showRefusesAContainerTooSmallAndSaysTheMinimum() {
+        val density = ApplicationProvider.getApplicationContext<android.app.Application>().resources.displayMetrics.density
+        val ad = overlay()
+        val error = assertThrows<VideoAdException.ContainerTooSmall> { ad.show(container(width = 100, height = 400)) }
+        assertEquals("half of the smallest variant's 320 dp", Math.ceil(320 * density * 0.5).toInt(), error.minimumWidthPx)
+        assertTrue(ad.isReady)
+    }
+
+    @Test fun insetsThatLeaveNoRoomAreTooSmall() {
+        assertThrows<VideoAdException.ContainerTooSmall> {
+            overlay().show(container(), androidx.core.graphics.Insets.of(0, 0, 0, 1_000))
+        }
+    }
+
+    @Test fun showRefusesAnOverlayOverPausedContent() {
+        val owner = owner()
+        owner.track(object : VideoAdsPlayer {
+            override val currentPositionMillis = 0L
+            override val isPlaying = false
+        })
+        val ad = overlay(owner)
+        assertThrows<VideoAdException.ContentPaused> { ad.show(container()) }
+        assertTrue(ad.isReady)
+    }
+
+    @Test fun showRefusesAfterTheSdkWasSwitchedOff() {
+        val ad = overlay()
+        Sdk.disable("paused")
+        assertThrows<VideoAdException.Disabled> { ad.show(container()) }
+    }
+
+    // endregion
+
+    // region Loading
+
+    @Test fun loadWaitsForThePageAndAnotherLoadJoinsIt() {
+        val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay(tracking = tracking("loaded")))), Environment.now(), owner())
+        var first: Result<Unit>? = null
+        var second: Result<Unit>? = null
+        Environment.scope.launch { first = runCatching { ad.load() } }
+        Environment.scope.launch { second = runCatching { ad.load() } }
+        idle()
+        assertNull(first)
+        page(ad, "ad.loaded")
+        idle()
+        assertTrue(first!!.isSuccess && second!!.isSuccess)
+        assertTrue(ad.isLoaded && ad.isReady)
+        assertEquals(listOf("loaded"), events)
+        Environment.scope.launch { ad.load() } // loaded already: returns
+        idle()
+    }
+
+    @Test fun aPageThatNeverLoadsFailsWithinTheLoadTimeout() {
+        FrameBridge.loadTimeoutMillis = 500
+        Environment.isAppInForeground = { true }
+        try {
+            val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
+            var result: Result<Unit>? = null
+            Environment.scope.launch { result = runCatching { ad.load() } }
+            idle(800)
+            assertEquals(500, (result!!.exceptionOrNull() as VideoAdException.CreativeFailed).code)
+            assertEquals(VideoAd.InvalidationReason.CreativeFailed(500), ad.invalidationReason)
+        } finally {
+            FrameBridge.loadTimeoutMillis = 10_000
+        }
+    }
+
+    @Test fun loadWithACallbackDeliversTheAdOrTheError() {
+        val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
+        var loadedAd: VideoAd? = null
+        ad.load(object : VideoAdsCallback<VideoAd> {
+            override fun onSuccess(result: VideoAd) {
+                loadedAd = result
+            }
+
+            override fun onError(error: VideoAdException) = fail(error.message)
+        })
+        idle()
+        page(ad, "ad.loaded")
+        idle()
+        assertSame(ad, loadedAd)
+        ad.reject()
+        var error: VideoAdException? = null
+        ad.load(object : VideoAdsCallback<VideoAd> {
+            override fun onSuccess(result: VideoAd) = fail("rejected")
+
+            override fun onError(error: VideoAdException) {
+                error.also { e -> this@VideoAdLifecycleTest.lastError = e }
+            }
+        })
+        idle()
+        error = lastError
+        assertTrue(error is VideoAdException.Invalidated)
+    }
+
+    private var lastError: VideoAdException? = null
+
+    @Test fun aLoadInFlightThrowsDestroyedWhenItsOwnerIsDestroyed() {
+        val owner = owner()
+        val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner)
+        var result: Result<Unit>? = null
+        Environment.scope.launch { result = runCatching { ad.load() } }
+        idle()
+        owner.destroy()
+        idle()
+        assertTrue(result!!.exceptionOrNull() is VideoAdException.Destroyed)
+    }
+
+    // endregion
+
+    // region Linear
+
+    /** Shows [ad] from a host Activity and brings its screen up to [resumed]. */
+    private fun present(ad: VideoAd, resumed: Boolean = true): org.robolectric.android.controller.ActivityController<LinearAdActivity> {
+        val host = activity()
+        ad.show(host)
+        val controller = Robolectric.buildActivity(LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).create().start()
+        if (resumed) controller.resume()
+        return controller
+    }
+
+    @Test fun aLinearAdPlaysThroughWithEveryBeaconAndClosesFromItsEndCard() {
+        val recorder = Recorder()
+        val ad = linear(tracking = tracking("creativeView", "start", "firstQuartile", "midpoint", "thirdQuartile", "complete", "creativeView|endCard", "close", "impression"))
+        ad.listener = recorder
+        val screen = present(ad)
+        assertEquals(listOf("creativeView"), events)
+        page(ad, "video.start", """"playhead": 0""")
+        assertEquals(listOf("impression"), recorder.heard)
+        page(ad, "video.firstQuartile", """"playhead": 7500""")
+        page(ad, "video.midpoint", """"playhead": 15000""")
+        page(ad, "video.thirdQuartile", """"playhead": 22500""")
+        page(ad, "video.complete", """"playhead": 30000""")
+        assertTrue(ad.isCompleted)
+        page(ad, "ad.close")
+        assertTrue(ad.hasEnded)
+        assertTrue("onAdEnded waits for the screen to go", recorder.reasons.isEmpty())
+        screen.pause().stop().destroy()
+        assertEquals(listOf(VideoAd.EndReason.CLOSED), recorder.reasons)
+        assertEquals(
+            listOf("creativeView", "start", "impression", "firstQuartile", "midpoint", "thirdQuartile", "complete", "creativeView", "close"),
+            events,
+        )
+        assertNull(Sdk.adOnScreen)
+    }
+
+    @Test fun aLinearAdClosedBeforeTheEndIsSkipped() {
+        val recorder = Recorder()
+        val ad = linear(tracking = tracking("skip"))
+        ad.listener = recorder
+        val screen = present(ad)
+        page(ad, "video.start", """"playhead": 0""")
+        page(ad, "ad.close")
+        screen.pause().stop().destroy()
+        assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
+        assertEquals(listOf("skip"), events)
+        assertFalse(ad.isCompleted)
+    }
+
+    @Test fun theVideosSkipFiresTheCheckpointsItPassed() {
+        val recorder = Recorder()
+        val progress = """[{"event": "progress", "url": "https://t.test/b?e=p5", "offset": 5000},
+            {"event": "progress", "url": "https://t.test/b?e=p10", "offset": 10000},
+            {"event": "skip", "url": "https://t.test/b?e=skip"}]"""
+        val ad = linear(tracking = progress)
+        ad.listener = recorder
+        val screen = present(ad)
+        page(ad, "video.progress", """"offset": 5000, "playhead": 5000""")
+        page(ad, "video.skip", """"playhead": 12000""")
+        screen.pause().stop().destroy()
+        assertEquals(listOf("p5", "p10", "skip"), events)
+        assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
+    }
+
+    @Test fun aLinearScreenTakenAwayInterruptsTheAd() {
+        val recorder = Recorder()
+        val ad = linear()
+        ad.listener = recorder
+        val screen = present(ad)
+        screen.pause().stop().destroy() // not the ad's doing
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertNull(Sdk.adOnScreen)
+    }
+
+    @Test fun aLinearShowFromAFinishingActivityIsRefused() {
+        val host = activity().apply { finish() }
+        assertThrows<VideoAdException.PresenterUnavailable> { linear().show(host) }
+    }
+
+    @Test fun backDoesNothingOnTheLinearScreen() {
+        val ad = linear()
+        val screen = present(ad)
+        screen.get().onBackPressedDispatcher.onBackPressed()
+        assertFalse(ad.hasEnded)
+        assertFalse(screen.get().isFinishing)
+    }
+
+    @Test fun aRestoredLinearScreenWithoutItsAdFinishesAtOnce() {
+        val controller = Robolectric.buildActivity(LinearAdActivity::class.java, Intent()).create()
+        assertTrue(controller.get().isFinishing)
+    }
+
+    // endregion
+}
