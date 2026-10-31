@@ -60,8 +60,11 @@ jobs:
       - name: Build
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Check the public API against */api/*.api
+        run: ./gradlew apiCheck
+
       - name: Run unit tests
-        run: ./gradlew :video:testDebug
+        run: ./gradlew :video:testDebug :video-media3:testDebug
 
       - name: Upload test reports
         if: always()

@@ -48,6 +48,8 @@ android {
         unitTests.all {
             it.useJUnitPlatform()
         }
+        // Robolectric reads the merged manifest and resources.
+        unitTests.isIncludeAndroidResources = true
         // Stubs Android framework methods called from unit tests
         // (e.g. `android.util.Log.d(...)`) to return defaults instead
         // of throwing `RuntimeException("Method ... not mocked")`.
@@ -60,6 +62,11 @@ kotlin {
     // leaks to consumers by accident.
     explicitApi()
     jvmToolchain(17)
+    compilerOptions {
+        // Interface methods with a body compile to Java default methods: a Java listener implements
+        // only the callbacks it needs.
+        freeCompilerArgs.add("-Xjvm-default=all")
+    }
 }
 
 mavenPublishing {
@@ -133,16 +140,24 @@ detekt {
 }
 
 dependencies {
-    implementation(libs.kotlinx.coroutines.android)
+    // `suspend` in the public API: kotlinx.coroutines is part of it.
+    api(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    // Device info, install id, advertising id, TCF consent, Custom Tabs, Open Measurement.
+    implementation(libs.kontext.kit)
 
-    // ComponentActivity for the interstitial screen (back-press control).
+    // ComponentActivity for the linear ad's screen (back-press control).
     implementation(libs.androidx.activity)
-    implementation(libs.androidx.annotation)
-    // Chrome Custom Tabs for the click-through.
-    implementation(libs.androidx.browser)
+    // Insets in show(container, insets), @MainThread.
+    api(libs.androidx.core.ktx)
+    api(libs.androidx.annotation)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    // Robolectric runs on JUnit 4: the vintage engine runs those tests on the JUnit Platform.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.androidx.test.core)
 }

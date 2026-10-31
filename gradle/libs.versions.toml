@@ -9,11 +9,11 @@
 # `./gradlew :video:publish -PsdkVersion=X.Y.Z` so CI can cut patch
 # releases without bumping this file. Read at runtime as
 # `BuildConfig.SDK_VERSION` (see video/build.gradle.kts).
-sdk-kotlin-video = "0.1.0"
+sdk-kotlin-video = "0.2.0"
 
 # ---- Build tooling ----
-agp = "8.6.1"                       # Android Gradle Plugin
-kotlin = "2.0.21"                   # Kotlin compiler version
+agp = "8.7.3"                       # Android Gradle Plugin
+kotlin = "2.1.0"                   # Kotlin compiler version
 
 # ---- AndroidX ----
 androidx-activity = "1.8.2"             # ComponentActivity (interstitial back-press, example)
@@ -27,14 +27,19 @@ androidx-lifecycle = "2.8.4"
 compose = "1.7.7"
 compose-material3 = "1.3.1"
 
-# ---- Media3 (ExoPlayer) — the example's content player only ----
+# ---- Media3: the :video-media3 adapter, and the example's content player ----
 media3 = "1.6.0"
 
+# ---- Kontext ----
+# Device info, install id, advertising id, TCF consent, Custom Tabs, Open Measurement.
+kontext-kit = "0.0.8"
+
 # ---- Kotlin libraries ----
-kotlinx-coroutines = "1.8.1"
-kotlinx-serialization = "1.6.2"
+kotlinx-coroutines = "1.9.0"
+kotlinx-serialization = "1.7.3"
 
 # ---- Code-quality plugins ----
+binary-compatibility-validator = "0.16.3"
 maven-publish = "0.34.0"            # vanniktech maven-publish
 spotless = "7.2.1"
 detekt = "1.23.8"
@@ -42,10 +47,19 @@ ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
 
 # ---- Test libraries ----
 junit-jupiter = "5.10.1"
-mockk = "1.13.9"
+mockk = "1.13.13"
+robolectric = "4.14.1"
+junit4 = "4.13.2"
+junit-vintage = "5.10.1"
+androidx-test-core = "1.6.1"
+androidx-test-runner = "1.6.2"
+androidx-test-ext-junit = "1.2.1"
 
 
 [libraries]
+
+# Kontext
+kontext-kit = { module = "so.kontext.kit:kontext-kit-android", version.ref = "kontext-kit" }
 
 # Kotlin
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
@@ -69,12 +83,19 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3", 
 
 # Media3 (ExoPlayer) — example only
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-vintage" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test-runner" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }
 
 
 [plugins]
@@ -87,3 +108,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+binary-compatibility-validator = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "binary-compatibility-validator" }
