@@ -1,3 +1,12 @@
+public final class so/kontext/video/AdFormat : java/lang/Enum {
+	public static final field LINEAR Lso/kontext/video/AdFormat;
+	public static final field OVERLAY Lso/kontext/video/AdFormat;
+	public static final field PAUSE Lso/kontext/video/AdFormat;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/AdFormat;
+	public static fun values ()[Lso/kontext/video/AdFormat;
+}
+
 public final class so/kontext/video/BuildConfig {
 	public static final field BUILD_TYPE Ljava/lang/String;
 	public static final field DEBUG Z
@@ -6,8 +15,557 @@ public final class so/kontext/video/BuildConfig {
 	public fun <init> ()V
 }
 
+public final class so/kontext/video/Configuration {
+	public static final field Companion Lso/kontext/video/Configuration$Companion;
+	public static final field DEFAULT_AD_SERVER_URL Ljava/lang/String;
+	public synthetic fun <init> (Lso/kontext/video/Configuration$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAdServerUrl ()Ljava/lang/String;
+	public final fun getLogLevel ()Lso/kontext/video/Configuration$LogLevel;
+	public final fun getPublisherToken ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/Configuration$Builder {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun adServerUrl (Ljava/lang/String;)Lso/kontext/video/Configuration$Builder;
+	public final fun build ()Lso/kontext/video/Configuration;
+	public final fun getAdServerUrl ()Ljava/lang/String;
+	public final fun getLogLevel ()Lso/kontext/video/Configuration$LogLevel;
+	public final fun getPublisherToken ()Ljava/lang/String;
+	public final fun logLevel (Lso/kontext/video/Configuration$LogLevel;)Lso/kontext/video/Configuration$Builder;
+	public final fun setAdServerUrl (Ljava/lang/String;)V
+	public final fun setLogLevel (Lso/kontext/video/Configuration$LogLevel;)V
+	public final fun setPublisherToken (Ljava/lang/String;)V
+}
+
+public final class so/kontext/video/Configuration$Companion {
+	public final fun invoke (Ljava/lang/String;Lkotlin/jvm/functions/Function1;)Lso/kontext/video/Configuration;
+	public static synthetic fun invoke$default (Lso/kontext/video/Configuration$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lso/kontext/video/Configuration;
+}
+
+public final class so/kontext/video/Configuration$LogLevel : java/lang/Enum {
+	public static final field DEBUG Lso/kontext/video/Configuration$LogLevel;
+	public static final field ERROR Lso/kontext/video/Configuration$LogLevel;
+	public static final field INFO Lso/kontext/video/Configuration$LogLevel;
+	public static final field NONE Lso/kontext/video/Configuration$LogLevel;
+	public static final field WARNING Lso/kontext/video/Configuration$LogLevel;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/Configuration$LogLevel;
+	public static fun values ()[Lso/kontext/video/Configuration$LogLevel;
+}
+
+public final class so/kontext/video/Content {
+	public static final field Companion Lso/kontext/video/Content$Companion;
+	public synthetic fun <init> (Lso/kontext/video/Content$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCategories ()Ljava/util/List;
+	public final fun getDescription ()Ljava/lang/String;
+	public final fun getDurationMillis ()Ljava/lang/Long;
+	public final fun getEpisodeNumber ()Ljava/lang/Integer;
+	public final fun getGenre ()Ljava/lang/String;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getKeywords ()Ljava/util/List;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getMediaRating ()Lso/kontext/video/Content$Rating;
+	public final fun getSeries ()Lso/kontext/video/Content$Series;
+	public final fun getTitle ()Ljava/lang/String;
+	public final fun getUrl ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/Content$Builder {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun build ()Lso/kontext/video/Content;
+	public final fun categories (Ljava/util/List;)Lso/kontext/video/Content$Builder;
+	public final fun description (Ljava/lang/String;)Lso/kontext/video/Content$Builder;
+	public final fun durationMillis (Ljava/lang/Long;)Lso/kontext/video/Content$Builder;
+	public final fun episodeNumber (Ljava/lang/Integer;)Lso/kontext/video/Content$Builder;
+	public final fun genre (Ljava/lang/String;)Lso/kontext/video/Content$Builder;
+	public final fun getCategories ()Ljava/util/List;
+	public final fun getDescription ()Ljava/lang/String;
+	public final fun getDurationMillis ()Ljava/lang/Long;
+	public final fun getEpisodeNumber ()Ljava/lang/Integer;
+	public final fun getGenre ()Ljava/lang/String;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getKeywords ()Ljava/util/List;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getMediaRating ()Lso/kontext/video/Content$Rating;
+	public final fun getSeries ()Lso/kontext/video/Content$Series;
+	public final fun getTitle ()Ljava/lang/String;
+	public final fun getUrl ()Ljava/lang/String;
+	public final fun keywords (Ljava/util/List;)Lso/kontext/video/Content$Builder;
+	public final fun mediaRating (Lso/kontext/video/Content$Rating;)Lso/kontext/video/Content$Builder;
+	public final fun series (Lso/kontext/video/Content$Series;)Lso/kontext/video/Content$Builder;
+	public final fun setCategories (Ljava/util/List;)V
+	public final fun setDescription (Ljava/lang/String;)V
+	public final fun setDurationMillis (Ljava/lang/Long;)V
+	public final fun setEpisodeNumber (Ljava/lang/Integer;)V
+	public final fun setGenre (Ljava/lang/String;)V
+	public final fun setId (Ljava/lang/String;)V
+	public final fun setKeywords (Ljava/util/List;)V
+	public final fun setLanguage (Ljava/lang/String;)V
+	public final fun setMediaRating (Lso/kontext/video/Content$Rating;)V
+	public final fun setSeries (Lso/kontext/video/Content$Series;)V
+	public final fun setTitle (Ljava/lang/String;)V
+	public final fun setUrl (Ljava/lang/String;)V
+	public final fun title (Ljava/lang/String;)Lso/kontext/video/Content$Builder;
+	public final fun url (Ljava/lang/String;)Lso/kontext/video/Content$Builder;
+}
+
+public final class so/kontext/video/Content$Companion {
+	public final fun invoke (Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function1;)Lso/kontext/video/Content;
+	public static synthetic fun invoke$default (Lso/kontext/video/Content$Companion;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lso/kontext/video/Content;
+}
+
+public final class so/kontext/video/Content$Rating : java/lang/Enum {
+	public static final field EXPLICIT Lso/kontext/video/Content$Rating;
+	public static final field SAFE Lso/kontext/video/Content$Rating;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/Content$Rating;
+	public static fun values ()[Lso/kontext/video/Content$Rating;
+}
+
+public final class so/kontext/video/Content$Series {
+	public static final field Companion Lso/kontext/video/Content$Series$Companion;
+	public synthetic fun <init> (Lso/kontext/video/Content$Series$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDescription ()Ljava/lang/String;
+	public final fun getEpisodeCount ()Ljava/lang/Integer;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getTitle ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/Content$Series$Builder {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun build ()Lso/kontext/video/Content$Series;
+	public final fun description (Ljava/lang/String;)Lso/kontext/video/Content$Series$Builder;
+	public final fun episodeCount (Ljava/lang/Integer;)Lso/kontext/video/Content$Series$Builder;
+	public final fun getDescription ()Ljava/lang/String;
+	public final fun getEpisodeCount ()Ljava/lang/Integer;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getTitle ()Ljava/lang/String;
+	public final fun setDescription (Ljava/lang/String;)V
+	public final fun setEpisodeCount (Ljava/lang/Integer;)V
+	public final fun setId (Ljava/lang/String;)V
+	public final fun setTitle (Ljava/lang/String;)V
+	public final fun title (Ljava/lang/String;)Lso/kontext/video/Content$Series$Builder;
+}
+
+public final class so/kontext/video/Content$Series$Companion {
+	public final fun invoke (Ljava/lang/String;Lkotlin/jvm/functions/Function1;)Lso/kontext/video/Content$Series;
+	public static synthetic fun invoke$default (Lso/kontext/video/Content$Series$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lso/kontext/video/Content$Series;
+}
+
 public final class so/kontext/video/KontextVideo {
 	public static final field INSTANCE Lso/kontext/video/KontextVideo;
 	public static final field VERSION Ljava/lang/String;
+	public final fun awaitInitialization (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun getRegulatory ()Lso/kontext/video/Regulatory;
+	public static final fun getState ()Lso/kontext/video/KontextVideo$State;
+	public static final fun getUser ()Lso/kontext/video/User;
+	public static final fun getVariantId ()Ljava/lang/String;
+	public static final fun initialize (Landroid/content/Context;Lso/kontext/video/Configuration;)V
+	public static final fun initialize (Landroid/content/Context;Lso/kontext/video/Configuration;Lso/kontext/video/KontextVideo$InitializationListener;)V
+	public static synthetic fun initialize$default (Landroid/content/Context;Lso/kontext/video/Configuration;Lso/kontext/video/KontextVideo$InitializationListener;ILjava/lang/Object;)V
+	public static final fun setRegulatory (Lso/kontext/video/Regulatory;)V
+	public static final fun setUser (Lso/kontext/video/User;)V
+	public static final fun setVariantId (Ljava/lang/String;)V
+}
+
+public abstract interface class so/kontext/video/KontextVideo$InitializationListener {
+	public abstract fun onInitialized (Lso/kontext/video/KontextVideo$State;)V
+}
+
+public abstract class so/kontext/video/KontextVideo$State {
+}
+
+public final class so/kontext/video/KontextVideo$State$Disabled : so/kontext/video/KontextVideo$State {
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/KontextVideo$State$Enabled : so/kontext/video/KontextVideo$State {
+	public static final field INSTANCE Lso/kontext/video/KontextVideo$State$Enabled;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/KontextVideo$State$Failed : so/kontext/video/KontextVideo$State {
+	public static final field INSTANCE Lso/kontext/video/KontextVideo$State$Failed;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/KontextVideo$State$Initializing : so/kontext/video/KontextVideo$State {
+	public static final field INSTANCE Lso/kontext/video/KontextVideo$State$Initializing;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/KontextVideo$State$NotInitialized : so/kontext/video/KontextVideo$State {
+	public static final field INSTANCE Lso/kontext/video/KontextVideo$State$NotInitialized;
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract class so/kontext/video/NoFillReason {
+	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/NoFillReason$AlreadyUsed : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$AlreadyUsed;
+}
+
+public final class so/kontext/video/NoFillReason$ContentUnsafe : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$ContentUnsafe;
+}
+
+public final class so/kontext/video/NoFillReason$FormatNotEnabled : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$FormatNotEnabled;
+}
+
+public final class so/kontext/video/NoFillReason$FrequencyCap : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$FrequencyCap;
+}
+
+public final class so/kontext/video/NoFillReason$GeoRestricted : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$GeoRestricted;
+}
+
+public final class so/kontext/video/NoFillReason$NoAdMatch : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$NoAdMatch;
+}
+
+public final class so/kontext/video/NoFillReason$Other : so/kontext/video/NoFillReason {
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getRaw ()Ljava/lang/String;
+	public fun hashCode ()I
+}
+
+public final class so/kontext/video/NoFillReason$TemporaryError : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$TemporaryError;
+}
+
+public final class so/kontext/video/NoFillReason$Unknown : so/kontext/video/NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/NoFillReason$Unknown;
+}
+
+public final class so/kontext/video/Regulatory {
+	public static final field Companion Lso/kontext/video/Regulatory$Companion;
+	public synthetic fun <init> (Lso/kontext/video/Regulatory$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCoppa ()Ljava/lang/Boolean;
+	public final fun getGdpr ()Ljava/lang/Boolean;
+	public final fun getGdprConsent ()Ljava/lang/String;
+	public final fun getGpp ()Ljava/lang/String;
+	public final fun getGppSid ()Ljava/util/List;
+	public final fun getUsPrivacy ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/Regulatory$Builder {
+	public fun <init> ()V
+	public final fun build ()Lso/kontext/video/Regulatory;
+	public final fun coppa (Ljava/lang/Boolean;)Lso/kontext/video/Regulatory$Builder;
+	public final fun gdpr (Ljava/lang/Boolean;)Lso/kontext/video/Regulatory$Builder;
+	public final fun gdprConsent (Ljava/lang/String;)Lso/kontext/video/Regulatory$Builder;
+	public final fun getCoppa ()Ljava/lang/Boolean;
+	public final fun getGdpr ()Ljava/lang/Boolean;
+	public final fun getGdprConsent ()Ljava/lang/String;
+	public final fun getGpp ()Ljava/lang/String;
+	public final fun getGppSid ()Ljava/util/List;
+	public final fun getUsPrivacy ()Ljava/lang/String;
+	public final fun gpp (Ljava/lang/String;)Lso/kontext/video/Regulatory$Builder;
+	public final fun gppSid (Ljava/util/List;)Lso/kontext/video/Regulatory$Builder;
+	public final fun setCoppa (Ljava/lang/Boolean;)V
+	public final fun setGdpr (Ljava/lang/Boolean;)V
+	public final fun setGdprConsent (Ljava/lang/String;)V
+	public final fun setGpp (Ljava/lang/String;)V
+	public final fun setGppSid (Ljava/util/List;)V
+	public final fun setUsPrivacy (Ljava/lang/String;)V
+	public final fun usPrivacy (Ljava/lang/String;)Lso/kontext/video/Regulatory$Builder;
+}
+
+public final class so/kontext/video/Regulatory$Companion {
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lso/kontext/video/Regulatory;
+}
+
+public final class so/kontext/video/User {
+	public static final field Companion Lso/kontext/video/User$Companion;
+	public synthetic fun <init> (Lso/kontext/video/User$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEmail ()Ljava/lang/String;
+	public final fun getEmailHash ()Ljava/lang/String;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getKeywords ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/User$Builder {
+	public fun <init> ()V
+	public final fun build ()Lso/kontext/video/User;
+	public final fun email (Ljava/lang/String;)Lso/kontext/video/User$Builder;
+	public final fun emailHash (Ljava/lang/String;)Lso/kontext/video/User$Builder;
+	public final fun getEmail ()Ljava/lang/String;
+	public final fun getEmailHash ()Ljava/lang/String;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getKeywords ()Ljava/util/List;
+	public final fun id (Ljava/lang/String;)Lso/kontext/video/User$Builder;
+	public final fun keywords (Ljava/util/List;)Lso/kontext/video/User$Builder;
+	public final fun setEmail (Ljava/lang/String;)V
+	public final fun setEmailHash (Ljava/lang/String;)V
+	public final fun setId (Ljava/lang/String;)V
+	public final fun setKeywords (Ljava/util/List;)V
+}
+
+public final class so/kontext/video/User$Companion {
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lso/kontext/video/User;
+}
+
+public final class so/kontext/video/VideoAd {
+	public final fun dismiss ()V
+	public final fun getDurationMillis ()Ljava/lang/Long;
+	public final fun getFormat ()Lso/kontext/video/AdFormat;
+	public final fun getHasEnded ()Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getInvalidationReason ()Lso/kontext/video/VideoAd$InvalidationReason;
+	public final fun getListener ()Lso/kontext/video/VideoAdListener;
+	public final fun getPrice ()Lso/kontext/video/VideoAd$Price;
+	public final fun getWasShown ()Z
+	public final fun isCompleted ()Z
+	public final fun isLoaded ()Z
+	public final fun isReady ()Z
+	public final fun load (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun load (Lso/kontext/video/VideoAdsCallback;)V
+	public final fun reject ()V
+	public final fun reject (Lso/kontext/video/VideoAd$RejectReason;)V
+	public static synthetic fun reject$default (Lso/kontext/video/VideoAd;Lso/kontext/video/VideoAd$RejectReason;ILjava/lang/Object;)V
+	public final fun setListener (Lso/kontext/video/VideoAdListener;)V
+	public final fun show (Landroid/app/Activity;)V
+	public final fun show (Landroid/view/ViewGroup;)V
+	public final fun show (Landroid/view/ViewGroup;Landroidx/core/graphics/Insets;)V
+	public static synthetic fun show$default (Lso/kontext/video/VideoAd;Landroid/view/ViewGroup;Landroidx/core/graphics/Insets;ILjava/lang/Object;)V
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$Click {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getArea ()Lso/kontext/video/VideoAd$Click$Area;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract class so/kontext/video/VideoAd$Click$Area {
+}
+
+public final class so/kontext/video/VideoAd$Click$Area$Creative : so/kontext/video/VideoAd$Click$Area {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$Click$Area$Creative;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$Click$Area$EndCard : so/kontext/video/VideoAd$Click$Area {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$Click$Area$EndCard;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$Click$Area$Other : so/kontext/video/VideoAd$Click$Area {
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLabel ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$EndReason : java/lang/Enum {
+	public static final field CLOSED Lso/kontext/video/VideoAd$EndReason;
+	public static final field COMPLETED Lso/kontext/video/VideoAd$EndReason;
+	public static final field DESTROYED Lso/kontext/video/VideoAd$EndReason;
+	public static final field DISMISSED Lso/kontext/video/VideoAd$EndReason;
+	public static final field FAILED Lso/kontext/video/VideoAd$EndReason;
+	public static final field INTERRUPTED Lso/kontext/video/VideoAd$EndReason;
+	public static final field RESUMED Lso/kontext/video/VideoAd$EndReason;
+	public static final field SKIPPED Lso/kontext/video/VideoAd$EndReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/VideoAd$EndReason;
+	public static fun values ()[Lso/kontext/video/VideoAd$EndReason;
+}
+
+public abstract class so/kontext/video/VideoAd$InvalidationReason {
+}
+
+public final class so/kontext/video/VideoAd$InvalidationReason$CreativeFailed : so/kontext/video/VideoAd$InvalidationReason {
+	public fun <init> (I)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$InvalidationReason$Destroyed : so/kontext/video/VideoAd$InvalidationReason {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$InvalidationReason$Destroyed;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$InvalidationReason$Expired : so/kontext/video/VideoAd$InvalidationReason {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$InvalidationReason$Expired;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$InvalidationReason$Rejected : so/kontext/video/VideoAd$InvalidationReason {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$InvalidationReason$Rejected;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$Price {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCurrency ()Ljava/lang/String;
+	public final fun getPrecision ()Lso/kontext/video/VideoAd$Price$Precision;
+	public final fun getValue ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$Price$Precision : java/lang/Enum {
+	public static final field ESTIMATED Lso/kontext/video/VideoAd$Price$Precision;
+	public static final field EXACT Lso/kontext/video/VideoAd$Price$Precision;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/VideoAd$Price$Precision;
+	public static fun values ()[Lso/kontext/video/VideoAd$Price$Precision;
+}
+
+public abstract class so/kontext/video/VideoAd$RejectReason {
+}
+
+public final class so/kontext/video/VideoAd$RejectReason$NotUsed : so/kontext/video/VideoAd$RejectReason {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$RejectReason$NotUsed;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$RejectReason$Outbid : so/kontext/video/VideoAd$RejectReason {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Double;)V
+	public fun <init> (Ljava/lang/Double;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/Double;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getWinner ()Ljava/lang/String;
+	public final fun getWinningPrice ()Ljava/lang/Double;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract class so/kontext/video/VideoAdException : java/lang/Exception {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class so/kontext/video/VideoAdException$AlreadyShown : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$AnotherAdShowing : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$ContainerTooSmall : so/kontext/video/VideoAdException {
+	public fun <init> (II)V
+	public final fun getMinimumHeightPx ()I
+	public final fun getMinimumWidthPx ()I
+}
+
+public final class so/kontext/video/VideoAdException$ContentPaused : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$CreativeFailed : so/kontext/video/VideoAdException {
+	public fun <init> (I)V
+	public final fun getCode ()I
+}
+
+public final class so/kontext/video/VideoAdException$Destroyed : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$Disabled : so/kontext/video/VideoAdException {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun getReason ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAdException$InitializationFailed : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$Invalidated : so/kontext/video/VideoAdException {
+	public fun <init> (Lso/kontext/video/VideoAd$InvalidationReason;)V
+	public final fun getReason ()Lso/kontext/video/VideoAd$InvalidationReason;
+}
+
+public final class so/kontext/video/VideoAdException$NoFill : so/kontext/video/VideoAdException {
+	public fun <init> (Lso/kontext/video/NoFillReason;)V
+	public final fun getReason ()Lso/kontext/video/NoFillReason;
+}
+
+public final class so/kontext/video/VideoAdException$NotInitialized : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$NotLoaded : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$PresenterUnavailable : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$Request : so/kontext/video/VideoAdException {
+	public fun <init> (Ljava/lang/Throwable;)V
+}
+
+public final class so/kontext/video/VideoAdException$WrongPresentation : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public abstract interface class so/kontext/video/VideoAdListener {
+	public fun onAdClicked (Lso/kontext/video/VideoAd;Lso/kontext/video/VideoAd$Click;)V
+	public fun onAdEnded (Lso/kontext/video/VideoAd;Lso/kontext/video/VideoAd$EndReason;)V
+	public fun onAdFailed (Lso/kontext/video/VideoAd;Lso/kontext/video/VideoAdException;)V
+	public fun onAdImpression (Lso/kontext/video/VideoAd;)V
+}
+
+public final class so/kontext/video/VideoAds {
+	public fun <init> (Lso/kontext/video/Content;)V
+	public fun <init> (Lso/kontext/video/Content;Ljava/util/Map;)V
+	public synthetic fun <init> (Lso/kontext/video/Content;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun destroy ()V
+	public final fun format (Lso/kontext/video/AdFormat;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun format (Lso/kontext/video/AdFormat;Lso/kontext/video/VideoAdsCallback;)V
+	public final fun getContent ()Lso/kontext/video/Content;
+	public final fun getLastRequestId ()Ljava/lang/String;
+	public final fun isDestroyed ()Z
+	public fun toString ()Ljava/lang/String;
+	public final fun track (Lso/kontext/video/VideoAdsPlayer;)V
+}
+
+public abstract interface class so/kontext/video/VideoAdsCallback {
+	public abstract fun onError (Lso/kontext/video/VideoAdException;)V
+	public abstract fun onSuccess (Ljava/lang/Object;)V
+}
+
+public abstract interface class so/kontext/video/VideoAdsPlayer {
+	public fun addIsPlayingListener (Lso/kontext/video/VideoAdsPlayer$IsPlayingListener;)V
+	public abstract fun getCurrentPositionMillis ()J
+	public abstract fun isPlaying ()Z
+	public fun removeIsPlayingListener (Lso/kontext/video/VideoAdsPlayer$IsPlayingListener;)V
+}
+
+public abstract interface class so/kontext/video/VideoAdsPlayer$IsPlayingListener {
+	public abstract fun onIsPlayingChanged (Z)V
 }
 
