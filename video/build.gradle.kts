@@ -147,7 +147,7 @@ dependencies {
     // `suspend` in the public API: kotlinx.coroutines is part of it.
     api(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    // Device info, install id, advertising id, TCF consent, Custom Tabs, Open Measurement.
+    // Device info, install id, advertising id, TCF consent (no Open Measurement since KontextKit 0.1.0).
     implementation(libs.kontext.kit)
 
     // ComponentActivity for the linear ad's screen (back-press control).
