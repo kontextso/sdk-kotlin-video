@@ -40,6 +40,7 @@ internal object ErrorReporter {
         LOAD_TIMEOUT("ad.load_timeout"),
         FRAME_LOAD_FAILED("frame.load_failed"),
         PROCESS_TERMINATED("frame.process_terminated"),
+        UNRESPONSIVE("frame.unresponsive"),
         PROTOCOL_VIOLATION("frame.protocol_violation"),
         PRESENTATION_FAILED("ad.presentation_failed"),
         DISMISSAL_TIMED_OUT("ad.dismissal_timed_out"),

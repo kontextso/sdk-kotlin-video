@@ -21,6 +21,8 @@ import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import androidx.webkit.WebViewRenderProcess
+import androidx.webkit.WebViewRenderProcessClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -50,7 +52,7 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
     enum class State { LOADING, LOADED, SHOWN, ENDED }
 
     /** Why the bridge failed: several causes fire the same VAST code, and the error report keeps them apart. */
-    enum class FailureCause { PAGE, LOAD_TIMEOUT, LOAD_FAILED, PROCESS_TERMINATED }
+    enum class FailureCause { PAGE, LOAD_TIMEOUT, LOAD_FAILED, PROCESS_TERMINATED, UNRESPONSIVE }
 
     val webView: WebView = TouchNotingWebView(context)
     var state = State.LOADING
@@ -93,6 +95,22 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         (webView as TouchNotingWebView).onTouch = ::noteTouch
         webView.webViewClient = Client()
         webView.webChromeClient = Chrome()
+        // A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
+        // linear ad has no other way out: Back is consumed and dismiss() refuses it. The ad ends, failed.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE)) {
+            WebViewCompat.setWebViewRenderProcessClient(
+                webView,
+                object : WebViewRenderProcessClient() {
+                    override fun onRenderProcessUnresponsive(view: WebView, renderer: WebViewRenderProcess?) {
+                        if (state == State.ENDED) return
+                        Logger.warning { "frame ${adId.take(8)}: the page stopped responding; the ad ends" }
+                        fail(FrameEvent.Error(if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.UNRESPONSIVE)
+                    }
+
+                    override fun onRenderProcessResponsive(view: WebView, renderer: WebViewRenderProcess?) = Unit
+                },
+            )
+        }
         if (origin != null && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(webView, "KontextAndroid", setOf(origin.rule)) { _, message, sourceOrigin, isMainFrame, _: JavaScriptReplyProxy ->
                 receive(message, Origin.of(sourceOrigin.toString()), isMainFrame)

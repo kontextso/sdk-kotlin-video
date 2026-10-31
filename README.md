@@ -22,7 +22,8 @@ KontextVideo.initialize(this, Configuration("your-publisher-token"))
 val ads = VideoAds(Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 })
 ads.track(player) // your Media3 player, or your own VideoAdsPlayer
 
-// Prepare a pause ad early
+// Prepare a pause ad early: format() gets the offer (its price, before anything renders),
+// load() renders the creative so show() is instant
 lifecycleScope.launch {
     pauseAd = try { ads.format(AdFormat.PAUSE).apply { load() } } catch (e: VideoAdException) { null }
     pauseAd?.listener = object : VideoAdListener {
@@ -39,6 +40,9 @@ pauseAd?.dismiss(); player.play()
 // The viewer leaves the episode
 ads.destroy()
 ```
+
+Call `destroy()` when the episode's screen goes: in `onDestroy()` of an Activity, `onDestroyView()` of a Fragment,
+or a `DisposableEffect`'s `onDispose` in Compose. Until then the `VideoAds` holds its player adapter and its ads.
 
 A linear ad shows with `ad.show(activity)`; resume your content in `onAdEnded`. The [example app](example) shows
 every format. Development: [DEVELOPMENT.md](DEVELOPMENT.md).

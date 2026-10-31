@@ -128,6 +128,7 @@ internal fun VideoAd.reportCreativeError(vastCode: Int) {
         FrameBridge.FailureCause.LOAD_TIMEOUT -> ErrorReporter.Code.LOAD_TIMEOUT
         FrameBridge.FailureCause.LOAD_FAILED -> ErrorReporter.Code.FRAME_LOAD_FAILED
         FrameBridge.FailureCause.PROCESS_TERMINATED -> ErrorReporter.Code.PROCESS_TERMINATED
+        FrameBridge.FailureCause.UNRESPONSIVE -> ErrorReporter.Code.UNRESPONSIVE
     }
     ErrorReporter.report(
         code,
