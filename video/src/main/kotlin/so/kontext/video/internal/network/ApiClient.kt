@@ -1,44 +1,40 @@
 package so.kontext.video.internal.network
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import kotlin.coroutines.coroutineContext
 
 /** Sends JSON requests to the ad server's `/v2/` routes, off the main thread. */
 internal class ApiClient(private val baseUrl: String, private val timeoutMillis: Int = DEFAULT_TIMEOUT_MILLIS) {
-    /** POSTs [body] to `v2/[path]` and returns the parsed answer, or `null` for an empty body. */
+    /**
+     * POSTs [body] to `v2/[path]` and returns the parsed answer, or `null` for an empty body. [timeoutMillis]
+     * bounds the whole call, connection to last byte: the socket timeouts alone are idle timeouts, and a server
+     * that trickles bytes would hold the request as long as it likes. A cancelled caller closes the connection,
+     * which ends the blocked read: moving blocking I/O to another thread does not make it cancellable.
+     */
     suspend fun post(path: String, body: JsonObject): JsonElement? {
         coroutineContext.ensureActive() // a caller cancelled before this point sends nothing
         val bytes = body.toString().toByteArray()
-        val (status, text) = withContext(Dispatchers.IO) {
-            val connection = try {
-                (URL(baseUrl.trimEnd('/') + "/v2/" + path).openConnection() as HttpURLConnection)
-            } catch (error: IOException) {
-                throw ApiException.Transport(error)
-            }
-            try {
-                connection.requestMethod = "POST"
-                connection.connectTimeout = timeoutMillis
-                connection.readTimeout = timeoutMillis
-                connection.doOutput = true
-                connection.useCaches = false
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.use { it.write(bytes) }
-                val status = connection.responseCode
-                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                status to (stream?.bufferedReader()?.use { it.readText() } ?: "")
-            } catch (error: IOException) {
-                throw ApiException.Transport(error)
-            } finally {
-                connection.disconnect()
-            }
+        val connection = try {
+            URL(baseUrl.trimEnd('/') + "/v2/" + path).openConnection() as HttpURLConnection
+        } catch (error: IOException) {
+            throw ApiException.Transport(error)
+        }
+        val (status, text) = try {
+            withTimeout(timeoutMillis.toLong()) { exchange(connection, bytes) }
+        } catch (_: TimeoutCancellationException) {
+            throw ApiException.Transport(SocketTimeoutException("no complete answer within $timeoutMillis ms"))
         }
         if (status !in 200..299) throw ApiException.Http(status, parseErrors(text))
         if (text.isBlank()) return null
@@ -48,6 +44,32 @@ internal class ApiClient(private val baseUrl: String, private val timeoutMillis:
             throw ApiException.Decoding(error)
         }
     }
+
+    /** The request on an I/O thread; cancelling the caller disconnects, which unblocks that thread at once. */
+    private suspend fun exchange(connection: HttpURLConnection, bytes: ByteArray): Pair<Int, String> =
+        suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { connection.disconnect() }
+            Dispatchers.IO.asExecutor().execute {
+                val result = try {
+                    connection.requestMethod = "POST"
+                    connection.connectTimeout = timeoutMillis
+                    connection.readTimeout = timeoutMillis
+                    connection.doOutput = true
+                    connection.useCaches = false
+                    connection.setRequestProperty("Content-Type", "application/json")
+                    connection.outputStream.use { it.write(bytes) }
+                    val status = connection.responseCode
+                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                    Result.success(status to (stream?.bufferedReader()?.use { it.readText() } ?: ""))
+                } catch (error: IOException) {
+                    Result.failure(ApiException.Transport(error))
+                } finally {
+                    connection.disconnect()
+                }
+                // A cancelled caller has gone already; its result is dropped.
+                if (continuation.isActive) continuation.resumeWith(result)
+            }
+        }
 
     companion object {
         const val DEFAULT_TIMEOUT_MILLIS = 10_000

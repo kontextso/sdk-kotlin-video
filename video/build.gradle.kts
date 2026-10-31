@@ -26,6 +26,8 @@ android {
 
     defaultConfig {
         minSdk = 24
+        // Emulator tests: what needs a real WebView (`./gradlew :video:connectedDebugAndroidTest`).
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-proguard-rules.pro")
         buildConfigField("String", "SDK_VERSION", "\"$sdkVersion\"")
     }
@@ -166,4 +168,10 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     // A real HTTP server on localhost: the SDK's own HttpURLConnection calls run unchanged.
     testImplementation(libs.mockwebserver)
+    // Robolectric tests drive the Media3 adapter with a mocked Player.
+    testImplementation(project(":video-media3"))
+    testImplementation(libs.androidx.media3.common)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

@@ -164,6 +164,12 @@ internal object Sdk {
         }
     }
 
+    /** A configuration without `/config`, as if initialized and enabled. Tests only. */
+    fun configureForTesting(configuration: Configuration) {
+        this.configuration = configuration
+        state = State.Enabled
+    }
+
     /** Back to the state before `initialize`. Tests only: the SDK is process-wide. */
     fun resetForTesting() {
         initJob?.cancel()

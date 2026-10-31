@@ -1,6 +1,8 @@
 package so.kontext.video.internal.rendering
 
+import android.graphics.Matrix
 import android.graphics.Rect
+import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -107,6 +109,20 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     }
 
     companion object {
+        /** The view's own coordinates to the root view's: each ancestor's transform and position, up to the root. */
+        fun transformToRoot(view: View): Matrix {
+            val matrix = Matrix()
+            var node: View = view
+            while (true) {
+                matrix.postConcat(node.matrix)
+                matrix.postTranslate(node.left.toFloat(), node.top.toFloat())
+                val parent = node.parent as? View ?: break
+                matrix.postTranslate(-parent.scrollX.toFloat(), -parent.scrollY.toFloat())
+                node = parent
+            }
+            return matrix
+        }
+
         /** How often the box is measured. A constant in spirit; a variable so the tests can shrink it. */
         var intervalMillis = 250L
         const val SHORTEST_STALL_MILLIS = 500L
@@ -126,14 +142,20 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             }
             val global = Rect()
             if (!view.getGlobalVisibleRect(global)) return 0.0 to Rect()
-            val whole = view.width.toDouble() * view.height
+            // Both areas in the root view's coordinates, where a scaled or rotated view and its visible part are
+            // measured alike: the view's own size would overstate the whole of a view scaled down.
+            val toRoot = transformToRoot(view)
+            val whole = RectF(0f, 0f, view.width.toFloat(), view.height.toFloat()).also(toRoot::mapRect)
+            val wholeArea = whole.width().toDouble() * whole.height()
+            if (wholeArea <= 0) return 0.0 to Rect()
             val seen = global.width().toDouble() * global.height()
-            val location = IntArray(2).also(view::getLocationOnScreen)
-            val root = IntArray(2).also { view.rootView.getLocationOnScreen(it) }
-            // getGlobalVisibleRect is in the root view's coordinates; the page wants the view's own.
-            val visible = Rect(global).apply { offset(root[0] - location[0], root[1] - location[1]) }
+            // The visible part back in the view's own coordinates, for the page.
+            val toView = Matrix().also { toRoot.invert(it) }
+            val inView = RectF(global).also(toView::mapRect)
+            val visible = Rect()
+            inView.roundOut(visible)
             if (!visible.intersect(0, 0, view.width, view.height)) visible.setEmpty()
-            return (seen / whole).coerceIn(0.0, 1.0) to visible
+            return (seen / wholeArea).coerceIn(0.0, 1.0) to visible
         }
     }
 }

@@ -16,8 +16,11 @@ internal class ContentPlayback {
         /** The playing state changed, with the value the player gave. */
         data class Playback(val isPlaying: Boolean?) : Change()
 
-        /** `track` was called again while an overlay was on screen. */
+        /** The player moved to another item or played this one to its end, or `track` was called again while an overlay was on screen. */
         object ContentChanged : Change()
+
+        /** The position jumped (a seek): an overlay's count of video time goes on from the new position. */
+        object Jumped : Change()
 
         /** [tickIntervalMillis] passed while ticking: an overlay counts its milliseconds of video. */
         object Tick : Change()
@@ -33,7 +36,7 @@ internal class ContentPlayback {
         private set
 
     private var player: VideoAdsPlayer? = null
-    private var listener: VideoAdsPlayer.IsPlayingListener? = null
+    private var listener: VideoAdsPlayer.Listener? = null
     private var generation = 0
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
@@ -46,6 +49,9 @@ internal class ContentPlayback {
 
     /** Whether the content plays. `true` when nothing was tracked: an overlay runs as it would. */
     val isPlaying: Boolean get() = if (!isTracking) true else player?.let { runCatching { it.isPlaying }.getOrDefault(false) } ?: false
+
+    /** The playback speed, when the player knows it. */
+    val playbackSpeed: Float? get() = player?.let { runCatching { it.playbackSpeed }.getOrNull() }
 
     /** Content time in milliseconds, read now, or 0. Clamped to ten years. */
     val playheadMillis: Long
@@ -73,12 +79,16 @@ internal class ContentPlayback {
         isTicking = overlayWasShown
         this.player = player
         val generation = generation
-        val listener = VideoAdsPlayer.IsPlayingListener { playing -> deliver(Change.Playback(playing), generation) }
+        val listener = object : VideoAdsPlayer.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) = deliver(Change.Playback(isPlaying), generation)
+            override fun onSeek() = deliver(Change.Jumped, generation)
+            override fun onContentChanged() = deliver(Change.ContentChanged, generation)
+        }
         this.listener = listener
         // The player's code: a destroy() or another track() inside it wins, and this listener is dropped.
-        runCatching { player.addIsPlayingListener(listener) }
+        runCatching { player.addListener(listener) }
         if (generation != this.generation) {
-            runCatching { player.removeIsPlayingListener(listener) }
+            runCatching { player.removeListener(listener) }
             return
         }
         if (overlayWasShown) deliver(Change.ContentChanged, generation)
@@ -94,7 +104,7 @@ internal class ContentPlayback {
         isTracking = false
         isTicking = false
         // Last, with every property settled: a `track` or `destroy()` in the removal finds a stopped playback.
-        if (player != null && listener != null) runCatching { player.removeIsPlayingListener(listener) }
+        if (player != null && listener != null) runCatching { player.removeListener(listener) }
     }
 
     private fun deliver(change: Change, generation: Int) {

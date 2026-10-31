@@ -45,7 +45,7 @@ internal object AdsRequest {
                     "ifa",
                     buildJsonObject {
                         put("id", it)
-                        put("type", "gaid")
+                        put("type", "aaid")
                         put("limitAdTracking", false)
                     },
                 )

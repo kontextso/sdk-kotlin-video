@@ -59,8 +59,15 @@ internal object DeviceFacts {
         return buildJsonObject {
             put("brand", info.brand)
             put("model", info.model)
-            put("type", info.type)
+            put("type", contractType(info.type))
         }
+    }
+
+    /** KontextKit's form factor in the contract's OpenRTB-derived vocabulary: its `handset` is a `phone`. */
+    fun contractType(kitType: String): String = when (kitType) {
+        "handset", "phone" -> "phone"
+        "tablet", "tv", "settopbox", "desktop" -> kitType
+        else -> "other"
     }
 
     /** The screen in dp, its density, and the system's dark mode. */

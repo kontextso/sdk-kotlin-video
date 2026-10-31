@@ -95,14 +95,15 @@ public class VideoAd internal constructor(
         contentPlayhead = { this@VideoAd.owner.get()?.playheadMillis ?: 0 }
     }
     internal var loadedBridge: FrameBridge? = null
-    private val contextWrapper by lazy { MutableContextWrapper(Environment.context) }
+    internal val contextWrapper by lazy { MutableContextWrapper(Environment.context) }
     private var loading: Deferred<Unit>? = null
     internal var loadSignal: CompletableDeferred<Unit>? = null
     private var hostView: AdHostView? = null
     private var extraInsets = Rect()
     private var chosenSize: AdPayload.Size? = null
     private var linearScreen: LinearAdActivity? = null
-    private var linearPresentation: LinearAdActivity.Presentation? = null
+    internal var linearPresentation: LinearAdActivity.Presentation? = null
+        private set
     private var isPresented = false
     private var finished = false
     private var pendingFinish: EndReason? = null
@@ -268,8 +269,9 @@ public class VideoAd internal constructor(
         host.onWindowVisibility = { visible -> clock?.windowVisibilityChanged(visible) }
         hostView = host
         container.addView(host)
-        if (!hasEnded && !AdPlacement.canBeSeen(container)) {
-            Logger.warning { "ad ${id.take(8)}: the container left the screen as the ad was added; ended as interrupted" }
+        // The container's own hook may have removed the host, or taken the container off screen.
+        if (!hasEnded && (host.parent !== container || !AdPlacement.canBeSeen(container))) {
+            Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
             end(EndReason.INTERRUPTED)
             return
         }
@@ -549,6 +551,10 @@ public class VideoAd internal constructor(
         if (finished) return
         finished = true
         pendingFinish = null
+        // An ended ad keeps its facts, not its presentation: an app that holds it holds no Activity or WebView.
+        linearPresentation = null
+        linearScreen = null
+        Environment.context?.let { contextWrapper.baseContext = it }
         if (Sdk.adOnScreen === this) Sdk.adOnScreen = null
         owner.get()?.adDidEnd(this)
         val listener = listener

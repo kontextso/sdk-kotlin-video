@@ -28,14 +28,14 @@ class AndroidPartsTest {
     /** A player whose listener calls run the app's code. */
     class HookPlayer(override var currentPositionMillis: Long = 0) : VideoAdsPlayer {
         override var isPlaying = true
-        val listeners = mutableListOf<VideoAdsPlayer.IsPlayingListener>()
+        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
         var onRemove: (() -> Unit)? = null
 
-        override fun addIsPlayingListener(listener: VideoAdsPlayer.IsPlayingListener) {
+        override fun addListener(listener: VideoAdsPlayer.Listener) {
             listeners += listener
         }
 
-        override fun removeIsPlayingListener(listener: VideoAdsPlayer.IsPlayingListener) {
+        override fun removeListener(listener: VideoAdsPlayer.Listener) {
             listeners -= listener
             onRemove?.invoke()
         }

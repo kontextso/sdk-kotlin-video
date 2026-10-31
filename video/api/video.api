@@ -559,13 +559,16 @@ public abstract interface class so/kontext/video/VideoAdsCallback {
 }
 
 public abstract interface class so/kontext/video/VideoAdsPlayer {
-	public fun addIsPlayingListener (Lso/kontext/video/VideoAdsPlayer$IsPlayingListener;)V
+	public fun addListener (Lso/kontext/video/VideoAdsPlayer$Listener;)V
 	public abstract fun getCurrentPositionMillis ()J
+	public fun getPlaybackSpeed ()Ljava/lang/Float;
 	public abstract fun isPlaying ()Z
-	public fun removeIsPlayingListener (Lso/kontext/video/VideoAdsPlayer$IsPlayingListener;)V
+	public fun removeListener (Lso/kontext/video/VideoAdsPlayer$Listener;)V
 }
 
-public abstract interface class so/kontext/video/VideoAdsPlayer$IsPlayingListener {
+public abstract interface class so/kontext/video/VideoAdsPlayer$Listener {
+	public fun onContentChanged ()V
 	public abstract fun onIsPlayingChanged (Z)V
+	public fun onSeek ()V
 }
 

@@ -312,7 +312,18 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
             }
         }
 
-        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) = Unit
+        /**
+         * A new document after the page said it was loaded: a reload or a form POST, which never reach
+         * [shouldOverrideUrlLoading], or anything else that got past it. The creative and its controls are gone
+         * from under an ad that may be on screen: the ad ends, failed. A move within the document (a fragment,
+         * `pushState`) starts no page.
+         */
+        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+            if (state == State.LOADING || state == State.ENDED) return
+            Logger.warning { "frame ${adId.take(8)}: the page replaced itself after it was ready; the ad ends" }
+            view.stopLoading()
+            fail(FrameEvent.Error(if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.PAGE)
+        }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (request.isForMainFrame) loadFailed("webview.${error.errorCode}")

@@ -40,8 +40,12 @@ internal fun VideoAd.startFollowingContent() {
 internal fun VideoAd.contentDidChange(change: ContentPlayback.Change) {
     val playback = owner.get()?.playback ?: return
     if (!followsContent || !wasShown || hasEnded) return
+    if (change == ContentPlayback.Change.Jumped) {
+        contentProgress?.resync(playback.playheadMillis)
+        return
+    }
     if (change == ContentPlayback.Change.ContentChanged) {
-        Logger.info { "ad ${id.take(8)}: the content changed; the overlay ends" }
+        Logger.info { "ad ${id.take(8)}: the content ended or changed; the overlay ends" }
         end(EndReason.INTERRUPTED)
         return
     }
@@ -52,7 +56,7 @@ internal fun VideoAd.contentDidChange(change: ContentPlayback.Change) {
     }
     val progress = contentProgress ?: return
     if (change != ContentPlayback.Change.Tick) return
-    if (progress.advance(playback.playheadMillis, counting = clock?.isCounting == true)) {
+    if (progress.advance(playback.playheadMillis, counting = clock?.isCounting == true, speed = playback.playbackSpeed)) {
         Logger.debug { "ad ${id.take(8)}: overlay duration of ${progress.durationMillis} ms of video elapsed" }
         isCompleted = true
         end(EndReason.COMPLETED)

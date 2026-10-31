@@ -1,0 +1,289 @@
+package so.kontext.video
+
+import android.app.Activity
+import android.graphics.Rect
+import android.os.Looper
+import android.view.View
+import android.widget.FrameLayout
+import androidx.media3.common.FlagSet
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.test.core.app.ApplicationProvider
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.util.ReflectionHelpers
+import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.playback.ContentPlayback
+import so.kontext.video.internal.rendering.AdHostView
+import so.kontext.video.internal.rendering.FrameBridge
+import so.kontext.video.internal.rendering.ViewabilityMeter
+import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.wire.AdPayload
+import so.kontext.video.internal.wire.AdsRequest
+import so.kontext.video.media3.track
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+/**
+ * Where the SDK meets Android: the player, the views, the network and the wire contract. Shown ads here skip
+ * the WebView load: their bridge is told `ad.loaded` directly.
+ */
+@RunWith(RobolectricTestRunner::class)
+class BoundaryTest {
+    private val owners = mutableListOf<VideoAds>()
+
+    @Before fun setup() {
+        Environment.context = ApplicationProvider.getApplicationContext()
+        Environment.assertionFailure = {}
+        Environment.sendBeacon = { _, _ -> }
+        Environment.userAgent = { "test-agent" }
+        Environment.advertisingId = { null }
+        Sdk.configureForTesting(Configuration("test-token"))
+    }
+
+    @After fun teardown() {
+        owners.forEach { it.destroy() }
+        Sdk.resetForTesting()
+        Environment.reset()
+    }
+
+    private fun owner() = VideoAds(Content("ep", "en")).also { owners += it }
+
+    /** A container in a visible window: Robolectric's plain Activity reports its window GONE even after setup. */
+    private fun container(): FrameLayout {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val view = FrameLayout(activity)
+        activity.setContentView(view)
+        view.layout(0, 0, 320, 400)
+        shadowOf(Looper.getMainLooper()).idle()
+        view.layout(0, 0, 320, 400)
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(view, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        return view
+    }
+
+    private fun loaded(payload: AdPayload, owner: VideoAds): VideoAd {
+        val ad = VideoAd(payload, Environment.now(), owner)
+        val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
+        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", FrameBridge.Origin.of(payload.frameUrl), true)
+        ad.loadedBridge = bridge
+        ad.isLoaded = true
+        return ad
+    }
+
+    private fun overlay(owner: VideoAds, duration: String = "null") =
+        loaded(AdPayload.parse(Fixtures.json(Fixtures.overlay(duration = duration, tracking = "[]"))), owner)
+
+    /** A Media3 player that plays, and the listener the adapter registered on it. */
+    private fun media3(): Pair<Player, () -> Player.Listener> {
+        val player = mockk<Player>(relaxed = true)
+        every { player.applicationLooper } returns Looper.getMainLooper()
+        every { player.playWhenReady } returns true
+        every { player.playbackState } returns Player.STATE_READY
+        every { player.playbackSuppressionReason } returns Player.PLAYBACK_SUPPRESSION_REASON_NONE
+        every { player.currentPosition } returns 0
+        val listener = slot<Player.Listener>()
+        every { player.addListener(capture(listener)) } returns Unit
+        return player to { listener.captured }
+    }
+
+    private fun events(event: Int) = Player.Events(FlagSet.Builder().add(event).build())
+
+    @Test fun anotherMediaItemEndsTheOverlayWhileStillPlaying() {
+        val (player, listener) = media3()
+        val owner = owner()
+        owner.track(player)
+        val ad = overlay(owner)
+        ad.show(container())
+        listener().onMediaItemTransition(MediaItem.fromUri("https://media.test/next.mp4"), Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
+        listener().onEvents(player, events(Player.EVENT_MEDIA_ITEM_TRANSITION))
+        assertTrue(ad.hasEnded)
+        assertNull(Sdk.adOnScreen)
+    }
+
+    @Test fun aPauseAndAResumeInOneEventBatchStillEndTheOverlay() {
+        val (player, listener) = media3()
+        val owner = owner()
+        owner.track(player)
+        val ad = overlay(owner)
+        ad.show(container())
+        every { player.playWhenReady } returns true // Media3 reports the batch's final state in its getters
+        listener().onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        listener().onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        listener().onEvents(player, events(Player.EVENT_PLAY_WHEN_READY_CHANGED))
+        assertTrue("the pause is not lost to the batch", ad.hasEnded)
+    }
+
+    @Test fun aMedia3SeekCountsNothingTowardsTheOverlaysDuration() {
+        var now = 0L
+        var position = 0L
+        Environment.now = { now }
+        val (player, listener) = media3()
+        every { player.currentPosition } answers { position }
+        val owner = owner()
+        owner.track(player)
+        val ad = overlay(owner, duration = "500")
+        ad.show(container())
+        // A jump that playback could explain (900 ms in a second): only the seek event tells it apart.
+        now = 1000
+        position = 900
+        listener().onPositionDiscontinuity(mockk(relaxed = true), mockk(relaxed = true), Player.DISCONTINUITY_REASON_SEEK)
+        owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
+        assertFalse(ad.hasEnded)
+        assertEquals(0L, ad.contentProgress!!.elapsedMillis)
+    }
+
+    @Test fun anEndedAdHoldsNoActivity() {
+        val ad = overlay(owner())
+        val container = container()
+        ad.show(container)
+        assertSame(container.context, ad.contextWrapper.baseContext)
+        ad.dismiss()
+        assertNull(ad.loadedBridge)
+        assertSame(Environment.context, ad.contextWrapper.baseContext)
+    }
+
+    @Test fun anEndedLinearAdDropsItsPresentation() {
+        val owner = owner()
+        val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner)
+        ad.show(container().context as Activity)
+        assertTrue(ad.linearPresentation != null)
+        ad.end(VideoAd.EndReason.DESTROYED)
+        assertNull(ad.loadedBridge)
+        assertNull("it captures the bridge and its destroyed WebView", ad.linearPresentation)
+    }
+
+    @Test fun aHostRemovedByTheContainersHookEndsTheAdWithoutAnImpression() {
+        val ad = overlay(owner())
+        var impressions = 0
+        ad.listener = object : VideoAdListener {
+            override fun onAdImpression(ad: VideoAd) {
+                impressions++
+            }
+        }
+        val root = container()
+        val hooking = object : FrameLayout(root.context) {
+            override fun onViewAdded(child: View) {
+                super.onViewAdded(child)
+                if (child is AdHostView) removeView(child)
+            }
+        }
+        root.addView(hooking)
+        hooking.layout(0, 0, 320, 400)
+        ad.show(hooking)
+        assertEquals(0, impressions)
+        assertTrue(ad.hasEnded)
+    }
+
+    @Test fun aScaledViewThatIsFullyVisibleIsFullyExposed() {
+        val container = container()
+        val view = FrameLayout(container.context)
+        container.addView(view)
+        view.layout(100, 100, 300, 300)
+        view.scaleX = 0.5f
+        view.scaleY = 0.5f
+        val (share, visible) = ViewabilityMeter.exposure(view)
+        assertEquals(1.0, share, 0.001)
+        assertEquals("the visible part in the view's own coordinates", Rect(0, 0, 200, 200), visible)
+    }
+
+    @Test fun aClippedViewIsExposedByWhatShows() {
+        val container = container()
+        val view = FrameLayout(container.context)
+        container.addView(view)
+        view.layout(0, 300, 320, 500) // half below the 400 px container
+        val (share, visible) = ViewabilityMeter.exposure(view)
+        assertEquals(0.5, share, 0.01)
+        assertEquals(Rect(0, 0, 320, 100), visible)
+    }
+
+    @Test fun aPhoneIsAPhoneOnTheWire() {
+        assertEquals("phone", DeviceFacts.hardware(Environment.context!!)["type"]!!.jsonPrimitive.content)
+        assertEquals("other", DeviceFacts.contractType("watch"))
+    }
+
+    @Test fun theAdvertisingIdIsAnAaid() = runBlocking {
+        Environment.advertisingId = { "00000000-1111-2222-3333-444444444444" }
+        val request = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", emptyList())
+        val ifa = request.body["ifa"]!!.jsonObject
+        assertEquals("aaid", ifa["type"]!!.jsonPrimitive.content)
+        assertEquals("00000000-1111-2222-3333-444444444444", ifa["id"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun aTricklingAnswerHitsTheWholeCallDeadline() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setBody("""{"answer":123456789}""").throttleBody(1, 40, TimeUnit.MILLISECONDS))
+            val started = System.nanoTime()
+            try {
+                ApiClient(server.url("/").toString(), timeoutMillis = 150).post("config", buildJsonObject {})
+                fail("completed despite the 150 ms deadline")
+            } catch (_: ApiException.Transport) {
+                assertTrue((System.nanoTime() - started) / 1_000_000 < 600)
+            }
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun aCancelledRequestEndsWithoutWaitingForTheServer() = runBlocking {
+        val server = MockWebServer()
+        val arrived = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                arrived.countDown()
+                release.await(5, TimeUnit.SECONDS)
+                return MockResponse().setBody("{}")
+            }
+        }
+        server.start()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val job = scope.async { ApiClient(server.url("/").toString(), 3000).post("config", buildJsonObject {}) }
+            assertTrue(arrived.await(3, TimeUnit.SECONDS))
+            job.cancel()
+            val ended = withTimeoutOrNull(200) {
+                job.join()
+                true
+            } ?: false
+            assertTrue("the job ends before the server answers", ended)
+        } finally {
+            release.countDown()
+            scope.cancel()
+            server.shutdown()
+        }
+    }
+}
