@@ -369,8 +369,11 @@ public class VideoAd internal constructor(
         if (contentPaused) throw VideoAdException.ContentPaused()
     }
 
-    private fun combinedInsets(system: Rect): Rect =
-        Rect(system.left + extraInsets.left, system.top + extraInsets.top, system.right + extraInsets.right, system.bottom + extraInsets.bottom)
+    /** The system's and the app's insets together; saturated, so a huge app inset cannot wrap around to a small one. */
+    private fun combinedInsets(system: Rect): Rect {
+        fun add(a: Int, b: Int) = (a.toLong() + b).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        return Rect(add(system.left, extraInsets.left), add(system.top, extraInsets.top), add(system.right, extraInsets.right), add(system.bottom, extraInsets.bottom))
+    }
 
     /** Picks the variant for the container: the biggest that fits unscaled, else the one shrunk least. Throws `ContainerTooSmall`. */
     private fun chooseSize(width: Int, height: Int, insets: Rect, density: Float) {

@@ -42,11 +42,11 @@ internal object AdPlacement {
 
     fun smallestScale(size: AdPayload.Size): Double = if (size.scalable) MINIMUM_SCALE else 1.0
 
-    /** The smallest view, in pixels and with [insets], that holds [size]. */
+    /** The smallest view, in pixels and with [insets], that holds [size]; at most `Int.MAX_VALUE` for insets that large. */
     fun minimum(size: AdPayload.Size, insets: Rect, density: Float): Pair<Int, Int> {
         val smallest = smallestScale(size)
-        return (ceil(size.width * density * smallest).toInt() + insets.left + insets.right) to
-            (ceil(size.height * density * smallest).toInt() + insets.top + insets.bottom)
+        fun sum(ad: Double, before: Int, after: Int) = (ceil(ad).toLong() + before + after).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        return sum(size.width * density * smallest, insets.left, insets.right) to sum(size.height * density * smallest, insets.top, insets.bottom)
     }
 
     /** Whether the viewer could see [view]: attached, laid out with an area, shown, and nothing on the way transparent. */
