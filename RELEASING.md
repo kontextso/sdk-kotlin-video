@@ -15,7 +15,8 @@
    ```bash
    ./gradlew spotlessCheck detekt assembleDebug :video:testDebug
    ```
-4. Run the example against the mock server and make sure it's OK.
+4. Run the example against the ad server on a device: each of the four videos shows its ad, and the status line
+   shows the impression, then the one end.
 
 ## 2. Update the changelog
 

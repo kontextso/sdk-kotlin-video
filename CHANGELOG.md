@@ -1,7 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
-* First real SDK, the Kotlin twin of sdk-swift-video: `KontextVideo.createSession`, `VideoSession.createAds(videoId, …)` (independent handles, so the next episode's ads load while the current one plays), `VideoAds.load(formats)` over `POST /instream/preload`, one placement object per format — `pause` (banner over the paused player), `overlay` (windowed or manual banners while the episode plays, driven by `playheadMs`), `interstitial` (full-screen video in the SDK's own Activity with a server-driven Close countdown and a MAX-style end card) — each with `isReady` / `show` / `hide` / `load` / `pending`, `ecpm` on every ad, MRC viewability, tracking pings, Custom Tabs click-through, `/init`, and a sealed `VideoAdEvent` stream.
-* Short-drama example app (home grid → fullscreen vertical episode feed) against the mock server.
-* The Samsung TV+ demo that used to live in `example/` moved to [samsung-android-video-demo](https://github.com/kontextso/samsung-android-video-demo).
+In progress.
+
+### Breaking
+A new SDK on the v2 contract, the Android twin of sdk-swift-video 0.2.0; nothing of 0.1.0's API remains.
+
+* `KontextVideo.initialize(context, Configuration(token))` once at launch; `user`, `regulatory`, `variantId`.
+* `VideoAds(content, labels)` per episode; `format(AdFormat)` returns a `VideoAd` (suspend, or a callback for Java);
+  `track(player)` follows the content player (`VideoAdsPlayer`, or a Media3 `Player` with `so.kontext:video-media3`);
+  `destroy()`.
+* `VideoAd`: `price` and `durationMillis` before anything renders, `load()`, `reject(reason)`, `show(container, insets)`
+  for overlay and pause, `show(activity)` for linear, `dismiss()`; `VideoAdListener` with `onAdImpression`,
+  `onAdClicked`, `onAdFailed`, `onAdEnded` (exactly once per show).
+* An overlay lives only while the tracked content plays; its duration counts milliseconds of video.
+* Viewability (MRC), beacons with the IAB and Kontext macros, error and debug reports when the server asks.
+* Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.

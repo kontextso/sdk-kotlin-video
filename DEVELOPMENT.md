@@ -8,60 +8,43 @@ This guide is for contributors working on the Kontext Kotlin Video SDK locally.
 - **Android SDK** with platform 35 installed (Android Studio, or `sdkmanager "platforms;android-35"`)
 - **An Android emulator or physical device** running API 24+ for the example app
 
-Gradle 8.9 is downloaded by the wrapper on first build.
+Gradle 8.11 is downloaded by the wrapper on first build.
 
 ## Repository layout
 
 ```
 sdk-kotlin-video/
-├── video/src/main/kotlin/so/kontext/video/   # SDK source: entry points at the root, then
-│   ├── ads/                                  #   AdPlacement base + one folder per format
-│   ├── model/  network/  tracking/  internal/
-├── video/src/test/                           # JUnit 5 unit tests
-├── example/                                  # Compose short-drama demo app
-├── CLAUDE.md                                 # Claude Code project context
+├── video/src/main/kotlin/so/kontext/video/   # the public API at the root (KontextVideo, VideoAds, VideoAd, …)
+│   └── internal/                             #   everything else: the frame bridge, tracker, meter, wire, …
+├── video/src/test/                           # JUnit 5 and Robolectric tests
+├── video/api/video.api                       # the public API, checked by apiCheck
+├── video-media3/                             # VideoAds.track(Player) for a Media3 player
+├── example/                                  # classic-View demo app: the four formats
+├── AGENTS.md                                 # guidance for coding agents (CLAUDE.md imports it)
 └── RELEASING.md                              # how to cut a release
 ```
 
 ## Building and testing
 
 ```bash
-./gradlew :video:assembleDebug        # build the SDK library
-./gradlew :example:assembleDebug      # build the demo app
-./gradlew :video:testDebug            # unit tests (JUnit 5)
-./gradlew spotlessApply detekt        # format + static analysis (CI runs spotlessCheck)
-./gradlew spotlessCheck detekt assembleDebug :video:testDebug   # the full CI sequence
+./gradlew assembleDebug                       # the SDK, the Media3 adapter and the example
+./gradlew :video:testDebugUnitTest            # unit tests (JUnit 5 and Robolectric)
+./gradlew spotlessApply detekt                # format + static analysis
+./gradlew apiCheck                            # the public API against video/api and video-media3/api
+./gradlew spotlessCheck detekt assembleDebug apiCheck :video:testDebug   # what CI runs
 ```
-
-## Mock ad server
-
-The real `/instream/preload` endpoint does not exist yet. Development runs
-against [sdk-video-mock-server](https://github.com/kontextso/sdk-video-mock-server):
-
-```bash
-git clone git@github.com:kontextso/sdk-video-mock-server.git
-cd sdk-video-mock-server && pnpm i && pnpm dev   # http://localhost:5175, also on the LAN
-```
-
-The example app is pointed at `http://10.0.2.2:5175` (`example/.../Ads.kt`),
-which is the host machine as seen from the emulator; for a physical device use
-the host's LAN IP. Edit the fixtures in the mock repo's `mocks/` to change what
-the app renders.
 
 ## Running the example app
 
+The example talks to the production ad server, whose demo routes answer any token: four videos, one per
+situation, each with its labels.
+
 ```bash
 ./gradlew :example:installDebug
-adb shell am start -n so.kontext.video.example/.MainActivity
+adb shell am start -n so.kontext.video.example/.MainActivity                    # the home screen
+adb shell am start -n so.kontext.video.example/.MainActivity --es video demo-overlay   # one video directly
+adb logcat -s KontextVideo
 ```
 
-For CI/screenshot automation, `--ez auto_open_story true` jumps straight into
-the player; add `--ez auto_pause_loop true` to pause/resume every 3 s so the
-pause → ad → tracking pings → resume → reload cycle shows up in logcat (each
-`shown` carries a different `adId`; the mock server terminal shows the
-`/impression/{bid}/*` pings). The interstitial shows on its own 3 s into the
-first playback of an episode.
-
-```bash
-adb logcat -s VideoExample KontextVideo      # example events + SDK log
-```
+An emulator needs enough memory for ExoPlayer and a WebView at once: give the AVD 4 GB or more (`hw.ramSize` in
+its `config.ini`). With too little, the system swaps and reports the app as not responding.
