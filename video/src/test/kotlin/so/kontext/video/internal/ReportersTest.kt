@@ -36,6 +36,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 class ReportersTest {
     private val server = MockWebServer()
     private val received = ConcurrentLinkedQueue<Pair<String, JsonObject>>()
+    private val errorBodies = ConcurrentLinkedQueue<ByteArray>()
 
     @Volatile private var errorAnswers: MutableList<Int> = mutableListOf()
 
@@ -43,7 +44,9 @@ class ReportersTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.path.orEmpty()
-                received += path to Json.parseToJsonElement(request.body.readUtf8()).jsonObject
+                val bytes = request.body.readByteArray()
+                if (path == "/v2/error") errorBodies += bytes
+                received += path to Json.parseToJsonElement(bytes.decodeToString()).jsonObject
                 val status = if (path == "/v2/error") synchronized(this) { errorAnswers.removeFirstOrNull() } ?: 204 else 204
                 return MockResponse().setResponseCode(status)
             }
@@ -83,8 +86,8 @@ class ReportersTest {
 
     private fun errorBatches() = received.filter { it.first == "/v2/error" }.map { it.second }
 
-    private fun report(code: ErrorReporter.Code = ErrorReporter.Code.CREATIVE_FAILED) =
-        ErrorReporter.report(code, ErrorReporter.Stage.PLAYBACK, adId = "ad-1", vastCode = 405, detail = "x")
+    private fun report(code: ErrorReporter.Code = ErrorReporter.Code.CREATIVE_FAILED, detail: String = "x") =
+        ErrorReporter.report(code, ErrorReporter.Stage.PLAYBACK, adId = "ad-1", vastCode = 405, detail = detail)
 
     @Test fun reportsWaitForConfigAndLeaveTogetherWithTheirHistory() {
         DebugReporter.event("ad.shown", adId = "ad-1", state = mapOf("format" to "overlay", "secret" to "no"))
@@ -121,9 +124,52 @@ class ReportersTest {
         errorAnswers = mutableListOf(500, 503)
         ErrorReporter.configure(true)
         report()
-        await { errorBatches().size >= 3 }
-        val ids = errorBatches().map { it["batchId"]!!.jsonPrimitive.content }
-        assertEquals("the same batch each time", 1, ids.toSet().size)
+        await { errorBatches().size >= 2 }
+        // Reported between the attempts: it waits for the next batch, and changes nothing in this one.
+        report(ErrorReporter.Code.LOAD_TIMEOUT)
+        await { errorBatches().size >= 4 }
+        val attempts = errorBodies.take(3).map { it.decodeToString() }
+        assertEquals("the same body, byte for byte, each time: $attempts", 1, attempts.toSet().size)
+        val next = errorBatches()[3]
+        assertEquals(listOf("ad.load_timeout"), next["errors"]!!.jsonArray.map { it.jsonObject["code"]!!.jsonPrimitive.content })
+    }
+
+    @Test fun theEnvelopeAndSeparatorsCountTowardTheByteLimit() {
+        Environment.now = { 1_000_000 }
+        // Fifty reports of exactly 1310 bytes: 65 500 bytes of reports, within the limit by themselves, not
+        // with the envelope and the commas around them.
+        val target = ErrorReporter.MAX_BATCH_BYTES / ErrorReporter.MAX_BATCH
+        fun sizeOf(detail: String): Int {
+            report(detail = detail)
+            return ErrorReporter.bufferedSizes.last()
+        }
+        var moment = 0
+        while (sizeOf("x") < target - 63) DebugReporter.event("m${moment++}") // a moment adds under 64 bytes
+        val detail = "x".repeat(target - sizeOf("x") + 1)
+        ErrorReporter.resetForTesting()
+        ErrorReporter.intervalMillis = 10
+        repeat(ErrorReporter.MAX_BATCH) { report(detail = detail) }
+        assertEquals(List(ErrorReporter.MAX_BATCH) { target }, ErrorReporter.bufferedSizes)
+        ErrorReporter.configure(true)
+        await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ErrorReporter.MAX_BATCH }
+        val sizes = errorBodies.map { it.size }
+        assertTrue("each whole body within ${ErrorReporter.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ErrorReporter.MAX_BATCH_BYTES })
+        assertEquals("what did not fit went in the next batch: $sizes", 2, sizes.size)
+    }
+
+    @Test fun everyBatchFitsItsByteLimitWholeAndNoReportIsLost() {
+        // The history every report carries, at its longest: thirty moments.
+        repeat(30) { DebugReporter.event("ad.shown", adId = "ad-$it-0123456789abcdef", state = mapOf("format" to "overlay")) }
+        val count = 60 // about 3.7 KB each: all within the 256 KB buffer, about four batches
+        repeat(count) { report() }
+        assertEquals("all buffered", count, ErrorReporter.bufferedCount)
+        ErrorReporter.configure(true)
+        await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == count }
+        val sizes = errorBodies.map { it.size }
+        assertTrue("several batches: the byte limit decides, $sizes", sizes.size > 2)
+        assertTrue("each whole body within ${ErrorReporter.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ErrorReporter.MAX_BATCH_BYTES })
+        assertTrue("and filled close to it: $sizes", sizes.first() > ErrorReporter.MAX_BATCH_BYTES - 4_096)
+        assertEquals(0, errorBatches().sumOf { it["dropped"]!!.jsonPrimitive.int })
     }
 
     @Test fun goneStopsReportingForTheLaunch() {

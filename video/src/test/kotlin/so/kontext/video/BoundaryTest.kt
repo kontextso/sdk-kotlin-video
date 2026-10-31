@@ -259,12 +259,17 @@ class BoundaryTest {
         ad.show(host)
         val started = shadowOf(host).nextStartedActivity
         // The screen is created and started (it attaches the page) but never resumed.
-        Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, started).create().start()
+        val screen = Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, started).create().start()
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1_500))
         assertTrue(ad.hasEnded)
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
         assertNull(Sdk.adOnScreen)
-        assertEquals(listOf(VideoAd.EndReason.FAILED), reasons.take(1))
+        assertEquals(listOf(VideoAd.EndReason.FAILED), reasons)
+        // The screen comes to the front after all, then goes: the ad ended once and stays ended.
+        screen.resume().pause().stop().destroy()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(3_000))
+        assertEquals(listOf(VideoAd.EndReason.FAILED), reasons)
+        assertNull(Sdk.adOnScreen)
     }
 
     @Test fun aLinearScreenThatNeverClosesIsReported() {

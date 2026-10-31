@@ -92,7 +92,11 @@ internal object ErrorReporter {
     private val buffer = ArrayDeque<Pair<JsonObject, Int>>()
     private var bufferedBytes = 0
     private var dropped = 0
-    private var pendingBatch: Triple<String, Int, List<JsonObject>>? = null
+
+    /** The batch being delivered: its finished body, sent unchanged until the server answers it. */
+    private var pendingBatch: Batch? = null
+
+    private class Batch(val body: JsonObject, val count: Int)
     private var failures = 0
     private var flushJob: Job? = null
 
@@ -197,6 +201,9 @@ internal object ErrorReporter {
     /** Reports waiting, for tests. */
     val bufferedCount: Int get() = buffer.size
 
+    /** The encoded sizes of the reports waiting, for tests. */
+    val bufferedSizes: List<Int> get() = buffer.map { it.second }
+
     /** The codes of the reports waiting, for tests. */
     val bufferedCodes: List<String> get() = buffer.map { it.first["code"].toString().trim('"') }
 
@@ -246,40 +253,9 @@ internal object ErrorReporter {
         val configuration = Sdk.configuration ?: return true
         val context = Environment.context ?: return true
         if (mode != Mode.ON) return true
-        val batch = pendingBatch ?: run {
-            if (buffer.isEmpty()) return true
-            val reports = mutableListOf<JsonObject>()
-            var bytes = 0
-            while (buffer.isNotEmpty() && reports.size < MAX_BATCH && (reports.isEmpty() || bytes + buffer.first().second <= MAX_BATCH_BYTES)) {
-                val (report, size) = buffer.removeFirst()
-                reports += report
-                bytes += size
-            }
-            bufferedBytes -= bytes
-            Triple(UUID.randomUUID().toString(), dropped, reports.toList()).also {
-                dropped = 0
-                pendingBatch = it
-            }
-        }
-        val os = DeviceFacts.os(context)
-        val body = buildJsonObject {
-            put("batchId", batch.first)
-            put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceFacts.installId(context))
-            put("sdk", DeviceFacts.sdk())
-            put("app", DeviceFacts.app(context))
-            put(
-                "os",
-                buildJsonObject {
-                    os["name"]?.let { put("name", it) }
-                    os["version"]?.let { put("version", it) }
-                },
-            )
-            put("dropped", batch.second)
-            put("errors", JsonArray(batch.third))
-        }
+        val batch = pendingBatch ?: makeBatch(configuration, context) ?: return true
         return try {
-            ApiClient(configuration.adServerUrl).post("error", body)
+            ApiClient(configuration.adServerUrl).post("error", batch.body)
             pendingBatch = null
             failures = 0
             true
@@ -291,7 +267,7 @@ internal object ErrorReporter {
                 turnOff()
                 true
             } else if (error.status in 400..499 && error.status != 429) {
-                Logger.debug { "error batch of ${batch.third.size} refused with ${error.status}, dropped" }
+                Logger.debug { "error batch of ${batch.count} refused with ${error.status}, dropped" }
                 pendingBatch = null
                 true
             } else {
@@ -299,9 +275,56 @@ internal object ErrorReporter {
                 false
             }
         } catch (error: Exception) {
-            Logger.debug { "error batch of ${batch.third.size} not delivered: ${error.message}" }
+            Logger.debug { "error batch of ${batch.count} not delivered: ${error.message}" }
             failures += 1
             false
+        }
+    }
+
+    /**
+     * The next batch from the buffer: the oldest reports whose whole body, envelope and separators included,
+     * stays within [MAX_BATCH_BYTES]; the rest wait for the next one. A report that does not fit even alone is
+     * dropped and counted. `null` when nothing is left to send.
+     */
+    private fun makeBatch(configuration: so.kontext.video.Configuration, context: android.content.Context): Batch? {
+        val batchId = UUID.randomUUID().toString()
+        val os = DeviceFacts.os(context)
+        fun body(errors: List<JsonObject>, dropped: Int) = buildJsonObject {
+            put("batchId", batchId)
+            put("publisherToken", configuration.publisherToken)
+            put("installId", DeviceFacts.installId(context))
+            put("sdk", DeviceFacts.sdk())
+            put("app", DeviceFacts.app(context))
+            put(
+                "os",
+                buildJsonObject {
+                    os["name"]?.let { put("name", it) }
+                    os["version"]?.let { put("version", it) }
+                },
+            )
+            put("dropped", dropped)
+            put("errors", JsonArray(errors))
+        }
+        // The empty envelope, its `dropped` as large as it can get while this batch is made.
+        var bytes = body(emptyList(), dropped + buffer.size).toString().toByteArray().size
+        val reports = mutableListOf<JsonObject>()
+        while (buffer.isNotEmpty() && reports.size < MAX_BATCH) {
+            val (report, size) = buffer.first()
+            val added = size + if (reports.isEmpty()) 0 else 1 // the comma before it
+            if (bytes + added > MAX_BATCH_BYTES && reports.isNotEmpty()) break
+            buffer.removeFirst()
+            bufferedBytes -= size
+            if (bytes + added > MAX_BATCH_BYTES) {
+                dropped += 1
+                continue
+            }
+            reports += report
+            bytes += added
+        }
+        if (reports.isEmpty()) return null
+        return Batch(body(reports, dropped), reports.size).also {
+            dropped = 0
+            pendingBatch = it
         }
     }
 }
