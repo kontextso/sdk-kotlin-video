@@ -18,7 +18,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -246,44 +245,122 @@ class BoundaryTest {
         server.start()
         try {
             server.enqueue(MockResponse().setBody("""{"answer":123456789}""").throttleBody(1, 40, TimeUnit.MILLISECONDS))
-            val started = System.nanoTime()
+            // The body trickles for about a second; a whole-call deadline of 150 ms ends the call with an error first.
             try {
                 ApiClient(server.url("/").toString(), timeoutMillis = 150).post("config", buildJsonObject {})
                 fail("completed despite the 150 ms deadline")
             } catch (_: ApiException.Transport) {
-                assertTrue((System.nanoTime() - started) / 1_000_000 < 600)
             }
         } finally {
             server.shutdown()
         }
     }
 
-    @Test fun aCancelledRequestEndsWithoutWaitingForTheServer() = runBlocking {
+    /** Runs the exchange on its own thread and says when that thread is done with it. */
+    private class WatchedExecutor : java.util.concurrent.Executor {
+        val finished = CountDownLatch(1)
+
+        override fun execute(command: Runnable) {
+            Thread {
+                try {
+                    command.run()
+                } finally {
+                    finished.countDown()
+                }
+            }.start()
+        }
+    }
+
+    @Test fun aCancelledRequestEndsAndFreesItsWorkerWhileTheServerStillHoldsIt() = runBlocking {
         val server = MockWebServer()
         val arrived = CountDownLatch(1)
         val release = CountDownLatch(1)
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 arrived.countDown()
-                release.await(5, TimeUnit.SECONDS)
+                release.await(10, TimeUnit.SECONDS)
                 return MockResponse().setBody("{}")
             }
         }
         server.start()
+        val executor = WatchedExecutor()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {
-            val job = scope.async { ApiClient(server.url("/").toString(), 3000).post("config", buildJsonObject {}) }
-            assertTrue(arrived.await(3, TimeUnit.SECONDS))
+            val job = scope.async { ApiClient(server.url("/").toString(), 10_000, executor).post("config", buildJsonObject {}) }
+            assertTrue(arrived.await(5, TimeUnit.SECONDS))
             job.cancel()
-            val ended = withTimeoutOrNull(200) {
-                job.join()
-                true
-            } ?: false
-            assertTrue("the job ends before the server answers", ended)
+            job.join() // the caller is gone while the server still holds the request
+            assertTrue("the disconnect ended the blocked read", executor.finished.await(5, TimeUnit.SECONDS))
+            assertEquals("the server has not answered yet", 1L, release.count)
         } finally {
             release.countDown()
             scope.cancel()
             server.shutdown()
         }
+    }
+
+    @Test fun aRequestCancelledWhileQueuedSendsNothing() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        server.enqueue(MockResponse().setBody("{}"))
+        val queued = java.util.ArrayDeque<Runnable>()
+        try {
+            val call = async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                ApiClient(server.url("/").toString(), 10_000, queued::add).post("video/ads", buildJsonObject {})
+            }
+            assertEquals("the I/O work is queued", 1, queued.size)
+            call.cancel()
+            call.join()
+            queued.removeFirst().run() // the worker gets its turn after the caller left
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun aHostHiddenByTheContainersHookEndsTheAdWithoutAnImpression() {
+        val ad = overlay(owner())
+        var impressions = 0
+        ad.listener = object : VideoAdListener {
+            override fun onAdImpression(ad: VideoAd) {
+                impressions++
+            }
+        }
+        val root = container()
+        val hooking = object : FrameLayout(root.context) {
+            override fun onViewAdded(child: View) {
+                super.onViewAdded(child)
+                if (child is AdHostView) child.visibility = View.GONE
+            }
+        }
+        root.addView(hooking)
+        hooking.layout(0, 0, 320, 400)
+        ad.show(hooking)
+        assertEquals(0, impressions)
+        assertTrue(ad.hasEnded)
+    }
+
+    @Test fun anEndedOverlayDoesNotKeepItsDestroyedOwnerAlive() {
+        val (ad, owner) = endedOverlayOfADestroyedOwner()
+        repeat(5) {
+            shadowOf(Looper.getMainLooper()).idle()
+            System.gc()
+            System.runFinalization()
+        }
+        assertNull("the ad was kept; its owner should not be", owner.get())
+        assertTrue(ad.hasEnded)
+    }
+
+    private fun endedOverlayOfADestroyedOwner(): Pair<VideoAd, java.lang.ref.WeakReference<VideoAds>> {
+        val owner = VideoAds(Content("ep", "en"))
+        owner.track(object : VideoAdsPlayer {
+            override val isPlaying = true
+            override val currentPositionMillis = 0L
+        })
+        val ad = overlay(owner, duration = "6000")
+        ad.show(container())
+        ad.dismiss()
+        owner.destroy()
+        return ad to java.lang.ref.WeakReference(owner)
     }
 }

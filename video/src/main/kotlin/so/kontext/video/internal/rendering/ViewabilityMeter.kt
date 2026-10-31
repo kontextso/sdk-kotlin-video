@@ -2,12 +2,15 @@ package so.kontext.video.internal.rendering
 
 import android.graphics.Matrix
 import android.graphics.Rect
-import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
 import so.kontext.video.internal.support.Environment
 import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * Measures how much of an ad's view is on screen while it is shown, and decides the one viewability event:
@@ -129,33 +132,119 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         const val THRESHOLD = 0.5
 
         /**
-         * The share of [view] the viewer can see and that part in the view's coordinates: clipped by the window
-         * and every ancestor (`getGlobalVisibleRect`); nothing when it or an ancestor is not shown or transparent,
-         * or its window is not visible. Overlap by sibling views is not seen; nothing cheap sees it.
+         * The share of [view] the viewer can see, and that part's bounding rectangle in the view's own pixels: its
+         * outline, transformed to the root's coordinates, cut by the window and by every ancestor that clips its
+         * children. Measured on the actual shapes, not on rectangles: a rotated view or ancestor turns a rectangle
+         * into a rotated one, whose bounding box would overstate what is seen. Nothing when it or an ancestor is
+         * not shown or transparent, or its window is not visible. Overlap by sibling views is not seen; nothing
+         * cheap sees it.
          */
         fun exposure(view: View): Pair<Double, Rect> {
-            if (!view.isShown || view.windowVisibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return 0.0 to Rect()
+            if (isHidden(view)) return 0.0 to Rect()
+            val toRoot = transformToRoot(view)
+            val outline = corners(view.width.toFloat(), view.height.toFloat()).also(toRoot::mapPoints)
+            val whole = area(outline)
+            if (whole <= 0) return 0.0 to Rect()
+            val visible = clippedByAncestors(view, outline)
+            val seen = area(visible)
+            if (seen <= 0) return 0.0 to Rect()
+            // The visible part back in the view's own coordinates, for the page.
+            val inView = visible.copyOf().also(Matrix().also { toRoot.invert(it) }::mapPoints)
+            val xs = inView.filterIndexed { index, _ -> index % 2 == 0 }
+            val ys = inView.filterIndexed { index, _ -> index % 2 == 1 }
+            val box = Rect(floor(xs.min()).toInt(), floor(ys.min()).toInt(), ceil(xs.max()).toInt(), ceil(ys.max()).toInt())
+            if (!box.intersect(0, 0, view.width, view.height)) box.setEmpty()
+            return (seen / whole).coerceIn(0.0, 1.0) to box
+        }
+
+        /** Not shown, without an area, in a window that is not visible, or transparent on the way to the root. */
+        private fun isHidden(view: View): Boolean {
+            if (!view.isShown || view.windowVisibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return true
             var node: Any? = view
             while (node is View) {
-                if (node.alpha <= 0.01f) return 0.0 to Rect()
+                if (node.alpha <= 0.01f) return true
                 node = node.parent
             }
-            val global = Rect()
-            if (!view.getGlobalVisibleRect(global)) return 0.0 to Rect()
-            // Both areas in the root view's coordinates, where a scaled or rotated view and its visible part are
-            // measured alike: the view's own size would overstate the whole of a view scaled down.
-            val toRoot = transformToRoot(view)
-            val whole = RectF(0f, 0f, view.width.toFloat(), view.height.toFloat()).also(toRoot::mapRect)
-            val wholeArea = whole.width().toDouble() * whole.height()
-            if (wholeArea <= 0) return 0.0 to Rect()
-            val seen = global.width().toDouble() * global.height()
-            // The visible part back in the view's own coordinates, for the page.
-            val toView = Matrix().also { toRoot.invert(it) }
-            val inView = RectF(global).also(toView::mapRect)
-            val visible = Rect()
-            inView.roundOut(visible)
-            if (!visible.intersect(0, 0, view.width, view.height)) visible.setEmpty()
-            return (seen / wholeArea).coerceIn(0.0, 1.0) to visible
+            return false
+        }
+
+        /** [outline], in the root's coordinates, cut by the window and by every ancestor that clips its children. */
+        private fun clippedByAncestors(view: View, outline: FloatArray): FloatArray {
+            val root = view.rootView
+            var visible = clip(outline, corners(root.width.toFloat(), root.height.toFloat()))
+            var child: View = view
+            while (visible.size >= 6) {
+                val parent = child.parent as? ViewGroup ?: break
+                if (parent.clipChildren) {
+                    visible = clip(visible, corners(parent.width.toFloat(), parent.height.toFloat()).also(transformToRoot(parent)::mapPoints))
+                }
+                child = parent
+            }
+            return visible
+        }
+
+        /** A width×height rectangle at the origin as a polygon: x0, y0, x1, y1, … */
+        private fun corners(width: Float, height: Float) = floatArrayOf(0f, 0f, width, 0f, width, height, 0f, height)
+
+        /** The area of a polygon (shoelace formula), whatever its winding. */
+        private fun area(polygon: FloatArray): Double = abs(signedArea(polygon))
+
+        private fun signedArea(polygon: FloatArray): Double {
+            val count = polygon.size / 2
+            if (count < 3) return 0.0
+            var twice = 0.0
+            for (index in 0 until count) {
+                val next = (index + 1) % count
+                twice += polygon[index * 2].toDouble() * polygon[next * 2 + 1] - polygon[next * 2].toDouble() * polygon[index * 2 + 1]
+            }
+            return twice / 2
+        }
+
+        /**
+         * [subject] cut by the convex polygon [clipper] (Sutherland–Hodgman). Every outline here is the image of a
+         * rectangle under an affine transform, so the clipper is always convex.
+         */
+        private fun clip(subject: FloatArray, clipper: FloatArray): FloatArray {
+            val clipCount = clipper.size / 2
+            if (clipCount < 3) return FloatArray(0)
+            // The clipper's winding decides which side of each edge is inside.
+            val sign = if (signedArea(clipper) >= 0) 1.0 else -1.0
+            var output = subject
+            for (edge in 0 until clipCount) {
+                if (output.isEmpty()) break
+                val next = (edge + 1) % clipCount
+                output = clipByEdge(output, clipper[edge * 2], clipper[edge * 2 + 1], clipper[next * 2], clipper[next * 2 + 1], sign)
+            }
+            return output
+        }
+
+        /** [input] less what lies outside the edge a→b. */
+        private fun clipByEdge(input: FloatArray, ax: Float, ay: Float, bx: Float, by: Float, sign: Double): FloatArray {
+            val inside = { x: Double, y: Double -> sign * ((bx - ax) * (y - ay) - (by - ay) * (x - ax)) >= 0 }
+            val output = mutableListOf<Float>()
+            val count = input.size / 2
+            for (index in 0 until count) {
+                val cx = input[index * 2].toDouble()
+                val cy = input[index * 2 + 1].toDouble()
+                val previous = (index + count - 1) % count
+                val px = input[previous * 2].toDouble()
+                val py = input[previous * 2 + 1].toDouble()
+                val currentIn = inside(cx, cy)
+                if (currentIn != inside(px, py)) {
+                    // Where the segment previous→current crosses the edge's line.
+                    val dx = cx - px
+                    val dy = cy - py
+                    val denominator = dx * (by - ay) - dy * (bx - ax)
+                    val t = if (abs(denominator) < 1e-12) 1.0 else ((ax - px) * (by - ay) - (ay - py) * (bx - ax)) / denominator
+                    output += (px + t * dx).toFloat()
+                    output += (py + t * dy).toFloat()
+                }
+                if (currentIn) {
+                    output += cx.toFloat()
+                    output += cy.toFloat()
+                }
+            }
+            return output.toFloatArray()
         }
     }
 }

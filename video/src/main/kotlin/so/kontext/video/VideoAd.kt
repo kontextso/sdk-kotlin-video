@@ -270,7 +270,7 @@ public class VideoAd internal constructor(
         hostView = host
         container.addView(host)
         // The container's own hook may have removed the host, or taken the container off screen.
-        if (!hasEnded && (host.parent !== container || !AdPlacement.canBeSeen(container))) {
+        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || host.alpha <= 0.01f || !AdPlacement.canBeSeen(container))) {
             Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
             end(EndReason.INTERRUPTED)
             return
@@ -514,6 +514,9 @@ public class VideoAd internal constructor(
         if (reason == EndReason.FAILED) failure?.let { listener?.onAdFailed(this, it) }
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
         val activeTime = clock?.stop() ?: 0
+        // The stopped clock's callback reaches the owner's playback: an ended ad an app keeps must not keep its VideoAds.
+        clock?.onActivate = null
+        clock = null
         meter?.stop()
         meter = null
         loadedBridge?.hide()

@@ -13,10 +13,16 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
+import java.util.concurrent.Executor
 import kotlin.coroutines.coroutineContext
 
 /** Sends JSON requests to the ad server's `/v2/` routes, off the main thread. */
-internal class ApiClient(private val baseUrl: String, private val timeoutMillis: Int = DEFAULT_TIMEOUT_MILLIS) {
+internal class ApiClient(
+    private val baseUrl: String,
+    private val timeoutMillis: Int = DEFAULT_TIMEOUT_MILLIS,
+    /** Where the blocking exchange runs; tests pass their own to see the worker start and finish. */
+    private val executor: Executor = Dispatchers.IO.asExecutor(),
+) {
     /**
      * POSTs [body] to `v2/[path]` and returns the parsed answer, or `null` for an empty body. [timeoutMillis]
      * bounds the whole call, connection to last byte: the socket timeouts alone are idle timeouts, and a server
@@ -49,7 +55,10 @@ internal class ApiClient(private val baseUrl: String, private val timeoutMillis:
     private suspend fun exchange(connection: HttpURLConnection, bytes: ByteArray): Pair<Int, String> =
         suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { connection.disconnect() }
-            Dispatchers.IO.asExecutor().execute {
+            executor.execute {
+                // Queued behind other work while the caller was cancelled: nothing is sent at all. (A disconnect
+                // before the connection exists would not stop the connect that follows.)
+                if (!continuation.isActive) return@execute
                 val result = try {
                     connection.requestMethod = "POST"
                     connection.connectTimeout = timeoutMillis
