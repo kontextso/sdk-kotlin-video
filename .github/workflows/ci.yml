@@ -73,3 +73,50 @@ jobs:
           name: test-reports
           path: '**/build/reports/tests/'
           retention-days: 7
+
+  emulator-tests:
+    name: Emulator Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # Hardware acceleration for the emulator on GitHub's Linux runners.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # What needs a real WebView: the frame page's navigations, a frozen renderer, viewability on real views.
+      - name: Run the emulator tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: ./gradlew :video:connectedDebugAndroidTest
+
+      - name: Upload emulator test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: emulator-test-reports
+          path: video/build/reports/androidTests/
+          retention-days: 7
