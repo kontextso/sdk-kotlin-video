@@ -18,7 +18,7 @@ internal object Consent {
             context.getSharedPreferences(context.packageName + "_preferences", Context.MODE_PRIVATE)
         }.getOrNull()
         val gpp = preferences?.string("IABGPP_HDR_GppString")
-        val gppSid = preferences?.string("IABGPP_GppSID")?.let(::parseSections)
+        val gppSid = preferences?.let { sections(runCatching { it.all["IABGPP_GppSID"] }.getOrNull()) }
         val usPrivacy = preferences?.string("IABUSPrivacy_String")
         val merged = Regulatory.Builder()
             .gdpr(tcf?.gdpr?.let { it == 1 } ?: explicit?.gdpr)
@@ -33,9 +33,17 @@ internal object Consent {
         return if (empty) null else merged
     }
 
-    /** `"2_7"`, as a CMP writes the section ids; `null` when any part is not a number. */
+    /** `IABGPP_GppSID` as CMPs write it: `"2_7"`, `"2,7"`, or one section stored as a number. */
+    private fun sections(raw: Any?): List<Int>? = when (raw) {
+        is Int -> listOf(raw)
+        is Long -> raw.toInt().takeIf { it.toLong() == raw }?.let(::listOf)
+        is String -> raw.takeIf { it.isNotBlank() }?.let(::parseSections)
+        else -> null
+    }
+
+    /** `"2_7"` (or `"2,7"`), as a CMP writes the section ids; `null` when any part is not a number. */
     fun parseSections(raw: String): List<Int>? =
-        raw.split('_').map { it.trim().toIntOrNull() ?: return null }.takeIf { it.isNotEmpty() }
+        raw.split('_', ',').map { it.trim().toIntOrNull() ?: return null }.takeIf { it.isNotEmpty() }
 
     private fun android.content.SharedPreferences.string(key: String): String? =
         runCatching { getString(key, null) }.getOrNull()?.takeIf { it.isNotBlank() }

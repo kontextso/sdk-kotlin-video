@@ -134,7 +134,9 @@ internal class AdPayload(
                 val height = size.long("height") ?: invalid("ad $id: size.height")
                 // Positive, and no larger than any screen could be.
                 if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) invalid("ad $id: a size must be positive and at most $MAX_SIDE")
-                Size(width.toInt(), height.toInt(), size.bool("scalable") ?: true)
+                // Absent is scalable; a flag of the wrong type is a malformed size, not a guess.
+                val scalable = if (size.has("scalable")) size.bool("scalable") ?: invalid("ad $id: size.scalable") else true
+                Size(width.toInt(), height.toInt(), scalable)
             } ?: invalid("ad $id: sizes")
             if (sizes.isEmpty()) invalid("ad $id: sizes must have at least one entry")
             return sizes
