@@ -33,7 +33,16 @@ sdk-kotlin-video/
 ./gradlew apiCheck                            # the public API against video/api and video-media3/api
 ./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
 ./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
-./gradlew spotlessCheck detekt assembleDebug apiCheck :video:testDebug   # what CI runs
+./gradlew spotlessCheck detekt assembleDebug apiCheck :video:testDebug   # what CI runs, with the two below
+```
+
+The publisher app (`extras/publisher-app`) is a separate build that sees only the published artifacts, as a
+publisher's app does, and minifies them with R8. Its log (tag `PublisherApp`) shows an overlay requested,
+loaded and shown:
+
+```bash
+./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal
+./gradlew -p extras/publisher-app assembleRelease   # or installRelease, on a running emulator
 ```
 
 ## Running the example app

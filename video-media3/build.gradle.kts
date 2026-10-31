@@ -62,7 +62,8 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    signAllPublications()
+    // The release passes the key; a local publish (publishToMavenLocal, the publisher-app check) has none.
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) signAllPublications()
 
     coordinates(
         groupId = group.toString(),
