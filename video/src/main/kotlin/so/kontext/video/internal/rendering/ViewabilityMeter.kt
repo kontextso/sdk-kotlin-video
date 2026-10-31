@@ -175,12 +175,28 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             var child: View = view
             while (visible.size >= 6) {
                 val parent = child.parent as? ViewGroup ?: break
+                val toRoot by lazy { transformToRoot(parent) }
                 if (parent.clipChildren) {
-                    visible = clip(visible, corners(parent.width.toFloat(), parent.height.toFloat()).also(transformToRoot(parent)::mapPoints))
+                    visible = clip(visible, corners(parent.width.toFloat(), parent.height.toFloat()).also(toRoot::mapPoints))
+                }
+                // Its children draw inside its padding too (clipToPadding, on by default), whatever clipChildren says.
+                if (parent.clipToPadding && (parent.paddingLeft or parent.paddingTop or parent.paddingRight or parent.paddingBottom) != 0) {
+                    visible = clip(visible, paddedArea(parent).also(toRoot::mapPoints))
                 }
                 child = parent
             }
             return visible
+        }
+
+        /** [group]'s area inside its padding, as a polygon in its own coordinates. */
+        private fun paddedArea(group: ViewGroup): FloatArray {
+            val left = group.paddingLeft.toFloat()
+            val top = group.paddingTop.toFloat()
+            val right = (group.width - group.paddingRight).toFloat()
+            val bottom = (group.height - group.paddingBottom).toFloat()
+            // Padding that leaves no room clips everything.
+            if (right <= left || bottom <= top) return FloatArray(0)
+            return floatArrayOf(left, top, right, top, right, bottom, left, bottom)
         }
 
         /** A width×height rectangle at the origin as a polygon: x0, y0, x1, y1, … */

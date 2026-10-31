@@ -42,6 +42,7 @@ internal object ErrorReporter {
         PROCESS_TERMINATED("frame.process_terminated"),
         PROTOCOL_VIOLATION("frame.protocol_violation"),
         PRESENTATION_FAILED("ad.presentation_failed"),
+        DISMISSAL_TIMED_OUT("ad.dismissal_timed_out"),
         EMPTY_TOKEN("integration.empty_token"),
         BAD_SERVER_URL("integration.bad_server_url"),
         NOT_INITIALIZED("integration.not_initialized"),
@@ -57,6 +58,9 @@ internal object ErrorReporter {
         NO_AD("no_ad"),
         AD_ENDED_FAILED("ad_ended_failed"),
         AD_DROPPED_BEFORE_SHOW("ad_dropped_before_show"),
+
+        /** The system never finished; `onAdEnded` was delivered anyway. */
+        DID_END_DELIVERED("did_end_delivered"),
     }
 
     /** A request's failure as the report's fields: an HTTP status, or the exception's class with `network`. */
@@ -191,6 +195,9 @@ internal object ErrorReporter {
 
     /** Reports waiting, for tests. */
     val bufferedCount: Int get() = buffer.size
+
+    /** The codes of the reports waiting, for tests. */
+    val bufferedCodes: List<String> get() = buffer.map { it.first["code"].toString().trim('"') }
 
     fun resetForTesting() {
         flushJob?.cancel()

@@ -73,6 +73,8 @@ class BoundaryTest {
     }
 
     @After fun teardown() {
+        VideoAd.presentationTimeoutMillis = 5_000
+        VideoAd.dismissalTimeoutMillis = 2_000
         owners.forEach { it.destroy() }
         Sdk.resetForTesting()
         Environment.reset()
@@ -225,6 +227,64 @@ class BoundaryTest {
         val (share, visible) = ViewabilityMeter.exposure(view)
         assertEquals(0.5, share, 0.01)
         assertEquals(Rect(0, 0, 320, 100), visible)
+    }
+
+    @Test fun aParentsPaddingClipsTheCreative() {
+        val container = container()
+        val padded = FrameLayout(container.context).apply {
+            setPadding(60, 60, 60, 60)
+            clipChildren = false // padding clips on its own, as Android draws it
+        }
+        container.addView(padded)
+        padded.layout(0, 0, 200, 200)
+        val view = FrameLayout(container.context)
+        padded.addView(view)
+        view.layout(0, 0, 200, 200)
+        val (share, visible) = ViewabilityMeter.exposure(view)
+        assertEquals("80×80 of 200×200", 0.16, share, 0.001)
+        assertEquals(Rect(60, 60, 140, 140), visible)
+    }
+
+    @Test fun aLinearScreenThatNeverComesToTheFrontEndsTheAd() {
+        VideoAd.presentationTimeoutMillis = 1_000
+        VideoAd.dismissalTimeoutMillis = 300 // the failed screen is finished; Robolectric never destroys it
+        val host = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner())
+        val reasons = mutableListOf<VideoAd.EndReason>()
+        ad.listener = object : VideoAdListener {
+            override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                reasons += reason
+            }
+        }
+        ad.show(host)
+        val started = shadowOf(host).nextStartedActivity
+        // The screen is created and started (it attaches the page) but never resumed.
+        Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, started).create().start()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1_500))
+        assertTrue(ad.hasEnded)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
+        assertNull(Sdk.adOnScreen)
+        assertEquals(listOf(VideoAd.EndReason.FAILED), reasons.take(1))
+    }
+
+    @Test fun aLinearScreenThatNeverClosesIsReported() {
+        VideoAd.dismissalTimeoutMillis = 500
+        val host = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner())
+        var ended = false
+        ad.listener = object : VideoAdListener {
+            override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                ended = true
+            }
+        }
+        ad.show(host)
+        // Created and resumed, so presented; Robolectric then never destroys it after finish().
+        Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
+        ad.end(VideoAd.EndReason.CLOSED)
+        assertFalse("waits for the screen to close", ended)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(700))
+        assertTrue("delivered anyway", ended)
+        assertTrue(so.kontext.video.internal.support.ErrorReporter.bufferedCodes.contains("ad.dismissal_timed_out"))
     }
 
     @Test fun aPhoneIsAPhoneOnTheWire() {

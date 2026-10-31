@@ -1,4 +1,6 @@
 plugins {
+    // Registers JaCoCo on every test task, so the Robolectric setting below has somewhere to go.
+    jacoco
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.maven.publish)
@@ -37,6 +39,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // `./gradlew :video:createDebugUnitTestCoverageReport`: JaCoCo over the unit tests.
+            enableUnitTestCoverage = true
+        }
         release {
             // SDK doesn't minify itself — the consuming app's R8 pass
             // does that with full visibility into what's used.
@@ -174,4 +180,12 @@ dependencies {
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+}
+
+// Robolectric loads the SDK's classes through its own class loader; JaCoCo counts them only with this.
+tasks.withType<Test>().configureEach {
+    extensions.configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
 }

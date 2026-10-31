@@ -31,6 +31,8 @@ sdk-kotlin-video/
 ./gradlew :video:testDebugUnitTest            # unit tests (JUnit 5 and Robolectric)
 ./gradlew spotlessApply detekt                # format + static analysis
 ./gradlew apiCheck                            # the public API against video/api and video-media3/api
+./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
+./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
 ./gradlew spotlessCheck detekt assembleDebug apiCheck :video:testDebug   # what CI runs
 ```
 

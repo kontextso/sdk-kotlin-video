@@ -329,8 +329,12 @@ public class VideoAd internal constructor(
         // A screen that never starts (the system refused it) must not hold the slot forever.
         owner.get()?.scope?.launch {
             delay(presentationTimeoutMillis)
-            if (hasEnded || linearScreen != null) return@launch
-            Logger.error { "ad ${id.take(8)}: the linear ad's screen did not start; ended as failed" }
+            // Presented, not merely created: a screen that attached but never came to the front (started, never
+            // resumed) would otherwise hold the slot for good.
+            if (hasEnded || isPresented) return@launch
+            Logger.error {
+                "ad ${id.take(8)}: the linear ad's screen ${if (linearScreen == null) "did not start" else "never came to the front"}; ended as failed"
+            }
             LinearAdActivity.forget(presentation)
             ErrorReporter.report(
                 ErrorReporter.Code.PRESENTATION_FAILED,
@@ -540,6 +544,14 @@ public class VideoAd internal constructor(
                 delay(dismissalTimeoutMillis)
                 if (!finished) {
                     Logger.error { "ad ${id.take(8)}: the linear ad's screen did not close in ${dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
+                    DebugReporter.event("ad.dismissalTimedOut", adId = id, level = DebugReporter.Level.WARNING)
+                    ErrorReporter.report(
+                        ErrorReporter.Code.DISMISSAL_TIMED_OUT,
+                        ErrorReporter.Stage.PRESENTATION,
+                        sessionId = owner.get()?.sessionId,
+                        adId = id,
+                        recovery = ErrorReporter.Recovery.DID_END_DELIVERED,
+                    )
                     finish(reason)
                 }
             }
