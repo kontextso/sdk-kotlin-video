@@ -40,6 +40,9 @@ internal object Environment {
     /** The browser's user agent, `navigator.userAgent` of a WebView, as KontextKit reads and caches it. */
     var userAgent: suspend () -> String? = { context?.let { DeviceFacts.userAgent(it) } }
 
+    /** Sends one beacon; tests record them instead. */
+    var sendBeacon: (url: String, label: String) -> Unit = Tracker::get
+
     /** The advertising id when the viewer allows it, else `null`. */
     var advertisingId: suspend () -> String? = { context?.let { DeviceFacts.advertisingId(it) } }
 
@@ -50,6 +53,7 @@ internal object Environment {
         userAgent = { context?.let { DeviceFacts.userAgent(it) } }
         advertisingId = { context?.let { DeviceFacts.advertisingId(it) } }
         isAppInForeground = { ActivityTracker.startedCount > 0 }
+        sendBeacon = Tracker::get
     }
 
     private fun failInDebuggableApp(message: String) {

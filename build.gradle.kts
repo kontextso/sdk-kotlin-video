@@ -13,4 +13,6 @@ plugins {
 
 apiValidation {
     nonPublicMarkers.add("androidx.annotation.RestrictTo")
+    // An app, not a library: it has no API to keep.
+    ignoredProjects.add("example")
 }

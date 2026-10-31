@@ -162,4 +162,6 @@ dependencies {
     testImplementation(libs.junit4)
     testRuntimeOnly(libs.junit.vintage.engine)
     testImplementation(libs.androidx.test.core)
+    // A real HTTP server on localhost: the SDK's own HttpURLConnection calls run unchanged.
+    testImplementation(libs.mockwebserver)
 }

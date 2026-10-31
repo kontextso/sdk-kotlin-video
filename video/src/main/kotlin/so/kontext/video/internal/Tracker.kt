@@ -80,22 +80,7 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
 
     private fun send(url: String, label: String) {
         Logger.debug { "ad ${adId.take(8)}: beacon $label" }
-        Environment.scope.launch {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    val connection = URL(url).openConnection() as HttpURLConnection
-                    try {
-                        connection.connectTimeout = TIMEOUT_MILLIS
-                        connection.readTimeout = TIMEOUT_MILLIS
-                        connection.useCaches = false
-                        val status = connection.responseCode
-                        if (status >= 400) Logger.warning { "ad ${adId.take(8)}: $label beacon answered $status" }
-                    } finally {
-                        connection.disconnect()
-                    }
-                }.onFailure { Logger.warning { "ad ${adId.take(8)}: $label beacon failed, ${it.javaClass.simpleName}" } }
-            }
-        }
+        Environment.sendBeacon(url, "ad ${adId.take(8)}: $label")
     }
 
     private fun substitute(template: String, errorCode: Int?, fireId: String, viewDurationMillis: Long?, notUsed: NotUsed?): String {
@@ -122,6 +107,26 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         /** Events that fire every time they happen; everything else fires once per entry. */
         val REPEATABLE = setOf("click", "pause", "resume", "mute", "unmute")
         private const val TIMEOUT_MILLIS = 10_000
+
+        /** A GET of [url] off the main thread, once: no retries. [label] names it in the log. */
+        fun get(url: String, label: String) {
+            Environment.scope.launch {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val connection = URL(url).openConnection() as HttpURLConnection
+                        try {
+                            connection.connectTimeout = TIMEOUT_MILLIS
+                            connection.readTimeout = TIMEOUT_MILLIS
+                            connection.useCaches = false
+                            val status = connection.responseCode
+                            if (status >= 400) Logger.warning { "$label beacon answered $status" }
+                        } finally {
+                            connection.disconnect()
+                        }
+                    }.onFailure { Logger.warning { "$label beacon failed, ${it.javaClass.simpleName}" } }
+                }
+            }
+        }
 
         /** Playheads beyond ten years are nonsense and clamped. */
         const val MAX_PLAYHEAD_MILLIS = 315_360_000_000L

@@ -112,7 +112,8 @@ public sealed class NoFillReason(private val wireName: String) {
     override fun toString(): String = wireName
 
     internal companion object {
-        private val known = listOf(NoAdMatch, ContentUnsafe, FormatNotEnabled, FrequencyCap, GeoRestricted, TemporaryError, AlreadyUsed, Unknown)
+        // Lazy: built while NoFillReason itself is still initializing, the list would hold nulls for its objects.
+        private val known by lazy { listOf(NoAdMatch, ContentUnsafe, FormatNotEnabled, FrequencyCap, GeoRestricted, TemporaryError, AlreadyUsed, Unknown) }
 
         /** From the wire; `null` (left out or malformed) is [Unknown]. */
         fun from(raw: String?): NoFillReason = when (raw) {
