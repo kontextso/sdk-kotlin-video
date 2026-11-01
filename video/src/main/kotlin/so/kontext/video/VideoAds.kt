@@ -117,7 +117,7 @@ public class VideoAds @JvmOverloads constructor(
             task.await()
         } catch (error: VideoAdException.Request) {
             checkStillUsable()
-            ads[format]?.takeIf { !it.isExpired }?.let { held ->
+            validHeld(format)?.let { held ->
                 Logger.info { "$format for ${content.id}: request failed, returning the held ad ${held.id.take(8)}" }
                 return held
             }
@@ -128,7 +128,15 @@ public class VideoAds @JvmOverloads constructor(
             throw error
         }
         checkStillUsable()
-        return ads[format] ?: throw VideoAdException.NoFill(noFill[format] ?: NoFillReason.Unknown)
+        return validHeld(format) ?: throw VideoAdException.NoFill(noFill[format] ?: NoFillReason.Unknown)
+    }
+
+    /** The held ad of [format] while it is valid: one that expired since the answer (app code ran first) leaves silently. */
+    private fun validHeld(format: AdFormat): VideoAd? {
+        val held = ads[format] ?: return null
+        if (!held.isExpired) return held
+        held.invalidate(VideoAd.InvalidationReason.Expired)
+        return null
     }
 
     /** [format] for callers without coroutines: [callback] gets the ad, or the exception, on the main thread. */
@@ -333,9 +341,11 @@ public class VideoAds @JvmOverloads constructor(
      * Follows the server for every format it answered for: the same id keeps the bid unchanged; a new id
      * replaces it, as does a no-fill. A format the answer leaves out keeps its held ad as it is (its own expiry
      * still applies); with nothing held it is a no-fill of unknown reason. An id already spent (shown or
-     * rejected while the request ran) is ignored for its format.
+     * rejected while the request ran) is ignored for its format. A held ad that expired while the request ran
+     * leaves first, silently, whether the answer names its format or not.
      */
     private fun apply(response: AdsResponse): Map<AdFormat, NoFillReason> {
+        ads.values.filter { it.isExpired }.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }
         val noFill = mutableMapOf<AdFormat, NoFillReason>()
         for (format in AdFormat.entries) {
             val current = ads[format]
@@ -352,7 +362,7 @@ public class VideoAds @JvmOverloads constructor(
                 logNoFill(format, reason)
                 continue
             }
-            if (current != null && current.id == payload.id && !current.isExpired) continue
+            if (current != null && current.id == payload.id) continue
             current?.invalidate(VideoAd.InvalidationReason.Expired)
             if (payload.id in spentIds) {
                 Logger.debug { "$format for ${content.id}: ad ${payload.id.take(8)} was already used, ignored" }

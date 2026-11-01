@@ -445,6 +445,46 @@ class ParityAdsTest {
         assertEquals(VideoAd.InvalidationReason.Expired, ad.invalidationReason)
     }
 
+    @Test fun aHeldAdThatExpiredDuringTheRequestLeavesWithAnAnswerThatOmitsItsFormat() {
+        initialize()
+        serveAd("img-e1", expires = 30_000)
+        val ads = videoAds()
+        val ad = ok(ads)
+        adsGate = CountDownLatch(1)
+        val linear = call { ads.format(AdFormat.LINEAR) }
+        await { adsBodies().size == 2 }
+        assertEquals("valid when the request left: held", setOf("img-e1"), adsBodies()[1].held())
+        now += 31_000
+        serveAd("vid-e1", "linear")
+        adsGate!!.countDown()
+        assertEquals("vid-e1", linear.settled().getOrThrow().id)
+        assertEquals("the answer left pause out, and the ad expired meanwhile: it leaves", VideoAd.InvalidationReason.Expired, ad.invalidationReason)
+        assertNull(ads.ads[AdFormat.PAUSE])
+        assertTrue("silently: the server knows expires", fired("notUsed").isEmpty())
+    }
+
+    @Test fun anAdThatExpiresBeforeItsWaiterResumesIsNotReturned() {
+        initialize(
+            Configuration("test-token") {
+                adServerUrl = server.url("/").toString()
+                logLevel = Configuration.LogLevel.INFO
+            },
+        )
+        serveAd("img-e2", expires = 30_000)
+        val ads = videoAds()
+        val ad = ok(ads)
+        serveAd("vid-e2", "linear")
+        // The clock passes the pause ad's expiry after the answer swept the expired ads, before the waiter resumes.
+        Logger.sink = { _, message -> if ("LINEAR for ep: ad vid-e2" in message) now += 31_000 }
+        try {
+            assertEquals("no ad expired at the answer: the reason is unknown", NoFillReason.Unknown, format(ads).failure<VideoAdException.NoFill>().reason)
+        } finally {
+            Logger.level = Configuration.LogLevel.WARNING
+        }
+        assertEquals(VideoAd.InvalidationReason.Expired, ad.invalidationReason)
+        assertTrue(fired("notUsed").isEmpty())
+    }
+
     @Test fun anIdHeldUnderAnotherFormatMakesTheAnswerMalformedAndTheHeldAdStays() {
         initialize()
         for ((heldFormat, askedFormat) in listOf(AdFormat.OVERLAY to AdFormat.PAUSE, AdFormat.PAUSE to AdFormat.OVERLAY)) {
