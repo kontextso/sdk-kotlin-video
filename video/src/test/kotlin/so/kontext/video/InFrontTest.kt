@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.os.Process
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.rendering.FrameBridge
+import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.wire.AdPayload
@@ -122,16 +124,99 @@ class InFrontTest : SdkTest() {
         assertNull("no screen starts", shadowOf(app).nextStartedActivity)
     }
 
-    @Test fun aLinearAdIsRefusedFromAnActivityThatIsNotResumed() {
+    /** The ad was accepted and its screen started from [from]. */
+    private fun assertStarted(ad: VideoAd, from: Activity, moment: String) {
+        assertTrue("$moment: shown", ad.wasShown)
+        val intent = shadowOf(from).nextStartedActivity
+        assertEquals(moment, LinearAdActivity::class.java.name, intent?.component?.className)
+        ad.end(VideoAd.EndReason.INTERRUPTED) // frees the slot for the next moment
+    }
+
+    /** A screen that starts the ad from the callbacks Android runs while it is visible but not yet resumed. */
+    class Host : Activity() {
+        var ad: VideoAd? = null
+        val results = mutableMapOf<String, String>()
+
+        private fun showHere(moment: String) {
+            val ad = ad ?: return
+            this.ad = null
+            results[moment] = try {
+                ad.show(this)
+                "shown"
+            } catch (error: VideoAdException) {
+                error.javaClass.simpleName
+            }
+        }
+
+        override fun onStart() {
+            super.onStart()
+            showHere("onStart")
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+            @Suppress("DEPRECATION")
+            super.onActivityResult(requestCode, resultCode, data)
+            showHere("onActivityResult")
+        }
+
+        /** As the framework delivers a result: between onStart and onResume. */
+        fun deliverResult() {
+            @Suppress("DEPRECATION")
+            onActivityResult(1, RESULT_OK, null)
+        }
+
+        override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+            showHere("onRequestPermissionsResult")
+        }
+
+        override fun onNewIntent(intent: Intent) {
+            super.onNewIntent(intent)
+            showHere("onNewIntent")
+        }
+    }
+
+    @Test fun aLinearAdStartsFromAVisibleActivityThatIsNotResumedYet() {
+        val screen = Robolectric.buildActivity(Host::class.java).setup()
+        val host = screen.get()
+        // Back from another screen: onStart, then the result callbacks, run before onResume.
+        screen.pause().stop()
+        host.ad = linear()
+        val inStart = host.ad!!
+        screen.restart().start()
+        assertEquals("shown", host.results["onStart"])
+        assertStarted(inStart, host, "onStart")
+        for (moment in listOf("onActivityResult", "onRequestPermissionsResult")) {
+            val ad = linear()
+            host.ad = ad
+            if (moment == "onActivityResult") {
+                host.deliverResult()
+            } else {
+                host.onRequestPermissionsResult(1, arrayOf("android.permission.CAMERA"), intArrayOf(0))
+            }
+            assertEquals(moment, "shown", host.results[moment])
+            assertStarted(ad, host, moment)
+        }
+        // A singleTop player gets the next episode in onNewIntent, delivered paused.
+        screen.resume().pause()
+        val ad = linear()
+        host.ad = ad
+        screen.newIntent(Intent())
+        assertEquals("shown", host.results["onNewIntent"])
+        assertStarted(ad, host, "onNewIntent")
+    }
+
+    @Test fun aLinearAdIsRefusedFromAStoppedOrFinishedActivity() {
         val screen = Robolectric.buildActivity(Activity::class.java).setup()
         val ad = linear()
-        screen.pause()
+        screen.pause().stop()
         assertRefused(ad, screen.get())
-        screen.stop()
+        screen.restart().start().resume()
+        screen.get().finish()
         assertRefused(ad, screen.get())
-        screen.start().resume()
-        ad.show(screen.get())
-        assertTrue(ad.wasShown)
+        val destroyed = Robolectric.buildActivity(Activity::class.java).setup().pause().stop().destroy().get()
+        assertRefused(ad, destroyed)
     }
 
     @Test fun aLinearAdIsRefusedFromAnActivityInPictureInPicture() {
@@ -145,10 +230,16 @@ class InFrontTest : SdkTest() {
     @Test fun anActivityTheTrackerHasNotSeenFallsBackToItsLifecycle() {
         val screen = Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup()
         ActivityTracker.resetForTesting() // the SDK listens from now on: it has seen nothing of this Activity
-        screen.pause()
+        screen.pause().stop()
         ActivityTracker.resetForTesting()
+        assertEquals(androidx.lifecycle.Lifecycle.State.CREATED, screen.get().lifecycle.currentState)
         assertRefused(linear(), screen.get())
-        assertEquals(androidx.lifecycle.Lifecycle.State.STARTED, screen.get().lifecycle.currentState)
+        val started = Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup().pause()
+        ActivityTracker.resetForTesting()
+        assertEquals(androidx.lifecycle.Lifecycle.State.STARTED, started.get().lifecycle.currentState)
+        val ad = linear()
+        ad.show(started.get())
+        assertStarted(ad, started.get(), "a started Activity the tracker has not seen")
     }
 
     // endregion

@@ -319,21 +319,24 @@ public class VideoAd internal constructor(
     }
 
     /**
-     * Whether [activity] is resumed and not in picture-in-picture. The tracker knows from the moment its
-     * Activity resumes; one it has not seen falls back to the Activity's own lifecycle, else is assumed in front
-     * (the presentation timeout still catches a screen that never comes).
+     * Whether [activity] is visible to the viewer: started, resumed or not, and not in picture-in-picture.
+     * Started is enough: Android starts a screen from `onStart`, a result or permission callback or
+     * `onNewIntent` (all before `onResume`), and it comes in front. The tracker knows from the Activity's first
+     * event; one it has not seen falls back to the Activity's own lifecycle, else is assumed visible (the
+     * presentation timeout still catches a screen that never comes).
      */
-    private fun isInFront(activity: Activity): Boolean {
+    private fun isVisibleToViewer(activity: Activity): Boolean {
         if (activity.isInPictureInPictureMode) return false
-        return ActivityTracker.isResumed(activity)
-            ?: (activity as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED)
+        return ActivityTracker.isStarted(activity)
+            ?: (activity as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED)
             ?: true
     }
 
     /**
      * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Throws as
-     * `show(container)` does; `PresenterUnavailable` for an Activity that is finishing, destroyed, not resumed
-     * or in picture-in-picture (the ad stays ready; try again once it is in front).
+     * `show(container)` does; `PresenterUnavailable` for an Activity that is finishing, destroyed, stopped (not
+     * visible) or in picture-in-picture (the ad stays ready; try again once it is visible). A started Activity
+     * that is not resumed yet is fine: `onStart`, a result or permission callback, `onNewIntent`.
      */
     @MainThread
     @Throws(VideoAdException::class)
@@ -351,8 +354,8 @@ public class VideoAd internal constructor(
         }
         // The system would not start the screen from there (or not where the viewer sees it), and the bid
         // would be spent on a screen that never comes: refused while the ad is still usable.
-        if (!isInFront(activity)) {
-            Logger.warning { "ad ${id.take(8)}: cannot present, the Activity is not in front (not resumed, or in picture-in-picture)" }
+        if (!isVisibleToViewer(activity)) {
+            Logger.warning { "ad ${id.take(8)}: cannot present, the Activity is not visible (stopped, or in picture-in-picture)" }
             throw VideoAdException.PresenterUnavailable()
         }
         val bridge = bridge

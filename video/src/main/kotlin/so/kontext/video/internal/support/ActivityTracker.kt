@@ -28,6 +28,16 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     /** Whether [activity] is resumed, `null` when no event of it has come since registration. */
     fun isResumed(activity: Activity): Boolean? = resumed[activity]
 
+    /**
+     * Whether [activity] is started (visible, resumed or not), `null` when no event of it has come since
+     * registration. One that paused or resumed is in [resumed], so a stopped one is known to be stopped.
+     */
+    fun isStarted(activity: Activity): Boolean? = when {
+        started.containsKey(activity) -> true
+        resumed.containsKey(activity) -> false
+        else -> null
+    }
+
     fun register(application: Application, isProcessVisible: () -> Boolean = ::isProcessVisible) {
         if (registeredWith.get() === application) return
         registeredWith.get()?.unregisterActivityLifecycleCallbacks(this)
