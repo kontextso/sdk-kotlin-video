@@ -710,6 +710,9 @@ public class VideoAd internal constructor(
         DebugReporter.event("ad.invalidated", adId = id, state = mapOf("reason" to reason.toString()))
         loadedBridge?.hide()
         loadedBridge = null
+        // It will never be shown, so never reach onAdEnded, which lets the listener go: an Activity held there
+        // must not stay with an ad the app keeps.
+        listener = null
         loadSignal?.let {
             loadSignal = null
             it.completeExceptionally(error(reason))

@@ -77,4 +77,34 @@ class HardeningTest : SdkTest() {
     }
 
     // endregion
+
+    // region An ad that ends before show lets its listener go
+
+    @Test fun anAdThatEndsBeforeShowLetsItsListenerGo() {
+        val rejected = overlay().apply { listener = Recorder() }
+        rejected.reject()
+        assertNull("rejected", rejected.listener)
+
+        val start = Environment.now()
+        var now = start
+        Environment.now = { now }
+        val expired = overlay().apply { listener = Recorder() }
+        now = start + 700_000
+        assertTrue(runCatching { expired.show(container()) }.exceptionOrNull() is VideoAdException.Invalidated)
+        assertNull("expired", expired.listener)
+        Environment.now = { start }
+
+        val failed = overlay().apply { listener = Recorder() }
+        page(failed, "ad.error", """"code": 405""")
+        assertTrue(failed.invalidationReason is VideoAd.InvalidationReason.CreativeFailed)
+        assertNull("its creative failed", failed.listener)
+
+        val owner = owner()
+        val dropped = overlay(owner).apply { listener = Recorder() }
+        owner.ads[AdFormat.OVERLAY] = dropped
+        owner.destroy()
+        assertNull("its VideoAds was destroyed", dropped.listener)
+    }
+
+    // endregion
 }
