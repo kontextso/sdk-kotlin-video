@@ -8,8 +8,8 @@ plugins {
 
 // SDK version — single source of truth for both the published Maven
 // artifact version AND the runtime `BuildConfig.SDK_VERSION` field.
-// Defaults to the catalog value; CI patch releases override via
-// `-PsdkVersion=X.Y.Z`.
+// The catalog value; `-PsdkVersion=X.Y.Z` overrides it for a local build.
+// The release workflow publishes the catalog value, after checking the tag equals it.
 val sdkVersion: String = providers.gradleProperty("sdkVersion")
     .orElse(libs.versions.sdk.kotlin.video)
     .get()

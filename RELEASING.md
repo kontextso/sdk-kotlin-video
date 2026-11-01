@@ -11,9 +11,9 @@
 
 1. Checkout branch `main` and pull the latest changes
 2. Create a new branch `release/1.0.0`
-3. Run the full CI sequence and make sure everything is green:
+3. Run the checks and make sure everything is green (the release workflow runs the same before it publishes):
    ```bash
-   ./gradlew spotlessCheck detekt assembleDebug :video:testDebug
+   ./gradlew spotlessCheck detekt apiCheck assembleDebug :video:testDebugUnitTest :video-media3:testDebugUnitTest
    ```
 4. Run the example against the ad server on a device: each of the four videos shows its ad, and the status line
    shows the impression, then the one end.
@@ -50,7 +50,15 @@ Create a PR to `main` named "Release version 1.0.0" with the changelog entry as 
 
 ## 5. Create an annotated tag
 
-Pushing the tag triggers the `publish_sdk.yml` workflow, which publishes to Maven Central.
+Pushing the tag triggers the `publish_sdk.yml` workflow. Its `verify` job fails when the tag differs from
+`sdk-kotlin-video` in `gradle/libs.versions.toml`, then runs `spotlessCheck detekt apiCheck` and the unit tests.
+The `publish` job runs only after them, in the `maven-central` environment: a required reviewer approves it in
+the workflow run, then it publishes and releases to Maven Central, which cannot be undone.
+
+The environment must exist in the repository settings (Settings → Environments → `maven-central`, with
+required reviewers); the workflow does not create its protection. The Maven Central and signing secrets
+(`MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`, `SIGNING_KEY`, `SIGNING_PASSWORD`) can live there; the
+workflow passes them to Gradle as `ORG_GRADLE_PROJECT_*` environment variables.
 
 ```bash
 git checkout main
