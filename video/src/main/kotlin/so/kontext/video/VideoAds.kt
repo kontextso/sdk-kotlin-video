@@ -165,6 +165,13 @@ public class VideoAds @JvmOverloads constructor(
      * Releases the video's ads. Every valid held ad, loaded or not, is dropped with a `notUsed` beacon and its
      * WebView released; one that expired leaves silently. `load()` and `show` on them throw `Destroyed`; the ad
      * on screen ends with `DESTROYED`; a `format()` or `load()` in flight throws `Destroyed`. Idempotent.
+     *
+     * Call it when the viewer leaves the episode, not in every `onDestroy()`: a rotation or another
+     * configuration change destroys and recreates the Activity, and calling it there drops the ads and ends a
+     * linear ad on screen. Keep the `VideoAds` in a `ViewModel` and call it in `onCleared()` (and `track` the
+     * new player after a recreation), or call it in `onDestroy()` only `if (isFinishing)`; in a Fragment's
+     * `onDestroy()`, `if (requireActivity().isFinishing || isRemoving)`. In Compose, from a `ViewModel` or a
+     * `DisposableEffect` of a screen that survives rotation.
      */
     @MainThread
     public fun destroy() {

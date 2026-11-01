@@ -48,7 +48,12 @@ class EpisodeActivity : Activity(), VideoAdListener {
                 result.load(object : VideoAdsCallback<VideoAd> {
                     override fun onSuccess(result: VideoAd) {
                         Log.i(TAG, "load: ready")
-                        result.show(adArea)
+                        // show throws for routine outcomes (expired, another ad showing): never uncaught.
+                        try {
+                            result.show(adArea)
+                        } catch (error: VideoAdException) {
+                            Log.w(TAG, "show: $error")
+                        }
                     }
 
                     override fun onError(error: VideoAdException) {
@@ -65,7 +70,8 @@ class EpisodeActivity : Activity(), VideoAdListener {
 
     override fun onDestroy() {
         super.onDestroy()
-        ads.destroy()
+        // A recreation (a configuration change) is not the viewer leaving: the ads stay.
+        if (isFinishing) ads.destroy()
         player.release()
     }
 

@@ -95,7 +95,9 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
         super.onDestroy()
         leaving = true
         startJob?.cancel()
-        ads.destroy()
+        // Only when the viewer leaves: a screen recreated by a configuration change (configChanges keeps it
+        // across rotation, not every change) must not drop its ads or end a linear ad playing over it.
+        if (isFinishing) ads.destroy()
         player.release()
     }
 
