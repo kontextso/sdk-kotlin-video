@@ -244,6 +244,59 @@ class ParityLifecycleTest : SdkTest() {
         assertTrue(second.wasShown)
     }
 
+    /** A page of [root] laid out at its size and moved [dx] px sideways, as a pager places its neighbours. */
+    private fun pagerPage(root: FrameLayout, dx: Float): FrameLayout {
+        val page = FrameLayout(root.context)
+        root.addView(page)
+        page.layout(0, 0, root.width, root.height)
+        page.translationX = dx
+        return page
+    }
+
+    @Test fun aContainerEntirelyOutsideItsWindowIsRefusedAndTheAdStaysReady() {
+        val recorder = Recorder()
+        val fullscreen = pause(position = "fullscreen")
+        fullscreen.listener = recorder
+        val strip = overlay(tracking = tracking("impression", "creativeView"))
+        strip.listener = recorder
+        val root = container()
+        // The next page of a pager: attached, laid out, shown, three widths to the right.
+        val neighbour = pagerPage(root, 320f * 3)
+        assertThrows<VideoAdException.PresenterUnavailable> { fullscreen.show(neighbour) }
+        assertThrows<VideoAdException.PresenterUnavailable> { strip.show(neighbour) } // not ContainerTooSmall: the size is fine
+        // Scrolled out below the window.
+        val below = pagerPage(container(), 0f).apply { translationY = 2_000f }
+        assertThrows<VideoAdException.PresenterUnavailable> { strip.show(below) }
+        assertTrue(fullscreen.isReady && strip.isReady && !fullscreen.wasShown && !strip.wasShown)
+        assertNull(Sdk.adOnScreen)
+        assertTrue("nothing heard, nothing fired", recorder.heard.isEmpty() && events.isEmpty())
+        // Half swiped in: on screen, shown.
+        val halfway = pagerPage(container(), 160f)
+        fullscreen.show(halfway)
+        assertTrue(fullscreen.wasShown)
+        fullscreen.dismiss()
+    }
+
+    @Test fun aContainerInAStoppedActivityOrABackgroundAppIsRefused() {
+        val stopped = Robolectric.buildActivity(Activity::class.java).setup()
+        val view = FrameLayout(stopped.get())
+        stopped.get().setContentView(view)
+        view.layout(0, 0, 320, 400)
+        idle()
+        view.layout(0, 0, 320, 400)
+        stopped.pause().stop()
+        // A window that still says visible: the Activity's own state decides.
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(view, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        val ad = pause()
+        assertThrows<VideoAdException.PresenterUnavailable> { ad.show(view) }
+        Environment.isAppInForeground = { false }
+        assertThrows<VideoAdException.PresenterUnavailable> { ad.show(container()) }
+        assertTrue(ad.isReady && !ad.wasShown)
+        Environment.isAppInForeground = { true }
+        ad.show(container())
+        assertTrue(ad.wasShown)
+    }
+
     @Test fun aViewTheViewerCannotSeeIsRefusedAndTheAdStaysReady() {
         val recorder = Recorder()
         val ad = pause()

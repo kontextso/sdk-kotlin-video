@@ -266,7 +266,9 @@ public class VideoAd internal constructor(
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
      * minimum; a full-screen pause ad ignores them. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`,
      * `AnotherAdShowing`, `Invalidated`, `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not
-     * attached, not shown, has no area, or refuses a child: a ScrollView that has one, a ListView),
+     * attached, not shown, has no area, lies entirely outside its window such as a pager's neighbour page, its
+     * Activity is stopped or the app is in the background, or it refuses a child: a ScrollView that has one, a
+     * ListView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
      * `WrongPresentation` (a linear ad).
      */
@@ -285,6 +287,9 @@ public class VideoAd internal constructor(
             Logger.warning { "ad ${id.take(8)}: cannot show, the container is not on screen or is hidden" }
             throw VideoAdException.PresenterUnavailable()
         }
+        // Attached and laid out is not on screen: a pager's neighbour page, a view scrolled away, a screen behind
+        // another or an app in the background. The impression would count for nobody: refused, the ad ready.
+        if (!isOnScreen(container)) throw VideoAdException.PresenterUnavailable()
         extraInsets = Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom))
         val density = container.resources.displayMetrics.density
         // Picks the variant, or throws `ContainerTooSmall`.
@@ -330,6 +335,29 @@ public class VideoAd internal constructor(
         endIfContentStopped()
         presented()
     }
+
+    /** Some of [container] is inside its window, its Activity is started and the app is in front. Says why not. */
+    private fun isOnScreen(container: ViewGroup): Boolean {
+        val why = when {
+            ViewabilityMeter.exposure(container).first <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
+            !Environment.isAppInForeground() -> "the app is not in front"
+            container.activity?.let { it.isFinishing || it.isDestroyed || ActivityTracker.isStarted(it) == false } == true -> "its Activity is not visible"
+            else -> return true
+        }
+        Logger.warning { "ad ${id.take(8)}: cannot show, $why; the ad stays ready" }
+        return false
+    }
+
+    /** The Activity the view is in, through any context wrappers. */
+    private val View.activity: Activity?
+        get() {
+            var context: android.content.Context? = context
+            while (context is android.content.ContextWrapper) {
+                if (context is Activity) return context
+                context = context.baseContext
+            }
+            return null
+        }
 
     /**
      * Whether [activity] is visible to the viewer: started, resumed or not, and not in picture-in-picture.
