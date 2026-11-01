@@ -206,7 +206,12 @@ class FrameMessagesTest {
     @Test fun everyRefusedSchemeIsRefusedInAnyCase() {
         assertTrue(FrameBridge.isAllowed("https://brand.test"))
         assertTrue(FrameBridge.isAllowed("market://details?id=x"))
-        for (refused in listOf("intent://x", "JavaScript:void(0)", "data:text/html,x", "file:///x", "blob:x", "about:blank", "content://x", "no scheme", "1http://x")) {
+        assertTrue("an advertiser's app link", FrameBridge.isAllowed("brandapp://product/1"))
+        val refused = listOf(
+            "intent://x", "JavaScript:void(0)", "data:text/html,x", "file:///x", "blob:x", "about:blank", "content://x", "no scheme", "1http://x",
+            "tel:+15550100", "TEL:1", "sms:+15550100", "smsto:1", "mms:1", "mmsto:1",
+        )
+        for (refused in refused) {
             assertFalse(refused, FrameBridge.isAllowed(refused))
         }
     }

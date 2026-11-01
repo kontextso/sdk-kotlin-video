@@ -11,6 +11,8 @@ import so.kontext.video.internal.network.has
 import so.kontext.video.internal.network.long
 import so.kontext.video.internal.network.obj
 import so.kontext.video.internal.network.str
+import java.net.URI
+import java.net.URISyntaxException
 
 /** One served ad as the wire sends it. `VideoAd` is the public object built from it. */
 internal class AdPayload(
@@ -46,7 +48,26 @@ internal class AdPayload(
         /** The largest side a creative may have, in dp. */
         const val MAX_SIDE = 10_000
 
-        private val refusedFrameSchemes = setOf("file", "javascript", "data", "blob", "about", "content")
+        /**
+         * The schemes a frame page may load from. An allowlist: the bridge's origin rule accepts only a web
+         * origin, so any other scheme would make the WebView refuse the bridge; and a page is a web page.
+         */
+        private val frameSchemes = setOf("http", "https")
+
+        /** Why [url] cannot be a frame page, or `null`: it must be http or https, with a host and a port from 1 to 65535 (or none). */
+        fun frameUrlProblem(url: String): String? {
+            val uri = try {
+                URI(url)
+            } catch (_: URISyntaxException) {
+                return "the frame URL is not a URL"
+            }
+            if (uri.scheme?.lowercase() !in frameSchemes) return "the frame URL must be http or https"
+            if (uri.host.isNullOrEmpty()) return "the frame URL must have a host"
+            if (uri.port != -1 && uri.port !in 1..MAX_PORT) return "the frame URL's port must be from 1 to $MAX_PORT"
+            return null
+        }
+
+        private const val MAX_PORT = 65_535
 
         // One check per field of the contract.
         @Suppress("CyclomaticComplexMethod")
@@ -92,9 +113,7 @@ internal class AdPayload(
             val rendering = ad["rendering"]?.obj() ?: invalid("ad $id: rendering")
             if (rendering.str("kind") != "frame") invalid("ad $id: unknown rendering kind")
             val frameUrl = rendering.str("url") ?: invalid("ad $id: rendering.url")
-            // A page to load: absolute, with a host, and not a scheme that loads something local or inline.
-            val match = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*)://([^/?#]+)").find(frameUrl)
-            if (match == null || match.groupValues[1].lowercase() in refusedFrameSchemes) invalid("ad $id: the frame URL must be absolute with a host")
+            frameUrlProblem(frameUrl)?.let { invalid("ad $id: $it") }
 
             var position: Position? = null
             var sizes = emptyList<Size>()

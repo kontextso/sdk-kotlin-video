@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.MutableContextWrapper
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.net.Uri
 import android.view.View
@@ -117,7 +118,7 @@ public class VideoAd internal constructor(
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
 
     private val bridge: FrameBridge
-        get() = loadedBridge ?: FrameBridge(contextWrapper, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO).also { bridge ->
+        get() = loadedBridge ?: makeBridge(contextWrapper, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO).also { bridge ->
             bridge.onEvent = { event -> handle(event) }
             loadedBridge = bridge
         }
@@ -192,6 +193,13 @@ public class VideoAd internal constructor(
 
     private fun startLoading(): Deferred<Unit> {
         val owner = owner.get() ?: throw VideoAdException.Destroyed()
+        val bridge = try {
+            bridge
+        } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
+            // The WebView is missing or updating, or refused the bridge: the app hears a creative that failed
+            // to load, never an exception of the platform's.
+            throw bridgeFailed(error)
+        }
         val signal = CompletableDeferred<Unit>().also { loadSignal = it }
         bridge.load()
         val task = owner.scope.async {
@@ -216,6 +224,23 @@ public class VideoAd internal constructor(
         loading = task
         task.invokeOnCompletion { if (loading === task) loading = null }
         return task
+    }
+
+    private fun bridgeFailed(error: Throwable): VideoAdException {
+        val code = if (payload.creative == AdPayload.Creative.VIDEO) 400 else 500
+        Logger.warning { "ad ${id.take(8)}: no WebView for the creative (${error.javaClass.simpleName}), VAST error $code" }
+        tracker.fire("error", errorCode = code)
+        ErrorReporter.report(
+            ErrorReporter.Code.FRAME_LOAD_FAILED,
+            ErrorReporter.Stage.LOAD,
+            sessionId = owner.get()?.sessionId,
+            adId = id,
+            vastCode = code,
+            recovery = ErrorReporter.Recovery.AD_DROPPED_BEFORE_SHOW,
+        )
+        invalidate(InvalidationReason.CreativeFailed(code))
+        DebugReporter.event("ad.loadFailed", adId = id, level = DebugReporter.Level.WARNING, state = mapOf("code" to code))
+        return VideoAdException.CreativeFailed(code)
     }
 
     // endregion
@@ -594,14 +619,40 @@ public class VideoAd internal constructor(
         Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${Logger.describe(url)}" }
     }
 
-    private fun startView(context: android.content.Context, url: String): Boolean = try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        true
-    } catch (_: ActivityNotFoundException) {
-        false
-    } catch (_: SecurityException) {
-        false
+    /**
+     * Opens [url] as a browser opens a link: a BROWSABLE intent with no component or selector, so only what
+     * declares itself reachable from the web starts (the advertiser's app links do). Never the host app
+     * itself: a creative must not drive the publisher's own screens. The host app's package is always
+     * visible to its own resolver, so that check holds under Android 11's package visibility; an app the
+     * system cannot see or that is absent surfaces as `ActivityNotFoundException`, and the fallback opens.
+     */
+    private fun startView(context: android.content.Context, url: String): Boolean {
+        if (!FrameBridge.isAllowed(url)) {
+            Logger.warning { "ad ${id.take(8)}: the click-through ${Logger.describe(url)} is not a link that may open" }
+            return false
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.component = null
+        intent.selector = null
+        if (opensHostApp(context, intent)) {
+            Logger.warning { "ad ${id.take(8)}: the click-through ${Logger.describe(url)} opens this app itself; refused" }
+            return false
+        }
+        return try {
+            context.startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
     }
+
+    /** Whether any Activity [intent] resolves to is the host app's; a resolver that throws counts as yes. */
+    private fun opensHostApp(context: android.content.Context, intent: Intent): Boolean = runCatching {
+        context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            .any { it.activityInfo?.packageName == context.packageName }
+    }.getOrDefault(true)
 
     // endregion
 
@@ -630,6 +681,9 @@ public class VideoAd internal constructor(
         /** How long a linear ad's screen may take to start, and to close. Tests shorten them. */
         var presentationTimeoutMillis = 5_000L
         var dismissalTimeoutMillis = 2_000L
+
+        /** Makes an ad's bridge; tests make one that throws, as a device without a working WebView does. */
+        var makeBridge: (android.content.Context, String, String, Boolean) -> FrameBridge = ::FrameBridge
     }
 
     /** What an ad pays: a CPM in a currency, and whether that figure is a clearing price or a forecast. */

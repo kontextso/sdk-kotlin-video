@@ -174,12 +174,21 @@ class ParityPayloadsTest {
     }
 
     @Test fun theFrameUrlMustBeAbsoluteWithAHostAndIsKeptAsGiven() {
-        for (ok in listOf("https://server.kontext.so/frame/ad-1", "http://localhost:5175/frame/ad-1", "kontext-test://frames/frame/ad-1")) {
+        for (ok in listOf("https://server.kontext.so/frame/ad-1", "http://localhost:5175/frame/ad-1", "HTTPS://frames.test:65535/a", "https://frames.test:1/a")) {
             assertEquals(ok, parse(Fixtures.overlay(frameUrl = ok)).frameUrl)
         }
         val refused = listOf(
             "frame/ad-1", "/frame/ad-1", "file:///etc/passwd", "file://localhost/etc/passwd", "javascript:alert(1)", "data:text/html,hi",
             "blob:https://x/y", "about:blank", "FILE://localhost/etc/passwd", "JavaScript://x/alert(1)", "Data://x/y",
+        )
+        for (bad in refused) assertThrows<ApiException.Decoding>(bad) { parse(Fixtures.overlay(frameUrl = bad)) }
+    }
+
+    /** The bridge's origin rule takes a web origin only: any other scheme or port would make the WebView throw. */
+    @Test fun theFrameUrlIsAWebPageWithAValidPort() {
+        val refused = listOf(
+            "ftp://frames.test/a", "myapp://frames.test/a", "ws://frames.test/a", "kontext-test://frames/frame/ad-1",
+            "https://frames.test:99999/a", "https://frames.test:0/a", "https://frames.test:65536/a", "https:///a", "https://fr ames.test/a",
         )
         for (bad in refused) assertThrows<ApiException.Decoding>(bad) { parse(Fixtures.overlay(frameUrl = bad)) }
     }

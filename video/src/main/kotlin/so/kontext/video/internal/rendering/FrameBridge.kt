@@ -112,8 +112,14 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
             )
         }
         if (origin != null && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            WebViewCompat.addWebMessageListener(webView, "KontextAndroid", setOf(origin.rule)) { _, message, sourceOrigin, isMainFrame, _: JavaScriptReplyProxy ->
-                receive(message, Origin.of(sourceOrigin.toString()), isMainFrame)
+            try {
+                WebViewCompat.addWebMessageListener(webView, "KontextAndroid", setOf(origin.rule)) { _, message, sourceOrigin, isMainFrame, _: JavaScriptReplyProxy ->
+                    receive(message, Origin.of(sourceOrigin.toString()), isMainFrame)
+                }
+            } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
+                // An origin the WebView refuses: the bridge is never made, so its WebView goes now.
+                webView.destroy()
+                throw error
             }
         } else {
             Logger.warning { "frame ${adId.take(8)}: this WebView cannot receive the page's messages; the ad will not load" }
@@ -199,14 +205,16 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
             }
             "ad.click", "ad.open" -> {
                 if (state != State.SHOWN) return
-                val target = body.str("url")?.takeIf(::isAllowed) ?: return
+                val primary = body.str("url")?.takeIf(::isAllowed)
+                val fallback = if (type == "ad.click") body.str("fallbackUrl")?.takeIf(::isAllowed) else null
+                // A click whose link may not open still has its fallback, which then is the click-through.
+                val target = primary ?: fallback ?: return
                 if (!consumeTouch()) {
                     Logger.warning { "frame ${adId.take(8)}: $type to ${Logger.describe(target)} dropped, no touch before it" }
                     return
                 }
                 if (type == "ad.click") {
-                    val fallback = body.str("fallbackUrl")?.takeIf(::isAllowed)
-                    onEvent?.invoke(FrameEvent.Click(target, fallback, VideoAd.Click.Area.from(body.str("area"))))
+                    onEvent?.invoke(FrameEvent.Click(target, fallback.takeIf { primary != null }, VideoAd.Click.Area.from(body.str("area"))))
                 } else {
                     onEvent?.invoke(FrameEvent.Open(target, body.str("purpose") ?: "unknown"))
                 }
@@ -421,8 +429,15 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         const val TOUCH_WINDOW_MILLIS = 1_000L
         private const val DAY_MILLIS = 86_400_000L
 
-        /** Web, store and app links open; `intent:` could start any Android component, and the rest are not links to anywhere. */
-        private val refusedSchemes = setOf("intent", "javascript", "data", "file", "blob", "about", "content")
+        /**
+         * Web, store and the advertiser's app links open. Refused: `intent:`, which could start any Android
+         * component; the schemes that call, text or pay without a page in between; and the rest, which are
+         * not links to anywhere. A link into the host app itself is refused where it opens (`VideoAd.open`).
+         */
+        private val refusedSchemes = setOf(
+            "intent", "javascript", "data", "file", "blob", "about", "content",
+            "tel", "sms", "smsto", "mms", "mmsto",
+        )
 
         fun isAllowed(target: String): Boolean {
             val scheme = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*):").find(target)?.groupValues?.get(1)?.lowercase() ?: return false

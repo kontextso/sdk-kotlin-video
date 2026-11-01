@@ -126,6 +126,78 @@ class VideoAdLifecycleTest : SdkTest() {
         assertTrue("the click-through carries a fire id", intent.dataString!!.startsWith("https://brand.test/?fid=") && "KONTEXT" !in intent.dataString!!)
     }
 
+    // region Click-throughs: what may open
+
+    private val app get() = ApplicationProvider.getApplicationContext<android.app.Application>()
+
+    /** An Activity of [packageName] that opens [scheme] links from the web, as an app's deep link declares it. */
+    private fun appLink(packageName: String, scheme: String) {
+        val component = android.content.ComponentName(packageName, "$packageName.LinkActivity")
+        val packageManager = shadowOf(app.packageManager)
+        packageManager.addActivityIfNotPresent(component)
+        packageManager.addIntentFilterForActivity(
+            component,
+            android.content.IntentFilter(Intent.ACTION_VIEW).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                addDataScheme(scheme)
+            },
+        )
+    }
+
+    private fun click(ad: VideoAd, url: String, fallback: String? = null) {
+        ad.loadedBridge!!.noteTouch()
+        page(ad, "ad.click", """"url": "$url"${fallback?.let { """, "fallbackUrl": "$it"""" } ?: ""}""")
+    }
+
+    @Test fun anAdvertisersDeepLinkOpensAsABrowsableIntentWithNoComponent() {
+        appLink("com.brand.app", "brandapp")
+        val ad = overlay()
+        ad.show(container())
+        click(ad, "brandapp://product/1")
+        val intent = opened()!!
+        assertEquals("brandapp://product/1", intent.dataString)
+        assertTrue("only what a web link can reach", intent.hasCategory(Intent.CATEGORY_BROWSABLE))
+        assertNull(intent.component)
+        assertNull(intent.selector)
+        assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+    }
+
+    @Test fun aLinkIntoTheHostAppItselfIsRefusedAndItsFallbackOpens() {
+        appLink(app.packageName, "publisherapp")
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("click"))
+        ad.listener = recorder
+        ad.show(container())
+        click(ad, "publisherapp://account/delete?confirm=1")
+        assertNull("the host app's own screen does not start", opened())
+        assertEquals("the viewer's tap still counts", listOf("click"), events)
+        click(ad, "publisherapp://account/delete?confirm=1", fallback = "https://brand.test/")
+        assertEquals("https://brand.test/", opened()!!.dataString)
+    }
+
+    @Test fun callTextAndIntentLinksAreRefusedAndAnHttpFallbackOpensInstead() {
+        val ad = overlay()
+        ad.show(container())
+        for (refused in listOf("tel:+15550100", "sms:+15550100", "smsto:1", "mms:1", "intent://x#Intent;scheme=https;end")) {
+            click(ad, refused)
+            assertNull(refused, opened())
+            click(ad, refused, fallback = "https://brand.test/$refused")
+            assertEquals(refused, "https://brand.test/$refused", opened()?.dataString)
+        }
+    }
+
+    @Test fun aDeepLinkNothingOpensFallsBackToItsWebLink() {
+        shadowOf(app).checkActivities(true)
+        appLink("com.browser.test", "https")
+        val ad = overlay()
+        ad.show(container())
+        click(ad, "brandapp://product/1", fallback = "https://brand.test/product/1")
+        assertEquals("https://brand.test/product/1", opened()!!.dataString)
+    }
+
+    // endregion
+
     @Test fun theAdChoicesLinkFiresTheIconClickAndOpens() {
         val ad = overlay(tracking = tracking("iconClick", "click"))
         ad.show(container())
@@ -259,6 +331,28 @@ class VideoAdLifecycleTest : SdkTest() {
         } finally {
             FrameBridge.loadTimeoutMillis = 10_000
         }
+    }
+
+    @Test fun aWebViewThatCannotBeMadeFailsTheLoadAsACreativeFailure() {
+        VideoAd.makeBridge = { _, _, _, _ -> throw android.util.AndroidRuntimeException("no WebView package") }
+        val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay(tracking = tracking("error")))), Environment.now(), owner())
+        var result: Result<Unit>? = null
+        Environment.scope.launch { result = runCatching { ad.load() } }
+        idle()
+        assertEquals(500, (result!!.exceptionOrNull() as VideoAdException.CreativeFailed).code)
+        assertEquals(VideoAd.InvalidationReason.CreativeFailed(500), ad.invalidationReason)
+        assertEquals(listOf("error"), events)
+        // The callback form hears it too, rather than the app's process hearing an uncaught exception.
+        var heard: VideoAdException? = null
+        ad.load(object : VideoAdsCallback<VideoAd> {
+            override fun onSuccess(result: VideoAd) = fail("no WebView")
+
+            override fun onError(error: VideoAdException) {
+                heard = error
+            }
+        })
+        idle()
+        assertTrue(heard is VideoAdException.Invalidated)
     }
 
     @Test fun loadWithACallbackDeliversTheAdOrTheError() {
