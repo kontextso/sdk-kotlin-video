@@ -442,7 +442,7 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         /**
          * Web, store and the advertiser's app links open. Refused: `intent:`, which could start any Android
          * component; the schemes that call, text or pay without a page in between; and the rest, which are
-         * not links to anywhere. A link into the host app itself is refused where it opens (`VideoAd.open`).
+         * not links to anywhere. Links into the host app open too: which links an ad may carry is the ad server's decision.
          */
         private val refusedSchemes = setOf(
             "intent", "javascript", "data", "file", "blob", "about", "content",

@@ -163,17 +163,15 @@ class VideoAdLifecycleTest : SdkTest() {
         assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
     }
 
-    @Test fun aLinkIntoTheHostAppItselfIsRefusedAndItsFallbackOpens() {
+    @Test fun aDeepLinkIntoTheHostAppOpens() {
+        // Which links an ad may carry is the ad server's decision; the SDK opens the host app's own too.
         appLink(app.packageName, "publisherapp")
-        val recorder = Recorder()
-        val ad = overlay(tracking = tracking("click"))
-        ad.listener = recorder
+        val ad = overlay()
         ad.show(container())
-        click(ad, "publisherapp://account/delete?confirm=1")
-        assertNull("the host app's own screen does not start", opened())
-        assertEquals("the viewer's tap still counts", listOf("click"), events)
-        click(ad, "publisherapp://account/delete?confirm=1", fallback = "https://brand.test/")
-        assertEquals("https://brand.test/", opened()!!.dataString)
+        click(ad, "publisherapp://premium")
+        val intent = opened()!!
+        assertEquals("publisherapp://premium", intent.dataString)
+        assertTrue(intent.hasCategory(Intent.CATEGORY_BROWSABLE))
     }
 
     @Test fun callTextAndIntentLinksAreRefusedAndAnHttpFallbackOpensInstead() {

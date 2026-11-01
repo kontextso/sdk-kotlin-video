@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.MutableContextWrapper
-import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.net.Uri
 import android.view.View
@@ -666,10 +665,9 @@ public class VideoAd internal constructor(
 
     /**
      * Opens [url] as a browser opens a link: a BROWSABLE intent with no component or selector, so only what
-     * declares itself reachable from the web starts (the advertiser's app links do). Never the host app
-     * itself: a creative must not drive the publisher's own screens. The host app's package is always
-     * visible to its own resolver, so that check holds under Android 11's package visibility; an app the
-     * system cannot see or that is absent surfaces as `ActivityNotFoundException`, and the fallback opens.
+     * declares itself reachable from the web starts (the advertiser's app links do, and the host app's own:
+     * which links an ad may carry is the ad server's decision). An app the system cannot see or that is
+     * absent surfaces as `ActivityNotFoundException`, and the fallback opens.
      */
     private fun startView(context: android.content.Context, url: String): Boolean {
         if (!FrameBridge.isAllowed(url)) {
@@ -679,10 +677,6 @@ public class VideoAd internal constructor(
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         intent.component = null
         intent.selector = null
-        if (opensHostApp(context, intent)) {
-            Logger.warning { "ad ${id.take(8)}: the click-through ${Logger.describe(url)} opens this app itself; refused" }
-            return false
-        }
         return try {
             context.startActivity(intent)
             true
@@ -692,12 +686,6 @@ public class VideoAd internal constructor(
             false
         }
     }
-
-    /** Whether any Activity [intent] resolves to is the host app's; a resolver that throws counts as yes. */
-    private fun opensHostApp(context: android.content.Context, intent: Intent): Boolean = runCatching {
-        context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            .any { it.activityInfo?.packageName == context.packageName }
-    }.getOrDefault(true)
 
     // endregion
 
