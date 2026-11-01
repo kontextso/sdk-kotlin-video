@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -303,6 +304,36 @@ class BoundaryTest {
         val ifa = request.body["ifa"]!!.jsonObject
         assertEquals("aaid", ifa["type"]!!.jsonPrimitive.content)
         assertEquals("00000000-1111-2222-3333-444444444444", ifa["id"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun thePrivacyFieldsAreReadOnceTheUserAgentIsIn() {
+        val userAgent = kotlinx.coroutines.CompletableDeferred<String>()
+        Environment.userAgent = { userAgent.await() }
+        var adId = "00000000-0000-0000-0000-000000000001"
+        Environment.advertisingId = { adId }
+        KontextVideo.user = User { id = "before" }
+        KontextVideo.regulatory = Regulatory { gdpr = false }
+        var body: kotlinx.serialization.json.JsonObject? = null
+        Environment.scope.launch {
+            body = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", emptyList()).body
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        // While the user agent is read: the viewer resets the ad id, the consent changes, another user signs in.
+        adId = "00000000-0000-0000-0000-000000000002"
+        KontextVideo.user = User { id = "after" }
+        KontextVideo.regulatory = Regulatory {
+            gdpr = true
+            gdprConsent = "consent-string"
+        }
+        userAgent.complete("test-agent")
+        shadowOf(Looper.getMainLooper()).idle()
+        val sent = body!!
+        assertEquals("00000000-0000-0000-0000-000000000002", sent["ifa"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("after", sent["user"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("true", sent["regulatory"]!!.jsonObject["gdpr"]!!.jsonPrimitive.content)
+        assertEquals("consent-string", sent["regulatory"]!!.jsonObject["gdprConsent"]!!.jsonPrimitive.content)
+        KontextVideo.user = null
+        KontextVideo.regulatory = null
     }
 
     @Test fun aTricklingAnswerHitsTheWholeCallDeadline() = runBlocking {
