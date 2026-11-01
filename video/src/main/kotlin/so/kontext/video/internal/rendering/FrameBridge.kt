@@ -173,9 +173,19 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         webView.evaluateJavascript("window.postMessage($message, window.location.origin)", null)
     }
 
-    /** Checks the envelope, the sender and the order; drops anything else without an error. */
+    /**
+     * Checks the envelope, the sender and the order; drops anything else without an error. A message that is
+     * not text (an ArrayBuffer) is never read: its `data` accessor throws. From the page itself it is a broken
+     * envelope.
+     */
     fun receive(message: WebMessageCompat, sender: Origin?, isMainFrame: Boolean) {
-        receive(message.data, sender, isMainFrame)
+        if (message.type == WebMessageCompat.TYPE_STRING) {
+            receive(message.data, sender, isMainFrame)
+            return
+        }
+        if (state == State.ENDED || !isMainFrame || sender == null || sender != origin) return
+        Logger.debug { "frame ${adId.take(8)}: a message that is not text dropped" }
+        reportProtocolViolation("envelope")
     }
 
     // One branch per message type of the frame protocol.
