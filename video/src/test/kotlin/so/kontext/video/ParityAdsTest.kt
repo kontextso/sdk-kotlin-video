@@ -445,6 +445,25 @@ class ParityAdsTest {
         assertEquals(VideoAd.InvalidationReason.Expired, ad.invalidationReason)
     }
 
+    @Test fun anIdHeldUnderAnotherFormatMakesTheAnswerMalformedAndTheHeldAdStays() {
+        initialize()
+        for ((heldFormat, askedFormat) in listOf(AdFormat.OVERLAY to AdFormat.PAUSE, AdFormat.PAUSE to AdFormat.OVERLAY)) {
+            val id = "img-x-${heldFormat.wireName}"
+            serveAd(id, heldFormat.wireName)
+            val ads = videoAds("ep-${heldFormat.wireName}")
+            val held = ok(ads, heldFormat)
+            // The next answer leaves the held format out (so its ad is kept) and brings the same id under the other.
+            serveAd(id, askedFormat.wireName)
+            format(ads, askedFormat).failure<VideoAdException.Request>()
+            assertNull("$askedFormat: nothing taken from the answer", ads.ads[askedFormat])
+            assertSame("$heldFormat: the held ad stays", held, ads.ads[heldFormat])
+            assertNull(held.invalidationReason)
+            assertSame("a malformed answer: the held ad comes back", held, ok(ads, heldFormat))
+            held.reject()
+            assertTrue("one bid, rejected once: nothing of it is left", ads.ads.values.none { it.id == id })
+        }
+    }
+
     // endregion
 
     // region Failures

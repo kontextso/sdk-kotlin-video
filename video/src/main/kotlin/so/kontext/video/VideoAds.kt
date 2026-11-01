@@ -260,7 +260,7 @@ public class VideoAds @JvmOverloads constructor(
                 Logger.debug { "${content.id}: requesting at playhead ${built.playheadMillis} ms, holding ${held.size}" }
                 DebugReporter.event("ads.request", state = mapOf("held" to held.size, "playhead" to built.playheadMillis))
                 val response = try {
-                    AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", built.body))
+                    AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", built.body)).also(::checkIdsAgainstHeld)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
@@ -295,6 +295,21 @@ public class VideoAds @JvmOverloads constructor(
         checkStillUsable()
         reportDroppedAds(response, requestId)
         return apply(response)
+    }
+
+    /**
+     * One id is one bid, across answers as within one: an answer that brings, under one format, the id of an ad
+     * held under another (one the answer may leave out, so kept) is malformed as a whole, before anything held
+     * or spent changes, as an id listed twice in one answer is.
+     */
+    private fun checkIdsAgainstHeld(response: AdsResponse) {
+        val results = (response as? AdsResponse.Formats)?.results ?: return
+        for (result in results) {
+            for (payload in result.ads) {
+                val other = ads.entries.firstOrNull { (format, held) -> format != result.format && held.id == payload.id } ?: continue
+                throw ApiException.Decoding(IllegalArgumentException("ad ${payload.id} is ${result.format}, and held as ${other.key}"))
+            }
+        }
     }
 
     /** A malformed ad was left out of its format: said once per format, the rest of the answer counts. */
