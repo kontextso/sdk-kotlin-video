@@ -22,6 +22,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.endIfContentStopped
 import so.kontext.video.internal.ad.followsContent
@@ -382,10 +383,21 @@ public class VideoAd internal constructor(
             }
         }
         linearPresentation = presentation
-        LinearAdActivity.start(activity, presentation)
-        // A screen that never starts (the system refused it) must not hold the slot forever.
+        val started = try {
+            LinearAdActivity.start(activity, presentation)
+            true
+        } catch (error: ActivityNotFoundException) {
+            Logger.error { "ad ${id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
+            false
+        } catch (error: SecurityException) {
+            Logger.error { "ad ${id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
+            false
+        }
+        // A screen that never starts (the system refused it, or the launch threw) must not hold the slot
+        // forever. A launch that threw takes the same path at once, after show returns, as Swift's refused
+        // presentation does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED).
         owner.get()?.scope?.launch {
-            delay(presentationTimeoutMillis)
+            if (started) delay(presentationTimeoutMillis) else yield()
             // Presented, not merely created: a screen that attached but never came to the front (started, never
             // resumed) would otherwise hold the slot for good.
             if (hasEnded || isPresented) return@launch

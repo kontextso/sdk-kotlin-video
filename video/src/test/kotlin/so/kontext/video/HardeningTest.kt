@@ -43,4 +43,38 @@ class HardeningTest : SdkTest() {
     }
 
     // endregion
+
+    // region A linear screen that cannot start
+
+    /** An Activity whose launches fail, as with the SDK's Activity stripped from the merged manifest. */
+    class RefusingActivity : Activity() {
+        var failure: RuntimeException = ActivityNotFoundException()
+
+        override fun startActivity(intent: Intent?) = throw failure
+    }
+
+    @Test fun aLaunchThatThrowsFailsTheAdOnceAndFreesTheSlot() {
+        for (failure in listOf(ActivityNotFoundException("stripped"), SecurityException("not allowed"))) {
+            val recorder = Recorder()
+            val ad = linear(tracking = tracking("impression"))
+            ad.listener = recorder
+            val host = Robolectric.buildActivity(RefusingActivity::class.java).setup().get()
+            host.failure = failure
+            ad.show(host) // accepted: the outcome follows, after show returns
+            assertTrue("nothing before show returns", recorder.heard.isEmpty())
+            idle()
+            assertEquals(failure.javaClass.simpleName, listOf("failed", "ended"), recorder.heard)
+            assertEquals(listOf(VideoAd.EndReason.FAILED), recorder.reasons)
+            assertTrue(recorder.errors.single() is VideoAdException.PresenterUnavailable)
+            assertTrue("no impression", "impression" !in events)
+            assertNull("the slot is free", Sdk.adOnScreen)
+            idle(VideoAd.presentationTimeoutMillis + 1_000)
+            assertEquals("exactly one outcome", 1, recorder.reasons.size)
+            ErrorReporter.resetForTesting()
+        }
+        // Another ad shows.
+        overlay().show(container())
+    }
+
+    // endregion
 }
