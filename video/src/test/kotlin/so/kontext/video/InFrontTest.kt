@@ -124,11 +124,12 @@ class InFrontTest : SdkTest() {
         assertNull("no screen starts", shadowOf(app).nextStartedActivity)
     }
 
-    /** The ad was accepted and its screen started from [from]. */
+    /** The ad was accepted and its screen started from [from], as an app-started screen, not a user action. */
     private fun assertStarted(ad: VideoAd, from: Activity, moment: String) {
         assertTrue("$moment: shown", ad.wasShown)
         val intent = shadowOf(from).nextStartedActivity
         assertEquals(moment, LinearAdActivity::class.java.name, intent?.component?.className)
+        assertTrue("$moment: no onUserLeaveHint for the host", intent!!.flags and Intent.FLAG_ACTIVITY_NO_USER_ACTION != 0)
         ad.end(VideoAd.EndReason.INTERRUPTED) // frees the slot for the next moment
     }
 

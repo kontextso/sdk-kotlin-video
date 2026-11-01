@@ -2,5 +2,6 @@
 
     <application>
         <activity android:name="so.kontext.video.TestHostActivity" android:exported="false" />
+        <activity android:name="so.kontext.video.LeaveHintHostActivity" android:exported="false" />
     </application>
 </manifest>

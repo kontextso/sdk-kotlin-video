@@ -89,7 +89,10 @@ internal class LinearAdActivity : ComponentActivity() {
         fun start(from: Activity, presentation: Presentation) {
             val token = UUID.randomUUID().toString()
             presentations[token] = presentation
-            from.startActivity(Intent(from, LinearAdActivity::class.java).putExtra(EXTRA_TOKEN, token))
+            // The app started the ad break, the viewer did not leave: without the flag the host hears
+            // onUserLeaveHint(), where apps enter picture-in-picture or note that the user left.
+            val intent = Intent(from, LinearAdActivity::class.java).putExtra(EXTRA_TOKEN, token).addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+            from.startActivity(intent)
             @Suppress("DEPRECATION")
             from.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
