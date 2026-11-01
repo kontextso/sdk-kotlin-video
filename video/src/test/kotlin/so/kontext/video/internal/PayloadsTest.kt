@@ -80,13 +80,13 @@ class PayloadsTest {
         assertNull(response.result(AdFormat.OVERLAY), "a format the server did not answer for")
     }
 
-    @Test fun aFormatListedTwiceOrAnAdUnderTheWrongFormatIsRefused() {
+    @Test fun aFormatListedTwiceIsRefusedAndAnAdUnderTheWrongFormatDropped() {
         assertThrows<ApiException.Decoding> {
             AdsResponse.parse(Fixtures.ads(Fixtures.entry("pause"), Fixtures.entry("pause")))
         }
-        assertThrows<ApiException.Decoding> {
-            AdsResponse.parse(Fixtures.ads(Fixtures.entry("pause", Fixtures.overlay())))
-        }
+        val pause = AdsResponse.parse(Fixtures.ads(Fixtures.entry("pause", Fixtures.overlay()))).result(AdFormat.PAUSE)!!
+        assertTrue(pause.ads.isEmpty())
+        assertEquals(NoFillReason.Unknown, pause.noFillReason)
     }
 
     @Test fun theKillSwitchCarriesItsReason() {

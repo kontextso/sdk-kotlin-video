@@ -105,14 +105,47 @@ class ParityPayloadsTest {
         assertEquals(UNKNOWN_REASON, (ads("""{"enabled": false, "disabledReason": ["x"]}""") as AdsResponse.Disabled).reason)
     }
 
-    @Test fun anAdsAnswerWithoutEnabledOrFormatsOrWithAnUnknownFormatOrNoAdsIsRefused() {
+    @Test fun anAdsAnswerWithoutEnabledOrFormatsOrAFormatOrAdsIsRefused() {
         val refused = listOf(
             """{"formats": []}""",
             """{"enabled": true}""",
-            """{"enabled": true, "formats": [{"format": "banner", "ads": []}]}""",
+            """{"enabled": true, "formats": [{"ads": []}]}""",
+            """{"enabled": true, "formats": [{"format": 7, "ads": []}]}""",
             """{"enabled": true, "formats": [{"format": "pause"}]}""",
+            """{"enabled": true, "formats": ["pause"]}""",
         )
         for (body in refused) assertThrows<ApiException.Decoding>(body) { ads(body) }
+    }
+
+    @Test fun aResultForAFormatTheSdkDoesNotKnowIsIgnored() {
+        val response = ads(
+            """{"enabled": true, "formats": [
+                {"format": "menu", "ads": [{"id": "m-1", "format": "menu", "creative": "native"}]},
+                ${Fixtures.entry("pause", Fixtures.pause())}]}""",
+        )
+        assertEquals("ad-2", response.result(AdFormat.PAUSE)?.ads?.single()?.id)
+        assertEquals(1, (response as AdsResponse.Formats).results.size)
+    }
+
+    @Test fun aMalformedAdIsDroppedAndLeavesItsFormatANoFillWhenNothingIsLeft() {
+        // A value of a later contract, a broken price, a missing field: each fails its ad only.
+        val newCreative = Fixtures.overlay(id = "ad-8").replace("\"creative\": \"image\"", "\"creative\": \"playable\"")
+        val badPrice = Fixtures.pause(id = "ad-9").replace("5.5", "-1")
+        val response = ads(
+            """{"enabled": true, "formats": [
+                ${Fixtures.entry("overlay", newCreative)},
+                ${Fixtures.entry("pause", badPrice, Fixtures.pause(), noFill = "frequencyCap")},
+                ${Fixtures.entry("linear", Fixtures.linear())}]}""",
+        )
+        val overlay = response.result(AdFormat.OVERLAY)!!
+        assertTrue(overlay.ads.isEmpty())
+        assertEquals(NoFillReason.Unknown, overlay.noFillReason, "ads came and none could be read: no reason of the server's")
+        assertEquals(1, overlay.dropped.size)
+        val pause = response.result(AdFormat.PAUSE)!!
+        assertEquals("ad-2", pause.ads.single().id, "the valid ad of the format stays")
+        assertEquals(1, pause.dropped.size)
+        assertEquals("ad-3", response.result(AdFormat.LINEAR)?.ads?.single()?.id, "another format is untouched")
+        assertTrue(response.result(AdFormat.LINEAR)!!.dropped.isEmpty())
     }
 
     @Test fun anAdsAnswerEdges() {
@@ -121,12 +154,10 @@ class ParityPayloadsTest {
         assertNull(filled.result(AdFormat.PAUSE)?.noFillReason, "a filled entry ignores a contradictory reason")
         assertEquals(1, filled.result(AdFormat.PAUSE)?.ads?.size)
         val broken = Fixtures.pause(id = "ad-9").replace(""""sizes": [{"width": 300, "height": 250, "scalable": false}]""", """"sizes": []""")
-        assertThrows<ApiException.Decoding>("a malformed second ad") {
-            ads("""{"enabled": true, "formats": [${Fixtures.entry("pause", Fixtures.pause(), broken)}]}""")
-        }
-        assertThrows<ApiException.Decoding>("a second ad of another format") {
-            ads("""{"enabled": true, "formats": [${Fixtures.entry("pause", Fixtures.pause(), Fixtures.overlay())}]}""")
-        }
+        val withBroken = ads("""{"enabled": true, "formats": [${Fixtures.entry("pause", Fixtures.pause(), broken)}]}""").result(AdFormat.PAUSE)!!
+        assertEquals(listOf("ad-2"), withBroken.ads.map { it.id }, "a malformed second ad is dropped")
+        val withOther = ads("""{"enabled": true, "formats": [${Fixtures.entry("pause", Fixtures.pause(), Fixtures.overlay())}]}""").result(AdFormat.PAUSE)!!
+        assertEquals(listOf("ad-2"), withOther.ads.map { it.id }, "a second ad of another format is dropped")
     }
 
     @Test fun aPauseAdDecodesWithEveryFact() {

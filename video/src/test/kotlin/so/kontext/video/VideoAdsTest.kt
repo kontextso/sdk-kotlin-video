@@ -167,6 +167,31 @@ class VideoAdsTest {
         ads.destroy()
     }
 
+    @Test fun aMalformedAdCostsOnlyItsOwnFormatAndIsReportedOnce() {
+        configAnswer = MockResponse().setBody("""{"enabled": true, "reportErrors": true}""")
+        initialize()
+        val broken = Fixtures.overlay().replace("\"precision\": \"exact\"", "\"precision\": \"floor\"")
+        adsAnswer = MockResponse().setBody(
+            Fixtures.ads(Fixtures.entry("overlay", broken), Fixtures.entry("pause", Fixtures.pause()), Fixtures.entry("menu")).toString(),
+        )
+        val ads = VideoAds(Content("ep", "en"))
+        assertEquals("the other format's ad", "ad-2", format(ads, AdFormat.PAUSE).getOrThrow().id)
+        val requestId = ads.lastRequestId
+        val error = format(ads, AdFormat.OVERLAY).exceptionOrNull()
+        assertEquals(NoFillReason.Unknown, (error as VideoAdException.NoFill).reason)
+        // The reports leave after a short delay on the main looper: its clock moves with the waiting.
+        await {
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
+            requests.any { it.first == "/v2/error" }
+        }
+        val reports = requests.filter { it.first == "/v2/error" }.flatMap { Json.parseToJsonElement(it.second).jsonObject["errors"]!!.jsonArray }
+        val report = reports.map { it.jsonObject }.single { it["requestId"]?.jsonPrimitive?.content == requestId }
+        assertEquals("ads.decode_failed", report["code"]?.jsonPrimitive?.content)
+        assertEquals("overlay", report["detail"]?.jsonPrimitive?.content)
+        assertEquals("no_ad", report["recovery"]?.jsonPrimitive?.content)
+        ads.destroy()
+    }
+
     @Test fun anAdsResponseCanSwitchTheSdkOff() {
         initialize()
         adsAnswer = MockResponse().setBody("""{"enabled": false, "disabledReason": "killed"}""")

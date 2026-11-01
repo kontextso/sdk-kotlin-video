@@ -267,7 +267,7 @@ public class VideoAds @JvmOverloads constructor(
                     )
                     throw VideoAdException.Request(error)
                 }
-                receive(response)
+                receive(response, built.requestId)
             }
         }
         request = task
@@ -276,14 +276,32 @@ public class VideoAds @JvmOverloads constructor(
     }
 
     /** The kill switch in an answer switches the whole SDK off and drops every ad, with no notices. */
-    private fun receive(response: AdsResponse): Map<AdFormat, NoFillReason> {
+    private fun receive(response: AdsResponse, requestId: String): Map<AdFormat, NoFillReason> {
         if (response is AdsResponse.Disabled) {
             Sdk.disable(response.reason)
             ads.values.toList().forEach { it.invalidate(VideoAd.InvalidationReason.Destroyed) }
             throw VideoAdException.Disabled(response.reason)
         }
         checkStillUsable()
+        reportDroppedAds(response, requestId)
         return apply(response)
+    }
+
+    /** A malformed ad was left out of its format: said once per format, the rest of the answer counts. */
+    private fun reportDroppedAds(response: AdsResponse, requestId: String) {
+        val results = (response as? AdsResponse.Formats)?.results ?: return
+        for (result in results) {
+            if (result.dropped.isEmpty()) continue
+            Logger.error { "${result.format} for ${content.id}: ${result.dropped.size} malformed ad(s) left out of request $requestId: ${result.dropped.first()}" }
+            ErrorReporter.report(
+                ErrorReporter.Code.ADS_DECODE_FAILED,
+                ErrorReporter.Stage.REQUEST,
+                requestId = requestId,
+                sessionId = sessionId,
+                detail = result.format.wireName,
+                recovery = if (result.ads.isEmpty()) ErrorReporter.Recovery.NO_AD else null,
+            )
+        }
     }
 
     /**
