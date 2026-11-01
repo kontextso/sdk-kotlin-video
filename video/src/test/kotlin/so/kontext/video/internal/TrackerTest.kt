@@ -90,6 +90,8 @@ class TrackerTest {
             4.35e-05 to "4.35e-05", 1.23456789e15 to "1234567890000000.0", 2e-4 to "0.0002", 1.0e7 to "10000000.0", 123456.0 to "123456.0",
             1.1 to "1.1", 100.0 to "100.0", 0.00012345 to "0.00012345",
             Double.fromBits(0x43a4dbd1460f41bcL) to "7.515124997460372e+17", // where String.format rounded the last digit up
+            // 2^-24: below a power of two the gap is half as wide; the nearest 16-digit decimal misses, its neighbour does not.
+            Double.fromBits(0x3e70000000000000L) to "5.960464477539063e-08", -Double.fromBits(0x3e70000000000000L) to "-5.960464477539063e-08",
         )
         assertEquals(swift, swift.mapValues { (value, _) -> Tracker.number(value) })
     }

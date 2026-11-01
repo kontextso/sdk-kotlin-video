@@ -172,15 +172,20 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         }
 
         /**
-         * The fewest significant digits that read back as [value], rounded half-even from its exact value: what
-         * Swift prints. Not `Double.toString` (not always the shortest, `1e23`) nor `String.format`, which rounds
-         * differently in some cases.
+         * The fewest significant digits that read back as [value], the closest such to its exact value: what
+         * Swift prints. At each precision the exact value rounded half-even, or, where that misses (the narrower
+         * gap below a power of two), its neighbour one last digit up or down. Not `Double.toString` (not always
+         * the shortest, `1e23`) nor `String.format`, which rounds differently in some cases.
          */
         private fun shortestDigits(value: Double): BigDecimal {
             val exact = BigDecimal(value)
             for (precision in 1..MAX_DIGITS) {
-                val digits = exact.round(MathContext(precision, RoundingMode.HALF_EVEN))
-                if (digits.toDouble() == value) return digits.stripTrailingZeros()
+                val rounded = exact.round(MathContext(precision, RoundingMode.HALF_EVEN))
+                val step = BigDecimal.ONE.scaleByPowerOfTen(rounded.precision() - rounded.scale() - precision)
+                val match = listOf(rounded, rounded.subtract(step), rounded.add(step))
+                    .filter { it.toDouble() == value }
+                    .minByOrNull { it.subtract(exact).abs() }
+                if (match != null) return match.stripTrailingZeros()
             }
             return exact.stripTrailingZeros()
         }
