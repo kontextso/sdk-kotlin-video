@@ -192,6 +192,20 @@ class VideoAdsTest {
         ads.destroy()
     }
 
+    @Test fun anAdIdUnderTwoFormatsIsAMalformedAnswerAndTheHeldAdsStay() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val ads = VideoAds(Content("ep", "en"))
+        val held = format(ads, AdFormat.PAUSE).getOrThrow()
+        for (order in listOf(listOf("overlay", "pause"), listOf("pause", "overlay"))) {
+            val entries = order.map { if (it == "overlay") Fixtures.entry("overlay", Fixtures.overlay(id = "ad-7")) else Fixtures.entry("pause", Fixtures.pause(id = "ad-7")) }
+            adsAnswer = MockResponse().setBody(Fixtures.ads(*entries.toTypedArray()).toString())
+            assertSame("$order: the held ad, as for any malformed answer", held, format(ads, AdFormat.PAUSE).getOrThrow())
+            assertTrue("$order", format(ads, AdFormat.OVERLAY).exceptionOrNull() is VideoAdException.Request)
+        }
+        ads.destroy()
+    }
+
     @Test fun anAdsResponseCanSwitchTheSdkOff() {
         initialize()
         adsAnswer = MockResponse().setBody("""{"enabled": false, "disabledReason": "killed"}""")

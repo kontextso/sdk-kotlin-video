@@ -12,7 +12,7 @@ import so.kontext.video.internal.network.str
 /**
  * The answer to `POST /video/ads`: one entry per format (the SDK always asks for all of them), each with its
  * ads or its no-fill reason; or the kill switch. Strict on the envelope (`enabled`, `formats`, each entry's
- * `format` and `ads`) and a duplicate format, which fail the whole answer. Each ad is
+ * `format` and `ads`), a format listed twice and an ad id listed twice, which fail the whole answer. Each ad is
  * read on its own: a malformed one is dropped, and leaves its format a no-fill when nothing valid is left; a
  * result for a format the SDK does not know is ignored. Lenient on the reason.
  */
@@ -35,6 +35,9 @@ internal sealed class AdsResponse {
             val results = body["formats"]?.arr()?.mapNotNull(::entry) ?: invalid("formats is missing")
             // One entry per format: with two, which one counts would depend on their order.
             if (results.map { it.format }.toSet().size != results.size) invalid("a format is listed twice")
+            // One id is one bid: under two formats, one could be rejected and the other shown.
+            val ids = results.flatMap { result -> result.ads.map { it.id } }
+            ids.groupBy { it }.entries.firstOrNull { it.value.size > 1 }?.let { invalid("ad ${it.key} is listed twice") }
             return Formats(results)
         }
 
