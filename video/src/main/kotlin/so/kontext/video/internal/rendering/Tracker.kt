@@ -115,7 +115,10 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         val REPEATABLE = setOf("click", "pause", "resume", "mute", "unmute")
         private const val TIMEOUT_MILLIS = 10_000
 
-        /** A GET of [url] off the main thread, once: no retries. [label] names it in the log. */
+        /**
+         * A GET of [url] off the main thread, once: no retries. [label] names it in the log. Only the status is
+         * read; the body never is, and disconnecting drops whatever the server still sends, however large.
+         */
         fun get(url: String, label: String) {
             Environment.scope.launch {
                 withContext(Dispatchers.IO) {

@@ -142,6 +142,46 @@ class PartsTest : SdkTest() {
         }
     }
 
+    @Test fun aBeaconReadsTheStatusAndNeverTheBody() {
+        // A 6 MiB answer to one beacon: the SDK reads the status line and closes, so the server cannot write it all.
+        val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())
+        val bodySize = 6 * 1024 * 1024
+        var written = 0
+        var requestLine: String? = null
+        val serving = Thread {
+            server.accept().use { socket ->
+                val reader = socket.getInputStream().bufferedReader()
+                requestLine = reader.readLine()
+                while (reader.readLine()?.isNotEmpty() == true) Unit
+                val out = socket.getOutputStream()
+                try {
+                    out.write("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: $bodySize\r\n\r\n".toByteArray())
+                    out.flush()
+                    val chunk = ByteArray(64 * 1024)
+                    while (written < bodySize) {
+                        out.write(chunk)
+                        written += chunk.size
+                    }
+                    out.flush()
+                } catch (_: java.io.IOException) {
+                    // The SDK hung up: what it never read could not be sent.
+                }
+            }
+        }
+        serving.start()
+        try {
+            Tracker.get("http://127.0.0.1:${server.localPort}/beacon?e=impression", "ad: impression")
+            while (serving.isAlive) {
+                idle(10)
+                serving.join(10)
+            }
+            assertEquals("GET /beacon?e=impression HTTP/1.1", requestLine)
+            assertTrue("$written of $bodySize bytes went out", written < bodySize)
+        } finally {
+            server.close()
+        }
+    }
+
     @Test fun theLogShowsOnlyWhatItsLevelLets() {
         val lines = mutableListOf<String>()
         Logger.sink = { _, message -> lines += message }
