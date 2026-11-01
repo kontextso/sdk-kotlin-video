@@ -107,4 +107,17 @@ class HardeningTest : SdkTest() {
     }
 
     // endregion
+
+    // region Prices
+
+    @Test fun equalPricesHashAlikeZeroAndMinusZeroToo() {
+        fun price(value: Double) = VideoAd.Price(value, "USD", VideoAd.Price.Precision.EXACT)
+        assertEquals(price(0.0), price(-0.0))
+        assertEquals(price(0.0).hashCode(), price(-0.0).hashCode())
+        assertEquals(price(2.5).hashCode(), price(2.5).hashCode())
+        assertEquals(1, setOf(price(0.0), price(-0.0)).size)
+        assertNotEquals(price(2.5), price(2.6))
+    }
+
+    // endregion
 }

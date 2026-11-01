@@ -755,7 +755,8 @@ public class VideoAd internal constructor(
         override fun equals(other: Any?): Boolean =
             other is Price && value == other.value && currency == other.currency && precision == other.precision
 
-        override fun hashCode(): Int = listOf(value, currency, precision).hashCode()
+        // 0.0 and -0.0 are equal, so they hash alike; a price is never NaN.
+        override fun hashCode(): Int = listOf(if (value == 0.0) 0.0 else value, currency, precision).hashCode()
 
         override fun toString(): String = "Price($value $currency, $precision)"
     }

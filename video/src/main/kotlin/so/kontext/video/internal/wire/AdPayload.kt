@@ -48,6 +48,8 @@ internal class AdPayload(
         /** The largest side a creative may have, in dp. */
         const val MAX_SIDE = 10_000
 
+        private val CURRENCY = Regex("[A-Z]{3}")
+
         /**
          * The schemes a frame page may load from. An allowlist: the bridge's origin rule accepts only a web
          * origin, so any other scheme would make the WebView refuse the bridge; and a page is a web page.
@@ -92,6 +94,9 @@ internal class AdPayload(
                     },
                 )
             } ?: invalid("ad $id: price")
+            // A CPM: a number, not infinity (`1e400`), and never negative. ISO 4217: three capital letters.
+            if (!price.value.isFinite() || price.value < 0) invalid("ad $id: price.value must be finite and not negative")
+            if (!CURRENCY.matches(price.currency)) invalid("ad $id: price.currency must be an ISO 4217 code")
             val expires = ad.long("expires") ?: invalid("ad $id: expires")
             // An ad that is expired on arrival is not an ad the server meant to give.
             if (expires <= 0) invalid("ad $id: expires must be positive")

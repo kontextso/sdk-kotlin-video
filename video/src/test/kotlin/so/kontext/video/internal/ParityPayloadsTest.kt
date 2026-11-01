@@ -193,6 +193,20 @@ class ParityPayloadsTest {
         for (bad in refused) assertThrows<ApiException.Decoding>(bad) { parse(Fixtures.overlay(frameUrl = bad)) }
     }
 
+    @Test fun aPriceIsAFiniteCpmNotNegativeInAnIsoCurrency() {
+        fun overlay(value: String, currency: String = "USD") =
+            Fixtures.overlay().replace(""""value": 8.0, "currency": "USD"""", """"value": $value, "currency": "$currency"""")
+        for (value in listOf("1e400", "-1e400", "-1", "-0.01", "\"NaN\"", "\"Infinity\"", "NaN", "Infinity")) {
+            assertThrows<ApiException>(value) { parse(overlay(value)) }
+        }
+        for (currency in listOf("usd", "US", "EURO", "", "U5D")) {
+            assertThrows<ApiException.Decoding>(currency) { parse(overlay("8.0", currency)) }
+        }
+        assertEquals(0.0, parse(overlay("0")).price.value)
+        assertEquals(1e300, parse(overlay("1e300")).price.value)
+        assertEquals("EUR", parse(overlay("8.0", "EUR")).price.currency)
+    }
+
     @Test fun trackingEntriesKeepOffsetAndPart() {
         val tracking = parse(Fixtures.overlay()).tracking
         val progress = tracking.first { it.event == "progress" }
