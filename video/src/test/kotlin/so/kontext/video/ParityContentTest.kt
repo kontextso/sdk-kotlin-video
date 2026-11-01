@@ -620,4 +620,54 @@ class ParityContentTest : SdkTest() {
     }
 
     // endregion
+
+    @Test fun anOverlayEndedOnATickWhoseEndShowsTheNextLeavesOneTickPending() {
+        var now = 0L
+        Environment.now = { now }
+        var reads = 0
+        val player = object : VideoAdsPlayer {
+            override val currentPositionMillis: Long get() = now
+            override val isPlaying: Boolean get() = true.also { reads += 1 }
+        }
+        val owner = owner()
+        owner.track(player)
+        val container = container()
+        val readsPerInterval = {
+            val before = reads
+            repeat(10) {
+                now += tick
+                idle(tick)
+            }
+            (reads - before) / 10.0
+        }
+        val staying = { overlay(owner, duration = "null") }
+        // A steady state first: one overlay that stays.
+        staying().also { first ->
+            first.show(container)
+            val steady = readsPerInterval()
+            assertTrue("a tick reads the player", steady > 0)
+            first.dismiss()
+            // Each overlay's duration elapses on a tick and its end shows the next, which restarts the ticks;
+            // the last one stays.
+            var shown = 0
+            lateinit var next: () -> Unit
+            next = {
+                shown += 1
+                val ad = if (shown == 4) staying() else overlay(owner, duration = "${tick * 2}")
+                ad.listener = object : VideoAdListener {
+                    override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                        if (reason == VideoAd.EndReason.COMPLETED) next()
+                    }
+                }
+                ad.show(container)
+            }
+            next()
+            repeat(20) {
+                now += tick
+                idle(tick)
+            }
+            assertEquals("the overlays handed over", 4, shown)
+            assertEquals("one tick per interval, as before the handovers", steady, readsPerInterval(), 0.01)
+        }
+    }
 }

@@ -44,6 +44,9 @@ internal class ContentPlayback {
         override fun run() {
             if (!isTicking) return
             onChange?.invoke(Change.Tick)
+            // The tick's own work may have stopped and restarted the ticks (an overlay ended, its onAdEnded
+            // showed the next one), which posted a tick already: exactly one stays pending.
+            handler.removeCallbacks(this)
             if (isTicking) handler.postDelayed(this, tickIntervalMillis)
         }
     }
