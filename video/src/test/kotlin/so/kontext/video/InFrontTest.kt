@@ -65,6 +65,18 @@ class InFrontTest : SdkTest() {
         assertFalse(Environment.isAppInForeground())
     }
 
+    @Test fun aProcessWithOnlyAForegroundServiceIsNotInFront() {
+        ActivityTracker.resetForTesting()
+        // A music or download service: foreground for the system, nothing on screen.
+        processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE)
+        ActivityTracker.register(app)
+        assertFalse(Environment.isAppInForeground())
+        ActivityTracker.resetForTesting()
+        processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE)
+        ActivityTracker.register(app)
+        assertTrue("an Activity visible behind another app's", Environment.isAppInForeground())
+    }
+
     @Test fun initializeBeforeAnyActivityCountsOnlyTheActivitiesThatStart() {
         ActivityTracker.resetForTesting()
         // Application.onCreate of a launch: the process is already foreground, no Activity exists yet.

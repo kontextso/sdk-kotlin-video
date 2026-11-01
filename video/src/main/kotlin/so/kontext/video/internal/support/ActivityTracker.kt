@@ -38,10 +38,14 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         application.registerActivityLifecycleCallbacks(this)
     }
 
-    /** The process holds a visible Activity: its importance is foreground or visible. */
+    /**
+     * The process holds a visible Activity: its importance is foreground or visible. Not a foreground service
+     * (125, between the two), which runs with nothing on screen.
+     */
     private fun isProcessVisible(): Boolean = runCatching {
         val info = ActivityManager.RunningAppProcessInfo().also(ActivityManager::getMyMemoryState)
-        info.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+        info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+            info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
     }.getOrDefault(false)
 
     /** Tests only: forgets the application and every Activity, as before `initialize`. */
