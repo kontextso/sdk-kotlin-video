@@ -135,7 +135,6 @@ public class VideoAd internal constructor(
      * (`CreativeFailed`, `Invalidated`, `Destroyed`, `Disabled`). Idempotent: a second call waits for the first.
      * Callable from any dispatcher: the work runs on the main thread.
      */
-    @MainThread
     public suspend fun load(): Unit = withContext(Dispatchers.Main.immediate) { loadOnMain() }
 
     private suspend fun loadOnMain() {

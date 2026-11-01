@@ -100,6 +100,5 @@ public object KontextVideo {
     }
 
     /** Waits until `/config` has answered or failed, and returns the state; at once when it already has. Callable from any dispatcher. */
-    @MainThread
     public suspend fun awaitInitialization(): State = withContext(Dispatchers.Main.immediate) { Sdk.awaitInitialization() }
 }
