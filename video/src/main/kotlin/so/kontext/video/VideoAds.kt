@@ -305,18 +305,24 @@ public class VideoAds @JvmOverloads constructor(
     }
 
     /**
-     * Follows the server for every format: the same id keeps the bid unchanged; a new id replaces it, as does a
-     * no-fill. An id already spent (shown or rejected while the request ran) is ignored for its format.
+     * Follows the server for every format it answered for: the same id keeps the bid unchanged; a new id
+     * replaces it, as does a no-fill. A format the answer leaves out keeps its held ad as it is (its own expiry
+     * still applies); with nothing held it is a no-fill of unknown reason. An id already spent (shown or
+     * rejected while the request ran) is ignored for its format.
      */
     private fun apply(response: AdsResponse): Map<AdFormat, NoFillReason> {
         val noFill = mutableMapOf<AdFormat, NoFillReason>()
         for (format in AdFormat.entries) {
             val current = ads[format]
             val result = response.result(format)
-            val payload: AdPayload? = result?.ads?.firstOrNull()
+            if (result == null) {
+                if (current == null) noFill[format] = NoFillReason.Unknown
+                continue
+            }
+            val payload: AdPayload? = result.ads.firstOrNull()
             if (payload == null) {
                 current?.invalidate(VideoAd.InvalidationReason.Expired)
-                val reason = result?.noFillReason ?: NoFillReason.Unknown
+                val reason = result.noFillReason ?: NoFillReason.Unknown
                 noFill[format] = reason
                 logNoFill(format, reason)
                 continue

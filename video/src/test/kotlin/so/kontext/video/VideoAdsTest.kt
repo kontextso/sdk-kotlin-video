@@ -13,6 +13,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -203,6 +204,23 @@ class VideoAdsTest {
             assertSame("$order: the held ad, as for any malformed answer", held, format(ads, AdFormat.PAUSE).getOrThrow())
             assertTrue("$order", format(ads, AdFormat.OVERLAY).exceptionOrNull() is VideoAdException.Request)
         }
+        ads.destroy()
+    }
+
+    @Test fun aFormatMissingFromTheAnswerKeepsItsHeldAdAndANoFillDropsIt() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val ads = VideoAds(Content("ep", "en"))
+        val pause = format(ads, AdFormat.PAUSE).getOrThrow()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("overlay", Fixtures.overlay())).toString())
+        assertEquals("ad-1", format(ads, AdFormat.OVERLAY).getOrThrow().id)
+        assertSame("the answer said nothing about pause: the held ad stays", pause, format(ads, AdFormat.PAUSE).getOrThrow())
+        assertNull(pause.invalidationReason)
+        val held = adsBodies().last()["held"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet()
+        assertEquals("listed as held next time", setOf("ad-1", "ad-2"), held)
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", noFill = "frequencyCap")).toString())
+        assertEquals(NoFillReason.FrequencyCap, (format(ads, AdFormat.PAUSE).exceptionOrNull() as VideoAdException.NoFill).reason)
+        assertEquals("a no-fill drops it", VideoAd.InvalidationReason.Expired, pause.invalidationReason)
         ads.destroy()
     }
 
