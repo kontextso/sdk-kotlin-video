@@ -7,8 +7,9 @@ import so.kontext.video.internal.rendering.Tracker
 
 /**
  * The content player of one `VideoAds`: its playhead for requests and beacons, and its playing state for an
- * overlay, which lives only while the content plays. Fed by a [VideoAdsPlayer]: its listener, or a read every
- * [tickIntervalMillis] while an overlay is on screen. [stop] drops the listener, the ticks and the player.
+ * overlay, which lives only while the content plays, and a pause ad, which lives only while it is paused. Fed
+ * by a [VideoAdsPlayer]: its listener, or a read every [tickIntervalMillis] while an overlay or pause ad is on
+ * screen. [stop] drops the listener, the ticks and the player.
  * Every callback carries the binding it came from: one from a player tracked before is dropped.
  */
 internal class ContentPlayback {
@@ -16,7 +17,7 @@ internal class ContentPlayback {
         /** The playing state changed, with the value the player gave. */
         data class Playback(val isPlaying: Boolean?) : Change()
 
-        /** The player moved to another item or played this one to its end, or `track` was called again while an overlay was on screen. */
+        /** The player moved to another item or played this one to its end, or `track` was called again while an ad was on screen. */
         object ContentChanged : Change()
 
         /** The position jumped (a seek): an overlay's count of video time goes on from the new position. */
@@ -28,8 +29,8 @@ internal class ContentPlayback {
 
     var onChange: ((Change) -> Unit)? = null
 
-    /** Whether an overlay of the `VideoAds` is on screen now; set by the `VideoAds`. */
-    var isOverlayShown: () -> Boolean = { false }
+    /** Whether an overlay or pause ad of the `VideoAds` is on screen now; set by the `VideoAds`. */
+    var isInlineAdShown: () -> Boolean = { false }
 
     /** `track` was called and [stop] was not since. */
     var isTracking = false
@@ -57,7 +58,7 @@ internal class ContentPlayback {
     val playheadMillis: Long
         get() = player?.let { runCatching { it.currentPositionMillis }.getOrNull() }?.coerceIn(0, Tracker.MAX_PLAYHEAD_MILLIS) ?: 0
 
-    /** Ticks run while an overlay of this `VideoAds` is on screen, and only then. */
+    /** Ticks run while an overlay or pause ad of this `VideoAds` is on screen, and only then. */
     var isTicking = false
         set(value) {
             if (field == value) return
@@ -74,9 +75,9 @@ internal class ContentPlayback {
         if (generation != expected) return
         // Asked of the ad on screen, not of the ticks: a `track` nested in that removal runs after `stop()`
         // turned them off, and must still hand the overlay over.
-        val overlayWasShown = isOverlayShown()
+        val inlineAdWasShown = isInlineAdShown()
         isTracking = true
-        isTicking = overlayWasShown
+        isTicking = inlineAdWasShown
         this.player = player
         val generation = generation
         val listener = object : VideoAdsPlayer.Listener {
@@ -91,7 +92,7 @@ internal class ContentPlayback {
             runCatching { player.removeListener(listener) }
             return
         }
-        if (overlayWasShown) deliver(Change.ContentChanged, generation)
+        if (inlineAdWasShown) deliver(Change.ContentChanged, generation)
     }
 
     /** Nothing tracked any more: the listener and the ticks go, and the player is no longer read. */
@@ -114,7 +115,7 @@ internal class ContentPlayback {
     }
 
     companion object {
-        /** How often a tick comes while an overlay is on screen. Tests shorten it. */
+        /** How often a tick comes while an overlay or pause ad is on screen. Tests shorten it. */
         var tickIntervalMillis = 250L
     }
 }

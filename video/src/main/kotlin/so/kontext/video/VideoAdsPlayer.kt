@@ -28,7 +28,7 @@ public interface VideoAdsPlayer {
 
     /**
      * Optional: tell [listener], on the main thread, what the player does, for an immediate reaction. Without
-     * it the SDK reads [isPlaying] four times a second while an overlay is on screen, and at every `show`, and
+     * it the SDK reads [isPlaying] four times a second while an overlay or pause ad is on screen, and at every `show`, and
      * estimates seeks from the position.
      */
     @MainThread

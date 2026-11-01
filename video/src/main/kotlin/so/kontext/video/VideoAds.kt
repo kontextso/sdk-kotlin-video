@@ -94,7 +94,7 @@ public class VideoAds @JvmOverloads constructor(
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
         // The ad on screen hears of the player: an overlay ends when the content stops, and counts its time.
         playback.onChange = { change -> showing?.contentDidChange(change) }
-        playback.isOverlayShown = { showing?.let { it.format == AdFormat.OVERLAY && !it.hasEnded } ?: false }
+        playback.isInlineAdShown = { showing?.let { it.format != AdFormat.LINEAR && !it.hasEnded } ?: false }
         Logger.debug { "VideoAds created for video ${content.id}" }
     }
 
@@ -149,9 +149,11 @@ public class VideoAds @JvmOverloads constructor(
      * The player this episode plays in. The SDK reads its time for requests and the `[CONTENTPLAYHEAD]` macro
      * of beacons, and follows its playback for an overlay: an overlay is shown over playing content only
      * (`show` throws `ContentPaused` otherwise), ends with `INTERRUPTED` when the content pauses or ends, and
-     * its duration counts milliseconds of video. Held until [destroy] or the next `track`. With one player
+     * its duration counts milliseconds of video. A pause ad ends with `INTERRUPTED` when the content plays again,
+     * wherever the viewer resumed it (the media notification, the lock screen, a headset, picture-in-picture).
+     * Held until [destroy] or the next `track`. With one player
      * reused across episodes, call it when this episode starts playing in it, not at creation. Without a
-     * player the playhead is 0 (right for a prefetch) and an overlay runs on its own time.
+     * player the playhead is 0 (right for a prefetch), an overlay runs on its own time and a pause ad stays until it is dismissed or closed.
      */
     @MainThread
     public fun track(player: VideoAdsPlayer) {
@@ -197,8 +199,9 @@ public class VideoAds @JvmOverloads constructor(
 
     internal fun adDidBeginShowing(ad: VideoAd) {
         showing = ad
-        // An overlay counts its milliseconds of video, and watches a player without a listener, on ticks.
-        playback.isTicking = ad.format == AdFormat.OVERLAY
+        // An overlay counts its milliseconds of video, and an overlay or pause ad watches a player without a
+        // listener, on ticks.
+        playback.isTicking = ad.format != AdFormat.LINEAR
         adDidLeave(ad)
     }
 

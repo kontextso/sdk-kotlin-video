@@ -118,6 +118,9 @@ public class VideoAd internal constructor(
     internal var videoPlaying = false
     internal var clock: ActiveTimeClock? = null
     internal var contentProgress: ContentProgress? = null
+
+    /** A pause ad that follows the content saw it paused while on screen: the content playing again ends it. */
+    internal var contentWasPaused = false
     private var impressionRecorded = false
 
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
@@ -853,7 +856,7 @@ public class VideoAd internal constructor(
         /** The viewer tapped the ad's close control: an overlay's or pause card's ✕ (the content stays paused), or a linear ad's end card ✕. */
         CLOSED,
 
-        /** The viewer tapped Resume on a full-screen pause ad. */
+        /** The viewer tapped Resume on a full-screen pause ad, the ad's own control. Content resumed elsewhere ends it as [INTERRUPTED]. */
         RESUMED,
 
         /** The ad broke after `show` returned; `onAdFailed` came first. */
@@ -862,7 +865,8 @@ public class VideoAd internal constructor(
         /**
          * The presentation disappeared for a reason the SDK did not cause: the container left the window or
          * became too small for the ad, the linear ad's screen was destroyed under it. For an overlay with a
-         * tracked player, also the content pausing, ending or moving to another item.
+         * tracked player, also the content pausing, ending or moving to another item; for a pause ad with a
+         * tracked player, the content playing again (resumed outside the ad: the media notification, a headset).
          */
         INTERRUPTED,
 

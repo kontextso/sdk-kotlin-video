@@ -45,7 +45,7 @@ class AndroidPartsTest {
         val playback = ContentPlayback()
         val changes = mutableListOf<ContentPlayback.Change>()
         playback.onChange = { changes += it }
-        playback.isOverlayShown = { true }
+        playback.isInlineAdShown = { true }
         val first = HookPlayer()
         val middle = HookPlayer()
         val last = HookPlayer(currentPositionMillis = 77)

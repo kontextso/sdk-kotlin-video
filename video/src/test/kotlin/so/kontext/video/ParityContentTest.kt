@@ -548,4 +548,76 @@ class ParityContentTest : SdkTest() {
         second.track(Player())
         assertTrue("tracking another player drops the first one's listener", player.listeners.isEmpty())
     }
+
+    // region A pause ad follows the content
+
+    @Test fun aPauseAdEndsAsInterruptedWhenTheContentPlaysAgainFromOutsideTheApp() {
+        val player = Player(playing = false)
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        val container = container()
+        ad.show(container)
+        idle(tick * 4)
+        assertTrue("paused content: it stays", recorder.reasons.isEmpty())
+        // Play from the media notification, a headset or the picture-in-picture window: not the app's own button.
+        player.playing = true
+        player.listeners.toList().forEach { it.onIsPlayingChanged(true) }
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertEquals(0, container.childCount)
+        assertNull(Sdk.adOnScreen)
+    }
+
+    @Test fun aPauseAdOverAPlayerWithoutAListenerEndsOnTheTickThatSeesItPlay() {
+        val player = object : VideoAdsPlayer {
+            var playing = false
+            override val currentPositionMillis = 0L
+            override val isPlaying: Boolean get() = playing
+        }
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        ad.show(container())
+        idle(tick * 4)
+        assertTrue(recorder.reasons.isEmpty())
+        player.playing = true
+        idle(tick)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun aPauseAdShownBeforeTheAppPausesEndsOnlyWhenTheContentPlaysAgain() {
+        val player = Player(playing = true)
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        ad.show(container())
+        idle(tick * 4)
+        assertTrue("shown over playing content, the app pauses next: it stays", recorder.reasons.isEmpty())
+        player.playing = false
+        player.listeners.toList().forEach { it.onIsPlayingChanged(false) }
+        idle(tick * 4)
+        assertTrue(recorder.reasons.isEmpty())
+        player.playing = true
+        idle(tick)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun anUntrackedPauseAdStaysUntilDismissedAndResumeStaysResumed() {
+        val recorder = Recorder()
+        val ad = pause()
+        ad.listener = recorder
+        ad.show(container())
+        idle(60_000)
+        assertTrue("no player: nothing to follow", recorder.reasons.isEmpty())
+        page(ad, "ad.close", """"reason": "resume"""")
+        assertEquals(listOf(VideoAd.EndReason.RESUMED), recorder.reasons)
+    }
+
+    // endregion
 }
