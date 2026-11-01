@@ -100,14 +100,13 @@ internal class AdPayload(
             val expires = ad.long("expires") ?: invalid("ad $id: expires")
             // An ad that is expired on arrival is not an ad the server meant to give.
             if (expires <= 0) invalid("ad $id: expires must be positive")
-            val tracking = ad["tracking"]?.arr()?.map { entry ->
+            val tracking = ad["tracking"]?.arr()?.mapNotNull { entry ->
                 val event = entry.obj() ?: invalid("ad $id: a tracking entry is not an object")
-                TrackingEvent(
-                    event = event.str("event") ?: invalid("ad $id: tracking.event"),
-                    url = event.str("url") ?: invalid("ad $id: tracking.url"),
-                    offsetMillis = event.long("offset"),
-                    part = event.str("part"),
-                )
+                val name = event.str("event") ?: invalid("ad $id: tracking.event")
+                val url = event.str("url") ?: invalid("ad $id: tracking.url")
+                // An offset that is no count of milliseconds loses its entry, never the ad.
+                val offset = if (event.has("offset")) offsetMillis(event) ?: return@mapNotNull null else null
+                TrackingEvent(event = name, url = url, offsetMillis = offset, part = event.str("part"))
             } ?: invalid("ad $id: tracking")
             val trigger = ad["trigger"]?.obj() ?: invalid("ad $id: trigger")
             when (trigger.str("kind")) {
@@ -165,6 +164,20 @@ internal class AdPayload(
             if (sizes.isEmpty()) invalid("ad $id: sizes must have at least one entry")
             return sizes
         }
+
+        /**
+         * A tracking entry's `offset`: any finite, non-negative number of milliseconds (the server converts it
+         * from a percent, so 4957.59 is fine), rounded to the nearest one; `null` for a value that is not a
+         * number, negative, or beyond ten years.
+         */
+        private fun offsetMillis(event: JsonObject): Long? {
+            val value = event.double("offset") ?: return null
+            if (!value.isFinite() || value < 0 || value > MAX_OFFSET_MILLIS) return null
+            return Math.round(value)
+        }
+
+        /** The longest offset a tracking entry may have: ten years, as the playheads are clamped. */
+        private const val MAX_OFFSET_MILLIS = 315_360_000_000.0
 
         /** An optional count of milliseconds, refused when negative. */
         private fun nonNegative(ad: JsonObject, key: String, id: String): Long? {

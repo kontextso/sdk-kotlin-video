@@ -41,6 +41,7 @@ import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.wire.AdPayload
 import so.kontext.video.internal.wire.AdsRequest
@@ -166,6 +167,24 @@ class ParityPayloadsTest {
 
     @Test fun aPauseAdAtTheTopNeedsItsSizes() {
         assertThrows<ApiException.Decoding> { parse(Fixtures.pause().replace(""", "sizes": [{"width": 300, "height": 250, "scalable": false}]""", "")) }
+    }
+
+    @Test fun aProgressOffsetIsAnyFiniteNonNegativeNumberRoundedToTheMillisecond() {
+        fun progress(index: Int, offset: String) = """{"event": "progress", "url": "https://t.test/p?n=$index", "offset": $offset}"""
+        val entries = listOf("4957.59", "4957.4", "5000.0", "0", "0.4", "-1", "-0.5", "1e400", "1e300", "\"5000\"", "{}", "315360000001")
+        val ad = parse(Fixtures.overlay(tracking = entries.mapIndexed(::progress).joinToString(prefix = "[", postfix = "]")))
+        assertEquals(listOf(4958L, 4957L, 5000L, 0L, 0L), ad.tracking.map { it.offsetMillis }, "rounded; the rest drop their entry only")
+        val absent = parse(Fixtures.overlay(tracking = """[{"event": "impression", "url": "https://t.test/i", "offset": null}]"""))
+        assertEquals(1, absent.tracking.size, "an absent offset is no offset")
+        // A fractional checkpoint fires once the video passes it.
+        val sent = mutableListOf<String>()
+        Environment.sendBeacon = { url, _ -> sent += url }
+        try {
+            Tracker(ad.id, ad.tracking).fireProgress(5_000)
+            assertEquals((0..4).map { "https://t.test/p?n=$it" }, sent.sorted())
+        } finally {
+            Environment.sendBeacon = Tracker::get
+        }
     }
 
     @Test fun aScalableFlagOfTheWrongTypeIsAMalformedSize() {
