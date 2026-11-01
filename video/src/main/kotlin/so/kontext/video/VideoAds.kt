@@ -107,7 +107,6 @@ public class VideoAds @JvmOverloads constructor(
      * A cancelled caller stops waiting; the request itself continues. Callable from any dispatcher: the work
      * runs on the main thread.
      */
-    @MainThread
     public suspend fun format(format: AdFormat): VideoAd = withContext(Dispatchers.Main.immediate) { formatOnMain(format) }
 
     private suspend fun formatOnMain(format: AdFormat): VideoAd {
@@ -166,12 +165,11 @@ public class VideoAds @JvmOverloads constructor(
      * WebView released; one that expired leaves silently. `load()` and `show` on them throw `Destroyed`; the ad
      * on screen ends with `DESTROYED`; a `format()` or `load()` in flight throws `Destroyed`. Idempotent.
      *
-     * Call it when the viewer leaves the episode, not in every `onDestroy()`: a rotation or another
-     * configuration change destroys and recreates the Activity, and calling it there drops the ads and ends a
-     * linear ad on screen. Keep the `VideoAds` in a `ViewModel` and call it in `onCleared()` (and `track` the
-     * new player after a recreation), or call it in `onDestroy()` only `if (isFinishing)`; in a Fragment's
-     * `onDestroy()`, `if (requireActivity().isFinishing || isRemoving)`. In Compose, from a `ViewModel` or a
-     * `DisposableEffect` of a screen that survives rotation.
+     * Call it with whatever owns the `VideoAds`. A `ViewModel`: in `onCleared()`, and in every new Activity
+     * `track` its player and set the ads' listeners again, so the ads survive a rotation. An Activity, a
+     * Fragment or a Compose `DisposableEffect`: in its `onDestroy()` (`onDispose`), every time, with
+     * `android:configChanges` declared for rotation so a rotation does not recreate it. A `VideoAds` nobody
+     * destroys is never released.
      */
     @MainThread
     public fun destroy() {

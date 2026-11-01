@@ -70,8 +70,8 @@ class EpisodeActivity : Activity(), VideoAdListener {
 
     override fun onDestroy() {
         super.onDestroy()
-        // A recreation (a configuration change) is not the viewer leaving: the ads stay.
-        if (isFinishing) ads.destroy()
+        // The screen owns its ads: they go with it. configChanges keeps it, and them, across a rotation.
+        ads.destroy()
         player.release()
     }
 

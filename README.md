@@ -26,7 +26,8 @@ class EpisodeViewModel : ViewModel() {
     override fun onCleared() = ads.destroy() // the viewer left the episode
 }
 
-// The episode's screen, in onCreate: the player is new after a rotation, so track it again
+// The episode's screen, in onCreate: the player and the screen are new after a recreation, so track the
+// new player and set the listeners again; a listener left from the old screen would keep it alive
 val ads = viewModel.ads
 ads.track(player) // your Media3 player, or your own VideoAdsPlayer
 
@@ -52,13 +53,11 @@ viewModel.pauseAd?.dismiss(); player.play() // dismiss throws only for a linear 
 `show`, `reject` and `dismiss` throw `VideoAdException`; Kotlin does not make you catch it, so wrap every `show`
 and `reject` in a `try`. Nothing is shown and no listener call follows when they throw.
 
-Call `destroy()` when the viewer leaves the episode, not whenever its screen is destroyed: a rotation or another
-configuration change destroys and recreates the Activity, and `destroy()` there drops the held ads and ends the one
-on screen. Keep the `VideoAds` in a `ViewModel` and destroy it in `onCleared()`, as above. Without one, call it in
-`onDestroy()` only when the screen really goes: `if (isFinishing) ads.destroy()` in an Activity,
-`if (requireActivity().isFinishing || isRemoving) ads.destroy()` in a Fragment's `onDestroy()`. In Compose, take
-the `VideoAds` from a `ViewModel` (`viewModel()`), or create and destroy it in a `DisposableEffect` of a screen
-that survives rotation. Until `destroy()` the `VideoAds` holds its player adapter and its ads.
+Destroy the `VideoAds` with whatever owns it. Owned by a `ViewModel`, as above: `destroy()` in `onCleared()`, and in
+every new Activity `track` its player and set the ads' listeners again, so the ads survive a rotation. Owned by the
+Activity (or a Fragment, or a Compose `DisposableEffect`): `destroy()` in its `onDestroy()` (`onDispose`), every
+time; declare `android:configChanges` for rotation, as the example app does, so a rotation does not recreate it. A
+`VideoAds` its owner forgot is never released: it holds its player adapter, its ads and their listeners.
 
 A linear ad shows with `ad.show(activity)`; resume your content in `onAdEnded`. The [example app](example) shows
 every format. Development: [DEVELOPMENT.md](DEVELOPMENT.md).
