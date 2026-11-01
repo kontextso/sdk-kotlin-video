@@ -205,6 +205,16 @@ public class VideoAds @JvmOverloads constructor(
         adDidLeave(ad)
     }
 
+    /** `show` reserved [ad] and could not put it on screen: it is held again as before, its id unspent. */
+    internal fun adDidNotShow(ad: VideoAd, wasHeld: Boolean) {
+        if (showing === ad) {
+            showing = null
+            playback.isTicking = false
+        }
+        spentIds -= ad.id
+        if (wasHeld && ads[ad.format] == null) ads[ad.format] = ad
+    }
+
     internal fun adDidEnd(ad: VideoAd) {
         if (showing !== ad) return
         showing = null

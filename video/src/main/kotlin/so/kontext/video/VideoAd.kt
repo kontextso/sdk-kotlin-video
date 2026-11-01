@@ -266,8 +266,9 @@ public class VideoAd internal constructor(
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
      * minimum; a full-screen pause ad ignores them. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`,
      * `AnotherAdShowing`, `Invalidated`, `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not
-     * attached, not shown, or has no area), `ContainerTooSmall`, `ContentPaused` (an overlay over paused
-     * content; the ad stays ready in these three), `WrongPresentation` (a linear ad).
+     * attached, not shown, has no area, or refuses a child: a ScrollView that has one, a ListView),
+     * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
+     * `WrongPresentation` (a linear ad).
      */
     @MainThread
     @Throws(VideoAdException::class)
@@ -288,26 +289,38 @@ public class VideoAd internal constructor(
         val density = container.resources.displayMetrics.density
         // Picks the variant, or throws `ContainerTooSmall`.
         chooseSize(container.width, container.height, combinedInsets(AdHostView.systemInsets(container)), density)
-        // Nothing throws from here on. Reserved before any of the app's code runs: adding the host calls the
-        // container's own hooks. A show from there finds the slot taken; a destroy there ends this ad.
+        // Reserved before any of the app's code runs: adding the host calls the container's own hooks. A show
+        // from there finds the slot taken; a destroy there ends this ad. The container may refuse the host (a
+        // ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.
         val bridge = bridge
+        val wasHeld = owner.get()?.ads?.get(format) === this
         reserve()
-        contextWrapper.baseContext = container.context
-        val webView = bridge.webView
-        (webView.parent as? ViewGroup)?.removeView(webView)
-        if (hasEnded) return
-        bridge.chosenSize = chosenSize
-        val host = AdHostView(container.context, webView)
-        host.place = { width, height, system -> refit(width, height, system, density) }
-        host.onUnfit = {
-            if (!hasEnded) {
-                Logger.warning { "ad ${id.take(8)}: the container became too small for the ad; ended as interrupted" }
-                end(EndReason.INTERRUPTED)
+        try {
+            contextWrapper.baseContext = container.context
+            val webView = bridge.webView
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            if (hasEnded) return
+            bridge.chosenSize = chosenSize
+            val host = AdHostView(container.context, webView)
+            host.place = { width, height, system -> refit(width, height, system, density) }
+            host.onUnfit = {
+                if (!hasEnded) {
+                    Logger.warning { "ad ${id.take(8)}: the container became too small for the ad; ended as interrupted" }
+                    end(EndReason.INTERRUPTED)
+                }
             }
+            host.onWindowVisibility = { visible -> clock?.windowVisibilityChanged(visible) }
+            hostView = host
+            container.addView(host)
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+            unreserve(container, wasHeld, error)
+            // An ad its owner ended meanwhile (a destroy in the container's hook) has had its onAdEnded: show
+            // was accepted and is over. Otherwise nothing was shown and nothing spent.
+            if (hasEnded) return
+            throw VideoAdException.PresenterUnavailable()
         }
-        host.onWindowVisibility = { visible -> clock?.windowVisibilityChanged(visible) }
-        hostView = host
-        container.addView(host)
+        // A destroy in the container's hook ended the ad and took its host.
+        val host = hostView ?: return
         // The container's own hook may have removed the host, or taken the container off screen.
         if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || host.alpha <= 0.01f || !AdPlacement.canBeSeen(container))) {
             Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
@@ -502,6 +515,25 @@ public class VideoAd internal constructor(
         wasShown = true
         Sdk.adOnScreen = this
         owner.get()?.adDidBeginShowing(this)
+    }
+
+    /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */
+    private fun unreserve(container: ViewGroup, wasHeld: Boolean, error: Exception) {
+        Logger.warning { "ad ${id.take(8)}: the container refused the ad (${error.javaClass.simpleName}); not shown, the ad stays ready" }
+        val host = hostView
+        hostView = null
+        if (host != null) {
+            // A container that refuses a child may refuse its removal too.
+            runCatching { (host.parent as? ViewGroup)?.removeView(host) }
+            if (host.parent === container) runCatching { container.removeViewInLayout(host) }
+            host.removeAllViews()
+        }
+        loadedBridge?.webView?.let { webView -> runCatching { (webView.parent as? ViewGroup)?.removeView(webView) } }
+        Environment.context?.let { contextWrapper.baseContext = it }
+        if (hasEnded) return
+        wasShown = false
+        if (Sdk.adOnScreen === this) Sdk.adOnScreen = null
+        owner.get()?.adDidNotShow(this, wasHeld)
     }
 
     private fun presented() {

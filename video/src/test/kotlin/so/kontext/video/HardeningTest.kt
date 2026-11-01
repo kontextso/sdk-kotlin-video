@@ -44,6 +44,65 @@ class HardeningTest : SdkTest() {
 
     // endregion
 
+    // region A container that refuses the ad
+
+    /** [container] laid out at 320×400 in a visible window, as `container()` does for a FrameLayout. */
+    private fun <T : android.view.ViewGroup> inWindow(container: T): T {
+        val activity = (container.context as Activity)
+        activity.setContentView(container)
+        container.measure(android.view.View.MeasureSpec.makeMeasureSpec(320, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(400, android.view.View.MeasureSpec.EXACTLY))
+        container.layout(0, 0, 320, 400)
+        idle()
+        container.layout(0, 0, 320, 400)
+        org.robolectric.util.ReflectionHelpers.setField(org.robolectric.util.ReflectionHelpers.getField<Any>(container, "mAttachInfo"), "mWindowVisibility", android.view.View.VISIBLE)
+        return container
+    }
+
+    @Test fun aContainerWhoseAddViewThrowsLeavesTheAdReadyAndTheSlotFree() {
+        val makers = listOf<Pair<String, (Activity) -> android.view.ViewGroup>>(
+            "a ScrollView with its child" to { a -> android.widget.ScrollView(a).apply { addView(android.view.View(a)) } },
+            "a ListView" to { a -> android.widget.ListView(a) },
+            // Added, then the container's own hook throws: the host is in it already.
+            "a hook that throws" to { a ->
+                object : android.widget.FrameLayout(a) {
+                    override fun onViewAdded(child: android.view.View) {
+                        super.onViewAdded(child)
+                        error("not here")
+                    }
+                }
+            },
+        )
+        for ((what, make) in makers) {
+            val owner = owner()
+            val recorder = Recorder()
+            val ad = overlay(owner, tracking = tracking("impression", "creativeView", "overlayViewDuration"))
+            owner.ads[AdFormat.OVERLAY] = ad
+            ad.listener = recorder
+            val refusing = inWindow(make(activity()))
+            val children = refusing.childCount
+            try {
+                ad.show(refusing)
+                org.junit.Assert.fail("$what: shown")
+            } catch (error: VideoAdException) {
+                assertTrue("$what: $error", error is VideoAdException.PresenterUnavailable)
+            }
+            assertTrue("$what: the ad stays ready", ad.isReady && !ad.wasShown)
+            assertNull("$what: the slot is free", Sdk.adOnScreen)
+            assertEquals("$what: the owner holds it again", ad, owner.ads[AdFormat.OVERLAY])
+            assertEquals("$what: nothing left in the container", children, refusing.childCount)
+            assertTrue("$what: nothing fired, nothing heard", events.isEmpty() && recorder.heard.isEmpty())
+            // The same ad shows in a good container, and ends once.
+            val good = container()
+            ad.show(good)
+            assertTrue(ad.wasShown)
+            ad.dismiss()
+            assertEquals(what, listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+            beacons.clear()
+        }
+    }
+
+    // endregion
+
     // region A linear screen that cannot start
 
     /** An Activity whose launches fail, as with the SDK's Activity stripped from the merged manifest. */
