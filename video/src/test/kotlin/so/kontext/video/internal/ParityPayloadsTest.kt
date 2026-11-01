@@ -156,8 +156,23 @@ class ParityPayloadsTest {
         val broken = Fixtures.pause(id = "ad-9").replace(""""sizes": [{"width": 300, "height": 250, "scalable": false}]""", """"sizes": []""")
         val withBroken = ads("""{"enabled": true, "formats": [${Fixtures.entry("pause", Fixtures.pause(), broken)}]}""").result(AdFormat.PAUSE)!!
         assertEquals(listOf("ad-2"), withBroken.ads.map { it.id }, "a malformed second ad is dropped")
+        // An ad filed under the wrong format (its own `format` is not its entry's) is a malformed ad: it alone is
+        // dropped, as a lenient ad is, and the rest of the answer counts.
         val withOther = ads("""{"enabled": true, "formats": [${Fixtures.entry("pause", Fixtures.pause(), Fixtures.overlay())}]}""").result(AdFormat.PAUSE)!!
         assertEquals(listOf("ad-2"), withOther.ads.map { it.id }, "a second ad of another format is dropped")
+        assertEquals(1, withOther.dropped.size)
+        assertNull(withOther.noFillReason)
+        val onlyOther = ads(
+            """{"enabled": true, "formats": [
+                ${Fixtures.entry("pause", Fixtures.overlay(), noFill = "frequencyCap")},
+                ${Fixtures.entry("linear", Fixtures.linear())}]}""",
+        )
+        val misfiled = onlyOther.result(AdFormat.PAUSE)!!
+        assertTrue(misfiled.ads.isEmpty(), "the only ad, filed under the wrong format: dropped")
+        assertEquals(NoFillReason.Unknown, misfiled.noFillReason, "a no-fill of reason unknown, whatever the entry says")
+        assertTrue("the result is PAUSE" in misfiled.dropped.single(), misfiled.dropped.single())
+        assertNull(onlyOther.result(AdFormat.OVERLAY), "nor is it filed under its own format")
+        assertEquals("ad-3", onlyOther.result(AdFormat.LINEAR)?.ads?.single()?.id, "another format is untouched")
     }
 
     @Test fun aPauseAdDecodesWithEveryFact() {
