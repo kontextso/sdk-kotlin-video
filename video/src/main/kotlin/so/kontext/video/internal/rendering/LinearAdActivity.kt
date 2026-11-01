@@ -75,8 +75,10 @@ internal class LinearAdActivity : ComponentActivity() {
         super.onDestroy()
         val presentation = presentation ?: return
         intent.getStringExtra(EXTRA_TOKEN)?.let { presentations.remove(it) }
-        // Not a rotation: configChanges keeps the Activity. A screen the system took away ends the ad.
-        if (!isChangingConfigurations || isEndingByAd) presentation.onScreenGone(isEndingByAd)
+        // The manifest's configChanges lists every change it can declare, so the page lives through rotation,
+        // resizing, a new font scale, locale or density. A screen recreated anyway (a change that cannot be
+        // declared) has lost its page, as has one the system took away: the ad ends now, interrupted.
+        presentation.onScreenGone(isEndingByAd)
     }
 
     companion object {

@@ -1,7 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
-        <!-- A plain screen for tests that lay out views in a real window. -->
         <activity android:name="so.kontext.video.TestHostActivity" android:exported="false" />
     </application>
 </manifest>

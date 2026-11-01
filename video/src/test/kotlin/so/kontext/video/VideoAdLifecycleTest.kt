@@ -409,6 +409,34 @@ class VideoAdLifecycleTest : SdkTest() {
         return controller
     }
 
+    @Test fun aLinearAdKeepsItsScreenThroughEveryConfigurationChange() {
+        val recorder = Recorder()
+        val ad = linear()
+        ad.listener = recorder
+        val screen = present(ad)
+        val first = screen.get()
+        val changes = listOf<(android.content.res.Configuration) -> Unit>(
+            { it.fontScale = 1.3f },
+            { it.setLocale(java.util.Locale.FRENCH) },
+            { it.densityDpi = 480 },
+            { it.orientation = android.content.res.Configuration.ORIENTATION_LANDSCAPE },
+            { it.uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES or android.content.res.Configuration.UI_MODE_TYPE_NORMAL },
+            { it.keyboard = android.content.res.Configuration.KEYBOARD_QWERTY },
+            { it.navigation = android.content.res.Configuration.NAVIGATION_DPAD },
+            { it.touchscreen = android.content.res.Configuration.TOUCHSCREEN_NOTOUCH },
+            { it.mcc = 208 },
+        )
+        for (change in changes) {
+            val config = android.content.res.Configuration(screen.get().resources.configuration).also(change)
+            screen.configurationChange(config)
+            idle()
+            assertSame("the same screen, not a new one", first, screen.get())
+            assertFalse("change ${changes.indexOf(change)}", first.isFinishing)
+        }
+        assertFalse("the ad plays on", ad.hasEnded)
+        assertTrue(recorder.reasons.isEmpty())
+    }
+
     @Test fun aLinearAdPlaysThroughWithEveryBeaconAndClosesFromItsEndCard() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking("creativeView", "start", "firstQuartile", "midpoint", "thirdQuartile", "complete", "creativeView|endCard", "close", "impression"))
