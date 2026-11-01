@@ -292,8 +292,17 @@ public class VideoAd internal constructor(
         if (!isOnScreen(container)) throw VideoAdException.PresenterUnavailable()
         extraInsets = Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom))
         val density = container.resources.displayMetrics.density
-        // Picks the variant, or throws `ContainerTooSmall`.
-        chooseSize(container.width, container.height, combinedInsets(AdHostView.systemInsets(container)), density)
+        // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
+        // area, inside its padding, less the bars that reach into it and the app's insets. In the container's
+        // pixels, so the minimum is a container size.
+        val system = AdHostView.systemInsets(container)
+        val contentArea = Rect(
+            maxOf(container.paddingLeft, system.left),
+            maxOf(container.paddingTop, system.top),
+            maxOf(container.paddingRight, system.right),
+            maxOf(container.paddingBottom, system.bottom),
+        )
+        chooseSize(container.width, container.height, combinedInsets(contentArea), density)
         // Reserved before any of the app's code runs: adding the host calls the container's own hooks. A show
         // from there finds the slot taken; a destroy there ends this ad. The container may refuse the host (a
         // ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.

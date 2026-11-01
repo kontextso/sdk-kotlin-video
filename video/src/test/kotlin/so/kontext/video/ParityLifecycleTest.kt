@@ -411,6 +411,31 @@ class ParityLifecycleTest : SdkTest() {
         assertTrue(ad.isReady && !ad.wasShown)
     }
 
+    @Test fun theFitCountsTheContainersPadding() {
+        // 320 px with 20 px padding each side leaves 280 px: a 300 dp creative that may not shrink does not fit.
+        val ad = pause() // 300×250 dp, not scalable
+        val padded = container(320, 400).apply { setPadding(20, 20, 20, 20) }
+        val error = assertThrows<VideoAdException.ContainerTooSmall> { ad.show(padded) }
+        assertEquals("its own size and the padding", 340, error.minimumWidthPx)
+        assertEquals(290, error.minimumHeightPx)
+        assertTrue("nothing spent", ad.isReady && !ad.wasShown)
+        assertEquals(0, padded.childCount)
+        assertTrue(events.isEmpty())
+        // A container of that minimum holds it, inside the padding.
+        val roomy = container(340, 400).apply { setPadding(20, 20, 20, 20) }
+        ad.show(roomy)
+        assertTrue(ad.wasShown)
+        // The host fills the content area, so the host's own placement is asked with its size.
+        assertEquals(Rect(0, 0, 300, 250), host(roomy).place!!(300, 360, Rect()))
+        ad.dismiss()
+        // A scalable strip shrinks to the content area and the minimum counts the padding too.
+        val strip = overlay() // 320×80 dp, scalable to half
+        val narrow = container(200, 400).apply { setPadding(25, 0, 25, 30) }
+        val tooSmall = assertThrows<VideoAdException.ContainerTooSmall> { strip.show(narrow) }
+        assertEquals(160 + 50, tooSmall.minimumWidthPx)
+        assertEquals(40 + 30, tooSmall.minimumHeightPx)
+    }
+
     @Test fun insetsThatLeaveNoWidthOrNoHeightLeaveTheAdReady() {
         for (insets in listOf(Insets.of(200, 0, 200, 0), Insets.of(0, 250, 0, 250))) {
             val ad = overlay()
