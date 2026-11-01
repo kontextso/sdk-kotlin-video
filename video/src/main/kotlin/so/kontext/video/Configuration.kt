@@ -4,8 +4,8 @@ package so.kontext.video
  * The options a publisher sets when initializing the SDK. They do not change during a run; what the viewer
  * is and consented to can change later and lives on [KontextVideo] (`user`, `regulatory`, `variantId`).
  *
- * Kotlin: `Configuration("netshort-dev") { logLevel = LogLevel.DEBUG }`.
- * Java: `new Configuration.Builder("netshort-dev").logLevel(LogLevel.DEBUG).build()`.
+ * Kotlin: `Configuration("your-token-dev") { logLevel = LogLevel.DEBUG }`.
+ * Java: `new Configuration.Builder("your-token-dev").logLevel(LogLevel.DEBUG).build()`.
  */
 public class Configuration private constructor(builder: Builder) {
     /**
@@ -57,7 +57,7 @@ public class Configuration private constructor(builder: Builder) {
         /** Production ad server base URL. */
         public const val DEFAULT_AD_SERVER_URL: String = "https://server.megabrain.co"
 
-        /** `Configuration("netshort-dev") { logLevel = LogLevel.DEBUG }`. */
+        /** `Configuration("your-token-dev") { logLevel = LogLevel.DEBUG }`. */
         public operator fun invoke(publisherToken: String, block: Builder.() -> Unit = {}): Configuration =
             Builder(publisherToken).apply(block).build()
     }

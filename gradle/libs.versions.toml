@@ -18,7 +18,7 @@ kotlin = "2.1.0"                   # Kotlin compiler version
 # ---- AndroidX ----
 androidx-activity = "1.8.2"             # ComponentActivity (interstitial back-press, example)
 androidx-annotation = "1.8.0"
-androidx-browser = "1.8.0"              # Chrome Custom Tabs for the click-through
+androidx-browser = "1.8.0"              # Custom Tabs for the click-through
 androidx-core = "1.13.1"
 androidx-lifecycle = "2.8.4"
 androidx-webkit = "1.12.1"              # addWebMessageListener: the frame page's messages with their origin
