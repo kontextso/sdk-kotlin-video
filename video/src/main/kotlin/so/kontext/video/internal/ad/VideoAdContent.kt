@@ -80,8 +80,18 @@ internal fun VideoAd.contentDidChange(change: ContentPlayback.Change) {
     }
 }
 
-/** An overlay over content that no longer plays ends: before another ad's `show`, and once its own view is attached. */
+/**
+ * An ad over content that no longer fits it ends: before another ad's `show`, so an overlay shown right after
+ * the content plays again finds the screen free of the pause ad (a player without a listener says so only on
+ * the next tick); and, for an overlay, once its own view is attached, for a pause no callback reported while
+ * that ran.
+ */
 internal fun VideoAd.endIfContentStopped() {
+    if (format == AdFormat.PAUSE) {
+        val playback = owner.get()?.playback ?: return
+        if (!pauseFollowsContent || !isPresented || hasEnded) return
+        return endIfContentResumed(playback.isPlaying)
+    }
     if (format != AdFormat.OVERLAY || !wasShown || hasEnded || !followsContent) return
     if (owner.get()?.playback?.isPlaying != false) return
     Logger.info { "ad ${id.take(8)}: the content paused; the overlay ends" }

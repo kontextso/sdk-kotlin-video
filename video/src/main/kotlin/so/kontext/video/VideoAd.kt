@@ -110,7 +110,10 @@ public class VideoAd internal constructor(
     private var linearScreen: LinearAdActivity? = null
     internal var linearPresentation: LinearAdActivity.Presentation? = null
         private set
-    private var isPresented = false
+
+    /** The ad is on screen: `show` attached it and nothing ended it during the attach. */
+    internal var isPresented = false
+        private set
     private var finished = false
     private var pendingFinish: EndReason? = null
     private var failure: VideoAdException? = null

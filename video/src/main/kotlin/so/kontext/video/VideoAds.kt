@@ -159,7 +159,7 @@ public class VideoAds @JvmOverloads constructor(
      * (`show` throws `ContentPaused` otherwise), ends with `INTERRUPTED` when the content pauses or ends, and
      * its duration counts milliseconds of video. A pause ad ends with `INTERRUPTED` when the content plays again
      * after it was seen paused while the ad is on screen, wherever the viewer resumed it (the media
-     * notification, the lock screen, a headset, picture-in-picture).
+     * notification, the lock screen, a headset, picture-in-picture); an overlay shown then finds the screen free.
      * Held until [destroy] or the next `track`. With one player
      * reused across episodes, call it when this episode starts playing in it, not at creation. Without a
      * player the playhead is 0 (right for a prefetch), an overlay runs on its own time and a pause ad stays until it is dismissed or closed.

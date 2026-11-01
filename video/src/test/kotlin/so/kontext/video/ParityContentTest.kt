@@ -15,11 +15,13 @@ import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.wire.AdPayload
 import so.kontext.video.media3.track
 import java.lang.ref.WeakReference
 import androidx.media3.common.Player as Media3Player
@@ -655,6 +657,44 @@ class ParityContentTest : SdkTest() {
         media3.playWhenReady = true
         media3.listener.captured.onPlayWhenReadyChanged(true, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), pauseRecorder.reasons)
+    }
+
+    @Test fun anOverlayShownAsAPolledPlayerPlaysAgainEndsThePauseAdAndShows() {
+        val player = object : VideoAdsPlayer {
+            var playing = false
+            override val currentPositionMillis = 0L
+            override val isPlaying: Boolean get() = playing
+        }
+        val owner = owner()
+        owner.track(player)
+        val container = container()
+        val recorder = Recorder()
+        val pause = pause(owner)
+        pause.listener = recorder
+        pause.show(container)
+        idle(tick * 2)
+        assertTrue(recorder.reasons.isEmpty())
+        // No callback: the player plays again and the app shows its overlay before the next tick.
+        player.playing = true
+        val overlay = overlay(owner)
+        overlay.show(container)
+        assertEquals("the pause ad over playing content ended first", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertTrue(overlay.wasShown)
+        assertSame(overlay, Sdk.adOnScreen)
+        overlay.dismiss()
+    }
+
+    @Test fun aSecondPauseAdOverStillPausedContentFindsTheFirstOnScreen() {
+        val player = Player(playing = false)
+        val owner = owner()
+        owner.track(player)
+        val container = container()
+        val first = pause(owner)
+        first.show(container)
+        val second = loaded(AdPayload.parse(Fixtures.json(Fixtures.pause(id = "ad-p2"))), owner)
+        assertThrows<VideoAdException.AnotherAdShowing> { second.show(container) }
+        assertFalse(first.hasEnded)
+        first.dismiss()
     }
 
     @Test fun anUntrackedPauseAdStaysUntilDismissedAndResumeStaysResumed() {
