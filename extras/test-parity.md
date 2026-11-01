@@ -7,17 +7,25 @@ not hold in Kotlin; the source was fixed and the test kept), or N/A (iOS only, w
 | Area | Swift tests | Covered | New | Fixed | N/A |
 |---|---|---|---|---|---|
 | Payloads, requests, models | 94 | 26 | 50 | 2 | 16 |
-| Ad lifecycle: show, placement, ending, linear screen | 129 | 36 | 66 | 1 | 26 |
+| Ad lifecycle: show, placement, ending, linear screen | 129 | 36 | 65 | 2 | 26 |
 | VideoAds, loading, initialization | 110 | 33 | 69 | 0 | 8 |
 | Content following, frame bridge, viewability, clock | 110 | 37 | 67 | 0 | 6 |
-| Tracker, API client, reporting, logging | 74 | 18 | 41 | 3 | 12 |
-| **Total** | **517** | **150** | **293** | **6** | **68** |
+| Tracker, API client, reporting, logging | 74 | 22 | 41 | 3 | 8 |
+| **Total** | **517** | **154** | **292** | **7** | **64** |
 
 The N/A tests are mostly SKAdNetwork, App Tracking Transparency and UIKit presentation (31 of them SKAdNetwork alone).
 
+How far a COVERED row goes: the lifecycle and VideoAds suites mostly inject the page's messages into the bridge
+(`bridge.receive`), so they cover the SDK's state machine, not the transport; Swift's integration tests run live
+page JavaScript. The transport is covered once, end to end, by the emulator test `FrameProtocolTest` (the page's
+own `KontextAndroid.postMessage`, `ad.show` back to it, the impression it triggers). Rows marked "weaker" or
+"partly" say what they leave out.
+
 The fixes: a `scalable` size flag of the wrong type is refused; GPP section ids are read when written with commas or
 as a number; a POST is never resent by the HTTP stack after a dropped connection (one attempt stays one); the log
-drops a URL's port; debug numbers beyond a Long print as themselves; huge insets saturate instead of wrapping.
+drops a URL's port; debug numbers beyond a Long print as themselves; huge insets saturate instead of wrapping; a linear ad interrupted while its screen is up closes that screen. Redirects are followed as Swift's URLSession follows them (307 and
+308 resend the POST, 301 to 303 continue as a GET, at most five, never https to http), explicitly, since the
+streamed body turned off the HTTP stack's own following: `ApiClientRedirectTest`.
 
 
 ## Parity: payloads, request bodies, models, public types
@@ -191,7 +199,7 @@ Totals over 129 Swift tests: **COVERED 36, NEW 66, FIXED 1, N/A 26**.
 | adChoicesOpensWithoutAClickAndFiresIconClick | COVERED | VAL.theAdChoicesLinkFiresTheIconClickAndOpens | |
 | aLinearAdCoveredByAnotherScreenWaitsAndEndsOnceLater | NEW | P.aLinearScreenCoveredByAnotherWaitsAndEndsOnceLater | Covered = LinearAdActivity paused and stopped. Zero exposure while covered isn't asserted (meter's area; Robolectric's geometry isn't real). Mutation: onStop ends the ad |
 | aCoveredLinearAdWhoseViewNeverReturnsEndsWhenTheCoverGoes | NEW | P.aCoveredLinearScreenThatTheSystemThenDestroysIsInterruptedOnce | On Android the screen gets destroyed. Mutation: onDestroy not reported and the meter's onDetached off (either one alone still ends it) |
-| aLinearAdWhoseViewLeavesWithNothingCoveringItIsInterrupted | NEW | P.aLinearPageTakenOffItsScreenIsInterrupted | Mutation: meter.onDetached not wired. See question 1 |
+| aLinearAdWhoseViewLeavesWithNothingCoveringItIsInterrupted | **FIXED** | P.aLinearPageTakenOffItsScreenIsInterrupted | the ad ended INTERRUPTED but left its live, empty screen up, where Back does nothing; endNow now closes it, and onAdEnded arrives once, after the screen is gone. Failed on the old code |
 | anOpenForAnotherPurposeOpensTheURLAndFiresNothing | NEW | P.anOpenForAnotherPurposeOpensItsUrlAndFiresNothing | Mutation: iconClick for any purpose |
 | errorAfterShowIsDidFailThenDidEndFailed | COVERED | VAL.aCreativeThatBreaksOnScreenFailsThenEnds | |
 | errorWhileLoadedButUnshownEndsTheAdSilently | NEW | P.aCreativeThatDiesBeforeShowTellsTheListenerNothing (+ VAL.aCreativeThatDiesBeforeShowEndsTheAdAndShowSaysSo) | Mutation: onAdFailed before show |
@@ -286,7 +294,29 @@ The playhead provider is the tracked `VideoAdsPlayer.currentPositionMillis`.
 
 ## VideoAdSKAdNetworkTests.swift (19): all N/A
 
-SKAdNetwork impressions and StoreKit sheets are Apple-only; the Kotlin SDK has no install attribution or store sheet (no such code in `video/src/main`). Each of these tests is iOS-only: anAppInstallAdRegistersItsImpressionWhenShownAndEndsItWhenItLeaves, anAdWithoutAttributionNeverTouchesSKAdNetwork, aLinearAdRegistersItsImpressionOnceUIKitPresentedIt, aLinearAdThatNeverGotOnScreenRegistersNoImpression, theEndWaitsForAStartStillInFlight, theNextAdsImpressionStartsAfterThePreviousOneEnded, aFailedRegistrationIsLoggedAndTheAdGoesOn, aFailedEndStillReleasesTheImpressionBeforeTheNextAd, anAdThatEndedWhileAppleRegisteredItIsNeverStarted, anAdThatEndsOnceRegistrationIsUnderwayIsNeverStarted, everyFailureIsReportedWithItsStepAndAd, aClickWhoseSheetIsLoadingWhenTheAdEndsIsStillHonored, anImpressionEndsOnTheManagerItStartedOn, aFailedStartStillGetsItsEnd, repeatedStartAndEndAreOneLifecycle, aClickOnAnAdWhoseNetworkSignedTheClickOpensTheStoreSheetNotTheURL, aStoreSheetThatCouldNotBePresentedOpensTheURL, anAdSignedForTheClickOnlyRegistersNoImpressionAndStillOpensTheSheet, aClickOnAnAdWithOnlyAViewThroughSignatureOpensTheURL.
+SKAdNetwork impressions and StoreKit sheets are Apple-only; the Kotlin SDK has no install attribution or store sheet (no such code in `video/src/main`). Each of these tests is iOS-only:
+
+| Swift test | Status | Kotlin test | Note |
+|---|---|---|---|
+| anAppInstallAdRegistersItsImpressionWhenShownAndEndsItWhenItLeaves | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| anAdWithoutAttributionNeverTouchesSKAdNetwork | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aLinearAdRegistersItsImpressionOnceUIKitPresentedIt | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aLinearAdThatNeverGotOnScreenRegistersNoImpression | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| theEndWaitsForAStartStillInFlight | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| theNextAdsImpressionStartsAfterThePreviousOneEnded | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aFailedRegistrationIsLoggedAndTheAdGoesOn | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aFailedEndStillReleasesTheImpressionBeforeTheNextAd | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| anAdThatEndedWhileAppleRegisteredItIsNeverStarted | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| anAdThatEndsOnceRegistrationIsUnderwayIsNeverStarted | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| everyFailureIsReportedWithItsStepAndAd | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aClickWhoseSheetIsLoadingWhenTheAdEndsIsStillHonored | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| anImpressionEndsOnTheManagerItStartedOn | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aFailedStartStillGetsItsEnd | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| repeatedStartAndEndAreOneLifecycle | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aClickOnAnAdWhoseNetworkSignedTheClickOpensTheStoreSheetNotTheURL | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aStoreSheetThatCouldNotBePresentedOpensTheURL | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| anAdSignedForTheClickOnlyRegistersNoImpressionAndStillOpensTheSheet | N/A | | SKAdNetwork / StoreKit, Apple-only |
+| aClickOnAnAdWithOnlyAViewThroughSignatureOpensTheURL | N/A | | SKAdNetwork / StoreKit, Apple-only |
 
 ## Source fix
 
@@ -294,7 +324,7 @@ SKAdNetwork impressions and StoreKit sheets are Apple-only; the Kotlin SDK has n
 
 ## Questions
 
-1. A linear ad that ends `INTERRUPTED` while its screen is still alive (its WebView left the screen, so the meter's onDetached fired) does not finish `LinearAdActivity`, because endNow finishes the screen only for reasons other than INTERRUPTED. Back does nothing there, so the viewer would be left on a black screen. Swift has the same structure (no dismiss on `.interrupted`). Should Android finish the screen in that case? Behaviour unchanged.
+1. Resolved: a linear ad ended `INTERRUPTED` while its screen is alive now closes the screen (see the row above).
 2. Hidden system bars and the fade transition on the linear screen: the fade is asserted; the hidden bars need an emulator test (`WindowInsetsControllerCompat.hide` has no Robolectric effect).
 3. Mutation testing was done in five batches of mutations to unrelated code paths. Every targeted test failed under its mutation. Three rules are guarded twice (dismiss before show, the overlay clock after an early dismiss, covered-then-destroyed), so each needed a two-part mutation.
 
@@ -422,7 +452,7 @@ Kotlin: `video/src/test/kotlin/so/kontext/video/`; NEW tests are in `ParityAdsTe
 | clickOpensTheURLOnlyAfterATouch | COVERED | VideoAdLifecycleTest.aClickAfterATouchFiresItsBeaconOpensTheTargetAndTellsTheListener; FrameMessagesTest.aClickNeedsAnAllowedUrlAndOneTouchEach | |
 | aPageNavigatingAwayIsAClickOnlyAfterATouchAndNeverLeavesTheWebView | COVERED | FrameBridgeClientTest.navigationsGoWhereTheStateAllows; FrameMessagesTest.anInDocumentMoveStaysAndAnyOtherNavigationIsDecidedByOrigin | rendering agent's area |
 | aShownPageCannotReloadOrReplaceItselfButMayChangeItsFragment | COVERED | AndroidPartsTest.onceReadyThePageMayNotReplaceItself; FrameMessagesTest.anInDocumentMoveStaysAndAnyOtherNavigationIsDecidedByOrigin | |
-| aPagesDialogsAreAnsweredAtOnceAsDismissed | COVERED | FrameBridgeClientTest.dialogsAreAnsweredAsDismissedAndPermissionsDenied | |
+| aPagesDialogsAreAnsweredAtOnceAsDismissed | COVERED (weaker) | FrameBridgeClientTest.dialogsAreAnsweredAsDismissedAndPermissionsDenied | calls the WebChromeClient callbacks directly; Swift runs alert, confirm and prompt in the page |
 | linearPlaysToCompletion | COVERED | VideoAdLifecycleTest.aLinearAdPlaysThroughWithEveryBeaconAndClosesFromItsEndCard | |
 | linearSkipped | COVERED | VideoAdLifecycleTest.aLinearAdClosedBeforeTheEndIsSkipped | |
 | linearThatFailsDuringPlayback | COVERED | VideoAdLifecycleTest.aCreativeThatBreaksOnScreenFailsThenEnds; FrameMessagesTest.aVideoPageFailsWithItsOwnCodesBeforeAndAfterShow | lifecycle agent's area |
@@ -754,7 +784,7 @@ New tests are in `video/src/test/kotlin/so/kontext/video/internal/ParitySupportT
 | aCharacterWithThousandsOfCombiningMarksIsCappedByBytes | COVERED + NEW | LogicTest.reportFieldsAreCutAtACodePoint; PST.everyStringFieldIsCappedByBytes… | new: one character of 5000 marks, plus the history moment's name, adId and state |
 | aFailedConfigIsReportedWithTheIdOfItsRequest | NEW | PST.aFailedConfigWaitsAndLeavesWithTheIdOfItsRequest… | "one attempt" caught fix 3 |
 | anExpiredHeldAdIsNotCountedAsKept | NEW | PST.anExpiredHeldAdIsNotCountedAsKept | |
-| aPageThatCannotLoadCarriesTheSystemErrorsDomainAndCode | NEW | PST.aPageThatCannotLoadCarriesTheSystemsError | Kotlin sends `underlying.domain` only (`webview.-2`), with no `code`; question 1 |
+| aPageThatCannotLoadCarriesTheSystemErrorsDomainAndCode | NEW | PST.aPageThatCannotLoadCarriesTheSystemsError | `underlying` is `{domain: "webview", code: -2}`, as in Swift |
 | integrationMistakesAreReportedOnceTheServerAllowsIt | NEW | PST.integrationMistakesAreReportedOnceTheServerAllowsIt | |
 | **DebugReporterTests** | | | |
 | nothingIsSentWhileDisabled | COVERED + NEW | ReportersTest.debugEventsLeaveOnlyWhenTheServerAsked; PST.nothingIsSentWhenConfigDoesNotAsk | |
@@ -772,7 +802,7 @@ New tests are in `video/src/test/kotlin/so/kontext/video/internal/ParitySupportT
 | postsJSONToTheV2Route | NEW | PST.postsJsonToTheV2Route | |
 | aSlowAnswerIsCutAtTheDeadlineNotOnlyWhenIdle | COVERED | BoundaryTest.aTricklingAnswerHitsTheWholeCallDeadline | |
 | theSameValueEncodesToTheSameBytes | N/A | | Swift sorts keys because its dictionaries have a random order per process; kotlinx JsonObject keeps insertion order, and ErrorReporter retries the frozen body |
-| theSDKsSessionIsItsOwnWithADeadlineAndNoCookiesOrCache | COVERED + NEW | BoundaryTest (deadline); PST.noHttpCacheAnswersARequest | cookies: question 4 |
+| theSDKsSessionIsItsOwnWithADeadlineAndNoCookiesOrCache | PARTLY: COVERED + NEW | BoundaryTest (deadline); PST.noHttpCacheAnswersARequest | the deadline and no cache are tested; cookies are an accepted difference, not covered: an app that installs a global CookieHandler adds its cookies |
 | clientErrorCarriesTheServersErrorBody | NEW | PST.aClientErrorCarriesTheServersErrorBody | |
 | anErrorBodyTheClientCannotReadStillGivesTheStatus | COVERED + NEW | PayloadsTest.theErrorBodyIsReadLeniently; PST.anErrorBodyTheClientCannotReadStillGivesTheStatus | |
 | serverErrorsAndRateLimitsAreHTTPErrorsWithTheirStatus | NEW | PST.serverErrorsAndRateLimitsAreHttpErrorsWithTheirStatus | |
@@ -791,10 +821,10 @@ New tests are in `video/src/test/kotlin/so/kontext/video/internal/ParitySupportT
 | theKeyWindowComesFromTheActiveSceneThenAnInactiveOne… | N/A | | UIKit scenes |
 | aWindowIsActiveOnlyWhenTheAppAndItsOwnSceneAre | N/A | (PartsTest.startedActivitiesAreCounted) | Android's counterpart is ActivityTracker's started count plus window visibility |
 | **AwaitSharedTests** | | | |
-| awaitSharedGivesEveryWaiterTheSameResult… | N/A | | Kotlin shares the work as a `Deferred`; `await()` gives every waiter the same result or exception |
-| awaitSharedSharesAFailureAmongItsWaiters | N/A | | same |
-| aCallerCancelledBeforeItWaitsStopsAtOnce | N/A | | coroutine cancellation; the format-level rule is RacesTest.twoCallersShareOneRequestAndOneLeavingDoesNotStopIt |
-| oneCancelledWaiterLeavesTheOthersWaiting | N/A | RacesTest.twoCallersShareOneRequestAndOneLeavingDoesNotStopIt | |
+| awaitSharedGivesEveryWaiterTheSameResult… | COVERED | VAL.loadWaitsForThePageAndAnotherLoadJoinsIt, RacesTest.twoCallersShareOneRequestAndOneLeavingDoesNotStopIt | the Swift helper is N/A (a `Deferred` shares the work); the behaviour applies and is tested at the API |
+| awaitSharedSharesAFailureAmongItsWaiters | COVERED | ParityAdsTest.loadsAtOnceShareTheSameError | the shared failure, at the API |
+| aCallerCancelledBeforeItWaitsStopsAtOnce | COVERED | BoundaryTest.aRequestCancelledWhileQueuedSendsNothing, RacesTest.twoCallersShareOneRequestAndOneLeavingDoesNotStopIt | cancellation isolation, at the API |
+| oneCancelledWaiterLeavesTheOthersWaiting | COVERED | RacesTest.twoCallersShareOneRequestAndOneLeavingDoesNotStopIt | |
 | cancellationRacingCompletionResumesOnce | N/A | | a double resume of a continuation is ruled out by kotlinx.coroutines itself |
 
 ## Source fixes
@@ -805,10 +835,10 @@ New tests are in `video/src/test/kotlin/so/kontext/video/internal/ParitySupportT
 
 ## Questions
 
-1. `underlying` in error reports: Swift sends `{domain, code}` (NSError); Kotlin sends `{domain}` only, with the code folded into the string (`webview.-2`, `http.404`, an exception class). Does the server need `code`?
+1. Resolved: `underlying` is `{domain, code}`, as in Swift.
 2. Beacon GETs: HttpURLConnection may resend an idempotent GET once after a dropped connection. A streaming mode does not apply to a GET with no body, so this is not fixed.
-3. `[KONTEXT_WINNINGPRICE]` uses `Double.toString()`: `1.0E20`, `3.0`, `1.0E-4`, where Swift writes `1e+20`, `3`, `0.0001`. Both parse as numbers. Should they be aligned?
-4. Cookies: HttpURLConnection uses `CookieHandler.getDefault()`; an app that installs one would send its cookies with SDK requests. There is no per-connection switch. Swift's session refuses cookies.
+3. Resolved: `[KONTEXT_WINNINGPRICE]` is written with the shortest round-trip digits in Swift's notation; TrackerTest pins the values Swift printed.
+4. Accepted difference: HttpURLConnection uses `CookieHandler.getDefault()`, so an app that installs one would send its cookies with SDK requests. Swift's session refuses cookies.
 
 ## Mutation checks (each new test failed under its mutation; the sources were then restored)
 

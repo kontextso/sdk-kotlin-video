@@ -84,6 +84,11 @@ class TrackerTest {
             9_007_199_254_740_992.0 to "9007199254740992.0", 9_007_199_254_740_994.0 to "9.007199254740994e+15", 1e16 to "1e+16",
             1e20 to "1e+20", 1.5e20 to "1.5e+20", 1.5e-7 to "1.5e-07", 123456789.123 to "123456789.123", -2.5 to "-2.5", 0.1 to "0.1",
             Double.NaN to "nan", Double.POSITIVE_INFINITY to "inf", Double.NEGATIVE_INFINITY to "-inf", 1e-300 to "1e-300",
+            // Where the digits themselves are the hard part.
+            1e23 to "1e+23", 5e-324 to "5e-324", Double.MAX_VALUE to "1.7976931348623157e+308", 0.1 + 0.2 to "0.30000000000000004",
+            9.5367431640625e-07 to "9.5367431640625e-07", 2.2250738585072014e-308 to "2.2250738585072014e-308", 1e22 to "1e+22",
+            4.35e-05 to "4.35e-05", 1.23456789e15 to "1234567890000000.0", 2e-4 to "0.0002", 1.0e7 to "10000000.0", 123456.0 to "123456.0",
+            1.1 to "1.1", 100.0 to "100.0", 0.00012345 to "0.00012345",
         )
         assertEquals(swift, swift.mapValues { (value, _) -> Tracker.number(value) })
     }

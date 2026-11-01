@@ -814,11 +814,17 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear()
         ad.listener = recorder
-        present(ad)
+        val screen = present(ad)
         val webView = ad.loadedBridge!!.webView
         (webView.parent as ViewGroup).removeView(webView)
-        idle(1_000)
-        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        idle(1_000) // the meter's detachment checks
+        assertTrue("the ad ended", ad.hasEnded)
+        assertTrue("its empty screen, where Back does nothing, is closed", screen.get().isFinishing)
+        assertTrue("onAdEnded waits for the screen to be gone", recorder.reasons.isEmpty())
+        screen.pause().stop().destroy()
+        idle(3_000)
+        assertEquals("once, after the screen is gone", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertNull(Sdk.adOnScreen)
     }
 
     @Test fun aLinearScreenThatNeverStartsEndsTheAdAsFailedWithNothingBillable() {

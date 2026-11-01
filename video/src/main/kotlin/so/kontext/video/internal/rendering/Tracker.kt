@@ -159,7 +159,7 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
             if (value.isNaN()) return "nan"
             if (value.isInfinite()) return if (value > 0) "inf" else "-inf"
             if (value == 0.0) return if (1 / value < 0) "-0.0" else "0.0"
-            val digits = BigDecimal(value.toString()).stripTrailingZeros()
+            val digits = shortestDigits(value)
             if (abs(value) in 1e-4..9_007_199_254_740_992.0) {
                 val plain = digits.toPlainString()
                 return if ('.' in plain) plain else "$plain.0"
@@ -168,6 +168,21 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
             val sign = if (exponent < 0) "-" else "+"
             return "${digits.movePointLeft(exponent).toPlainString()}e$sign${abs(exponent).toString().padStart(2, '0')}"
         }
+
+        /**
+         * The fewest significant digits that read back as [value], rounded to the nearest: what Swift prints.
+         * Not `Double.toString`, whose digits differ between JDKs and are sometimes not the shortest (`1e23`).
+         */
+        private fun shortestDigits(value: Double): BigDecimal {
+            for (precision in 1..MAX_DIGITS) {
+                val text = String.format(Locale.ROOT, "%.${precision - 1}e", value)
+                if (text.toDouble() == value) return BigDecimal(text).stripTrailingZeros()
+            }
+            return BigDecimal(value).stripTrailingZeros()
+        }
+
+        /** Seventeen significant digits always identify a Double. */
+        private const val MAX_DIGITS = 17
 
         fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
     }

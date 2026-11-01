@@ -14,6 +14,7 @@ import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 
 /** Sends JSON requests to the ad server's `/v2/` routes, off the main thread. */
@@ -32,13 +33,13 @@ internal class ApiClient(
     suspend fun post(path: String, body: JsonObject): JsonElement? {
         coroutineContext.ensureActive() // a caller cancelled before this point sends nothing
         val bytes = body.toString().toByteArray()
-        val connection = try {
-            URL(baseUrl.trimEnd('/') + "/v2/" + path).openConnection() as HttpURLConnection
+        val url = try {
+            URL(baseUrl.trimEnd('/') + "/v2/" + path)
         } catch (error: IOException) {
             throw ApiException.Transport(error)
         }
         val (status, text) = try {
-            withTimeout(timeoutMillis.toLong()) { exchange(connection, bytes) }
+            withTimeout(timeoutMillis.toLong()) { exchange(url, bytes) }
         } catch (_: TimeoutCancellationException) {
             throw ApiException.Transport(SocketTimeoutException("no complete answer within $timeoutMillis ms"))
         }
@@ -52,39 +53,72 @@ internal class ApiClient(
     }
 
     /** The request on an I/O thread; cancelling the caller disconnects, which unblocks that thread at once. */
-    private suspend fun exchange(connection: HttpURLConnection, bytes: ByteArray): Pair<Int, String> =
+    private suspend fun exchange(url: URL, bytes: ByteArray): Pair<Int, String> =
         suspendCancellableCoroutine { continuation ->
-            continuation.invokeOnCancellation { connection.disconnect() }
+            val current = AtomicReference<HttpURLConnection?>()
+            continuation.invokeOnCancellation { current.get()?.disconnect() }
             executor.execute {
                 // Queued behind other work while the caller was cancelled: nothing is sent at all. (A disconnect
                 // before the connection exists would not stop the connect that follows.)
                 if (!continuation.isActive) return@execute
                 val result = try {
-                    connection.requestMethod = "POST"
-                    connection.connectTimeout = timeoutMillis
-                    connection.readTimeout = timeoutMillis
-                    connection.doOutput = true
-                    connection.useCaches = false
-                    connection.setRequestProperty("Content-Type", "application/json")
-                    // A streamed body cannot be replayed: without it the HTTP stack silently sends the POST again
-                    // when the connection drops before the answer, and one attempt becomes two.
-                    connection.setFixedLengthStreamingMode(bytes.size)
-                    connection.outputStream.use { it.write(bytes) }
-                    val status = connection.responseCode
-                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                    Result.success(status to (stream?.bufferedReader()?.use { it.readText() } ?: ""))
+                    Result.success(follow(url, bytes, current) { continuation.isActive })
                 } catch (error: IOException) {
                     Result.failure(ApiException.Transport(error))
-                } finally {
-                    connection.disconnect()
                 }
                 // A cancelled caller has gone already; its result is dropped.
                 if (continuation.isActive) continuation.resumeWith(result)
             }
         }
 
+    /**
+     * Sends the request and follows redirects as the Swift SDK's URLSession does: a 307 or 308 sends the POST
+     * again, body and all; a 301, 302 or 303 continues as a GET. At most [MAX_REDIRECTS], and never from
+     * https to http. Deliberate: the routes do not redirect today, so a redirect would be our own server
+     * moving, and refusing it would be an outage of every installed SDK. Each hop is one connection whose body
+     * is streamed, so the HTTP stack cannot send it again on its own when a connection drops.
+     */
+    private fun follow(start: URL, bytes: ByteArray, current: AtomicReference<HttpURLConnection?>, isActive: () -> Boolean): Pair<Int, String> {
+        var url = start
+        var post = true
+        repeat(MAX_REDIRECTS + 1) {
+            if (!isActive()) throw IOException("cancelled")
+            val connection = url.openConnection() as HttpURLConnection
+            current.set(connection)
+            try {
+                connection.instanceFollowRedirects = false
+                connection.connectTimeout = timeoutMillis
+                connection.readTimeout = timeoutMillis
+                connection.useCaches = false
+                if (post) {
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json")
+                    connection.setFixedLengthStreamingMode(bytes.size)
+                    connection.outputStream.use { it.write(bytes) }
+                } else {
+                    connection.requestMethod = "GET"
+                }
+                val status = connection.responseCode
+                val next = connection.getHeaderField("Location")?.takeIf { status in REDIRECTS }?.let { URL(url, it) }
+                if (next == null || (url.protocol == "https" && next.protocol != "https")) {
+                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                    return status to (stream?.bufferedReader()?.use { it.readText() } ?: "")
+                }
+                if (status !in KEEP_METHOD) post = false
+                url = next
+            } finally {
+                connection.disconnect()
+            }
+        }
+        throw IOException("more than $MAX_REDIRECTS redirects")
+    }
+
     companion object {
         const val DEFAULT_TIMEOUT_MILLIS = 10_000
+        const val MAX_REDIRECTS = 5
+        private val REDIRECTS = setOf(301, 302, 303, 307, 308)
+        private val KEEP_METHOD = setOf(307, 308)
 
         /** The JSON:API-shaped error body; an item that is not an object fails the whole body, which then counts as none. */
         fun parseErrors(text: String): List<ErrorItem> = runCatching {

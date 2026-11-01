@@ -534,7 +534,9 @@ public class VideoAd internal constructor(
         var dismissing = false
         val screen = linearScreen
         linearScreen = null
-        if (screen != null && reason != EndReason.INTERRUPTED && !screen.isFinishing && !screen.isDestroyed) {
+        // Every way the ad ends closes a screen still up, an interruption too: its page is gone and Back does
+        // nothing there. A screen the system took away has already cleared `linearScreen`.
+        if (screen != null && !screen.isFinishing && !screen.isDestroyed) {
             // `onAdEnded` waits for the screen to be gone, so the app can start its next one from it.
             dismissing = true
             pendingFinish = reason
