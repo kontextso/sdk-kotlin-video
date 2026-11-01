@@ -18,7 +18,6 @@ import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.FrameEvent
 import so.kontext.video.internal.rendering.Tracker
-import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
@@ -159,16 +158,6 @@ class PartsTest : SdkTest() {
             Logger.sink = null
             Logger.level = Configuration.LogLevel.WARNING
         }
-    }
-
-    @Test fun startedActivitiesAreCounted() {
-        val before = ActivityTracker.startedCount
-        val activity = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).create()
-        ActivityTracker.onActivityStarted(activity.get())
-        assertEquals(before + 1, ActivityTracker.startedCount)
-        ActivityTracker.onActivityStopped(activity.get())
-        ActivityTracker.onActivityStopped(activity.get())
-        assertEquals("never below zero", maxOf(0, before - 1).coerceAtLeast(0), ActivityTracker.startedCount.coerceAtMost(maxOf(0, before - 1)))
     }
 
     @Test fun theFacadeHoldsWhatTheAppSets() {

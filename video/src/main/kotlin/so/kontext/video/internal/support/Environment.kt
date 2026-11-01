@@ -25,8 +25,8 @@ internal object Environment {
             (field as? Application)?.let(ActivityTracker::register)
         }
 
-    /** Whether an Activity of the app is started: the clocks that count only time in front read it. */
-    var isAppInForeground: () -> Boolean = { ActivityTracker.startedCount > 0 }
+    /** Whether an Activity of the app is started (or on screen at `initialize`): the clocks that count only time in front read it. */
+    var isAppInForeground: () -> Boolean = { ActivityTracker.isAppInForeground }
 
     /** Where the SDK's own work runs: the main thread, never blocking it. */
     var scope: CoroutineScope = newScope()
@@ -55,7 +55,7 @@ internal object Environment {
         assertionFailure = ::failInDebuggableApp
         userAgent = { context?.let { DeviceFacts.userAgent(it) } }
         advertisingId = { context?.let { DeviceFacts.advertisingId(it) } }
-        isAppInForeground = { ActivityTracker.startedCount > 0 }
+        isAppInForeground = { ActivityTracker.isAppInForeground }
         sendBeacon = Tracker::get
     }
 

@@ -10,6 +10,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.contentDidChange
 import so.kontext.video.internal.network.ApiClient
@@ -30,7 +31,8 @@ import android.content.res.Configuration as AndroidConfiguration
 /**
  * The ads of one video ("content"): one per episode, created when it opens. Creating it sends nothing; every
  * request comes from [format]. Create the next episode's while the current one plays if you like; any number
- * can be alive at once. Call [destroy] when the viewer leaves the video. Every call is main-thread.
+ * can be alive at once. Call [destroy] when the viewer leaves the video (see its notes). Every call is
+ * main-thread, except [format], which may be called from any dispatcher.
  *
  * [labels] say where the ads play, such as the viewer's stage in the series or the player's layout
  * (`mapOf("stage" to "first_episode")`); every ads request of this `VideoAds` carries them, fixed for its
@@ -102,10 +104,13 @@ public class VideoAds @JvmOverloads constructor(
      * server returns those unchanged until they expire, so the same ad comes back. Calls made while a request
      * runs share it. A failed request returns the held ad when it is still valid. Throws [VideoAdException]:
      * `NoFill`, `Request` (nothing valid held), `Destroyed`, `Disabled`, `NotInitialized`, `InitializationFailed`.
-     * A cancelled caller stops waiting; the request itself continues.
+     * A cancelled caller stops waiting; the request itself continues. Callable from any dispatcher: the work
+     * runs on the main thread.
      */
     @MainThread
-    public suspend fun format(format: AdFormat): VideoAd {
+    public suspend fun format(format: AdFormat): VideoAd = withContext(Dispatchers.Main.immediate) { formatOnMain(format) }
+
+    private suspend fun formatOnMain(format: AdFormat): VideoAd {
         if (isDestroyed) throw VideoAdException.Destroyed()
         if (!Sdk.requireInitialized("ads.format()")) throw VideoAdException.NotInitialized()
         val task = request ?: startRequest()
@@ -151,6 +156,7 @@ public class VideoAds @JvmOverloads constructor(
      */
     @MainThread
     public fun track(player: VideoAdsPlayer) {
+        Sdk.checkMainThread("VideoAds.track()")
         if (isDestroyed) return
         playback.track(player)
     }
@@ -162,6 +168,7 @@ public class VideoAds @JvmOverloads constructor(
      */
     @MainThread
     public fun destroy() {
+        Sdk.checkMainThread("VideoAds.destroy()")
         if (isDestroyed) return
         isDestroyed = true
         scope.cancel()

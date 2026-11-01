@@ -12,12 +12,16 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.MainThread
 import androidx.core.graphics.Insets
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.endIfContentStopped
 import so.kontext.video.internal.ad.followsContent
@@ -32,6 +36,7 @@ import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.rendering.ViewabilityMeter
+import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
@@ -42,7 +47,7 @@ import java.lang.ref.WeakReference
 /**
  * One ad, from the server's answer to the end of its presentation. Look at its facts ([price], [format],
  * [durationMillis]), then [load] or [reject], then `show`, then exactly one [VideoAdListener.onAdEnded].
- * Shown at most once. Every call is main-thread.
+ * Shown at most once. Every call is main-thread, except [load], which may be called from any dispatcher.
  */
 public class VideoAd internal constructor(
     internal val payload: AdPayload,
@@ -128,9 +133,12 @@ public class VideoAd internal constructor(
     /**
      * Renders the creative off screen. Returns once it can be shown; throws [VideoAdException]
      * (`CreativeFailed`, `Invalidated`, `Destroyed`, `Disabled`). Idempotent: a second call waits for the first.
+     * Callable from any dispatcher: the work runs on the main thread.
      */
     @MainThread
-    public suspend fun load() {
+    public suspend fun load(): Unit = withContext(Dispatchers.Main.immediate) { loadOnMain() }
+
+    private suspend fun loadOnMain() {
         checkUsable()
         if (isLoaded && loading == null) return
         val task = loading ?: startLoading()
@@ -146,12 +154,14 @@ public class VideoAd internal constructor(
     @MainThread
     public fun load(callback: VideoAdsCallback<VideoAd>) {
         Environment.scope.launch {
+            // The app's own onSuccess may throw (a show that fails): that is not a failed load.
             try {
                 load()
-                callback.onSuccess(this@VideoAd)
             } catch (error: VideoAdException) {
                 callback.onError(error)
+                return@launch
             }
+            callback.onSuccess(this@VideoAd)
         }
     }
 
@@ -160,6 +170,7 @@ public class VideoAd internal constructor(
     @Throws(VideoAdException::class)
     @JvmOverloads
     public fun reject(reason: RejectReason = RejectReason.NotUsed) {
+        Sdk.checkMainThread("VideoAd.reject()")
         withContentPlayhead {
             if (wasShown) throw VideoAdException.AlreadyShown()
             invalidationReason?.let { throw error(it) }
@@ -260,6 +271,7 @@ public class VideoAd internal constructor(
     @Throws(VideoAdException::class)
     @JvmOverloads
     public fun show(container: ViewGroup, insets: Insets = Insets.NONE) {
+        Sdk.checkMainThread("VideoAd.show(container)")
         withContentPlayhead { showInline(container, insets) }
     }
 
@@ -305,12 +317,26 @@ public class VideoAd internal constructor(
     }
 
     /**
+     * Whether [activity] is resumed and not in picture-in-picture. The tracker knows from the moment its
+     * Activity resumes; one it has not seen falls back to the Activity's own lifecycle, else is assumed in front
+     * (the presentation timeout still catches a screen that never comes).
+     */
+    private fun isInFront(activity: Activity): Boolean {
+        if (activity.isInPictureInPictureMode) return false
+        return ActivityTracker.isResumed(activity)
+            ?: (activity as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED)
+            ?: true
+    }
+
+    /**
      * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Throws as
-     * `show(container)` does; `PresenterUnavailable` for an Activity that is finishing or destroyed.
+     * `show(container)` does; `PresenterUnavailable` for an Activity that is finishing, destroyed, not resumed
+     * or in picture-in-picture (the ad stays ready; try again once it is in front).
      */
     @MainThread
     @Throws(VideoAdException::class)
     public fun show(activity: Activity) {
+        Sdk.checkMainThread("VideoAd.show(activity)")
         withContentPlayhead { showLinear(activity) }
     }
 
@@ -319,6 +345,12 @@ public class VideoAd internal constructor(
         checkShowable()
         if (activity.isFinishing || activity.isDestroyed) {
             Logger.warning { "ad ${id.take(8)}: cannot present, the Activity is finishing" }
+            throw VideoAdException.PresenterUnavailable()
+        }
+        // The system would not start the screen from there (or not where the viewer sees it), and the bid
+        // would be spent on a screen that never comes: refused while the ad is still usable.
+        if (!isInFront(activity)) {
+            Logger.warning { "ad ${id.take(8)}: cannot present, the Activity is not in front (not resumed, or in picture-in-picture)" }
             throw VideoAdException.PresenterUnavailable()
         }
         val bridge = bridge
@@ -376,6 +408,7 @@ public class VideoAd internal constructor(
     @MainThread
     @Throws(VideoAdException::class)
     public fun dismiss() {
+        Sdk.checkMainThread("VideoAd.dismiss()")
         if (format == AdFormat.LINEAR) throw VideoAdException.WrongPresentation()
         if (!wasShown || hasEnded) return
         Logger.debug { "ad ${id.take(8)}: dismissed by the app" }

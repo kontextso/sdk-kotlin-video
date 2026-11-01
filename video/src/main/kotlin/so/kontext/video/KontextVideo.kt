@@ -2,6 +2,8 @@ package so.kontext.video
 
 import android.content.Context
 import androidx.annotation.MainThread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import so.kontext.video.internal.Sdk
 
 /**
@@ -61,6 +63,7 @@ public object KontextVideo {
     public var user: User?
         get() = Sdk.user
         set(value) {
+            Sdk.checkMainThread("KontextVideo.user")
             Sdk.user = value
         }
 
@@ -72,6 +75,7 @@ public object KontextVideo {
     public var regulatory: Regulatory?
         get() = Sdk.regulatory
         set(value) {
+            Sdk.checkMainThread("KontextVideo.regulatory")
             Sdk.regulatory = value
         }
 
@@ -80,6 +84,7 @@ public object KontextVideo {
     public var variantId: String?
         get() = Sdk.variantId
         set(value) {
+            Sdk.checkMainThread("KontextVideo.variantId")
             Sdk.variantId = value
         }
 
@@ -94,7 +99,7 @@ public object KontextVideo {
         Sdk.initialize(context, configuration, listener?.let { it::onInitialized })
     }
 
-    /** Waits until `/config` has answered or failed, and returns the state; at once when it already has. */
+    /** Waits until `/config` has answered or failed, and returns the state; at once when it already has. Callable from any dispatcher. */
     @MainThread
-    public suspend fun awaitInitialization(): State = Sdk.awaitInitialization()
+    public suspend fun awaitInitialization(): State = withContext(Dispatchers.Main.immediate) { Sdk.awaitInitialization() }
 }

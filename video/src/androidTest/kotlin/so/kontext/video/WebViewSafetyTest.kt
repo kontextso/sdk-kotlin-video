@@ -2,7 +2,10 @@ package so.kontext.video
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -10,12 +13,14 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.wire.AdPayload
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-/** What only a real WebView enforces: the origins it accepts for the bridge. */
+/** What only a real WebView enforces: the origins it accepts for the bridge, and the thread it is used on. */
 @RunWith(AndroidJUnit4::class)
 class WebViewSafetyTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -62,6 +67,52 @@ class WebViewSafetyTest {
             val error = result!!.exceptionOrNull()
             assertTrue("$url: $error", error is VideoAdException.CreativeFailed)
             assertEquals(url, 500, (error as VideoAdException.CreativeFailed).code)
+        }
+    }
+
+    /** A coroutine on the I/O dispatcher, as `viewModelScope.launch(Dispatchers.IO)` runs one; its outcome. */
+    private fun <T> onIo(work: suspend () -> T): Result<T> = runBlocking { withContext(Dispatchers.IO) { runCatching { work() } } }
+
+    @Test fun loadCalledFromTheIoDispatcherMakesItsWebViewOnTheMainThread() {
+        FrameBridge.loadTimeoutMillis = 500
+        Environment.isAppInForeground = { true }
+        lateinit var owner: VideoAds
+        lateinit var ad: VideoAd
+        main {
+            owner = VideoAds(Content("ep", "en"))
+            ad = ad(owner, "https://frames.test/v2/frame/ad-1")
+        }
+        val log = java.util.Collections.synchronizedList(mutableListOf<String>())
+        Logger.sink = { _, message -> log += message }
+        try {
+            // Nothing serves the page: it fails as a creative, and its WebView was made (on the main thread).
+            val error = onIo { ad.load() }.exceptionOrNull()
+            assertTrue("$error", error is VideoAdException.CreativeFailed)
+            assertTrue("$log", log.none { "no WebView" in it })
+        } finally {
+            Logger.sink = null
+            FrameBridge.loadTimeoutMillis = 10_000
+            main { owner.destroy() }
+        }
+    }
+
+    @Test fun formatCalledFromTheIoDispatcherReleasesAnExpiredAdsWebViewOnTheMainThread() {
+        lateinit var owner: VideoAds
+        main {
+            // Nothing listens there: the request fails at once.
+            Sdk.resetForTesting()
+            Sdk.configureForTesting(Configuration("test-token") { adServerUrl = "http://127.0.0.1:9" })
+            owner = VideoAds(Content("ep", "en"))
+            // A held ad that expired, whose WebView the next request releases.
+            val expired = VideoAd(ad(owner, "https://frames.test/v2/frame/ad-1").payload, Environment.now() - 700_000, owner)
+            expired.loadedBridge = FrameBridge(instrumentation.targetContext, "ad-1", "https://frames.test/v2/frame/ad-1", false)
+            owner.ads[AdFormat.OVERLAY] = expired
+        }
+        try {
+            val error = onIo { owner.format(AdFormat.OVERLAY) }.exceptionOrNull()
+            assertTrue("$error", error is VideoAdException.Request)
+        } finally {
+            main { owner.destroy() }
         }
     }
 }

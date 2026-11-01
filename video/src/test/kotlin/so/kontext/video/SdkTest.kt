@@ -14,6 +14,7 @@ import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.handle
 import so.kontext.video.internal.rendering.FrameBridge
+import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.wire.AdPayload
@@ -46,6 +47,7 @@ abstract class SdkTest {
         owners.forEach { it.destroy() }
         Sdk.resetForTesting()
         Environment.reset()
+        ActivityTracker.resetForTesting()
         ErrorReporter.resetForTesting()
     }
 

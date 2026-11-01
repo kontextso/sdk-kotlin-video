@@ -1,6 +1,7 @@
 package so.kontext.video.internal
 
 import android.content.Context
+import android.os.Looper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -108,6 +109,17 @@ internal object Sdk {
         Logger.error { "$call called before initialize(); no ads will load" }
         ErrorReporter.report(ErrorReporter.Code.NOT_INITIALIZED, ErrorReporter.Stage.INTEGRATION, detail = call)
         return false
+    }
+
+    /**
+     * Guards a public call that must run on the main thread, as `@MainThread` says. Off it, the WebViews and
+     * the SDK's state would be touched from two threads: a mistake in the app's code, so it stops a debuggable
+     * app at the call; a release build logs it and carries on, as it does for the other integration mistakes.
+     */
+    fun checkMainThread(call: String) {
+        if (Looper.myLooper() == Looper.getMainLooper()) return
+        Environment.assertionFailure("KontextVideo: $call must be called on the main thread")
+        Logger.error { "$call called on the thread ${Thread.currentThread().name}, not the main thread; call it on the main thread" }
     }
 
     /** After a failed `/config`, every ads request tries it again first. */
