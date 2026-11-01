@@ -16,7 +16,8 @@ import so.kontext.video.internal.support.Logger
 // A pause ad lives only while the content is paused, when the `VideoAds` tracks a player: the content playing
 // again ends it as INTERRUPTED, wherever the viewer resumed (the media notification, the lock screen, a
 // headset, the picture-in-picture window); RESUMED stays the viewer's tap on the ad's own Resume. Only a
-// return to playing counts: a pause ad shown a moment before the app pauses the player stays.
+// return to playing after a pause seen while it is on screen counts: a pause ad shown a moment before the app
+// pauses the player stays.
 
 /** This overlay follows the content: its `VideoAds` tracks a player. */
 internal val VideoAd.followsContent: Boolean get() = format == AdFormat.OVERLAY && owner.get()?.playback?.isTracking == true
@@ -87,7 +88,7 @@ internal fun VideoAd.endIfContentStopped() {
     end(EndReason.INTERRUPTED)
 }
 
-/** A pause ad ends when the tracked content plays again: a listener's call to playing, or a tick that sees it play after a pause. */
+/** A pause ad ends when the tracked content plays again after it was seen paused: a listener's call or a tick. */
 private fun VideoAd.pauseContentDidChange(change: ContentPlayback.Change, playback: ContentPlayback) {
     if (!wasShown || hasEnded) return
     val playing = when (change) {
@@ -95,12 +96,20 @@ private fun VideoAd.pauseContentDidChange(change: ContentPlayback.Change, playba
         ContentPlayback.Change.Tick -> playback.isPlaying
         else -> return
     }
+    endIfContentResumed(playing)
+}
+
+/**
+ * Content seen playing after it was seen paused while the pause ad is on screen ends it. A listener's call to
+ * playing counts only after a pause too: a resume queued behind the pause that ended an overlay, delivered
+ * once that overlay's `onAdEnded` showed this pause ad over playing content, is no resume of this one.
+ */
+private fun VideoAd.endIfContentResumed(playing: Boolean) {
     if (!playing) {
         contentWasPaused = true
         return
     }
-    // A listener's call is the player saying it plays again; a tick only reads a state, which counts after a pause.
-    if (change is ContentPlayback.Change.Tick && !contentWasPaused) return
+    if (!contentWasPaused) return
     Logger.info { "ad ${id.take(8)}: the content plays again; the pause ad ends" }
     end(EndReason.INTERRUPTED)
 }

@@ -15,7 +15,8 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   `onAdClicked`, `onAdFailed`, `onAdEnded` (exactly once per show).
 * An overlay lives only while the tracked content plays; its duration counts milliseconds of video. `VideoAdsPlayer.Listener` tells the SDK each play-state change, seek and item change as it happens, and `playbackSpeed` tells fast playback from a seek; the Media3 adapter forwards all of them.
 * A pause ad lives only while the tracked content is paused: the content playing again from anywhere (the media
-  notification, a headset, picture-in-picture) ends it as `INTERRUPTED`.
+  notification, a headset, picture-in-picture) after a pause seen while the ad is on screen ends it as
+  `INTERRUPTED`.
 * Viewability (MRC), beacons with the IAB and Kontext macros, error and debug reports when the server asks.
 * KontextKit for Android 0.1.0: the SDK ships no Open Measurement binary.
 * Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.

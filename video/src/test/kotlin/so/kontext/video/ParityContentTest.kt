@@ -608,6 +608,55 @@ class ParityContentTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
     }
 
+    @Test fun aListenerCallToPlayingEndsAPauseAdShownOverPlayingContentOnlyAfterAPause() {
+        val player = Player(playing = true)
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        ad.show(container())
+        // A call that says what was already true (a repeat, a rate change) is no resume of this ad.
+        player.listeners.toList().forEach { it.onIsPlayingChanged(true) }
+        assertTrue("no pause seen yet: it stays", recorder.reasons.isEmpty())
+        player.playing = false
+        player.listeners.toList().forEach { it.onIsPlayingChanged(false) }
+        assertTrue(recorder.reasons.isEmpty())
+        player.playing = true
+        player.listeners.toList().forEach { it.onIsPlayingChanged(true) }
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun aQueuedMedia3ResumeDoesNotEndThePauseAdThatTheOverlaysEndShowed() {
+        val media3 = Media3()
+        val owner = owner()
+        owner.track(media3.player)
+        val container = container()
+        val pause = pause(owner)
+        val pauseRecorder = Recorder()
+        pause.listener = pauseRecorder
+        val overlay = overlay(owner)
+        overlay.listener = object : VideoAdListener {
+            override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                // The app shows its pause ad as the overlay ends; the player already plays again.
+                pause.show(container)
+            }
+        }
+        overlay.show(container)
+        // A pause and a play in a row: Media3 delivers each callback in turn, with the player already playing.
+        media3.playWhenReady = true
+        media3.listener.captured.onPlayWhenReadyChanged(false, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        assertTrue("the queued pause ended the overlay", overlay.hasEnded)
+        assertSame(pause, Sdk.adOnScreen)
+        media3.listener.captured.onPlayWhenReadyChanged(true, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        assertTrue("the queued resume came before any pause of the pause ad: it stays", pauseRecorder.reasons.isEmpty())
+        media3.playWhenReady = false
+        media3.listener.captured.onPlayWhenReadyChanged(false, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        media3.playWhenReady = true
+        media3.listener.captured.onPlayWhenReadyChanged(true, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), pauseRecorder.reasons)
+    }
+
     @Test fun anUntrackedPauseAdStaysUntilDismissedAndResumeStaysResumed() {
         val recorder = Recorder()
         val ad = pause()
