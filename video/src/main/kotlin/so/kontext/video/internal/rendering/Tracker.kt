@@ -7,6 +7,8 @@ import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.wire.AdPayload
 import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -170,15 +172,17 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         }
 
         /**
-         * The fewest significant digits that read back as [value], rounded to the nearest: what Swift prints.
-         * Not `Double.toString`, whose digits differ between JDKs and are sometimes not the shortest (`1e23`).
+         * The fewest significant digits that read back as [value], rounded half-even from its exact value: what
+         * Swift prints. Not `Double.toString` (not always the shortest, `1e23`) nor `String.format`, which rounds
+         * differently in some cases.
          */
         private fun shortestDigits(value: Double): BigDecimal {
+            val exact = BigDecimal(value)
             for (precision in 1..MAX_DIGITS) {
-                val text = String.format(Locale.ROOT, "%.${precision - 1}e", value)
-                if (text.toDouble() == value) return BigDecimal(text).stripTrailingZeros()
+                val digits = exact.round(MathContext(precision, RoundingMode.HALF_EVEN))
+                if (digits.toDouble() == value) return digits.stripTrailingZeros()
             }
-            return BigDecimal(value).stripTrailingZeros()
+            return exact.stripTrailingZeros()
         }
 
         /** Seventeen significant digits always identify a Double. */

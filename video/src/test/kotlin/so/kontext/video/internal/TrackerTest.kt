@@ -89,6 +89,7 @@ class TrackerTest {
             9.5367431640625e-07 to "9.5367431640625e-07", 2.2250738585072014e-308 to "2.2250738585072014e-308", 1e22 to "1e+22",
             4.35e-05 to "4.35e-05", 1.23456789e15 to "1234567890000000.0", 2e-4 to "0.0002", 1.0e7 to "10000000.0", 123456.0 to "123456.0",
             1.1 to "1.1", 100.0 to "100.0", 0.00012345 to "0.00012345",
+            Double.fromBits(0x43a4dbd1460f41bcL) to "7.515124997460372e+17", // where String.format rounded the last digit up
         )
         assertEquals(swift, swift.mapValues { (value, _) -> Tracker.number(value) })
     }

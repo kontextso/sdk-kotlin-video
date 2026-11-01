@@ -75,6 +75,15 @@ class ApiClientRedirectTest {
         assertEquals(1, server.requestCount)
     }
 
+    @Test fun aRedirectToAnotherSchemeIsTheAnswerAndOpensNothing() {
+        for (target in listOf("file:///does-not-need-to-exist", "ftp://files.test/x", "intent://x")) {
+            server.enqueue(redirect(307, target))
+            val error = assertThrows<ApiException.Http>(target) { post() }
+            assertEquals(307, error.status, target)
+        }
+        assertEquals(3, server.requestCount, "one request each, nothing followed")
+    }
+
     @Test fun aRedirectChainEndsWithTheLastAnswer() {
         server.enqueue(redirect(308, "/v2/one"))
         server.enqueue(redirect(302, "/v2/two"))

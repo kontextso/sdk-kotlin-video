@@ -73,8 +73,8 @@ internal class ApiClient(
 
     /**
      * Sends the request and follows redirects as the Swift SDK's URLSession does: a 307 or 308 sends the POST
-     * again, body and all; a 301, 302 or 303 continues as a GET. At most [MAX_REDIRECTS], and never from
-     * https to http. Deliberate: the routes do not redirect today, so a redirect would be our own server
+     * again, body and all; a 301, 302 or 303 continues as a GET. At most [MAX_REDIRECTS], only to http or
+     * https, and never from https to http. Deliberate: the routes do not redirect today, so a redirect would be our own server
      * moving, and refusing it would be an outage of every installed SDK. Each hop is one connection whose body
      * is streamed, so the HTTP stack cannot send it again on its own when a connection drops.
      */
@@ -100,8 +100,9 @@ internal class ApiClient(
                     connection.requestMethod = "GET"
                 }
                 val status = connection.responseCode
-                val next = connection.getHeaderField("Location")?.takeIf { status in REDIRECTS }?.let { URL(url, it) }
-                if (next == null || (url.protocol == "https" && next.protocol != "https")) {
+                val next = connection.getHeaderField("Location")?.takeIf { status in REDIRECTS }?.let { runCatching { URL(url, it) }.getOrNull() }
+                // Only to http or https, and never down from https: anything else is the answer, not followed.
+                if (next == null || next.protocol !in FOLLOWED_SCHEMES || (url.protocol == "https" && next.protocol != "https")) {
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                     return status to (stream?.bufferedReader()?.use { it.readText() } ?: "")
                 }
@@ -119,6 +120,7 @@ internal class ApiClient(
         const val MAX_REDIRECTS = 5
         private val REDIRECTS = setOf(301, 302, 303, 307, 308)
         private val KEEP_METHOD = setOf(307, 308)
+        private val FOLLOWED_SCHEMES = setOf("http", "https")
 
         /** The JSON:API-shaped error body; an item that is not an object fails the whole body, which then counts as none. */
         fun parseErrors(text: String): List<ErrorItem> = runCatching {
