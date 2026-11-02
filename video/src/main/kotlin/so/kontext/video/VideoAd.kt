@@ -746,7 +746,8 @@ public class VideoAd internal constructor(
 
     /**
      * Until Android has laid the page out in a window with an area, nothing of it was drawn: a container that
-     * gives the ad no room ends it (`INTERRUPTED`) with no impression.
+     * gives the ad no room ends it (`INTERRUPTED`) with no impression. So does a page laid out wholly off screen
+     * where it was placed: a feed scrolled so the player's middle shows, not its top card.
      */
     private fun recordImpressionAtFirstLayout() {
         // Inline, the host: it has an area only where the container gives the ad room, and places the page.
@@ -754,6 +755,12 @@ public class VideoAd internal constructor(
         val view = host ?: loadedBridge?.webView ?: return
         impressionWait = FirstLayout.await(view, isReady = { host?.hasPlacedContent ?: true }) {
             impressionWait = null
+            val page = loadedBridge?.webView
+            if (host != null && page != null && page.width > 0 && page.height > 0 && ViewabilityMeter.exposure(page).first <= 0.0) {
+                Logger.warning { "ad ${id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
+                end(EndReason.INTERRUPTED)
+                return@await
+            }
             withContentPlayhead { recordImpression() }
         }
     }

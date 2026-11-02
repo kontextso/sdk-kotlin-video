@@ -69,6 +69,25 @@ class OffScreenTest : SdkTest() {
         assertNull("the slot is free for the next episode's ad", Sdk.adOnScreen)
     }
 
+    @Test fun anAdWhollyOffScreenWhereItIsPlacedIsNeverCounted() {
+        ViewabilityMeter.intervalMillis = 1_000_000
+        Environment.now = { now }
+        Environment.isAppInForeground = { true }
+        val ad = pause()
+        val recorder = Recorder().also { ad.listener = it }
+        val container = container()
+        ad.show(container)
+        // The player shows on screen, the ad's own box lies above what shows of it (a feed scrolled to its middle).
+        val webView = ad.loadedBridge!!.webView
+        ReflectionHelpers.setField(webView, "mRight", 300)
+        ReflectionHelpers.setField(webView, "mBottom", 200)
+        webView.translationY = -10_000f
+        laidOut()
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertFalse("no impression for an ad nobody could see", recorder.heard.contains("impression"))
+        assertNull(Sdk.adOnScreen)
+    }
+
     @Test fun inTheBackgroundAnUnseenAdOnlyFreezes() {
         val (ad, container) = shown()
         Environment.isAppInForeground = { false }
