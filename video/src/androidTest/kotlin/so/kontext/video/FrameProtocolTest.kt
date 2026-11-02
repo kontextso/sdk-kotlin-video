@@ -7,10 +7,12 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.webkit.WebViewFeature
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.KontextVideo.Configuration
@@ -65,6 +67,9 @@ class FrameProtocolTest {
     }
 
     @Test fun thePagesOwnMessagesLoadShowAndCountTheAd() {
+        // A WebView older than the message listener (an API 24 image's own) never hears the page: the SDK
+        // refuses such an ad by design, and there is no protocol to test.
+        assumeTrue(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
         val activity = instrumentation.startActivitySync(
             android.content.Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as TestHostActivity

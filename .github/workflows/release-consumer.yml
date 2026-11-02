@@ -1,0 +1,54 @@
+name: Release consumer
+
+# The publisher app (extras/publisher-app) built against a release on Maven Central, minified by R8: what a
+# publisher's app gets, signed and synced, not what mavenLocal holds. It runs after "Publish SDK" succeeds and on
+# demand for a version already released; CI on main and pull requests never runs it, since before a release
+# there is nothing on Maven Central to resolve.
+on:
+  workflow_run:
+    workflows: [ Publish SDK ]
+    types: [ completed ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Released version to build against, such as 0.1.0
+        required: true
+
+jobs:
+  publisher-app:
+    name: Publisher App from Maven Central (R8)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      # The commit that was released (or the tag asked for), so the app calls the API that release has.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.version }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # The release workflow publishes the catalog version, after checking the tag equals it.
+      - name: Version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          version="${REQUESTED:-$(sed -n 's/^sdk-kotlin-video *= *"\([^"]*\)".*/\1/p' gradle/libs.versions.toml)}"
+          echo "SDK_VERSION=$version" >> "$GITHUB_ENV"
+          echo "so.kontext:video-media3:$version"
+
+      # A release is on Maven Central minutes after it is published, sometimes half an hour or more.
+      - name: Wait for Maven Central
+        timeout-minutes: 90
+        run: |
+          base=https://repo1.maven.org/maven2/so/kontext
+          until curl -sfI "$base/video/$SDK_VERSION/video-$SDK_VERSION.pom" > /dev/null &&
+                curl -sfI "$base/video-media3/$SDK_VERSION/video-media3-$SDK_VERSION.pom" > /dev/null; do
+            echo "not on Maven Central yet"; sleep 60
+          done
+
+      - name: Build the minified publisher app from Maven Central
+        run: ./gradlew -p extras/publisher-app assembleRelease -PsdkFromMavenCentral -PsdkVersion="$SDK_VERSION"

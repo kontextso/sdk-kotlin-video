@@ -49,6 +49,46 @@ loaded and shown:
 ./gradlew -p extras/publisher-app assembleRelease   # or installRelease, on a running emulator
 ```
 
+Once a version is on Maven Central, the same app builds against it instead of mavenLocal:
+
+```bash
+./gradlew -p extras/publisher-app assembleRelease -PsdkFromMavenCentral -PsdkVersion=0.1.0
+```
+
+## CI
+
+`.github/workflows/ci.yml` runs on pushes to `main` and on pull requests:
+
+- **Lint**: `spotlessCheck` and `detekt`.
+- **Build and Test**: `assembleDebug`, `apiCheck` and the unit tests.
+- **Emulator Tests (API 24)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 24 (the minSdk) and 34.
+  API 24's emulator image has a WebView older than the message listener (WebView 83) and nothing updates it, so
+  the two tests that need the page's own messages skip there; the job prints the WebView's version first.
+- **Publisher App (R8)**: the artifacts published to mavenLocal, then `extras/publisher-app` built from them,
+  minified.
+
+`.github/workflows/publish_sdk.yml` publishes a release tag (see [RELEASING.md](RELEASING.md)).
+`.github/workflows/release-consumer.yml` builds the publisher app from Maven Central once that release is there:
+after **Publish SDK** succeeds (it waits for the release to reach Maven Central, up to 90 minutes), and by hand
+(Actions → Release consumer → Run workflow, with the version).
+
+## What a publisher needs
+
+From the build files and the artifacts' dependencies:
+
+- **minSdk 24** (`video` and `video-media3`).
+- **compileSdk 34** for `so.kontext:video`, **35** with `so.kontext:video-media3`: AndroidX Core 1.13.1, Activity
+  1.8.2 and WebKit 1.12.1 require 34 in their AAR metadata, Media3 1.6.0 requires 35. AGP refuses a lower one.
+- **Android Gradle Plugin 8.1.1+** for compileSdk 34, **8.6+** for 35 (the first versions that support those API
+  levels), with the Gradle version that AGP requires (8.0+ and 8.7+), and **JDK 17** (what AGP 8 runs on; the
+  artifacts are Java 17 bytecode, `jvmToolchain(17)`).
+- **Kotlin 2.0+** for a Kotlin app: the artifacts are compiled with Kotlin 2.1.0, and a Kotlin compiler reads
+  metadata at most one version newer than its own. A Java app needs no Kotlin plugin.
+- R8 needs nothing from the app: the consumer rules ship in the AAR.
+
+What CI builds a publisher's app with (`extras/publisher-app`): AGP 8.7.3, Gradle 8.11.1, Kotlin 2.1.0, JDK 17,
+compileSdk 35. The older minimums above follow from the metadata and are not built by any job.
+
 ## Running the example app
 
 The example talks to the production ad server, whose demo routes answer any token: four videos, one per
