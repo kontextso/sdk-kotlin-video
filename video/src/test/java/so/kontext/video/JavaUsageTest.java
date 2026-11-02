@@ -5,11 +5,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Activity;
+import android.view.ViewGroup;
 import androidx.core.graphics.Insets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.lang.reflect.Method;
 import org.junit.Test;
 
 /**
@@ -90,6 +93,42 @@ public class JavaUsageTest {
         KontextVideo.InitializationListener initialized = state -> heard[0] = state.toString();
         initialized.onInitialized(KontextVideo.State.Failed.INSTANCE);
         assertEquals("Failed", heard[0]);
+    }
+
+    /**
+     * A Java publisher's show, reject and dismiss: each throws the checked VideoAdException, so this compiles
+     * only inside its try. Never run: the methods are checked below; compiling is the test.
+     */
+    @SuppressWarnings("unused")
+    private static String publisherCode(VideoAd overlay, VideoAd linear, ViewGroup container, Activity activity) {
+        try {
+            overlay.show(container); // @JvmOverloads: no insets
+            overlay.show(container, Insets.of(0, 0, 0, 120));
+            overlay.dismiss();
+            linear.show(activity);
+            overlay.reject(); // @JvmOverloads: NotUsed
+            linear.reject(new VideoAd.RejectReason.Outbid(2.5, "Other Network"));
+            return "shown";
+        } catch (VideoAdException.PresenterUnavailable error) {
+            return "later";
+        } catch (VideoAdException error) {
+            return error.getMessage();
+        }
+    }
+
+    @Test
+    public void showRejectAndDismissDeclareTheCheckedException() throws Exception {
+        Method[] methods = {
+            VideoAd.class.getMethod("show", ViewGroup.class),
+            VideoAd.class.getMethod("show", ViewGroup.class, Insets.class),
+            VideoAd.class.getMethod("show", Activity.class),
+            VideoAd.class.getMethod("reject"),
+            VideoAd.class.getMethod("reject", VideoAd.RejectReason.class),
+            VideoAd.class.getMethod("dismiss"),
+        };
+        for (Method method : methods) {
+            assertTrue(method + " throws VideoAdException", Arrays.asList(method.getExceptionTypes()).contains(VideoAdException.class));
+        }
     }
 
     @Test
