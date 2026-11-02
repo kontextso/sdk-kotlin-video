@@ -162,6 +162,7 @@ internal class FrameBridge(
             return
         }
         state = State.SHOWN
+        webView.onResume()
         val size = chosenSize
         send("ad.show", if (size != null) mapOf("size" to mapOf("width" to size.width, "height" to size.height)) else emptyMap())
     }
@@ -224,6 +225,11 @@ internal class FrameBridge(
                 if (state != State.LOADING) return
                 loadTimeoutJob?.cancel()
                 state = State.LOADED
+                // A WebView out of any window runs as visible: a preloaded page would draw its animation
+                // frames at about 60 fps for as long as the ad is held. Paused until show: animations and
+                // rendering stop, JavaScript does not. Only now, after the page said it is ready: a video
+                // creative buffers its video first. Never pauseTimers(), which pauses every WebView of the app.
+                webView.onPause()
                 onEvent?.invoke(FrameEvent.Loaded)
             }
             "ad.click", "ad.open" -> {

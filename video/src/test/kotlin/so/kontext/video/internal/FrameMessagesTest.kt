@@ -56,6 +56,18 @@ class FrameMessagesTest {
         events.clear()
     }
 
+    @Test fun aLoadedPageIsPausedWhileItWaitsAndResumedAtShow() {
+        val video = bridge(isVideo = true)
+        val webView = shadowOf(video.webView)
+        assertFalse("loading runs: a video creative buffers its video", webView.wasOnPauseCalled())
+        send("ad.loaded", to = video)
+        assertEquals(listOf<FrameEvent>(FrameEvent.Loaded), events)
+        assertTrue("held off screen: paused", webView.wasOnPauseCalled())
+        assertFalse(webView.wasOnResumeCalled())
+        video.show()
+        assertTrue(webView.wasOnResumeCalled())
+    }
+
     @Test fun beforeTheAdIsShownOnlyLoadedAndErrorCount() {
         send("ad.loaded")
         events.clear()
