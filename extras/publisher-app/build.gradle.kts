@@ -30,8 +30,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+// The catalog's version, or -PsdkVersion: a release from Maven Central other than the one the catalog names.
+val sdkVersion: String = providers.gradleProperty("sdkVersion").orElse(libs.versions.sdk.kotlin.video).get()
+
 dependencies {
-    implementation("so.kontext:video-media3:${libs.versions.sdk.kotlin.video.get()}")
+    implementation("so.kontext:video-media3:$sdkVersion")
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 }

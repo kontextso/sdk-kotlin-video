@@ -74,9 +74,16 @@ jobs:
           path: '**/build/reports/tests/'
           retention-days: 7
 
+  # API 34, and API 24, the SDK's minSdk: what a newer Android API called without its version check breaks
+  # there, not here. API 24's image comes with a WebView too old for the page's messages (no updates
+  # without Play), so the tests that need them skip there; the rest run on both.
   emulator-tests:
-    name: Emulator Tests
+    name: Emulator Tests (API ${{ matrix.api-level }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [ 24, 34 ]
     steps:
       - uses: actions/checkout@v6
 
@@ -111,19 +118,22 @@ jobs:
       - name: Run the emulator tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: google_apis
           disable-animations: true
           disk-size: 2048M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
-          script: ./gradlew :video:connectedDebugAndroidTest
+          # The WebView's version first: on API 24 it decides which tests skip.
+          script: |
+            adb shell dumpsys webviewupdate | grep -iE "current webview package|version" || true
+            ./gradlew :video:connectedDebugAndroidTest
 
       - name: Upload emulator test reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: emulator-test-reports
+          name: emulator-test-reports-api-${{ matrix.api-level }}
           path: video/build/reports/androidTests/
           retention-days: 7
 

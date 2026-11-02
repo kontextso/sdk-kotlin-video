@@ -2,6 +2,7 @@ package so.kontext.video
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -9,6 +10,7 @@ import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,6 +53,9 @@ class WebViewSafetyTest {
     )
 
     @Test fun anOriginTheWebViewRefusesFailsTheLoadInsteadOfCrashing() {
+        // Only a WebView with the message listener checks the origin; an older one (an API 24 image's own)
+        // never makes the bridge at all.
+        assumeTrue(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
         for (url in listOf("ftp://frames.test/a", "myapp://frames.test/a", "https://frames.test:99999/a")) {
             val done = CountDownLatch(1)
             var result: Result<Unit>? = null

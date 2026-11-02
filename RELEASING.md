@@ -52,11 +52,12 @@ Create a PR to `main` named "Release version 1.0.0" with the changelog entry as 
 
 Pushing the tag triggers the `publish_sdk.yml` workflow. Its `verify` job fails when the tag differs from
 `sdk-kotlin-video` in `gradle/libs.versions.toml`, then runs `spotlessCheck detekt apiCheck` and the unit tests.
-The `publish` job runs only after them, in the `maven-central` environment: a required reviewer approves it in
-the workflow run, then it publishes and releases to Maven Central, which cannot be undone.
+The `publish` job runs only after them, in the `maven-central` environment, and publishes and releases to Maven
+Central at once, which cannot be undone: nobody approves it in the run (GitHub does not offer required reviewers
+on this repository's plan), so the checks above are the last gate before the tag is pushed.
 
-The environment must exist in the repository settings (Settings → Environments → `maven-central`, with
-required reviewers); the workflow does not create its protection. The Maven Central and signing secrets
+The environment must exist in the repository settings (Settings → Environments → `maven-central`, limited to
+tags `*.*.*`); the workflow does not create it. The Maven Central and signing secrets
 (`MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`, `SIGNING_KEY`, `SIGNING_PASSWORD`) can live there; the
 workflow passes them to Gradle as `ORG_GRADLE_PROJECT_*` environment variables.
 
@@ -69,5 +70,7 @@ git push origin 1.0.0
 
 ## 6. Verify
 
-1. Check that `so.kontext:video:1.0.0` is available on Maven Central.
+1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0` and
+   `so.kontext:video-media3:1.0.0` on Maven Central, then builds `extras/publisher-app` from them, minified by
+   R8. It must be green; rerun it by hand (Actions → Release consumer → Run workflow) with the version.
 2. Integrate the new version into the example app and confirm it builds and runs.
