@@ -780,6 +780,8 @@ public class VideoAd internal constructor(
                 end(EndReason.INTERRUPTED)
             }
         }
+        // Another Activity over a linear ad's screen leaves its view in a visible window, measured whole there.
+        meter.isCovered = { linearScreen?.isCovered == true }
         this.meter = meter
         meter.start()
     }

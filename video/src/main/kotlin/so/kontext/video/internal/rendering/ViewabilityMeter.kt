@@ -32,6 +32,12 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     /** The view left the window and did not come back within one interval; on every tick while it stays out, from the second. */
     var onDetached: (() -> Unit)? = null
 
+    /**
+     * Whether something the meter cannot see covers the view while it stays in its window, visible: another
+     * Activity over a linear ad's screen, translucent or sheet-like. Asked on every tick; covered reads as 0.
+     */
+    var isCovered: (() -> Boolean)? = null
+
     var verdict: Verdict? = null
         private set
 
@@ -95,7 +101,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             return
         }
         detachedTicks = 0
-        val (percentage, visible) = exposure(view)
+        val (percentage, visible) = seen(view)
         report(percentage, visible)
         if (stopped) return
         if (percentage >= THRESHOLD && countsTime) {
@@ -106,6 +112,9 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             exposedSince = null
         }
     }
+
+    /** The view's exposure, or none while something covers it. */
+    private fun seen(view: View): Pair<Double, Rect> = if (isCovered?.invoke() == true) 0.0 to Rect() else exposure(view)
 
     private fun report(percentage: Double, visible: Rect) {
         if (!measured) {

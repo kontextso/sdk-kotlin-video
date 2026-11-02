@@ -12,6 +12,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
 import so.kontext.video.internal.support.Logger
 import java.util.UUID
 
@@ -38,6 +39,16 @@ internal class LinearAdActivity : ComponentActivity() {
 
     /** Set by the ad while it finishes the screen itself, so `onDestroy` is not an interruption. */
     var isEndingByAd = false
+
+    /**
+     * Another screen the viewer cannot see the ad through is over this one: the screen is paused (another
+     * Activity on top, translucent or a sheet like a store's in-app overlay) while it still draws in its
+     * window. A dialog over it does not pause it, and the viewer sees the ad around it: not covered. Nor is
+     * a screen paused beside another app's in split screen (before Android 10 only the focused one is
+     * resumed). A full cover stops the screen and hides its window, which the meter sees on its own.
+     */
+    val isCovered: Boolean
+        get() = !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !isInMultiWindowMode
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

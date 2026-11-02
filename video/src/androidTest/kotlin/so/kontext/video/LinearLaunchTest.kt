@@ -224,5 +224,83 @@ class LinearLaunchTest {
         }
     }
 
+    @Test fun aTranslucentActivityOverTheLinearAdCoversItAndADialogDoesNot() {
+        main {
+            Environment.context = instrumentation.targetContext
+            Environment.sendBeacon = { _, _ -> }
+            Sdk.configureForTesting(Configuration("test-token"))
+        }
+        val host = instrumentation.startActivitySync(
+            Intent(instrumentation.targetContext, LeaveHintHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        ) as LeaveHintHostActivity
+        val ended = CountDownLatch(1)
+        var ad: VideoAd? = null
+        var dialog: android.app.AlertDialog? = null
+        try {
+            main {
+                ad = linearAd().also {
+                    it.listener = object : VideoAdListener {
+                        override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) = ended.countDown()
+                    }
+                    it.show(host)
+                }
+            }
+            val screen = waitFor { resumedLinearScreen() }
+            assertTrue("the ad's screen came up", screen != null)
+            var covered = true
+            main { covered = screen!!.isCovered }
+            assertEquals("resumed, nothing over it", false, covered)
+            // A dialog over the ad: the screen stays resumed, the viewer sees the ad around it.
+            main { dialog = android.app.AlertDialog.Builder(screen).setMessage("a question").show() }
+            instrumentation.waitForIdleSync()
+            Thread.sleep(500)
+            main { covered = screen!!.isCovered }
+            assertEquals("a dialog does not cover", false, covered)
+            main { dialog?.dismiss() }
+            // A translucent Activity over it: the screen pauses and stays drawn; the meter reads it as covered.
+            var exposure = -1.0
+            main { ad!!.loadedBridge!!.onSend = { type, message -> if (type == "ad.exposure") exposure = message["exposedPercentage"].toString().toDouble() } }
+            main { screen!!.startActivity(Intent(screen, TranslucentCoverActivity::class.java)) }
+            val cover = waitFor {
+                var found: Activity? = null
+                main { found = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).filterIsInstance<TranslucentCoverActivity>().firstOrNull() }
+                found
+            }
+            assertTrue("the cover came up", cover != null)
+            instrumentation.waitForIdleSync()
+            main {
+                covered = screen!!.isCovered
+                ad!!.meter!!.tick()
+            }
+            assertEquals("a translucent Activity covers", true, covered)
+            assertEquals("the meter reads 0", 0.0, exposure, 0.0)
+            main { cover!!.finish() }
+            assertTrue("the ad's screen came back", waitFor { resumedLinearScreen() } != null)
+            main { covered = screen!!.isCovered }
+            assertEquals("uncovered once the cover went", false, covered)
+        } finally {
+            main {
+                dialog?.dismiss()
+                ad?.end(VideoAd.EndReason.INTERRUPTED)
+            }
+            ended.await(5, TimeUnit.SECONDS)
+            main {
+                host.finish()
+                Sdk.resetForTesting()
+                Environment.reset()
+            }
+        }
+    }
+
+    private fun <T> waitFor(find: () -> T?): T? {
+        val deadline = System.currentTimeMillis() + 10_000
+        var found = find()
+        while (found == null && System.currentTimeMillis() < deadline) {
+            Thread.sleep(100)
+            found = find()
+        }
+        return found
+    }
+
     @Volatile private var endReason: VideoAd.EndReason? = null
 }
