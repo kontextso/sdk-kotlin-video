@@ -233,7 +233,7 @@ class ParityRenderingTest : SdkTest() {
         val message = sent.single()
         assertEquals("ad-1", message["adId"]!!.jsonPrimitive.content)
         assertEquals("ad.exposure", message["type"]!!.jsonPrimitive.content)
-        assertEquals("the payload sits beside adId and type", 0.5, message["exposedPercentage"]!!.jsonPrimitive.double, 0.0)
+        assertEquals("the payload sits beside adId and type, 0–100 as in MRAID", 50.0, message["exposedPercentage"]!!.jsonPrimitive.double, 0.0)
         val rectangle = message["visibleRectangle"]!!.jsonObject
         assertEquals(1.0, rectangle["x"]!!.jsonPrimitive.double, 0.0)
         assertEquals(3.0, rectangle["width"]!!.jsonPrimitive.double, 0.0)

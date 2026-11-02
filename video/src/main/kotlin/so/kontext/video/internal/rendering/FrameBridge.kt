@@ -167,9 +167,13 @@ internal class FrameBridge(
         send("ad.show", if (size != null) mapOf("size" to mapOf("width" to size.width, "height" to size.height)) else emptyMap())
     }
 
-    /** How much of the box is on screen; the rectangle in the page's CSS pixels. */
-    fun exposure(percentage: Double, x: Double, y: Double, width: Double, height: Double) {
+    /**
+     * How much of the box is on screen: [share] 0–1 from the meter, sent as `exposedPercentage` 0–100, the unit of
+     * MRAID's `exposureChange`, which the page relays it to. The rectangle in the page's CSS pixels.
+     */
+    fun exposure(share: Double, x: Double, y: Double, width: Double, height: Double) {
         if (state != State.SHOWN) return
+        val percentage = Math.round(share * 10_000) / 100.0
         send("ad.exposure", mapOf("exposedPercentage" to percentage, "visibleRectangle" to mapOf("x" to x, "y" to y, "width" to width, "height" to height)))
     }
 
