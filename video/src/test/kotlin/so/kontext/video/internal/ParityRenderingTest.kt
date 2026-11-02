@@ -313,6 +313,34 @@ class ParityRenderingTest : SdkTest() {
         meter.stop()
     }
 
+    @Test fun nothingIsReportedBeforeTheViewIsLaidOutInAWindowThenARealZeroIs() {
+        val container = container()
+        val view = View(container.context)
+        container.addView(view) // attached, not laid out yet: the first tick runs before the first layout pass
+        val (meter, sink) = frozenMeter(view)
+        meter.start()
+        meter.tick(now + 100)
+        assertEquals("no exposure 0 before the first layout", emptyList<Double>(), sink.exposures)
+        view.layout(0, 0, 200, 100)
+        meter.tick(now + 100)
+        assertEquals(listOf(1.0), sink.exposures)
+        view.windowVisibility(View.GONE) // covered by another Activity
+        meter.tick(now + 100)
+        container.removeView(view)
+        view.layout(0, 0, 200, 100)
+        meter.tick(now + 100)
+        assertEquals("a real 0 later is reported", listOf(1.0, 0.0), sink.exposures)
+        meter.stop()
+    }
+
+    @Test fun aViewNotYetInAWindowReportsNothing() {
+        val view = View(Environment.context!!) // a linear ad's WebView before its Activity's window is attached
+        val (meter, sink) = frozenMeter(view)
+        meter.start()
+        assertEquals(emptyList<Double>(), sink.exposures)
+        meter.stop()
+    }
+
     @Test fun aViewInAWindowNotShownIsExposedZeroUntilItComesBack() {
         val view = view()
         view.windowVisibility(View.GONE) // the Activity stopped: the app is in the background, or another covers it
@@ -554,8 +582,9 @@ class ParityRenderingTest : SdkTest() {
     @Test fun aZeroSizedViewOrATransparentWindowIsNotExposed() {
         val (empty, emptySink) = frozenMeter(view(width = 0, height = 0))
         empty.start()
-        assertEquals(listOf(0.0), emptySink.exposures)
+        assertEquals("a view never laid out with an area has had no first measurement", emptyList<Double>(), emptySink.exposures)
         empty.stop()
+        assertEquals(ViewabilityMeter.Verdict.NOT_VIEWABLE, emptySink.verdict)
         val view = view()
         view.rootView.alpha = 0f
         val (meter, sink) = frozenMeter(view)

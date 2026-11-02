@@ -22,7 +22,10 @@ import kotlin.math.floor
 internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     enum class Verdict(val event: String) { VIEWABLE("viewable"), NOT_VIEWABLE("notViewable"), VIEW_UNDETERMINED("viewUndetermined") }
 
-    /** Exposure changed: share on screen (0–1) and the visible rectangle in the view's own pixels. */
+    /**
+     * Exposure changed: share on screen (0–1) and the visible rectangle in the view's own pixels. From the first
+     * measurement of the view laid out in a window on; a 0 after that (covered, detached) is reported.
+     */
     var onExposure: ((Double, Rect) -> Unit)? = null
     var onVerdict: ((Verdict) -> Unit)? = null
 
@@ -54,6 +57,13 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     private var lastPercentage = -1.0
     private var lastVisible = Rect()
     private var detachedTicks = 0
+
+    /**
+     * The view has been laid out in a window with an area once. Before that every measurement is 0 for want
+     * of a layout, not because the viewer cannot see the ad, and a page that pauses its video on exposure 0
+     * would pause and resume at once: nothing is reported until then.
+     */
+    private var measured = false
 
     fun start() {
         if (running || stopped) return
@@ -98,6 +108,11 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     }
 
     private fun report(percentage: Double, visible: Rect) {
+        if (!measured) {
+            val view = view.get() ?: return
+            if (!view.isAttachedToWindow || !view.isLaidOut || view.width <= 0 || view.height <= 0) return
+            measured = true
+        }
         val rounded = Math.round(percentage * 100) / 100.0
         if (rounded == lastPercentage && visible == lastVisible) return
         lastPercentage = rounded
