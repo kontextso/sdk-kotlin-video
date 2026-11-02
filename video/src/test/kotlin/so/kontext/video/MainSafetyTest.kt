@@ -26,6 +26,8 @@ class MainSafetyTest : SdkTest() {
         Environment.assertionFailure = { synchronized(assertions) { assertions += it } }
         val owner = owner()
         val unloaded = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner)
+        // The right format for each show: only the thread is wrong.
+        val unloadedLinear = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.linear())), Environment.now(), owner)
         val container = container()
         val screen = activity()
         val calls = listOf<Pair<String, () -> Unit>>(
@@ -34,7 +36,7 @@ class MainSafetyTest : SdkTest() {
             "KontextVideo.variantId" to { KontextVideo.variantId = "b" },
             "KontextVideo.initialize()" to { KontextVideo.initialize(container.context, Configuration("test-token")) },
             "VideoAd.show(container)" to { unloaded.show(container) },
-            "VideoAd.show(activity)" to { unloaded.show(screen) },
+            "VideoAd.show(activity)" to { unloadedLinear.show(screen) },
             "VideoAd.dismiss()" to { unloaded.dismiss() },
             "VideoAd.reject()" to { unloaded.reject() },
             "VideoAds.track()" to { owner.track(Player()) },

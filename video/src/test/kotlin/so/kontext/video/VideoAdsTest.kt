@@ -257,12 +257,9 @@ class VideoAdsTest {
         val ad = format(ads, AdFormat.OVERLAY).getOrThrow()
         ad.reject(VideoAd.RejectReason.Outbid(winningPrice = 9.5))
         assertEquals(listOf("https://t.test/n?r=outbid&p=9.5"), beacons)
-        try {
-            ad.reject()
-            fail("rejected twice")
-        } catch (error: VideoAdException.Invalidated) {
-            assertEquals(VideoAd.InvalidationReason.Rejected, error.reason)
-        }
+        ad.reject() // a second reject does nothing: no throw, no second notice
+        assertEquals(VideoAd.InvalidationReason.Rejected, ad.invalidationReason)
+        assertEquals(1, beacons.size)
         val error = format(ads, AdFormat.OVERLAY).exceptionOrNull()
         assertEquals("the server re-served a spent id", NoFillReason.AlreadyUsed, (error as VideoAdException.NoFill).reason)
         ads.destroy()

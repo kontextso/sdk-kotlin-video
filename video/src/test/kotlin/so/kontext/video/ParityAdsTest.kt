@@ -948,23 +948,26 @@ class ParityAdsTest {
         assertEquals(1, fired("notUsed").size)
     }
 
-    @Test fun rejectAnExpiredAdThrowsWithoutANotice() {
+    @Test fun rejectAnExpiredAdDoesNothingWithoutANotice() {
         initialize()
         serveAd("img-22", expires = 30_000)
         val ad = ok(videoAds())
         now += 31_000
-        assertEquals(VideoAd.InvalidationReason.Expired, assertThrows<VideoAdException.Invalidated> { ad.reject() }.reason)
+        ad.reject() // no throw: the ad expired, the call does nothing
+        assertEquals(VideoAd.InvalidationReason.Expired, ad.invalidationReason)
         assertTrue("the server closes an expired ad itself", fired("notUsed").isEmpty())
     }
 
-    @Test fun anAdOfADestroyedVideoAdsThrowsDestroyedAtLoadAndReject() {
+    @Test fun anAdOfADestroyedVideoAdsThrowsDestroyedAtLoadAndRejectDoesNothing() {
         initialize()
         serveAd("img-23")
         val ads = videoAds()
         val ad = ok(ads)
         ads.destroy()
         call { ad.load() }.settled().failure<VideoAdException.Destroyed>()
-        assertThrows<VideoAdException.Destroyed> { ad.reject() }
+        val notices = fired("notUsed").size
+        ad.reject() // no throw: the ad ended with its VideoAds
+        assertEquals("no second notUsed", notices, fired("notUsed").size)
     }
 
     @Test fun theWebViewLivesWhileTheAdIsHeldAndGoesWhenItEnds() {

@@ -274,11 +274,38 @@ class VideoAdLifecycleTest : SdkTest() {
 
     // region What show refuses
 
-    @Test fun showRefusesTheWrongPresentation() {
+    @Test fun theWrongPresentationStopsADebugBuildAndThrowsInRelease() {
+        val asserted = mutableListOf<String>()
+        Environment.assertionFailure = { asserted += it }
         val linear = linear()
         assertThrows<VideoAdException.WrongPresentation> { linear.show(container()) }
-        assertThrows<VideoAdException.WrongPresentation> { linear.dismiss() }
         assertThrows<VideoAdException.WrongPresentation> { overlay().show(activity()) }
+        assertEquals("each a programmer error at the call", 2, asserted.size)
+    }
+
+    @Test fun dismissOnALinearAdStopsADebugBuildAndDoesNothingInRelease() {
+        val asserted = mutableListOf<String>()
+        Environment.assertionFailure = { asserted += it }
+        val recorder = Recorder()
+        val linear = linear()
+        linear.listener = recorder
+        linear.dismiss() // no throw
+        assertEquals(1, asserted.size)
+        assertTrue(linear.isReady)
+        assertTrue(recorder.heard.isEmpty())
+    }
+
+    @Test fun rejectNeverThrowsAndDoesNothingOnAShownOrEndedAd() {
+        val shown = overlay()
+        shown.show(container())
+        shown.reject() // after show: nothing
+        assertTrue(shown.wasShown && !shown.hasEnded)
+        shown.dismiss()
+        shown.reject() // after the end: nothing
+        val rejected = pause()
+        rejected.reject()
+        rejected.reject() // already rejected: nothing
+        assertEquals(VideoAd.InvalidationReason.Rejected, rejected.invalidationReason)
     }
 
     @Test fun showRefusesAnAdNotLoaded() {
@@ -297,7 +324,7 @@ class VideoAdLifecycleTest : SdkTest() {
         assertTrue("the other ad stays ready", second.isReady)
         first.dismiss()
         assertThrows<VideoAdException.AlreadyShown> { first.show(container) }
-        assertThrows<VideoAdException.AlreadyShown> { first.reject() }
+        first.reject() // does nothing after show
         second.show(container)
         assertSame(second, Sdk.adOnScreen)
     }

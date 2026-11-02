@@ -56,7 +56,6 @@ public class JavaUsageTest {
         VideoAdException error = new VideoAdException.NoFill(VideoAdException.NoFillReason.FrequencyCap.INSTANCE);
         assertTrue(error instanceof Exception);
         assertSame(VideoAdException.NoFillReason.FrequencyCap.INSTANCE, ((VideoAdException.NoFill) error).getReason());
-        assertEquals("phone", "phone"); // keeps the import list honest
 
         assertEquals(VideoAd.EndReason.RESUMED, VideoAd.EndReason.valueOf("RESUMED"));
         assertEquals(AdFormat.LINEAR, AdFormat.valueOf("LINEAR"));
@@ -96,18 +95,19 @@ public class JavaUsageTest {
     }
 
     /**
-     * A Java publisher's show, reject and dismiss: each throws the checked VideoAdException, so this compiles
-     * only inside its try. Never run: the methods are checked below; compiling is the test.
+     * A Java publisher's show, reject and dismiss: show throws the checked VideoAdException, so it compiles only
+     * inside its try; reject and dismiss throw nothing (a no-op on the wrong ad is logged) and need none. Never
+     * run: the methods are checked below; compiling is the test.
      */
     @SuppressWarnings("unused")
     private static String publisherCode(VideoAd overlay, VideoAd linear, ViewGroup container, Activity activity) {
+        overlay.reject(); // @JvmOverloads: NotUsed
+        linear.reject(new VideoAd.RejectReason.Outbid(2.5, "Other Network"));
+        overlay.dismiss();
         try {
             overlay.show(container); // @JvmOverloads: no insets
             overlay.show(container, Insets.of(0, 0, 0, 120));
-            overlay.dismiss();
             linear.show(activity);
-            overlay.reject(); // @JvmOverloads: NotUsed
-            linear.reject(new VideoAd.RejectReason.Outbid(2.5, "Other Network"));
             return "shown";
         } catch (VideoAdException.PresenterUnavailable error) {
             return "later";
@@ -117,17 +117,22 @@ public class JavaUsageTest {
     }
 
     @Test
-    public void showRejectAndDismissDeclareTheCheckedException() throws Exception {
-        Method[] methods = {
+    public void showDeclaresTheCheckedExceptionRejectAndDismissDoNot() throws Exception {
+        Method[] throwing = {
             VideoAd.class.getMethod("show", ViewGroup.class),
             VideoAd.class.getMethod("show", ViewGroup.class, Insets.class),
             VideoAd.class.getMethod("show", Activity.class),
+        };
+        for (Method method : throwing) {
+            assertTrue(method + " throws VideoAdException", Arrays.asList(method.getExceptionTypes()).contains(VideoAdException.class));
+        }
+        Method[] quiet = {
             VideoAd.class.getMethod("reject"),
             VideoAd.class.getMethod("reject", VideoAd.RejectReason.class),
             VideoAd.class.getMethod("dismiss"),
         };
-        for (Method method : methods) {
-            assertTrue(method + " throws VideoAdException", Arrays.asList(method.getExceptionTypes()).contains(VideoAdException.class));
+        for (Method method : quiet) {
+            assertEquals(method + " declares no checked exception", 0, method.getExceptionTypes().length);
         }
     }
 

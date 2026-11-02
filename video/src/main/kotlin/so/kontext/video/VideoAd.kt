@@ -187,18 +187,29 @@ public class VideoAd internal constructor(
         }
     }
 
-    /** You won't use the ad; the server tells the advertiser why. Works until `show`, loaded or not. */
+    /**
+     * You won't use the ad; the server tells the advertiser why. Works until `show`, loaded or not. It never
+     * throws: on an ad that was shown, has already ended (expired, rejected, its `VideoAds` destroyed, its
+     * creative failed) or expires now, it does nothing and logs a line.
+     */
     @MainThread
-    @Throws(VideoAdException::class)
     @JvmOverloads
     public fun reject(reason: RejectReason = RejectReason.NotUsed) {
         Sdk.checkMainThread("VideoAd.reject()")
         withContentPlayhead {
-            if (wasShown) throw VideoAdException.AlreadyShown()
-            invalidationReason?.let { throw error(it) }
+            if (wasShown) {
+                Logger.warning { "$format ad ${id.take(8)}: reject() after show does nothing; the ad was shown" }
+                return@withContentPlayhead
+            }
+            invalidationReason?.let {
+                Logger.info { "$format ad ${id.take(8)}: reject() does nothing, the ad already ended ($it)" }
+                return@withContentPlayhead
+            }
             if (isExpired) {
+                // No notice: the server closes an expired ad itself.
                 invalidate(InvalidationReason.Expired)
-                throw VideoAdException.Invalidated(InvalidationReason.Expired)
+                Logger.info { "$format ad ${id.take(8)}: reject() does nothing, the ad expired" }
+                return@withContentPlayhead
             }
             Logger.info { "$format ad ${id.take(8)}: rejected ($reason)" }
             // Committed before the beacon: the rejection is final the moment the app asked for it.
@@ -312,7 +323,10 @@ public class VideoAd internal constructor(
     }
 
     private fun showInline(container: ViewGroup, insets: Insets) {
-        if (format == AdFormat.LINEAR) throw VideoAdException.WrongPresentation()
+        if (format == AdFormat.LINEAR) {
+            Environment.assertionFailure("VideoAd.show(container) on a linear ad; show(activity) presents it")
+            throw VideoAdException.WrongPresentation()
+        }
         checkShowable()
         if (!AdPlacement.canBeSeen(container)) {
             Logger.warning { "ad ${id.take(8)}: cannot show, the container is not on screen or is hidden" }
@@ -482,7 +496,10 @@ public class VideoAd internal constructor(
     }
 
     private fun showLinear(activity: Activity) {
-        if (format != AdFormat.LINEAR) throw VideoAdException.WrongPresentation()
+        if (format != AdFormat.LINEAR) {
+            Environment.assertionFailure("VideoAd.show(activity) on an overlay or pause ad; show(container) shows it")
+            throw VideoAdException.WrongPresentation()
+        }
         checkShowable()
         if (activity.isFinishing || activity.isDestroyed) {
             Logger.warning { "ad ${id.take(8)}: cannot present, the Activity is finishing" }
@@ -557,12 +574,19 @@ public class VideoAd internal constructor(
         }
     }
 
-    /** Ends an overlay or pause ad because you say so; `onAdEnded(DISMISSED)` follows, synchronously. Before `show` and after the end it does nothing. */
+    /**
+     * Ends an overlay or pause ad because you say so; `onAdEnded(DISMISSED)` follows, synchronously. Before
+     * `show` and after the end it does nothing. It never throws: on a linear ad, which ends by itself or by the
+     * viewer (`VideoAds.destroy()` forces it off), it stops a debuggable build and does nothing in release.
+     */
     @MainThread
-    @Throws(VideoAdException::class)
     public fun dismiss() {
         Sdk.checkMainThread("VideoAd.dismiss()")
-        if (format == AdFormat.LINEAR) throw VideoAdException.WrongPresentation()
+        if (format == AdFormat.LINEAR) {
+            Environment.assertionFailure("VideoAd.dismiss() on a linear ad; it ends by itself, VideoAds.destroy() forces it off")
+            Logger.error { "ad ${id.take(8)}: dismiss() on a linear ad does nothing; it ends by itself or by the viewer, destroy() forces it off" }
+            return
+        }
         if (!wasShown || hasEnded) return
         Logger.debug { "ad ${id.take(8)}: dismissed by the app" }
         end(EndReason.DISMISSED)

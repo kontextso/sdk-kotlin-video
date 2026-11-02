@@ -47,7 +47,7 @@ lifecycleScope.launch {
 // showing, the container is too small): catch VideoAdException, or the app crashes
 player.pause()
 try { viewModel.pauseAd?.show(playerContainer) } catch (e: VideoAdException) { /* not shown */ }
-viewModel.pauseAd?.dismiss(); player.play() // dismiss throws only for a linear ad
+viewModel.pauseAd?.dismiss(); player.play() // dismiss and reject never throw
 ```
 
 `show`, `reject` and `dismiss` throw `VideoAdException`; Kotlin does not make you catch it, so wrap every `show`
