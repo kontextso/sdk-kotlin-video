@@ -179,6 +179,8 @@ class PartsTest : SdkTest() {
         assertFalse(FrameBridge.isAllowed("intent://x#Intent;end"))
         assertFalse(FrameBridge.isAllowed("javascript:alert(1)"))
         assertFalse(FrameBridge.isAllowed("no scheme"))
+        assertFalse("a space", FrameBridge.isAllowed("https://brand.test/a b"))
+        assertFalse("a web link without a host", FrameBridge.isAllowed("https://"))
         assertEquals(FrameBridge.Origin("https", "frames.test", 443), FrameBridge.Origin.of("HTTPS://Frames.Test/path"))
         assertEquals("https://frames.test:8443", FrameBridge.Origin.of("https://frames.test:8443/x")!!.rule)
         assertNull(FrameBridge.Origin.of("file:///x"))

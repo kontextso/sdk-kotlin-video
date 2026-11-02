@@ -506,8 +506,14 @@ internal class FrameBridge(
             "tel", "sms", "smsto", "mms", "mmsto",
         )
 
+        /**
+         * A link that may open: a usable URL (a scheme, no spaces or control characters, which iOS's URL parsing
+         * refuses too, and a host for a web link) whose scheme is not refused.
+         */
         fun isAllowed(target: String): Boolean {
             val scheme = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*):").find(target)?.groupValues?.get(1)?.lowercase() ?: return false
+            if (target.any { it <= ' ' || it == '\u007F' }) return false
+            if ((scheme == "http" || scheme == "https") && Uri.parse(target).host.isNullOrEmpty()) return false
             return scheme !in refusedSchemes
         }
 

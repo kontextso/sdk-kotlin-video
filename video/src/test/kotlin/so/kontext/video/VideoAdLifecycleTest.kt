@@ -246,6 +246,24 @@ class VideoAdLifecycleTest : SdkTest() {
         }
     }
 
+    @Test fun aClickWithAnUnusableUrlOpensItsFallback() {
+        val ad = overlay(tracking = tracking("click"))
+        ad.show(container())
+        // No url at all, and one iOS cannot parse either (a space, a web link without a host): the fallback opens.
+        ad.loadedBridge!!.noteTouch()
+        page(ad, "ad.click", """"fallbackUrl": "https://brand.test/missing"""")
+        assertEquals("https://brand.test/missing", opened()?.dataString)
+        for (unusable in listOf("https://brand.test/a b", "https://", "https:///path")) {
+            click(ad, unusable, fallback = "https://brand.test/fallback")
+            assertEquals(unusable, "https://brand.test/fallback", opened()?.dataString)
+        }
+        assertEquals("each one a click", List(4) { "click" }, events)
+        // Without a usable fallback it is no click at all.
+        click(ad, "https://brand.test/a b")
+        assertNull(opened())
+        assertEquals(4, events.size)
+    }
+
     @Test fun aDeepLinkNothingOpensFallsBackToItsWebLink() {
         shadowOf(app).checkActivities(true)
         appLink("com.browser.test", "https")
