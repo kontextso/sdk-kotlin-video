@@ -125,6 +125,10 @@ class ParityPayloadsTest {
         )
         assertEquals("ad-2", response.result(AdFormat.PAUSE)?.ads?.single()?.id)
         assertEquals(1, (response as AdsResponse.Formats).results.size)
+        // Whatever it holds: no ads list, or one of the wrong type, is that contract's business.
+        for (entry in listOf("""{"format": "menu"}""", """{"format": "menu", "ads": {"m": 1}}""")) {
+            assertEquals(1, (ads("""{"enabled": true, "formats": [$entry, ${Fixtures.entry("pause", Fixtures.pause())}]}""") as AdsResponse.Formats).results.size, entry)
+        }
     }
 
     @Test fun aMalformedAdIsDroppedAndLeavesItsFormatANoFillWhenNothingIsLeft() {
@@ -247,6 +251,9 @@ class ParityPayloadsTest {
         // Out of range, not finite or negative stays invalid.
         for (refused in listOf(
             Fixtures.overlay(duration = "-0.6"),
+            Fixtures.overlay(duration = "-0.4"),
+            Fixtures.linear().replace("30000, \"skipOffset\"", "0, \"skipOffset\""),
+            Fixtures.linear().replace("30000, \"skipOffset\"", "0.4, \"skipOffset\""),
             Fixtures.overlay(duration = "315360000001"),
             Fixtures.overlay(duration = "1e400"),
             Fixtures.overlay().replace("\"expires\": 600000", "\"expires\": 0.4"),
@@ -322,6 +329,9 @@ class ParityPayloadsTest {
         assertNull(progress.part)
         assertEquals("endCard", tracking.single { it.event == "click" && it.part != null }.part)
         assertEquals(2, tracking.count { it.event == "click" }, "the creative's and the end card's")
+        // A part of the wrong type is no main-creative beacon: the ad is malformed. Null is absent.
+        assertThrows<ApiException.Decoding> { parse(Fixtures.overlay().replace("\"part\": \"endCard\"", "\"part\": 2")) }
+        assertEquals(0, parse(Fixtures.overlay().replace("\"part\": \"endCard\"", "\"part\": null")).tracking.count { it.part != null })
     }
 
     @Test fun fieldsTheSdkNeverReadsDoNotFailTheAd() {

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import so.kontext.video.AdFormat
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.parseAnswer
 import so.kontext.video.internal.wire.AdsResponse
 import so.kontext.video.internal.wire.ConfigResponse
 import java.io.File
@@ -80,11 +81,7 @@ class CorpusTest {
     private fun answer(file: File, spec: JsonObject): JsonElement? {
         val raw = spec["responseFile"]?.jsonPrimitive?.content
         val text = if (raw != null) File(file.parentFile, raw).readText() else generated(spec).toString()
-        return try {
-            Json.parseToJsonElement(text)
-        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-            throw ApiException.Decoding(error)
-        }
+        return parseAnswer(text)
     }
 
     private fun generated(spec: JsonObject): JsonElement =

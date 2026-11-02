@@ -191,6 +191,5 @@
     "decodeReports": [
       "linear:tracking.part"
     ]
-  },
-  "knownDifference": "Kotlin keeps the ad and the entry (part read as absent, so the end-card click becomes a main-creative click); Swift drops the ad at tracking.part."
+  }
 }

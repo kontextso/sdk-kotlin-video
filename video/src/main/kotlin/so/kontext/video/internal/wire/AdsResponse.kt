@@ -50,9 +50,10 @@ internal sealed class AdsResponse {
         private fun entry(element: JsonElement): FormatResult? {
             val entry = element.obj() ?: invalid("a format entry is not an object")
             val wire = entry.str("format") ?: invalid("a format entry has no format")
-            val rawAds = entry["ads"]?.arr() ?: invalid("ads is missing")
-            // A format of a later contract (one this SDK cannot show) costs the other formats nothing.
+            // A format of a later contract (one this SDK cannot show) costs the other formats nothing, whatever
+            // its entry holds: its shape is that contract's, so nothing past the name is read.
             val format = AdFormat.fromWire(wire) ?: return null
+            val rawAds = entry["ads"]?.arr() ?: invalid("ads is missing")
             val dropped = mutableListOf<Dropped>()
             val ads = rawAds.mapNotNull { raw ->
                 try {

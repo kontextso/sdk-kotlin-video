@@ -191,6 +191,5 @@
     "decodeReports": [
       "overlay:duration"
     ]
-  },
-  "knownDifference": "Kotlin keeps the ad with a duration of 0: Math.round(-0.5) is 0, so its negative check passes; Swift rounds half away from zero to -1 and drops the ad at duration."
+  }
 }

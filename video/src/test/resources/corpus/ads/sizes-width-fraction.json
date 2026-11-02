@@ -191,6 +191,5 @@
     "decodeReports": [
       "overlay:sizes.width"
     ]
-  },
-  "knownDifference": "Swift drops the ad too but reports it at ad, not sizes.width: the iOS JSON decoder's error for a fraction read as an integer carries no field path. Kotlin reports sizes.width."
+  }
 }

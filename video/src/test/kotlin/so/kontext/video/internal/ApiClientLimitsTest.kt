@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.MAX_JSON_DEPTH
 import java.net.SocketTimeoutException
 import java.util.Collections
 import java.util.concurrent.Executor
@@ -68,6 +69,18 @@ class ApiClientLimitsTest {
         assertEquals(ApiClient.MAX_BODY_BYTES, atLimit.length)
         server.enqueue(MockResponse().setChunkedBody(Buffer().writeUtf8(atLimit), 64 * 1024))
         assertTrue(post()!!.jsonObject.containsKey("a"))
+    }
+
+    @Test fun anAnswerNestedDeeperThanTheIosDecoderReadsIsMalformed() {
+        fun nested(levels: Int) = "{\"a\":" + "[".repeat(levels - 1) + "]".repeat(levels - 1) + "}"
+        server.enqueue(MockResponse().setBody(nested(MAX_JSON_DEPTH)))
+        assertTrue(post()!!.jsonObject.containsKey("a"), "512 levels, the iOS decoder's limit, are read")
+        server.enqueue(MockResponse().setBody(nested(MAX_JSON_DEPTH + 1)))
+        assertThrows<ApiException.Decoding> { post() }
+        // Brackets inside strings, an escaped quote among them, are text, not nesting.
+        val text = "\"\\\"" + "[".repeat(MAX_JSON_DEPTH * 2) + "\""
+        server.enqueue(MockResponse().setBody("{\"a\": $text, \"b\": [1]}"))
+        assertTrue(post()!!.jsonObject.containsKey("b"))
     }
 
     @Test fun theAnswerIsParsedOnTheWorkerNotOnTheCallersThread() {

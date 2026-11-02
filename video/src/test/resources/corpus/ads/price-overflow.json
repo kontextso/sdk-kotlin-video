@@ -11,6 +11,5 @@
     "decodeReports": [
       "overlay:price.value"
     ]
-  },
-  "knownDifference": "Swift drops the ad too but reports it at ad, not price.value: the iOS JSON decoder's out-of-range number error carries no field path. Kotlin reports price.value."
+  }
 }

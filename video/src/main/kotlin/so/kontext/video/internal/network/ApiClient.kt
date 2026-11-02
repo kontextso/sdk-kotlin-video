@@ -82,11 +82,7 @@ internal class ApiClient(
     private fun answer(status: Int, text: String): JsonElement? {
         if (status !in 200..299) throw ApiException.Http(status, parseErrors(text))
         if (text.isBlank()) return null
-        return try {
-            Json.parseToJsonElement(text)
-        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-            throw ApiException.Decoding(error)
-        }
+        return parseAnswer(text)
     }
 
     /**

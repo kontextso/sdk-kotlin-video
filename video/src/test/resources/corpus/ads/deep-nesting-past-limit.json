@@ -1,0 +1,7 @@
+{
+  "description": "an unknown field nested 512 arrays deep in the answer object (raw file): 513 levels, one past the deepest both SDKs read",
+  "responseFile": "deep-nesting-past-limit.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}

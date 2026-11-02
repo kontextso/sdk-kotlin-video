@@ -1,14 +1,7 @@
 {
-  "description": "an unknown field nested 600 arrays deep (raw file)",
+  "description": "an unknown field nested 600 arrays deep (raw file): past the 512 levels both SDKs read, the whole answer is refused",
   "responseFile": "deep-nesting.raw.json",
   "expect": {
-    "result": "formats",
-    "formats": {
-      "overlay": "ad:o-1",
-      "pause": "ad:p-1",
-      "linear": "ad:l-1"
-    },
-    "decodeReports": []
-  },
-  "knownDifference": "Swift fails the whole answer (malformed): the iOS JSON decoder refuses nesting deeper than 512 levels. Kotlin parses it and ignores the unknown field. Either may be right; a depth limit is a reasonable guard."
+    "result": "malformed"
+  }
 }

@@ -191,6 +191,5 @@
     "decodeReports": [
       "linear:skipOffset"
     ]
-  },
-  "knownDifference": "Kotlin keeps the ad with a skipOffset of 0: Math.round(-0.5) is 0; Swift rounds to -1 and drops the ad at skipOffset."
+  }
 }

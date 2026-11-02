@@ -1,0 +1,18 @@
+{
+  "description": "a progress offset of 1e400, beyond a Double (raw file): that entry is dropped, the ad stays",
+  "responseFile": "tracking-offset-1e400.raw.json",
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "ad:o-1",
+      "pause": "ad:p-1",
+      "linear": "ad:l-1"
+    },
+    "decodeReports": [],
+    "ads": {
+      "linear": {
+        "trackingCount": 7
+      }
+    }
+  }
+}

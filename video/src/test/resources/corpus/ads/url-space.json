@@ -191,6 +191,5 @@
     "decodeReports": [
       "overlay:rendering.url"
     ]
-  },
-  "knownDifference": "Swift keeps the ad: Foundation's URL (iOS 17 and later) percent-encodes the space and the URL passes the http/https/host check. Kotlin refuses it (java.net.URI rejects the space) and drops the ad at rendering.url."
+  }
 }

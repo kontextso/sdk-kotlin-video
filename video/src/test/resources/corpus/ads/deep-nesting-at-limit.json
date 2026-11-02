@@ -1,0 +1,13 @@
+{
+  "description": "an unknown field nested 511 arrays deep in the answer object (raw file): 512 levels, the deepest both SDKs read",
+  "responseFile": "deep-nesting-at-limit.raw.json",
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "ad:o-1",
+      "pause": "ad:p-1",
+      "linear": "ad:l-1"
+    },
+    "decodeReports": []
+  }
+}

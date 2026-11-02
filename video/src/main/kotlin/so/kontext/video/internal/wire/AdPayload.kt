@@ -115,7 +115,9 @@ internal class AdPayload(
                 val url = event.str("url") ?: invalidAt("tracking.url", "ad $id: tracking.url")
                 // An offset that is no count of milliseconds loses its entry, never the ad.
                 val offset = if (event.has("offset")) offsetMillis(event) ?: return@mapNotNull null else null
-                TrackingEvent(event = name, url = url, offsetMillis = offset, part = event.str("part"))
+                // A part of the wrong type is broken data, not "the main creative": absent and null only are.
+                val part = if (event.has("part")) event.str("part") ?: invalidAt("tracking.part", "ad $id: tracking.part") else null
+                TrackingEvent(event = name, url = url, offsetMillis = offset, part = part)
             } ?: invalidAt("tracking", "ad $id: tracking")
             val trigger = ad["trigger"]?.obj() ?: invalidAt("trigger", "ad $id: trigger")
             when (trigger.str("kind")) {
@@ -156,6 +158,8 @@ internal class AdPayload(
                 }
                 AdFormat.LINEAR -> {
                     duration = millis(ad, "duration") ?: invalidAt("duration", "ad $id: duration")
+                    // A video of no length has nothing to play, and its progress beacons no moment to fire at.
+                    if (duration <= 0) invalidAt("duration", "ad $id: duration must be positive")
                     skipOffset = nonNegative(ad, "skipOffset", id)
                 }
             }
@@ -204,12 +208,15 @@ internal class AdPayload(
         /** [key] of [obj] as milliseconds ([millis]); `null` when absent or not a number. */
         private fun millis(obj: JsonObject, key: String): Long? = obj.double(key)?.let(::millis)
 
-        /** An optional count of milliseconds, refused when negative. */
+        /**
+         * An optional count of milliseconds, refused when negative: the sign of the value sent, before rounding,
+         * so -0.5 and -0.4 are as broken as -1, as in the Swift SDK.
+         */
         private fun nonNegative(ad: JsonObject, key: String, id: String): Long? {
             if (!ad.has(key)) return null
-            val value = millis(ad, key) ?: invalidAt(key, "ad $id: $key")
+            val value = ad.double(key) ?: invalidAt(key, "ad $id: $key")
             if (value < 0) invalidAt(key, "ad $id: $key must not be negative")
-            return value
+            return millis(value) ?: invalidAt(key, "ad $id: $key")
         }
     }
 }

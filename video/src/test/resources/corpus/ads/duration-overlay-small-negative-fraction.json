@@ -1,5 +1,5 @@
 {
-  "description": "an overlay duration of -0.4 rounds to 0, which is not negative",
+  "description": "an overlay duration of -0.4 is negative, though it rounds to 0",
   "response": {
     "enabled": true,
     "formats": [
@@ -184,15 +184,12 @@
   "expect": {
     "result": "formats",
     "formats": {
-      "overlay": "ad:o-1",
+      "overlay": "noFill:unknown",
       "pause": "ad:p-1",
       "linear": "ad:l-1"
     },
-    "decodeReports": [],
-    "ads": {
-      "overlay": {
-        "durationMillis": 0
-      }
-    }
+    "decodeReports": [
+      "overlay:duration"
+    ]
   }
 }

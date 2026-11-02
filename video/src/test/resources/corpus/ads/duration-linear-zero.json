@@ -1,5 +1,5 @@
 {
-  "description": "a linear duration of 0 is not refused today",
+  "description": "a linear duration of 0: a video of no length",
   "response": {
     "enabled": true,
     "formats": [
@@ -186,13 +186,10 @@
     "formats": {
       "overlay": "ad:o-1",
       "pause": "ad:p-1",
-      "linear": "ad:l-1"
+      "linear": "noFill:unknown"
     },
-    "decodeReports": [],
-    "ads": {
-      "linear": {
-        "durationMillis": 0
-      }
-    }
+    "decodeReports": [
+      "linear:duration"
+    ]
   }
 }

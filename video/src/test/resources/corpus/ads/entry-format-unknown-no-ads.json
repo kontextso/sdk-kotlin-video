@@ -193,6 +193,5 @@
       "linear": "ad:l-1"
     },
     "decodeReports": []
-  },
-  "knownDifference": "Kotlin fails the whole answer (malformed): it requires ads to be a list before it looks at the format; Swift ignores the entry without reading ads."
+  }
 }

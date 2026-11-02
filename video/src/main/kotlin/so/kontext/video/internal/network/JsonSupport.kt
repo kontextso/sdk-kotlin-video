@@ -1,5 +1,6 @@
 package so.kontext.video.internal.network
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -9,6 +10,41 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
+
+/**
+ * The deepest an answer's arrays and objects may nest: the iOS JSON decoder's limit, so both SDKs refuse the same
+ * answers. No answer of the contract comes near it; one past it is not the server's.
+ */
+internal const val MAX_JSON_DEPTH = 512
+
+/** A server answer parsed, or [ApiException.Decoding]: not JSON, or nested deeper than [MAX_JSON_DEPTH]. */
+internal fun parseAnswer(text: String): JsonElement {
+    if (depth(text) > MAX_JSON_DEPTH) throw ApiException.Decoding(IllegalArgumentException("nested deeper than $MAX_JSON_DEPTH levels"))
+    return try {
+        Json.parseToJsonElement(text)
+    } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+        throw ApiException.Decoding(error)
+    }
+}
+
+/** How deep [text]'s arrays and objects nest, brackets inside strings not counted; read before parsing, so a deep answer costs no stack. */
+private fun depth(text: String): Int {
+    var depth = 0
+    var deepest = 0
+    var inString = false
+    var escaped = false
+    for (char in text) {
+        when {
+            escaped -> escaped = false
+            inString && char == '\\' -> escaped = true
+            char == '"' -> inString = !inString
+            inString -> Unit
+            char == '[' || char == '{' -> deepest = maxOf(deepest, ++depth)
+            char == ']' || char == '}' -> depth--
+        }
+    }
+    return deepest
+}
 
 // Lenient readers over parsed JSON: a missing, null or wrongly typed value is `null`.
 

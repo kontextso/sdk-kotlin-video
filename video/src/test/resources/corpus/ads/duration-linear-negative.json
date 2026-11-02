@@ -1,5 +1,5 @@
 {
-  "description": "a linear duration of -1000 is not refused today (only the overlay's is checked for sign)",
+  "description": "a linear duration of -1000",
   "response": {
     "enabled": true,
     "formats": [
@@ -186,13 +186,10 @@
     "formats": {
       "overlay": "ad:o-1",
       "pause": "ad:p-1",
-      "linear": "ad:l-1"
+      "linear": "noFill:unknown"
     },
-    "decodeReports": [],
-    "ads": {
-      "linear": {
-        "durationMillis": -1000
-      }
-    }
+    "decodeReports": [
+      "linear:duration"
+    ]
   }
 }
