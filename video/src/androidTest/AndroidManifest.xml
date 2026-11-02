@@ -3,5 +3,9 @@
     <application>
         <activity android:name="so.kontext.video.TestHostActivity" android:exported="false" />
         <activity android:name="so.kontext.video.LeaveHintHostActivity" android:exported="false" />
+        <activity
+            android:name="so.kontext.video.LandscapeHostActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
     </application>
 </manifest>

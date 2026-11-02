@@ -7,6 +7,7 @@
             android:name="so.kontext.video.internal.rendering.LinearAdActivity"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|fontWeightAdjustment|grammaticalGender"
             android:exported="false"
+            android:screenOrientation="behind"
             android:theme="@style/kontext_video_LinearTheme" />
     </application>
 </manifest>
