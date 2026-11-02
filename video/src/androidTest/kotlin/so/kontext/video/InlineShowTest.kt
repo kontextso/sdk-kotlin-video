@@ -113,13 +113,25 @@ class InlineShowTest {
             Environment.sendBeacon = { _, _ -> }
             Sdk.configureForTesting(Configuration("test-token"))
         }
+        // An edge-to-edge player, as a video app's, whose container reaches under the bars (enforced from API
+        // 35), and one the system keeps clear of them: in both, the page is the container less the bars.
+        try {
+            for (edgeToEdge in listOf(true, false)) fullScreenPauseClearsTheBars(edgeToEdge)
+        } finally {
+            main {
+                Sdk.resetForTesting()
+                Environment.reset()
+            }
+        }
+    }
+
+    private fun fullScreenPauseClearsTheBars(edgeToEdge: Boolean) {
         val activity = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as TestHostActivity
         lateinit var player: FrameLayout
         main {
-            // An edge-to-edge player, as a video app's: the container reaches under the status and navigation bars.
-            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+            WindowCompat.setDecorFitsSystemWindows(activity.window, !edgeToEdge)
             player = FrameLayout(activity)
             activity.setContentView(player)
         }
@@ -134,23 +146,32 @@ class InlineShowTest {
             }
             instrumentation.waitForIdleSync()
             main {
+                val mode = if (edgeToEdge) "edge to edge" else "fitting the bars"
+                val root = player.rootView
                 val bars = ViewCompat.getRootWindowInsets(player)!!
                     .getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
                 assertTrue("the emulator shows a status bar", bars.top > 0)
+                // In window coordinates: the part of the window the bars and the cutout leave free.
+                val clear = Rect(bars.left, bars.top, root.width - bars.right, root.height - bars.bottom)
+                val container = windowRect(player)
                 val host = player.getChildAt(0)
-                val webView = ad.loadedBridge!!.webView
-                assertEquals("the host covers the whole container", player.height, host.height)
-                assertEquals("opaque behind the bars", 255, (host.background as ColorDrawable).alpha)
-                assertEquals(Rect(bars.left, bars.top, player.width - bars.right, player.height - bars.bottom), Rect(webView.left, webView.top, webView.right, webView.bottom))
+                val page = windowRect(ad.loadedBridge!!.webView)
+                assertEquals("$mode: the host covers the whole container", container, windowRect(host))
+                assertEquals("$mode: opaque behind the bars", 255, (host.background as ColorDrawable).alpha)
+                assertTrue("$mode: the page $page stays clear of the bars $clear", clear.contains(page))
+                val expected = Rect(container).apply { intersect(clear) }
+                assertEquals("$mode: the page is the container less the bars", expected, page)
                 owner.destroy()
             }
         } finally {
-            main {
-                activity.finish()
-                Sdk.resetForTesting()
-                Environment.reset()
-            }
+            main { activity.finish() }
+            instrumentation.waitForIdleSync()
         }
+    }
+
+    private fun windowRect(view: View): Rect {
+        val location = IntArray(2).also(view::getLocationInWindow)
+        return Rect(location[0], location[1], location[0] + view.width, location[1] + view.height)
     }
 
     @Test fun anotherScreenOfTheAppOverTheAdEndsItInterrupted() {
