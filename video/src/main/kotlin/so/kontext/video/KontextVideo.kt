@@ -69,6 +69,7 @@ public object KontextVideo {
      * next ads request carries it. Ads already loaded keep the targeting they were requested with.
      */
     @JvmStatic
+    @set:MainThread
     public var user: User?
         get() = Sdk.user
         set(value) {
@@ -81,6 +82,7 @@ public object KontextVideo {
      * you. `null` clears your values only: the SDK still reads the consent platform's storage on every request.
      */
     @JvmStatic
+    @set:MainThread
     public var regulatory: Regulatory?
         get() = Sdk.regulatory
         set(value) {
@@ -90,6 +92,7 @@ public object KontextVideo {
 
     /** The publisher's A/B test variant, if any; sent with every later request. */
     @JvmStatic
+    @set:MainThread
     public var variantId: String?
         get() = Sdk.variantId
         set(value) {
