@@ -272,7 +272,7 @@ class ParityPayloadsTest {
             Tracker(ad.id, ad.tracking).fireProgress(5_000)
             assertEquals((0..4).map { "https://t.test/p?n=$it" }, sent.sorted())
         } finally {
-            Environment.sendBeacon = Tracker::get
+            Environment.sendBeacon = Tracker.Companion::get
         }
     }
 

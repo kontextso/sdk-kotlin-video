@@ -37,6 +37,11 @@ android {
         }
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
     testOptions {
         unitTests.all {
             it.useJUnitPlatform()
@@ -52,8 +57,13 @@ kotlin {
     // Every public declaration must spell out its visibility, so nothing
     // leaks to consumers by accident.
     explicitApi()
+    // Built with JDK 17; the bytecode is Java 11 and the metadata Kotlin 1.9, so apps on an older toolchain
+    // (Kotlin 1.9 or later, Java 11 or later) can use the SDK.
     jvmToolchain(17)
     compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
         // Interface methods with a body compile to Java default methods: a Java listener implements
         // only the callbacks it needs.
         freeCompilerArgs.add("-Xjvm-default=all")

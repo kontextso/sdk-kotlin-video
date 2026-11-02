@@ -18,7 +18,7 @@ class TrackerTest {
     }
 
     @AfterEach fun restore() {
-        Environment.sendBeacon = Tracker::get
+        Environment.sendBeacon = Tracker.Companion::get
     }
 
     private fun tracker() = Tracker("ad-1", AdPayload.parse(Fixtures.json(Fixtures.overlay())).tracking)

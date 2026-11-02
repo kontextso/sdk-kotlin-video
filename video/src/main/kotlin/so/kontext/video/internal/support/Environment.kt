@@ -47,11 +47,11 @@ internal object Environment {
     var userAgent: suspend () -> String? = { context?.let { DeviceFacts.userAgent(it) } }
 
     /** How long an ads request waits for [userAgent] before it goes with a fallback. A constant in spirit; tests shorten it. */
-    var userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
     const val DEFAULT_USER_AGENT_WAIT_MILLIS = 2_000L
+    var userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
 
     /** Sends one beacon; tests record them instead. */
-    var sendBeacon: (url: String, label: String) -> Unit = Tracker::get
+    var sendBeacon: (url: String, label: String) -> Unit = Tracker.Companion::get
 
     /** The advertising id when the viewer allows it, else `null`. */
     var advertisingId: suspend () -> String? = { context?.let { DeviceFacts.advertisingId(it) } }
@@ -68,7 +68,7 @@ internal object Environment {
         userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
         advertisingId = { context?.let { DeviceFacts.advertisingId(it) } }
         isAppInForeground = { ActivityTracker.isAppInForeground }
-        sendBeacon = Tracker::get
+        sendBeacon = Tracker.Companion::get
     }
 
     private fun failInDebuggableApp(message: String) {

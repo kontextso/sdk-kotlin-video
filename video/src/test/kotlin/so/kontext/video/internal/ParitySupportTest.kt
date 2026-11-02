@@ -241,7 +241,7 @@ class ParityTrackerTest : ParityHarness() {
 
             override fun put(uri: URI, connection: URLConnection): CacheRequest? = null
         })
-        Environment.sendBeacon = Tracker::get
+        Environment.sendBeacon = Tracker.Companion::get
         val tracker = Tracker("ad-1", listOf(entry("loaded", server.url("/events/ad-1/loaded").toString())))
         tracker.fire("loaded")
         await { requests("/events/ad-1/loaded").isNotEmpty() }
@@ -366,7 +366,7 @@ class ParityTrackerTest : ParityHarness() {
     }
 
     @Test fun anInvalidUrlIsSkippedWithoutStoppingTheOthers() {
-        Environment.sendBeacon = Tracker::get
+        Environment.sendBeacon = Tracker.Companion::get
         val valid = { copy: Int -> entry("impression", server.url("/events/ad-1/impression?copy=$copy").toString()) }
         val invalid = entry("impression", "")
         Tracker("ad-1", listOf(invalid, valid(1), invalid, entry("impression", "not a url"), valid(2), invalid)).fire("impression")
@@ -377,7 +377,7 @@ class ParityTrackerTest : ParityHarness() {
 
     @Test fun aFailedBeaconIsNotRetried() {
         answer("/events/") { MockResponse().setResponseCode(503) }
-        Environment.sendBeacon = Tracker::get
+        Environment.sendBeacon = Tracker.Companion::get
         val tracker = Tracker("ad-1", listOf(entry("impression", server.url("/events/ad-1/impression").toString())))
         tracker.fire("impression")
         await { requests("/events/ad-1/impression").isNotEmpty() }
