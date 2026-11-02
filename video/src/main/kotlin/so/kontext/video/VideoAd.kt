@@ -800,6 +800,19 @@ public class VideoAd internal constructor(
         withContentPlayhead { endNow(reason) }
     }
 
+    // Every end releases, in this order (an ad ended before show: [invalidate] releases what it ever had, the
+    // load waiter, the page, the listener and its place in the owner):
+    //  1. observers: the Activity listener (endNow);
+    //  2. timers: the return check (endNow);
+    //  3. waiters: the first-layout wait (endNow);
+    //  4. clock and meter: the clock and its onActivate, the viewability meter (endNow);
+    //  5. renderer: the page (hidden, released) and the host view (endNow);
+    //  6. presentation registration: LinearAdActivity.forget, the linear screen closed (endNow), the
+    //     presentation and the screen references dropped (finish);
+    //  7. context: the WebView's context back to the application's (finish);
+    //  8. the app-wide on-screen slot, Sdk.adOnScreen (finish);
+    //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (finish);
+    // 10. listener: dropped just before onAdEnded, the last call (finish).
     private fun endNow(reason: EndReason) {
         if (!wasShown || hasEnded) return
         hasEnded = true
