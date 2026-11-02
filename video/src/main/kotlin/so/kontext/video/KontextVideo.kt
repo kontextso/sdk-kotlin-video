@@ -31,7 +31,10 @@ public object KontextVideo {
             override fun toString(): String = "Enabled"
         }
 
-        /** The server switched the SDK off for this launch. */
+        /**
+         * The server switched the SDK off for this launch; or [initialize] ran in a process other than the
+         * app's main one, where the SDK stays off ([reason] says which).
+         */
         public class Disabled(public val reason: String) : State() {
             override fun equals(other: Any?): Boolean = other is Disabled && reason == other.reason
 
@@ -91,11 +94,17 @@ public object KontextVideo {
     /**
      * Starts the SDK: stores the configuration and calls the server in the background. Call it once, at app
      * launch; later calls are ignored. [listener] is told once the server answered or failed.
+     *
+     * Only in the app's main process: `Application.onCreate` runs in every process of the app (a playback or
+     * download service's too), and there the SDK does nothing (no server call, no WebView, whose data
+     * directory one process holds). The state becomes [State.Disabled] and [listener] is told so; ads
+     * requested there throw `Disabled`.
      */
     @MainThread
     @JvmStatic
     @JvmOverloads
     public fun initialize(context: Context, configuration: Configuration, listener: InitializationListener? = null) {
+        Sdk.checkMainThread("KontextVideo.initialize()")
         Sdk.initialize(context, configuration, listener?.let { it::onInitialized })
     }
 

@@ -543,6 +543,38 @@ class ParityNetworkTest : ParityHarness() {
  */
 @RunWith(RobolectricTestRunner::class)
 class ParitySupportTest : ParityHarness() {
+    // region Initialization
+
+    @Test fun initializeInAnotherProcessOfTheAppStaysOffWithoutAServerCall() {
+        Sdk.resetForTesting()
+        answer("/v2/config", """{"enabled": true}""")
+        val app = Environment.context!!
+        Environment.processName = { "${app.packageName}:playback" }
+        var heard: KontextVideo.State? = null
+        KontextVideo.initialize(app, Configuration("test-token") { adServerUrl = baseUrl }) { heard = it }
+        assertEquals(KontextVideo.State.Disabled(Sdk.NOT_MAIN_PROCESS), KontextVideo.state)
+        await { heard != null }
+        assertEquals("the listener is told", KontextVideo.State.Disabled(Sdk.NOT_MAIN_PROCESS), heard)
+        settle()
+        assertTrue("no /config", requests("/v2/config").isEmpty())
+        // An ads request there is refused as for a switched-off SDK, not as a call before initialize.
+        val call = startFormat(owner(), AdFormat.OVERLAY)
+        await { call.result != null }
+        assertTrue("${call.result}", call.result!!.exceptionOrNull() is VideoAdException.Disabled)
+    }
+
+    @Test fun initializeInTheMainProcessCallsTheServer() {
+        val app = Environment.context!!
+        Environment.processName = { app.applicationInfo.processName }
+        assertEquals(KontextVideo.State.Enabled, initialize())
+        assertEquals(1, requests("/v2/config").size)
+        Environment.processName = { null } // unreadable: taken as the main process
+        answers.remove("/v2/config")
+        assertEquals(KontextVideo.State.Enabled, initialize())
+    }
+
+    // endregion
+
     // region ErrorReporter
 
     private val reportsOn = """{"enabled": true, "reportErrors": true}"""

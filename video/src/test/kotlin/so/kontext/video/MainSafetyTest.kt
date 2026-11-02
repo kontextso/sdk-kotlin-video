@@ -29,6 +29,7 @@ class MainSafetyTest : SdkTest() {
             "KontextVideo.user" to { KontextVideo.user = User { id = "u-1" } },
             "KontextVideo.regulatory" to { KontextVideo.regulatory = Regulatory { coppa = false } },
             "KontextVideo.variantId" to { KontextVideo.variantId = "b" },
+            "KontextVideo.initialize()" to { KontextVideo.initialize(container.context, Configuration("test-token")) },
             "VideoAd.show(container)" to { unloaded.show(container) },
             "VideoAd.show(activity)" to { unloaded.show(screen) },
             "VideoAd.dismiss()" to { unloaded.dismiss() },

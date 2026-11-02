@@ -1,9 +1,12 @@
 package so.kontext.video.internal.support
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.os.Build
+import android.os.Process
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +56,11 @@ internal object Environment {
     /** The advertising id when the viewer allows it, else `null`. */
     var advertisingId: suspend () -> String? = { context?.let { DeviceFacts.advertisingId(it) } }
 
+    /** The name of the process the SDK runs in, `null` when it cannot be read. */
+    var processName: (Context) -> String? = ::currentProcessName
+
     fun reset() {
+        processName = ::currentProcessName
         scope = newScope()
         now = { SystemClock.elapsedRealtime() }
         assertionFailure = ::failInDebuggableApp
@@ -68,6 +75,12 @@ internal object Environment {
         val debuggable = context?.applicationInfo?.let { it.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 } ?: false
         check(!debuggable) { message }
     }
+
+    private fun currentProcessName(context: Context): String? = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return@runCatching Application.getProcessName()
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        activityManager?.runningAppProcesses?.firstOrNull { it.pid == Process.myPid() }?.processName
+    }.getOrNull()
 
     private fun newScope() = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 }

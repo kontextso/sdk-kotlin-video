@@ -54,6 +54,18 @@ internal object Sdk {
             Logger.warning { "initialize() was already called; this call is ignored" }
             return
         }
+        val process = Environment.processName(context)
+        val mainProcess = context.applicationInfo?.processName ?: context.packageName
+        if (process != null && process != mainProcess) {
+            // Another process of the app (a playback or download service): its own /config would count a
+            // launch twice, and its WebView would take the data directory the main process's WebViews need.
+            this.configuration = configuration
+            Logger.level = configuration.logLevel
+            state = State.Disabled(NOT_MAIN_PROCESS)
+            Logger.warning { "initialize() in the process $process, not the app's main one; the SDK stays off here" }
+            if (onDone != null) Environment.scope.launch { onDone(state) }
+            return
+        }
         Environment.context = context.applicationContext
         this.configuration = configuration
         Logger.level = configuration.logLevel
@@ -175,6 +187,9 @@ internal object Sdk {
             ErrorReporter.report(ErrorReporter.Code.CONFIG_FAILED, ErrorReporter.Stage.CONFIG, requestId = requestId, failure = ErrorReporter.RequestFailure(error))
         }
     }
+
+    /** The [State.Disabled] reason in a process other than the app's main one. */
+    const val NOT_MAIN_PROCESS = "not the app's main process"
 
     /** A configuration without `/config`, as if initialized and enabled. Tests only. */
     fun configureForTesting(configuration: Configuration) {
