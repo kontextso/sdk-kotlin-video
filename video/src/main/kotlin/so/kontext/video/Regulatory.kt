@@ -16,7 +16,10 @@ public class Regulatory private constructor(builder: Builder) {
     /** The IAB Transparency and Consent Framework consent string. */
     public val gdprConsent: String? = builder.gdprConsent
 
-    /** Whether the request is subject to COPPA; `null` is unspecified. Cannot be read from the device, so only the publisher sets it. */
+    /**
+     * Whether the request is subject to COPPA; `null` is unspecified. Cannot be read from the device, so only the
+     * publisher sets it. When `true`, ads requests carry no advertising id and no user id, email or email hash.
+     */
     public val coppa: Boolean? = builder.coppa
 
     /** The IAB Global Privacy Platform consent string. */

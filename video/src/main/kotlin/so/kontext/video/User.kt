@@ -40,6 +40,10 @@ public class User private constructor(builder: Builder) {
         public operator fun invoke(block: Builder.() -> Unit): User = Builder().apply(block).build()
     }
 
+    /** The user without what identifies the viewer (id, email, email hash), for a COPPA request; `null` when nothing else is left. */
+    internal val withoutIdentity: User?
+        get() = keywords?.let { kept -> User { keywords = kept } }
+
     /** Fields set to an empty string, which the request leaves out. */
     internal val emptyFields: List<String>
         get() = listOf("id" to id, "email" to email, "emailHash" to emailHash).filter { it.second?.isEmpty() == true }.map { it.first }

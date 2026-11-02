@@ -590,6 +590,24 @@ class ParityRequestsTest : SdkTest() {
         JUnit4.assertNotNull(device["audio"])
     }
 
+    @JUnit4Test fun aCoppaRequestCarriesNoIdentifierForAdvertising() {
+        Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
+        KontextVideo.user = User {
+            id = "u1"
+            email = "kid@example.com"
+            emailHash = "h"
+            keywords = listOf("cartoons")
+        }
+        KontextVideo.regulatory = Regulatory { coppa = true }
+        val body = request().body
+        JUnit4.assertNull("no advertising id for a child", body["ifa"])
+        JUnit4.assertEquals("no id, email or hash; keywords stay", Json.parseToJsonElement("""{"keywords": ["cartoons"]}"""), body["user"])
+        JUnit4.assertEquals(true, body.obj("regulatory").bool("coppa"))
+
+        KontextVideo.user = User { id = "u1" }
+        JUnit4.assertNull("nothing left of the user", request().body["user"])
+    }
+
     @JUnit4Test fun anAdsRequestCarriesExactlyWhatWasSetAndNothingElse() {
         val bare = request()
         for (absent in listOf("user", "variantId", "labels", "regulatory", "ifa")) JUnit4.assertNull(absent, bare.body[absent])

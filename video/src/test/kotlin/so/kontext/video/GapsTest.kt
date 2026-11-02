@@ -29,8 +29,9 @@ class GapsTest : SdkTest() {
             id = "u-1"
             keywords = listOf("drama")
         }
+        // `false`, not `true`: a COPPA request would leave the user id out, and the id is what is checked.
         KontextVideo.regulatory = Regulatory {
-            coppa = true
+            coppa = false
             gpp = "explicit-gpp"
         }
         KontextVideo.variantId = "b"
@@ -45,7 +46,7 @@ class GapsTest : SdkTest() {
         assertEquals("cmp-gpp", regulatory["gpp"]!!.jsonPrimitive.content)
         assertEquals(listOf(2, 7), regulatory["gppSid"]!!.jsonArray.map { it.jsonPrimitive.content.toInt() })
         assertEquals("1YNN", regulatory["usPrivacy"]!!.jsonPrimitive.content)
-        assertEquals("true", regulatory["coppa"]!!.jsonPrimitive.content)
+        assertEquals("false", regulatory["coppa"]!!.jsonPrimitive.content)
         assertEquals("unlock", body["labels"]!!.jsonObject["stage"]!!.jsonPrimitive.content)
         assertEquals("1234", body["player"]!!.jsonObject["playhead"]!!.jsonPrimitive.content)
         assertEquals("held-1", body["held"]!!.jsonArray.single().jsonPrimitive.content)

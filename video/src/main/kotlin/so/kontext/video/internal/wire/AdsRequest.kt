@@ -36,14 +36,18 @@ internal object AdsRequest {
         // (consent and the user inside it, with nothing suspending between).
         val userAgent = DeviceFacts.requestUserAgent(context)
         val ifa = Environment.advertisingId()
+        // A usable CMP value wins per field; the publisher fills in the rest. COPPA comes only from the publisher.
+        val regulatory = Consent.read(context, Sdk.regulatory)
+        // A child's request carries no identifier for advertising: no advertising id, no user id or email.
+        val isChild = regulatory?.coppa == true
         val body = buildJsonObject {
             put("requestId", requestId)
             put("publisherToken", publisherToken)
             put("installId", DeviceFacts.installId(context))
-            Sdk.user?.let { put("user", user(it)) }
+            (if (isChild) Sdk.user?.withoutIdentity else Sdk.user)?.let { put("user", user(it)) }
             putIfNotNull("variantId", Sdk.variantId)
             // Only an id the viewer allows: one with limited ad tracking is not read at all.
-            ifa?.let {
+            ifa?.takeUnless { isChild }?.let {
                 put(
                     "ifa",
                     buildJsonObject {
@@ -53,8 +57,7 @@ internal object AdsRequest {
                     },
                 )
             }
-            // A usable CMP value wins per field; the publisher fills in the rest. COPPA comes only from the publisher.
-            Consent.read(context, Sdk.regulatory)?.let { put("regulatory", regulatory(it)) }
+            regulatory?.let { put("regulatory", regulatory(it)) }
             put("sdk", DeviceFacts.sdk())
             put("app", DeviceFacts.app(context))
             put(
