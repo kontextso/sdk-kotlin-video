@@ -99,6 +99,22 @@ class VideoAdLifecycleTest : SdkTest() {
         assertEquals(listOf("creativeView", "impression", "notViewable"), events)
     }
 
+    @Test fun anInvalidationIsReportedByItsWireName() {
+        val reasons = listOf(
+            VideoAd.InvalidationReason.Expired to mapOf("reason" to "expired"),
+            VideoAd.InvalidationReason.Rejected to mapOf("reason" to "rejected"),
+            VideoAd.InvalidationReason.Destroyed to mapOf("reason" to "destroyed"),
+            VideoAd.InvalidationReason.ContentChanged to mapOf("reason" to "contentChanged"),
+            VideoAd.InvalidationReason.CreativeFailed(405) to mapOf("reason" to "creativeFailed", "code" to 405),
+        )
+        for ((reason, expected) in reasons) {
+            overlay().invalidate(reason)
+            val moment = so.kontext.video.internal.support.DebugReporter.recentHistory().last()
+            assertEquals("ad.invalidated", moment.name)
+            assertEquals("as iOS sends it", expected, moment.state)
+        }
+    }
+
     @Test fun anAdEndedBeforeItsFirstLayoutNeverCountsAnImpression() {
         val recorder = Recorder()
         val ad = overlay(tracking = tracking("impression"))

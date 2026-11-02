@@ -910,7 +910,9 @@ public class VideoAd internal constructor(
         if (wasShown || invalidationReason != null) return
         invalidationReason = reason
         Logger.debug { "$format ad ${id.take(8)} ended before show: $reason" }
-        DebugReporter.event("ad.invalidated", adId = id, state = mapOf("reason" to reason.toString()))
+        // Wire names, as iOS sends them; a failed creative's code as its own key.
+        val state = mapOf("reason" to reason.wireName) + ((reason as? InvalidationReason.CreativeFailed)?.let { mapOf("code" to it.code) } ?: emptyMap())
+        DebugReporter.event("ad.invalidated", adId = id, state = state)
         loadedBridge?.hide()
         loadedBridge = null
         // Never shown, so no onAdEnded to let the listener go (see finish): it goes here.
@@ -997,6 +999,16 @@ public class VideoAd internal constructor(
 
     /** Why an ad ended before it was shown. Found out at the next call (`format`, `load`, `show`, `reject`), which throws it. */
     public sealed class InvalidationReason {
+        /** The name reports carry, the same on iOS: `expired`, `rejected`, `destroyed`, `contentChanged`, `creativeFailed`. */
+        internal val wireName: String
+            get() = when (this) {
+                Expired -> "expired"
+                Rejected -> "rejected"
+                Destroyed -> "destroyed"
+                ContentChanged -> "contentChanged"
+                is CreativeFailed -> "creativeFailed"
+            }
+
         /** The ad's lifetime ran out (or the server replaced it, which it does only after that). */
         public object Expired : InvalidationReason() {
             override fun toString(): String = "Expired"
