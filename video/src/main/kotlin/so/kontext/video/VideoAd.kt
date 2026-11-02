@@ -9,6 +9,8 @@ import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.GridLayout
+import android.widget.LinearLayout
 import androidx.annotation.MainThread
 import androidx.core.graphics.Insets
 import androidx.lifecycle.Lifecycle
@@ -34,6 +36,7 @@ import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.AdPlacement
+import so.kontext.video.internal.rendering.FirstLayout
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.rendering.Tracker
@@ -142,6 +145,8 @@ public class VideoAd internal constructor(
     /** The Activity holding an overlay's or pause ad's container, while it is on screen. */
     internal var holdingActivity: WeakReference<Activity>? = null
         private set
+    /** Stops waiting for the page's first layout, where an image or HTML creative's impression counts. */
+    private var impressionWait: (() -> Unit)? = null
 
     /** Follows the Activity the ad depends on while it is on screen; removed when the ad ends. */
     private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
@@ -297,7 +302,8 @@ public class VideoAd internal constructor(
      * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or
      * the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
-     * `WrongPresentation` (a linear ad).
+     * `WrongPresentation` (a linear ad). The container must lay the ad over the content, as a `FrameLayout` does: in
+     * a `LinearLayout` the ad goes after the player, gets no room and ends `INTERRUPTED` with no impression.
      */
     @MainThread
     @Throws(VideoAdException::class)
@@ -317,6 +323,7 @@ public class VideoAd internal constructor(
         // Attached and laid out is not on screen: a pager's neighbour page, a view scrolled away, a screen behind
         // another or an app in the background. The impression would count for nobody: refused, the ad ready.
         if (!isOnScreen(container)) throw VideoAdException.PresenterUnavailable()
+        warnIfNotOverlaying(container)
         extraInsets = Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom))
         val density = container.resources.displayMetrics.density
         // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
@@ -348,7 +355,10 @@ public class VideoAd internal constructor(
             host.place = { width, height, system -> refit(width, height, system, density) }
             host.onUnfit = {
                 if (!hasEnded) {
-                    Logger.warning { "ad ${id.take(8)}: the container became too small for the ad; ended as interrupted" }
+                    Logger.warning {
+                        "ad ${id.take(8)}: the container became too small for the ad, or gives it no room (not a FrameLayout-like container); " +
+                            "ended as interrupted"
+                    }
                     end(EndReason.INTERRUPTED)
                 }
             }
@@ -372,6 +382,15 @@ public class VideoAd internal constructor(
         }
         endIfContentStopped()
         presented()
+    }
+
+    /** A container that lays its children out one after another gives the ad no room over the player. */
+    private fun warnIfNotOverlaying(container: ViewGroup) {
+        if (container !is LinearLayout && container !is GridLayout) return
+        Logger.warning {
+            "ad ${id.take(8)}: the container is a ${container.javaClass.simpleName}, which places the ad beside the player, not over it; " +
+                "use a FrameLayout-like container"
+        }
     }
 
     /** Some of [container] is inside its window, its Activity is started and the app is in front. Says why not. */
@@ -678,14 +697,29 @@ public class VideoAd internal constructor(
             startFollowingContent()
             hostView?.activity?.let(::followHoldingActivity)
         }
-        // At `ad.show`: creativeView and the AdChoices icon's view; the impression too for an image or HTML
-        // creative, while a video's waits for its first frame (`video.start`). The beacons use the playhead read
-        // before this block and call no app code, so one check suffices: what ran above (the meter, following
-        // the content, which reads the player again, and the Activity) may have ended the ad.
+        // At `ad.show`: creativeView and the AdChoices icon's view. The impression of an image or HTML creative
+        // waits for the page's first layout with an area, a video's for its first frame (`video.start`). The
+        // beacons use the playhead read before this block and call no app code, so one check suffices: what ran
+        // above (the meter, following the content, which reads the player again, and the Activity) may have
+        // ended the ad.
         if (hasEnded) return
         tracker.fire("creativeView")
         tracker.fire("iconView")
-        if (payload.creative != AdPayload.Creative.VIDEO) recordImpression()
+        if (payload.creative != AdPayload.Creative.VIDEO) recordImpressionAtFirstLayout()
+    }
+
+    /**
+     * Until Android has laid the page out in a window with an area, nothing of it was drawn: a container that
+     * gives the ad no room ends it (`INTERRUPTED`) with no impression.
+     */
+    private fun recordImpressionAtFirstLayout() {
+        // Inline, the host: it has an area only where the container gives the ad room, and places the page.
+        val host = hostView
+        val view = host ?: loadedBridge?.webView ?: return
+        impressionWait = FirstLayout.await(view, isReady = { host?.hasPlacedContent ?: true }) {
+            impressionWait = null
+            withContentPlayhead { recordImpression() }
+        }
     }
 
     // endregion
@@ -747,6 +781,8 @@ public class VideoAd internal constructor(
         activityListener = null
         returnCheck?.cancel()
         returnCheck = null
+        impressionWait?.invoke()
+        impressionWait = null
         if (reason == EndReason.FAILED) failure?.let { listener?.onAdFailed(this, it) }
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
         val activeTime = clock?.stop() ?: 0

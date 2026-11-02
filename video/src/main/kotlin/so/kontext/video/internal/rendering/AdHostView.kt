@@ -24,6 +24,10 @@ internal class AdHostView(context: Context, val content: View, coversWhole: Bool
     /** The container became too small for the creative. Once. */
     var onUnfit: (() -> Unit)? = null
 
+    /** A layout pass has placed the creative in a frame with an area. */
+    var hasPlacedContent = false
+        private set
+
     /** The window holding the ad was shown or hidden (the Activity started or stopped). */
     var onWindowVisibility: ((Boolean) -> Unit)? = null
 
@@ -50,6 +54,7 @@ internal class AdHostView(context: Context, val content: View, coversWhole: Bool
         }
         content.measure(MeasureSpec.makeMeasureSpec(frame.width(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(frame.height(), MeasureSpec.EXACTLY))
         content.layout(frame.left, frame.top, frame.right, frame.bottom)
+        if (!frame.isEmpty) hasPlacedContent = true
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

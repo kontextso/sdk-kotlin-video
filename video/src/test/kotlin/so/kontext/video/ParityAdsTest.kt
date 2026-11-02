@@ -1150,6 +1150,7 @@ class ParityAdsTest {
         pause.listener = recorder
         val container = container()
         pause.show(container)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(SdkTest.FRAME_MILLIS)) // the first layout: the impression
         assertEquals(listOf("impression"), recorder.heard)
         assertEquals(1, fired("impression").size)
         pause.dismiss()

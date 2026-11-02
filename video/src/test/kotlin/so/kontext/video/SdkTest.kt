@@ -17,6 +17,7 @@ import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.wire.AdPayload
 import java.time.Duration
 
@@ -50,6 +51,7 @@ abstract class SdkTest {
         Environment.reset()
         ActivityTracker.resetForTesting()
         ErrorReporter.resetForTesting()
+        Logger.sink = null
     }
 
     protected fun owner(content: Content = Content("ep", "en")) = VideoAds(content).also { owners += it }
@@ -57,6 +59,9 @@ abstract class SdkTest {
     protected fun idle(millis: Long = 0) {
         if (millis > 0) shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(millis)) else shadowOf(Looper.getMainLooper()).idle()
     }
+
+    /** Runs the layout pass Android makes after `show` added the ad: an image or HTML creative's impression counts there. */
+    protected fun laidOut() = idle(FRAME_MILLIS)
 
     /** A container in a visible window: Robolectric's plain Activity reports its window GONE even after setup. */
     protected fun container(width: Int = 320, height: Int = 400): FrameLayout {
@@ -101,6 +106,11 @@ abstract class SdkTest {
     protected fun page(ad: VideoAd, type: String, fields: String = "") {
         val bridge = ad.loadedBridge ?: return
         bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", FrameBridge.Origin.of(ad.payload.frameUrl), true)
+    }
+
+    companion object {
+        /** One frame: Robolectric runs a layout pass a frame after a view asked for one. */
+        const val FRAME_MILLIS = 20L
     }
 
     /** A listener that records what it hears. */

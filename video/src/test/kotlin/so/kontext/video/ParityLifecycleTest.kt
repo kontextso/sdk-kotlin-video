@@ -178,6 +178,7 @@ class ParityLifecycleTest : SdkTest() {
         ad.loadedBridge!!.onSend = { type, _ -> sent += type }
         val container = container(320, 400)
         ad.show(container)
+        laidOut()
         assertFalse("shown at most once", ad.isReady)
         val host = host(container)
         assertEquals(1, container.childCount)
@@ -194,6 +195,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = ad(Fixtures.overlay(tracking = tracking("creativeView", "impression")).replace("\"creative\": \"image\"", "\"creative\": \"html\""))
         ad.listener = recorder
         ad.show(container())
+        laidOut()
         assertEquals(listOf("impression"), recorder.heard)
         assertEquals(listOf("creativeView", "impression"), events)
     }
@@ -585,6 +587,7 @@ class ParityLifecycleTest : SdkTest() {
             }
         }
         ad.show(container())
+        laidOut()
         assertEquals(listOf("impression", "ended DISMISSED"), heard)
         assertNull("no clock", ad.clock)
         assertNull("no meter", ad.meter)
@@ -829,6 +832,7 @@ class ParityLifecycleTest : SdkTest() {
             }
         }
         ad.show(container())
+        laidOut()
         page(ad, "ad.error", """"code": 405""")
         assertEquals(listOf("impression", "failed", "ended FAILED"), heard)
         assertTrue(owner.isDestroyed)
@@ -1040,8 +1044,13 @@ class ParityLifecycleTest : SdkTest() {
         player.position = { player.reads * 1_000L } // advances on every read
         ad.show(container())
         assertEquals(1, player.reads)
-        assertEquals(listOf("creativeView", "iconView", "impression"), events)
+        assertEquals(listOf("creativeView", "iconView"), events)
         assertEquals("one moment", setOf("00%3A00%3A01.000"), beacons.map { query(it, "cph") }.toSet())
+        // The impression is its own moment, at the first layout: one read more.
+        laidOut()
+        assertEquals(2, player.reads)
+        assertEquals(listOf("creativeView", "iconView", "impression"), events)
+        assertEquals("00%3A00%3A02.000", query(beacons.last(), "cph"))
     }
 
     @Test fun aPlayheadReadThatEndsTheAdOnEveryReadIsReadOnce() {
@@ -1052,6 +1061,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = ad(Fixtures.overlay(duration = "null", tracking = withPlayhead("overlayViewDuration")), owner)
         ad.listener = recorder
         ad.show(container())
+        laidOut()
         player.reads = 0
         // Bounded only so that a regression fails instead of overflowing the stack.
         player.onRead = { if (player.reads < 20) ad.dismiss() }
@@ -1106,6 +1116,7 @@ class ParityLifecycleTest : SdkTest() {
             }
         }
         first.show(container)
+        laidOut()
         assertTrue("$nested", nested is VideoAdException.AnotherAdShowing)
         assertTrue(first.wasShown && !second.wasShown && second.isReady)
         assertEquals(listOf("impression"), firstRecorder.heard)

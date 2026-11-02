@@ -1,7 +1,10 @@
 package so.kontext.video
 
 import android.content.Intent
+import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
@@ -15,11 +18,13 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.wire.AdPayload
 
 /** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
@@ -47,9 +52,47 @@ class VideoAdLifecycleTest : SdkTest() {
         ad.show(container())
         assertTrue(ad.wasShown)
         assertSame(ad, Sdk.adOnScreen)
+        assertEquals("the impression waits for the first layout", listOf("creativeView", "iconView"), events)
+        laidOut()
         assertEquals(listOf("creativeView", "iconView", "impression"), events)
         assertEquals(listOf("impression"), recorder.heard)
         assertEquals(FrameBridge.State.SHOWN, ad.loadedBridge?.state)
+    }
+
+    @Test fun aContainerThatGivesTheAdNoRoomEndsItWithoutAnImpression() {
+        val warnings = mutableListOf<String>()
+        Logger.sink = { level, message -> if (level == Configuration.LogLevel.WARNING) warnings += message }
+        // A vertical LinearLayout appends the ad after the player, which takes the whole height.
+        val frame = container()
+        val column = LinearLayout(frame.context).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(View(frame.context), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        frame.addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        laidOut()
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(column, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("creativeView", "impression", "notViewable"))
+        ad.listener = recorder
+        ad.show(column)
+        assertTrue("said at show", warnings.any { "LinearLayout" in it })
+        laidOut()
+        assertEquals(listOf("ended"), recorder.heard)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertEquals("never drawn: no impression", listOf("creativeView", "notViewable"), events)
+        assertNull(Sdk.adOnScreen)
+    }
+
+    @Test fun anAdEndedBeforeItsFirstLayoutNeverCountsAnImpression() {
+        val recorder = Recorder()
+        val ad = overlay(tracking = tracking("impression"))
+        ad.listener = recorder
+        val container = container()
+        ad.show(container)
+        ad.dismiss()
+        laidOut()
+        container.layout(0, 0, 320, 400)
+        laidOut()
+        assertEquals(listOf("ended"), recorder.heard)
+        assertTrue(events.isEmpty())
     }
 
     @Test fun dismissEndsItAtOnceWithItsViewDuration() {
@@ -210,6 +253,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val ad = overlay(tracking = tracking("error"))
         ad.listener = recorder
         ad.show(container())
+        laidOut()
         page(ad, "ad.error", """"code": 402""")
         assertEquals(listOf("impression", "failed", "ended"), recorder.heard)
         assertEquals(402, (recorder.errors.single() as VideoAdException.CreativeFailed).code)

@@ -110,7 +110,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     private fun report(percentage: Double, visible: Rect) {
         if (!measured) {
             val view = view.get() ?: return
-            if (!view.isAttachedToWindow || !view.isLaidOut || view.width <= 0 || view.height <= 0) return
+            if (!FirstLayout.isLaidOutInWindow(view)) return
             measured = true
         }
         val rounded = Math.round(percentage * 100) / 100.0

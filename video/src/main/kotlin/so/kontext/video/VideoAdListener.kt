@@ -21,7 +21,8 @@ package so.kontext.video
  */
 public interface VideoAdListener {
     /**
-     * The impression was counted: when an image or HTML creative is shown, at the first frame for a video.
+     * The impression was counted: for an image or HTML creative at its first layout on screen, just after
+     * `show` returns; at the first frame for a video.
      * It may never come: the ad can end before.
      */
     public fun onAdImpression(ad: VideoAd) {}

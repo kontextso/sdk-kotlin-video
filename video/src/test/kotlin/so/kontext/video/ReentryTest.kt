@@ -47,6 +47,7 @@ class ReentryTest : SdkTest() {
             }
         }
         ad.show(container())
+        laidOut()
         assertEquals(listOf("impression", "ended DISMISSED"), heard)
         assertTrue(ad.hasEnded)
         assertNull("the slot is free", so.kontext.video.internal.Sdk.adOnScreen)
@@ -61,6 +62,7 @@ class ReentryTest : SdkTest() {
         val recorder = Recorder()
         ad.listener = recorder
         ad.show(container())
+        laidOut()
         player.onRead = { ad.dismiss() }
         ad.handle(FrameEvent.Click("https://brand.test", null, VideoAd.Click.Area.Creative))
         // The playhead is read once, before the click is handled: the ad ended there, so no beacon and no click.
