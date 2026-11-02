@@ -72,13 +72,21 @@ class Media3PlayerExoPlayerTest {
         main { player.pause() }
         assertTrue("paused", waitUntil { !adapter.isPlaying })
         assertEquals("told: paused", listOf(true, false), heard.toList())
+        // ExoPlayer stops on its own thread a few milliseconds after pause(): the playhead settles, then holds.
+        SystemClock.sleep(200)
         val held = main { adapter.currentPositionMillis }
-        SystemClock.sleep(800)
-        assertEquals("the playhead holds while paused", held, main { adapter.currentPositionMillis })
+        SystemClock.sleep(1_000)
+        val later = main { adapter.currentPositionMillis }
+        assertTrue("the playhead holds while paused: $held, then $later 1 s later", later in held..held + PAUSED_DRIFT_MILLIS)
 
         main { player.play() }
         assertTrue("plays again", waitUntil { adapter.isPlaying && adapter.currentPositionMillis > held + 300 })
         assertEquals(listOf(true, false, true), heard.toList())
+    }
+
+    private companion object {
+        /** The most a paused playhead may still move over a second: a clock that keeps running moves 1,000 ms. */
+        const val PAUSED_DRIFT_MILLIS = 100L
     }
 
     @Test fun theEndOfTheClipIsNoLongerPlaying() {
