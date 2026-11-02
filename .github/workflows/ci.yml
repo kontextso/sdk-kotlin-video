@@ -35,6 +35,10 @@ jobs:
       - name: Check Detekt
         run: ./gradlew detekt
 
+      # Android Lint over the published libraries: manifest, resource prefix, thread annotations.
+      - name: Check Android Lint
+        run: ./gradlew :video:lintRelease :video-media3:lintRelease
+
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest

@@ -28,7 +28,7 @@ jobs:
           fi
 
       - name: Checks and unit tests
-        run: ./gradlew spotlessCheck detekt apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest
+        run: ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest
 
   publish:
     name: Publish to Maven Central

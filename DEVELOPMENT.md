@@ -33,7 +33,7 @@ sdk-kotlin-video/
 ./gradlew apiCheck                            # the public API against video/api and video-media3/api
 ./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
 ./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
-./gradlew spotlessCheck detekt assembleDebug apiCheck :video:testDebug   # what CI runs, with the two below
+./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest   # what CI runs, with the two below
 ```
 
 The publisher app (`extras/publisher-app`) is a separate build that sees only the published artifacts, as a

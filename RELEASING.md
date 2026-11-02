@@ -7,13 +7,15 @@
 
 ---
 
-## 1. Create a release branch and test
+## 1. Test on `main`
 
-1. Checkout branch `main` and pull the latest changes
-2. Create a new branch `release/1.0.0`
-3. Run the checks and make sure everything is green (the release workflow runs the same before it publishes):
+The release is cut from `main`, as every change is (AGENTS.md: no feature branches).
+
+1. Checkout branch `main` and pull the latest changes; CI on its last commit is green (the checks below, the
+   emulator tests and the minified publisher app).
+2. Run CI's checks locally and make sure everything is green (the release workflow runs them before it publishes):
    ```bash
-   ./gradlew spotlessCheck detekt apiCheck assembleDebug :video:testDebugUnitTest :video-media3:testDebugUnitTest
+   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest
    ```
 4. Run the example against the ad server on a device: each of the four videos shows its ad, and the status line
    shows the impression, then the one end.
@@ -39,19 +41,20 @@ In `gradle/libs.versions.toml`:
 sdk-kotlin-video = "1.0.0"
 ```
 
-## 4. Commit and open a pull request
+## 4. Commit to `main`
 
 ```bash
 git add CHANGELOG.md gradle/libs.versions.toml
 git commit -m "Prepare release 1.0.0"
+git push origin main
 ```
 
-Create a PR to `main` named "Release version 1.0.0" with the changelog entry as the description, and merge it.
+Wait for CI on that commit to pass before tagging.
 
 ## 5. Create an annotated tag
 
 Pushing the tag triggers the `publish_sdk.yml` workflow. Its `verify` job fails when the tag differs from
-`sdk-kotlin-video` in `gradle/libs.versions.toml`, then runs `spotlessCheck detekt apiCheck` and the unit tests.
+`sdk-kotlin-video` in `gradle/libs.versions.toml`, then runs CI's checks (above) and the unit tests.
 The `publish` job runs only after them, in the `maven-central` environment: a required reviewer approves it in
 the workflow run, then it publishes and releases to Maven Central, which cannot be undone.
 
