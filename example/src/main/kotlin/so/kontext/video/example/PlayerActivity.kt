@@ -19,7 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import so.kontext.video.AdFormat
-import so.kontext.video.Content
+import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdListener

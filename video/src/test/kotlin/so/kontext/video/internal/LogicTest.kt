@@ -6,11 +6,11 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import so.kontext.video.Configuration
-import so.kontext.video.Content
-import so.kontext.video.NoFillReason
-import so.kontext.video.User
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
+import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.Environment

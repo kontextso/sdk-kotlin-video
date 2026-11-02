@@ -34,6 +34,9 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.util.ReflectionHelpers
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.device.DeviceFacts

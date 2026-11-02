@@ -2,7 +2,7 @@ package so.kontext.video.internal.wire
 
 import kotlinx.serialization.json.JsonElement
 import so.kontext.video.AdFormat
-import so.kontext.video.NoFillReason
+import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.arr
 import so.kontext.video.internal.network.bool

@@ -23,7 +23,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import so.kontext.video.Configuration
+import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment

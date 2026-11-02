@@ -16,11 +16,11 @@ dependencies {
 
 ```kotlin
 // Application.onCreate, once
-KontextVideo.initialize(this, Configuration("your-publisher-token"))
+KontextVideo.initialize(this, KontextVideo.Configuration("your-publisher-token"))
 
 // The episode's ads live in a ViewModel, so a rotation keeps them
 class EpisodeViewModel : ViewModel() {
-    val ads = VideoAds(Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 })
+    val ads = VideoAds(KontextVideo.Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 })
     var pauseAd: VideoAd? = null
 
     override fun onCleared() = ads.destroy() // the viewer left the episode

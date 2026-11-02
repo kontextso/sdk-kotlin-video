@@ -1,6 +1,7 @@
 package so.kontext.video
 
 import android.content.ComponentCallbacks2
+import android.content.res.Configuration
 import androidx.annotation.MainThread
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -11,6 +12,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.contentDidChange
 import so.kontext.video.internal.network.ApiClient
@@ -26,7 +29,6 @@ import so.kontext.video.internal.wire.AdPayload
 import so.kontext.video.internal.wire.AdsRequest
 import so.kontext.video.internal.wire.AdsResponse
 import java.util.UUID
-import android.content.res.Configuration as AndroidConfiguration
 
 /**
  * The ads of one video ("content"): one per episode, created when it opens. Creating it sends nothing; every
@@ -75,7 +77,7 @@ public class VideoAds @JvmOverloads constructor(
     /** Under memory pressure an expired ad's WebView goes at once; valid ads stay loaded, so `show` stays instant. */
     private val memoryCallbacks = object : ComponentCallbacks2 {
         override fun onTrimMemory(level: Int) = dropExpiredAds()
-        override fun onConfigurationChanged(newConfig: AndroidConfiguration) = Unit
+        override fun onConfigurationChanged(newConfig: Configuration) = Unit
 
         @Deprecated("Deprecated in Java")
         override fun onLowMemory() = dropExpiredAds()

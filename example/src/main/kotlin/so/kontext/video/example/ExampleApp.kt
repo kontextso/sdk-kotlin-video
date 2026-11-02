@@ -1,7 +1,7 @@
 package so.kontext.video.example
 
 import android.app.Application
-import so.kontext.video.Configuration
+import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo
 
 class ExampleApp : Application() {

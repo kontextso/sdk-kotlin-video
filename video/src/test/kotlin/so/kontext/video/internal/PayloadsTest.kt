@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import so.kontext.video.AdFormat
-import so.kontext.video.NoFillReason
 import so.kontext.video.VideoAd
+import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.wire.AdPayload

@@ -9,7 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import so.kontext.video.AdFormat
-import so.kontext.video.Content
+import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdListener

@@ -8,10 +8,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import so.kontext.video.Configuration
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.State
-import so.kontext.video.Regulatory
-import so.kontext.video.User
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiClient

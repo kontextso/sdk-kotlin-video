@@ -36,7 +36,9 @@ adb logcat -s KontextVideo
 
 ## Architecture
 
-- `KontextVideo` (an `object`): `initialize(context, configuration)` (`/config`), `user`, `regulatory`, `variantId`.
+- `KontextVideo` (an `object`): `initialize(context, configuration)` (`/config`), `user`, `regulatory`, `variantId`;
+  the models nested in it, as in Swift: `KontextVideo.Configuration`, `.Content`, `.User`, `.Regulatory`
+  (`VideoAdException.NoFillReason` in the exception).
 - `VideoAds`: one per video. `format()` asks the server for all formats with the `VideoAds`'s `sessionId` and the
   ids of the unshown bids it holds (`held`); one request at a time, shared by every caller; the server owns the bid
   state and the SDK follows the response.
@@ -66,7 +68,7 @@ adb logcat -s KontextVideo
   `unmute`. The SDK never requests an ad by itself.
 - Every public call is main-thread (`@MainThread`); listener calls arrive on the main thread.
 - Public API: `explicitApi()`, no `data class` (binary compatibility), models are classes with a builder (Kotlin
-  `Content(id, language) { … }`, Java `Content.Builder`), milliseconds as `Long` with a `…Millis` name, `suspend`
+  `KontextVideo.Content(id, language) { … }`, Java `KontextVideo.Content.Builder`), milliseconds as `Long` with a `…Millis` name, `suspend`
   for one-result calls with a callback overload for Java, sealed classes for closed vocabularies with an `Other`
   escape where the server may send its own value. `apiCheck` must pass; a deliberate change runs `apiDump`.
 - Never name other companies' products in code, comments, tests or docs.

@@ -13,6 +13,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.KontextVideo.Regulatory
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiException

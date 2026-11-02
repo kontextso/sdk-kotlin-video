@@ -14,6 +14,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.handle
 import so.kontext.video.internal.rendering.FrameBridge

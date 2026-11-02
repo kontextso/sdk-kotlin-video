@@ -5,6 +5,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Regulatory
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.wire.AdPayload

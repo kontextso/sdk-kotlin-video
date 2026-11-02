@@ -12,6 +12,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.KontextVideo.Regulatory
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView

@@ -6,6 +6,11 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.KontextVideo.Regulatory
+import so.kontext.video.KontextVideo.User
+import so.kontext.video.VideoAdException.NoFillReason
 
 /** The public models and value types: builders from Kotlin and Java, equality, and what their strings show. */
 class ModelsTest {

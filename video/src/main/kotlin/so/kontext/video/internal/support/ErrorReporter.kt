@@ -302,7 +302,7 @@ internal object ErrorReporter {
      * stays within [MAX_BATCH_BYTES]; the rest wait for the next one. A report that does not fit even alone is
      * dropped and counted. `null` when nothing is left to send.
      */
-    private fun makeBatch(configuration: so.kontext.video.Configuration, context: android.content.Context): Batch? {
+    private fun makeBatch(configuration: so.kontext.video.KontextVideo.Configuration, context: android.content.Context): Batch? {
         val batchId = UUID.randomUUID().toString()
         val os = DeviceFacts.os(context)
         fun body(errors: List<JsonObject>, dropped: Int) = buildJsonObject {

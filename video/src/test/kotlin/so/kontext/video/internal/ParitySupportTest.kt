@@ -40,12 +40,12 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.AdFormat
-import so.kontext.video.Configuration
-import so.kontext.video.Content
 import so.kontext.video.KontextVideo
-import so.kontext.video.Regulatory
+import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.KontextVideo.Regulatory
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.SdkTest
-import so.kontext.video.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds

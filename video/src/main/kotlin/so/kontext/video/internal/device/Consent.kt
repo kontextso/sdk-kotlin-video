@@ -2,7 +2,7 @@ package so.kontext.video.internal.device
 
 import android.content.Context
 import so.kontext.kit.privacy.TCFDataProvider
-import so.kontext.video.Regulatory
+import so.kontext.video.KontextVideo.Regulatory
 
 /**
  * The consent signals a consent management platform writes to the default `SharedPreferences` under the

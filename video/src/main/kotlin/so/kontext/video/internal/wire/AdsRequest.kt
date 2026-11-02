@@ -6,9 +6,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import so.kontext.video.Content
-import so.kontext.video.Regulatory
-import so.kontext.video.User
+import so.kontext.video.KontextVideo.Content
+import so.kontext.video.KontextVideo.Regulatory
+import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceFacts

@@ -6,7 +6,7 @@ In progress.
 
 The first release: an SDK on the v2 contract, the Android twin of sdk-swift-video 0.2.0.
 
-* `KontextVideo.initialize(context, Configuration(token))` once at launch; `user`, `regulatory`, `variantId`.
+* `KontextVideo.initialize(context, KontextVideo.Configuration(token))` once at launch; `user`, `regulatory`, `variantId`.
 * `VideoAds(content, labels)` per episode; `format(AdFormat)` returns a `VideoAd` (suspend, or a callback for Java);
   `track(player)` follows the content player (`VideoAdsPlayer`, or a Media3 `Player` with `so.kontext:video-media3`);
   `destroy()`.

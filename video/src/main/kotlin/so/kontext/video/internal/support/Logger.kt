@@ -1,7 +1,7 @@
 package so.kontext.video.internal.support
 
 import android.util.Log
-import so.kontext.video.Configuration.LogLevel
+import so.kontext.video.KontextVideo.Configuration.LogLevel
 
 /**
  * Writes the SDK's messages to Logcat (tag `KontextVideo`), up to the level set in `Configuration.logLevel`.
