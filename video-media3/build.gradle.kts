@@ -133,8 +133,9 @@ detekt {
 
 dependencies {
     api(project(":video"))
-    // The app's own Media3 version wins: this adapter needs only the Player interface.
-    api(libs.androidx.media3.common)
+    // The lowest Media3 the adapter compiles and works with: it needs only the Player interface. An app's own,
+    // newer Media3 wins at resolution; a 1.6.0 floor would raise all of the app's Media3 modules to 1.6.0.
+    api(libs.androidx.media3.common.floor)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
