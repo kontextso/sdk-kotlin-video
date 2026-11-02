@@ -97,7 +97,7 @@ internal class AdPayload(
             // A CPM: a number, not infinity (`1e400`), and never negative. ISO 4217: three capital letters.
             if (!price.value.isFinite() || price.value < 0) invalid("ad $id: price.value must be finite and not negative")
             if (!CURRENCY.matches(price.currency)) invalid("ad $id: price.currency must be an ISO 4217 code")
-            val expires = ad.long("expires") ?: invalid("ad $id: expires")
+            val expires = millis(ad, "expires") ?: invalid("ad $id: expires")
             // An ad that is expired on arrival is not an ad the server meant to give.
             if (expires <= 0) invalid("ad $id: expires must be positive")
             val tracking = ad["tracking"]?.arr()?.mapNotNull { entry ->
@@ -111,7 +111,7 @@ internal class AdPayload(
             val trigger = ad["trigger"]?.obj() ?: invalid("ad $id: trigger")
             when (trigger.str("kind")) {
                 "manual" -> Unit
-                "window" -> if (trigger.long("from") == null || trigger.long("to") == null) invalid("ad $id: trigger window")
+                "window" -> if (millis(trigger, "from") == null || millis(trigger, "to") == null) invalid("ad $id: trigger window")
                 else -> invalid("ad $id: unknown trigger kind")
             }
             val rendering = ad["rendering"]?.obj() ?: invalid("ad $id: rendering")
@@ -143,7 +143,7 @@ internal class AdPayload(
                     if (position != Position.FULLSCREEN) sizes = sizes(ad, id)
                 }
                 AdFormat.LINEAR -> {
-                    duration = ad.long("duration") ?: invalid("ad $id: duration")
+                    duration = millis(ad, "duration") ?: invalid("ad $id: duration")
                     skipOffset = nonNegative(ad, "skipOffset", id)
                 }
             }
@@ -172,17 +172,30 @@ internal class AdPayload(
          */
         private fun offsetMillis(event: JsonObject): Long? {
             val value = event.double("offset") ?: return null
-            if (!value.isFinite() || value < 0 || value > MAX_OFFSET_MILLIS) return null
+            if (value < 0) return null
+            return millis(value)
+        }
+
+        /** The largest count of milliseconds taken: ten years, as the playheads are clamped. Beyond it a value is nonsense. */
+        private const val MAX_MILLIS = 315_360_000_000.0
+
+        /**
+         * A wire `number` of milliseconds as whole ones, rounded to the nearest: the contract types durations and
+         * offsets as numbers, and a server converting from VAST or a percent sends fractions. `null` when not
+         * finite or beyond ten years either way, as in the Swift SDK.
+         */
+        private fun millis(value: Double): Long? {
+            if (!value.isFinite() || kotlin.math.abs(value) > MAX_MILLIS) return null
             return Math.round(value)
         }
 
-        /** The longest offset a tracking entry may have: ten years, as the playheads are clamped. */
-        private const val MAX_OFFSET_MILLIS = 315_360_000_000.0
+        /** [key] of [obj] as milliseconds ([millis]); `null` when absent or not a number. */
+        private fun millis(obj: JsonObject, key: String): Long? = obj.double(key)?.let(::millis)
 
         /** An optional count of milliseconds, refused when negative. */
         private fun nonNegative(ad: JsonObject, key: String, id: String): Long? {
             if (!ad.has(key)) return null
-            val value = ad.long(key) ?: invalid("ad $id: $key")
+            val value = millis(ad, key) ?: invalid("ad $id: $key")
             if (value < 0) invalid("ad $id: $key must not be negative")
             return value
         }

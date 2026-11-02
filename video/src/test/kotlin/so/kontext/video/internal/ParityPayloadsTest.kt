@@ -215,6 +215,29 @@ class ParityPayloadsTest {
         assertThrows<ApiException.Decoding> { parse(Fixtures.pause().replace(""", "sizes": [{"width": 300, "height": 250, "scalable": false}]""", "")) }
     }
 
+    @Test fun fractionalMillisecondsAreRoundedLikeTheSwiftSdk() {
+        val overlay = parse(Fixtures.overlay(duration = "3000.6").replace("\"expires\": 600000", "\"expires\": 600000.4"))
+        assertEquals(3001L, overlay.durationMillis)
+        assertEquals(600_000L, overlay.expiresMillis)
+        val linear = parse(Fixtures.linear().replace("30000, \"skipOffset\": 5000", "29999.5, \"skipOffset\": 5000.49"))
+        assertEquals(30_000L, linear.durationMillis)
+        assertEquals(5_000L, linear.skipOffsetMillis)
+        val window = Fixtures.overlay().replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 1000.25, \"to\": 9000.5}")
+        assertEquals("ad-1", parse(window).id, "a fractional window decodes")
+        // Out of range, not finite or negative stays invalid.
+        for (refused in listOf(
+            Fixtures.overlay(duration = "-0.6"),
+            Fixtures.overlay(duration = "315360000001"),
+            Fixtures.overlay(duration = "1e400"),
+            Fixtures.overlay().replace("\"expires\": 600000", "\"expires\": 0.4"),
+            Fixtures.overlay().replace("\"expires\": 600000", "\"expires\": 3.2e11"),
+            Fixtures.linear().replace("\"skipOffset\": 5000", "\"skipOffset\": -1.5"),
+            window.replace("9000.5", "1e400"),
+        )) {
+            assertThrows<ApiException.Decoding>(refused) { parse(refused) }
+        }
+    }
+
     @Test fun aProgressOffsetIsAnyFiniteNonNegativeNumberRoundedToTheMillisecond() {
         fun progress(index: Int, offset: String) = """{"event": "progress", "url": "https://t.test/p?n=$index", "offset": $offset}"""
         val entries = listOf("4957.59", "4957.4", "5000.0", "0", "0.4", "-1", "-0.5", "1e400", "1e300", "\"5000\"", "{}", "315360000001")
