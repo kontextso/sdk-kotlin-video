@@ -17,6 +17,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.endIfContentStopped
 import so.kontext.video.internal.ad.followsContent
 import so.kontext.video.internal.ad.handle
+import so.kontext.video.internal.ad.holdingActivityResumed
 import so.kontext.video.internal.ad.runAppCodeBeforeShow
 import so.kontext.video.internal.ad.startFollowingContent
 import so.kontext.video.internal.playback.ContentProgress
@@ -127,6 +129,19 @@ public class VideoAd internal constructor(
     /** A pause ad that follows the content saw it paused while on screen: the content playing again ends it. */
     internal var contentWasPaused = false
     private var impressionRecorded = false
+
+    /**
+     * An overlay that follows the content saw it paused while away (the app in the background, or on its way
+     * there): it stays, frozen, and [returnCheck] decides once the app is back.
+     */
+    internal var contentPausedAway = false
+
+    /** The check [returnGraceMillis] after the return, for an overlay whose content paused while away. */
+    internal var returnCheck: Job? = null
+
+    /** The Activity holding an overlay's or pause ad's container, while it is on screen. */
+    internal var holdingActivity: WeakReference<Activity>? = null
+        private set
 
     /** Follows the Activity the ad depends on while it is on screen; removed when the ad ends. */
     private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
@@ -374,13 +389,18 @@ public class VideoAd internal constructor(
     /**
      * Another Activity of the app covers the one holding the container (it stopped while the app stays in
      * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
-     * its window. The app going to the background only freezes the ad's clock; a stop for a configuration
-     * change recreates the Activity, and the container leaving the window ends the ad there.
+     * its window. The app going to the background only freezes the ad's clock (and an overlay's content
+     * pausing there, see `contentDidChange`); a stop for a configuration change recreates the Activity, and the
+     * container leaving the window ends the ad there.
      */
-    private fun followHoldingActivity(holder: Activity) = follow(holder) { activity, event ->
-        if (event == ActivityTracker.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
-            Logger.warning { "ad ${id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
-            end(EndReason.INTERRUPTED)
+    private fun followHoldingActivity(holder: Activity) {
+        holdingActivity = WeakReference(holder)
+        follow(holder) { activity, event ->
+            if (event == ActivityTracker.Event.RESUMED) holdingActivityResumed()
+            if (event == ActivityTracker.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
+                Logger.warning { "ad ${id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
+                end(EndReason.INTERRUPTED)
+            }
         }
     }
 
@@ -725,6 +745,8 @@ public class VideoAd internal constructor(
         hasEnded = true
         activityListener?.let(ActivityTracker::removeListener)
         activityListener = null
+        returnCheck?.cancel()
+        returnCheck = null
         if (reason == EndReason.FAILED) failure?.let { listener?.onAdFailed(this, it) }
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
         val activeTime = clock?.stop() ?: 0
@@ -860,6 +882,12 @@ public class VideoAd internal constructor(
          */
         var presentationTimeoutMillis = 5_000L
         var dismissalTimeoutMillis = 10_000L
+
+        /**
+         * How long after the app's return an overlay whose content paused in the background waits for the
+         * content to play again before it ends. Tests shorten it.
+         */
+        var returnGraceMillis = 1_000L
 
         /** Makes an ad's bridge; tests make one that throws, as a device without a working WebView does. */
         var makeBridge: (android.content.Context, String, String, Boolean, Long?) -> FrameBridge = ::FrameBridge
@@ -1008,7 +1036,8 @@ public class VideoAd internal constructor(
          * became too small for the ad, another screen of the app covered the container's (its Activity stopped
          * while the app stays in front; the app going to the background only pauses the ad), the linear ad's
          * screen was destroyed under it or the Activity that started it finished. For an overlay with a
-         * tracked player, also the content pausing, ending or moving to another item; for a pause ad with a
+         * tracked player, also the content pausing (in the background: still paused a moment after the app's
+         * return), ending or moving to another item; for a pause ad with a
          * tracked player, the content playing again (resumed outside the ad: the media notification, a headset).
          */
         INTERRUPTED,

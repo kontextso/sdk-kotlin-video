@@ -157,7 +157,9 @@ public class VideoAds @JvmOverloads constructor(
      * The player this episode plays in. The SDK reads its time for requests and the `[CONTENTPLAYHEAD]` macro
      * of beacons, and follows its playback for an overlay: an overlay is shown over playing content only
      * (`show` throws `ContentPaused` otherwise), ends with `INTERRUPTED` when the content pauses or ends, and
-     * its duration counts milliseconds of video. A pause ad ends with `INTERRUPTED` when the content plays again
+     * its duration counts milliseconds of video. A pause while the app is in the background (your app pausing
+     * the player in `onStop`) only freezes it: it goes on if the content plays again within a second of the
+     * return, and ends `INTERRUPTED` otherwise. A pause ad ends with `INTERRUPTED` when the content plays again
      * after it was seen paused while the ad is on screen, wherever the viewer resumed it (the media
      * notification, the lock screen, a headset, picture-in-picture); an overlay shown then finds the screen free.
      * Held until [destroy] or the next `track`. With one player

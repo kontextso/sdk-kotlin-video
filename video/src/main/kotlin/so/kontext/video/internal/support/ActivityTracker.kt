@@ -21,7 +21,7 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     private var registeredWith = WeakReference<Application>(null)
 
     /** What happened to an Activity, for the ads on screen that follow the Activity holding them. */
-    enum class Event { STOPPED, DESTROYED }
+    enum class Event { RESUMED, STOPPED, DESTROYED }
 
     /** Told after the tracker noted the event; an ad adds itself while it is on screen. */
     private val listeners = mutableListOf<(Activity, Event) -> Unit>()
@@ -41,6 +41,9 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
 
     /** Whether [activity] is resumed, `null` when no event of it has come since registration. */
     fun isResumed(activity: Activity): Boolean? = resumed[activity]
+
+    /** Some Activity of the app is resumed, as far as the events since registration tell. */
+    val hasResumedActivity: Boolean get() = resumed.containsValue(true)
 
     /**
      * Whether [activity] is started (visible, resumed or not), `null` when no event of it has come since
@@ -96,6 +99,7 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         // Resumed is started: one started before registration is counted from here.
         started[activity] = Unit
         resumed[activity] = true
+        notify(activity, Event.RESUMED)
     }
 
     override fun onActivityPaused(activity: Activity) {
