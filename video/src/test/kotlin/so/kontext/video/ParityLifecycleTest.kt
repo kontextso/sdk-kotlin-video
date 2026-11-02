@@ -1128,7 +1128,7 @@ class ParityLifecycleTest : SdkTest() {
     @Test fun aDestroyFromTheContainersAddHookEndsTheAdWithNothingLeft() {
         val owner = owner()
         val recorder = Recorder()
-        val ad = overlay(owner, tracking = tracking("creativeView", "impression"))
+        val ad = overlay(owner, tracking = tracking("creativeView", "impression", "overlayViewDuration", "close"))
         ad.listener = recorder
         val container = hookContainer()
         container.onAdd = { owner.destroy() }
@@ -1138,12 +1138,12 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.DESTROYED), recorder.reasons)
         assertEquals(0, container.childCount)
         assertNull(Sdk.adOnScreen)
-        assertTrue(events.isEmpty())
+        assertTrue("no view duration for an ad never on screen: $events", events.isEmpty())
     }
 
     @Test fun aHookThatTakesTheContainerOffScreenEndsTheAdWithoutAnImpression() {
         val recorder = Recorder()
-        val ad = overlay(tracking = tracking("creativeView", "impression"))
+        val ad = overlay(tracking = tracking("creativeView", "impression", "overlayViewDuration", "close"))
         ad.listener = recorder
         val container = hookContainer()
         container.onAdd = { (container.parent as ViewGroup).removeView(container) }
@@ -1153,7 +1153,7 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf("ended"), recorder.heard)
         assertEquals(0, container.childCount)
         assertNull(Sdk.adOnScreen)
-        assertTrue(events.isEmpty())
+        assertTrue("no view duration for an ad never on screen: $events", events.isEmpty())
     }
 
     private enum class Hostile { DESTROY_OWNER, SHOW_THIS_AD, SHOW_ANOTHER_AD, DISMISS_THIS_AD }

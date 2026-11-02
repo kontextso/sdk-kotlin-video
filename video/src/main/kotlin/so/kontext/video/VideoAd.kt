@@ -828,7 +828,8 @@ public class VideoAd internal constructor(
                 }
             }
         }
-        if (format != AdFormat.LINEAR) tracker.fire("overlayViewDuration", viewDurationMillis = activeTime)
+        // Only for an ad that was on screen: one that ended inside show, before it was presented, had no view.
+        if (format != AdFormat.LINEAR && isPresented) tracker.fire("overlayViewDuration", viewDurationMillis = activeTime)
         Logger.info { "ad ${id.take(8)}: ended ($reason)" }
         DebugReporter.event("ad.ended", adId = id, state = mapOf("reason" to reason.name.lowercase()))
         if (!dismissing) finish(reason)
