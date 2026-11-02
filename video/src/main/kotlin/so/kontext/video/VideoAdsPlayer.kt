@@ -27,6 +27,17 @@ public interface VideoAdsPlayer {
     public val playbackSpeed: Float? get() = null
 
     /**
+     * Optional: what the player plays now, any value that stands for this play of the episode (your item, its
+     * id), compared with `equals`; `null` (the default) when the player cannot tell. Show an episode's ads only
+     * in that episode: once it differs from the value at `track` (or, with `null` then, the first one it gave),
+     * an overlay or pause ad of that `VideoAds` throws `Invalidated(ContentChanged)` at `show`. Give a new value
+     * for another episode, and for a loop's next play of the same one. Without it only another `VideoAds`
+     * tracking the same player is checked.
+     */
+    @get:MainThread
+    public val currentItem: Any? get() = null
+
+    /**
      * Optional: tell [listener], on the main thread, what the player does, for an immediate reaction. Without
      * it the SDK reads [isPlaying] four times a second while an overlay or pause ad is on screen, and at every `show`, and
      * estimates seeks from the position.

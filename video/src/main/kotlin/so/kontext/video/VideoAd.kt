@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.ad.checkEpisode
 import so.kontext.video.internal.ad.endIfContentStopped
 import so.kontext.video.internal.ad.followsContent
 import so.kontext.video.internal.ad.handle
@@ -307,7 +308,7 @@ public class VideoAd internal constructor(
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
      * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
-     * `Invalidated`, `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not attached, not shown,
+     * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not attached, not shown,
      * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or
      * the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
@@ -599,6 +600,7 @@ public class VideoAd internal constructor(
         val contentPaused = runAppCodeBeforeShow()
         if (wasShown) throw VideoAdException.AlreadyShown()
         checkUsable()
+        checkEpisode()
         if (Sdk.adOnScreen != null) throw VideoAdException.AnotherAdShowing()
         if (!isLoaded) throw VideoAdException.NotLoaded()
         if (contentPaused) throw VideoAdException.ContentPaused()
@@ -991,6 +993,15 @@ public class VideoAd internal constructor(
         /** The `VideoAds` was destroyed. */
         public object Destroyed : InvalidationReason() {
             override fun toString(): String = "Destroyed"
+        }
+
+        /**
+         * An overlay or pause ad, at `show`: its episode no longer plays in the tracked player. Another
+         * `VideoAds` tracks that player now, or the player moved to another item than the one it played at
+         * `track`. Shown, the ad would be counted for its own episode over another one.
+         */
+        public object ContentChanged : InvalidationReason() {
+            override fun toString(): String = "ContentChanged"
         }
 
         /** The creative failed to load, or died while the ad waited to be shown. [code] is the VAST error code the SDK fired. */

@@ -167,6 +167,15 @@ public class VideoAds @JvmOverloads constructor(
      * Held until [destroy] or the next `track`. With one player
      * reused across episodes, call it when this episode starts playing in it, not at creation. Without a
      * player the playhead is 0 (right for a prefetch), an overlay runs on its own time and a pause ad stays until it is dismissed or closed.
+     *
+     * Show an episode's ads only in that episode: an ad requested for it is counted for it. A player belongs to
+     * one `VideoAds` at a time: tracking it in another one lets go of it here, as if this one had never tracked
+     * a player (an overlay of it on screen ends `INTERRUPTED`), and from then on its overlay and pause ads throw
+     * `Invalidated(ContentChanged)` at `show`, until this one tracks a player again. So do they once the player
+     * reports another item than the one at `track` (or, with none then, the first it reported): another episode,
+     * or a loop's next play. A Media3 player reports its current media item; a [VideoAdsPlayer] its
+     * `currentItem`, when it implements it. Linear ads are not checked: they cover the content. Without a tracked
+     * player nothing can be checked.
      */
     @MainThread
     public fun track(player: VideoAdsPlayer) {

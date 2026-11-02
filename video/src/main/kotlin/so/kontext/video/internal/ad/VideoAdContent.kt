@@ -5,6 +5,8 @@ import kotlinx.coroutines.launch
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
+import so.kontext.video.VideoAd.InvalidationReason
+import so.kontext.video.VideoAdException
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.playback.ContentProgress
@@ -43,6 +45,18 @@ internal fun VideoAd.runAppCodeBeforeShow(): Boolean {
     if (!followsContent || owner.get()?.playback?.isPlaying != false) return false
     Logger.warning { "ad ${id.take(8)}: cannot show the overlay, the content is paused" }
     return true
+}
+
+/**
+ * An episode's ads only in that episode: one requested for it is counted for it. An overlay or pause ad whose
+ * episode no longer plays in the tracked player (another `VideoAds` took it, or it plays another item) ends
+ * before show, with no beacon, and `show` throws. A linear ad covers the content: not checked.
+ */
+internal fun VideoAd.checkEpisode() {
+    if (format == AdFormat.LINEAR || owner.get()?.playback?.playsAnotherEpisode != true) return
+    Logger.warning { "ad ${id.take(8)}: cannot show, its episode no longer plays in the tracked player; ended as ContentChanged" }
+    invalidate(InvalidationReason.ContentChanged)
+    throw VideoAdException.Invalidated(InvalidationReason.ContentChanged)
 }
 
 /**

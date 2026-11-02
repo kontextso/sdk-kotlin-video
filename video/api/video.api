@@ -349,6 +349,11 @@ public final class so/kontext/video/VideoAd$EndReason : java/lang/Enum {
 public abstract class so/kontext/video/VideoAd$InvalidationReason {
 }
 
+public final class so/kontext/video/VideoAd$InvalidationReason$ContentChanged : so/kontext/video/VideoAd$InvalidationReason {
+	public static final field INSTANCE Lso/kontext/video/VideoAd$InvalidationReason$ContentChanged;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class so/kontext/video/VideoAd$InvalidationReason$CreativeFailed : so/kontext/video/VideoAd$InvalidationReason {
 	public fun <init> (I)V
 	public fun equals (Ljava/lang/Object;)Z
@@ -552,6 +557,7 @@ public abstract interface class so/kontext/video/VideoAdsCallback {
 
 public abstract interface class so/kontext/video/VideoAdsPlayer {
 	public fun addListener (Lso/kontext/video/VideoAdsPlayer$Listener;)V
+	public fun getCurrentItem ()Ljava/lang/Object;
 	public abstract fun getCurrentPositionMillis ()J
 	public fun getPlaybackSpeed ()Ljava/lang/Float;
 	public abstract fun isPlaying ()Z

@@ -11,17 +11,27 @@ import androidx.media3.common.Player
 import so.kontext.video.VideoAds
 import so.kontext.video.VideoAdsPlayer
 import java.lang.ref.WeakReference
+import java.util.WeakHashMap
 
 /**
  * Follows a Media3 [player] (an `ExoPlayer`, a `MediaController`): `ads.track(exoPlayer)`. The player must
  * run on the main looper, as the SDK reads it from the main thread; one on another looper is not followed
  * (an error in the log), and the content counts as not playing. Held weakly. While the player plays an ad of
  * its own (an ads loader, inserted ads), the content counts as not playing and its position is the content's.
+ *
+ * Show an episode's ads only in that episode: the same player tracked by another `VideoAds` is let go of
+ * here, and this one's overlay and pause ads then throw `Invalidated(ContentChanged)` at `show`; so do they
+ * once the player's current media item is another than at `track` (or, with none then, the first it got),
+ * a repeat's next play included.
  */
 @MainThread
 public fun VideoAds.track(player: Player) {
-    track(Media3Player(player))
+    // One adapter per player: the SDK tells a player tracked by two `VideoAds` by the adapter it is given.
+    track(adapters.getOrPut(player) { Media3Player(player) })
 }
+
+/** The adapter of each player tracked, for as long as the player lives. The adapter holds it weakly. */
+private val adapters = WeakHashMap<Player, Media3Player>()
 
 /**
  * Media3's `isPlaying` is false while buffering; the SDK's contract counts buffering as playing (the content
@@ -47,6 +57,9 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
     private var playingAd = this.player.get()?.isPlayingAd ?: false
     private var lastPlaying = playing()
 
+    /** Media item transitions heard while followed: each is another play, of another item or the same one. */
+    private var plays = 0
+
     private val playerListener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             this@Media3Player.playWhenReady = playWhenReady
@@ -65,6 +78,7 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
 
         // Another episode, or the same one again from the start (a repeat): the overlay was over what ended.
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            plays += 1
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && mediaItem == null) return
             listeners.toList().forEach { it.onContentChanged() }
         }
@@ -93,6 +107,16 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         } ?: false
 
     override val playbackSpeed: Float? get() = player.get()?.playbackParameters?.speed
+
+    /** The media item now, and which of the transitions heard brought it: a repeat plays the same item anew. */
+    override val currentItem: Any? get() = player.get()?.currentMediaItem?.let { Play(it, plays) }
+
+    /** One play of a media item. */
+    private class Play(val item: MediaItem, val count: Int) {
+        override fun equals(other: Any?): Boolean = other is Play && item == other.item && count == other.count
+
+        override fun hashCode(): Int = item.hashCode() * 31 + count
+    }
 
     override fun addListener(listener: VideoAdsPlayer.Listener) {
         if (listeners.isEmpty()) {
