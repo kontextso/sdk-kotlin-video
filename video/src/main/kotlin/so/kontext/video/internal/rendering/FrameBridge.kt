@@ -33,7 +33,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.network.double
-import so.kontext.video.internal.network.long
 import so.kontext.video.internal.network.obj
 import so.kontext.video.internal.network.str
 import so.kontext.video.internal.support.Environment
@@ -252,7 +251,10 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
             }
             "ad.error" -> {
                 if (state == State.ENDED) return
-                fail(FrameEvent.Error(body.long("code")?.toInt() ?: if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.PAGE)
+                // A VAST error code has three digits; any other code from the page goes as 900, undefined error.
+                val given = body.double("code")
+                val code = given?.let { if (it in 100.0..999.0) it.toInt() else UNDEFINED_ERROR } ?: if (state == State.SHOWN) 405 else loadErrorCode
+                fail(FrameEvent.Error(code), FailureCause.PAGE)
             }
             else -> {
                 val event = type.takeIf { it.startsWith("video.") }?.let { FrameEvent.VideoEvent.from(it.removePrefix("video.")) }
@@ -438,6 +440,9 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         var loadTimeoutMillis = 10_000L
         const val TOUCH_WINDOW_MILLIS = 1_000L
         private const val DAY_MILLIS = 86_400_000L
+
+        /** VAST's undefined error: what a page's code outside 100-999 becomes. */
+        private const val UNDEFINED_ERROR = 900
 
         /**
          * Web, store and the advertiser's app links open. Refused: `intent:`, which could start any Android

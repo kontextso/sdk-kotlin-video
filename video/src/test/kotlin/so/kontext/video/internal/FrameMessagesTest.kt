@@ -82,6 +82,17 @@ class FrameMessagesTest {
         assertEquals("the page's own code wins", 402, (events.single() as FrameEvent.Error).code)
     }
 
+    @Test fun aPageCodeOutsideTheVastRangeGoesAs900() {
+        val cases = listOf("0" to 900, "-1" to 900, "42" to 900, "99" to 900, "100" to 100, "999" to 999, "1000" to 900, "${Int.MAX_VALUE}" to 900, "1e300" to 900)
+        for ((sent, expected) in cases) {
+            events.clear()
+            val video = bridge(isVideo = true)
+            shown(video)
+            send("ad.error", "\"code\": $sent", to = video)
+            assertEquals("code $sent", expected, (events.single() as FrameEvent.Error).code)
+        }
+    }
+
     @Test fun messagesFromAnywhereButThePageItselfAreDropped() {
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", origin, isMainFrame = false)
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", null, true)
