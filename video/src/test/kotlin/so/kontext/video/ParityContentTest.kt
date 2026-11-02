@@ -584,6 +584,23 @@ class ParityContentTest : SdkTest() {
         assertNull(Sdk.adOnScreen)
     }
 
+    @Test fun aPauseAdEndsWhenTheNextPageOfAFeedTakesThePlayer() {
+        val player = Player(playing = false)
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        ad.show(container())
+        // The next page, still attached in the pager, takes the one shared player and plays it.
+        owner().track(player)
+        player.playing = true
+        player.listeners.toList().forEach { it.onIsPlayingChanged(true) }
+        idle(tick * 4)
+        assertEquals("its episode is gone from the player", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertNull("the next page's ad can show", Sdk.adOnScreen)
+    }
+
     @Test fun aPauseAdOverAPlayerWithoutAListenerEndsOnTheTickThatSeesItPlay() {
         val player = object : VideoAdsPlayer {
             var playing = false

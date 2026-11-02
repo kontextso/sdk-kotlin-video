@@ -142,10 +142,18 @@ internal fun VideoAd.endIfContentStopped() {
     end(EndReason.INTERRUPTED)
 }
 
-/** A pause ad ends when the tracked content plays again after it was seen paused: a listener's call or a tick. */
+/**
+ * A pause ad ends when the tracked content plays again after it was seen paused (a listener's call or a tick), and
+ * at once when its episode is gone from the player: another VideoAds took the player (the next page of a feed
+ * sharing one player) or it plays another item. Shown on, it would hold the app's one slot over content it is not for.
+ */
 private fun VideoAd.pauseContentDidChange(change: ContentPlayback.Change, playback: ContentPlayback) {
     if (!wasShown || hasEnded) return
     val playing = when (change) {
+        ContentPlayback.Change.ContentChanged -> {
+            Logger.info { "ad ${id.take(8)}: the content changed or another VideoAds took the player; the pause ad ends" }
+            return end(EndReason.INTERRUPTED)
+        }
         is ContentPlayback.Change.Playback -> change.isPlaying ?: playback.isPlaying
         ContentPlayback.Change.Tick -> playback.isPlaying
         else -> return

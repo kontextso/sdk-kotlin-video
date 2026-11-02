@@ -50,5 +50,6 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
 * The ads request lists its `held` ads after its waits (`/config`, the user agent, the advertising id), so an ad
   shown or rejected meanwhile is not listed.
 * The creative's 10 s load timeout counts the time that passed while the app was in front, not the ticks.
+* A pause ad on screen ends `INTERRUPTED` when another `VideoAds` takes its player (the next page of a feed that shares one player) or the content changes; it no longer holds the app's slot over content it is not for.
 * KontextKit for Android 0.1.0: the SDK ships no Open Measurement binary.
 * Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.
