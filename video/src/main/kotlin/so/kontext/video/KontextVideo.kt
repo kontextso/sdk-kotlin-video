@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.MainThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import so.kontext.video.internal.SDK_VERSION
 import so.kontext.video.internal.Sdk
 
 /**
@@ -11,8 +12,12 @@ import so.kontext.video.internal.Sdk
  * per episode. Every call is main-thread.
  */
 public object KontextVideo {
-    /** The SDK version. */
-    public const val VERSION: String = BuildConfig.SDK_VERSION
+    /**
+     * The SDK version running in the app, as sent with every request: read at run time, so an app built against
+     * an older version reports the one it actually ships with.
+     */
+    @JvmField
+    public val VERSION: String = SDK_VERSION
 
     /** Where the SDK is: what `/config` said, or that it was not asked yet. */
     public sealed class State {

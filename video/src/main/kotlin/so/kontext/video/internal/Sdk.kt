@@ -77,7 +77,7 @@ internal object Sdk {
             if (configuration.publisherToken.isEmpty()) ErrorReporter.report(ErrorReporter.Code.EMPTY_TOKEN, ErrorReporter.Stage.INTEGRATION)
             if (problems.any { it.startsWith("adServerUrl") }) ErrorReporter.report(ErrorReporter.Code.BAD_SERVER_URL, ErrorReporter.Stage.INTEGRATION)
         }
-        Logger.debug { "Initializing, SDK version ${so.kontext.video.BuildConfig.SDK_VERSION}" }
+        Logger.debug { "Initializing, SDK version ${SDK_VERSION}" }
         state = State.Initializing
         val job = Environment.scope.async { fetchConfig(configuration) }
         initJob = job

@@ -9,7 +9,7 @@ plugins {
 }
 
 // SDK version — single source of truth for both the published Maven
-// artifact version AND the runtime `BuildConfig.SDK_VERSION` field.
+// artifact version AND the runtime `KontextVideo.VERSION` (an internal generated source, not a public BuildConfig).
 // The catalog value; `-PsdkVersion=X.Y.Z` overrides it for a local build.
 // The release workflow publishes the catalog value, after checking the tag equals it.
 val sdkVersion: String = providers.gradleProperty("sdkVersion")
@@ -31,11 +31,6 @@ android {
         // Emulator tests: what needs a real WebView (`./gradlew :video:connectedDebugAndroidTest`).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-proguard-rules.pro")
-        buildConfigField("String", "SDK_VERSION", "\"$sdkVersion\"")
-    }
-
-    buildFeatures {
-        buildConfig = true
     }
 
     buildTypes {
@@ -148,6 +143,38 @@ detekt {
     buildUponDefaultConfig = true
     config.from("${rootDir.absolutePath}/extras/detekt.yml")
     parallel = true
+}
+
+/** Writes the SDK version into an internal Kotlin source: read at run time, and not part of the public API. */
+abstract class GenerateSdkVersion : DefaultTask() {
+    @get:Input
+    abstract val version: Property<String>
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun write() {
+        val file = outputDir.file("so/kontext/video/internal/SdkVersion.kt").get().asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            "package so.kontext.video.internal\n\n" +
+                "/** The SDK version, generated from the build. */\n" +
+                "internal const val SDK_VERSION: String = \"${version.get()}\"\n",
+        )
+    }
+}
+
+val generateSdkVersion = tasks.register<GenerateSdkVersion>("generateSdkVersion") {
+    version.set(sdkVersion)
+    outputDir.set(layout.buildDirectory.dir("generated/sdkVersion/kotlin"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        // Through the Java sources: the Kotlin plugin compiles the .kt files there; its own set is not wired from here.
+        variant.sources.java?.addGeneratedSourceDirectory(generateSdkVersion, GenerateSdkVersion::outputDir)
+    }
 }
 
 dependencies {

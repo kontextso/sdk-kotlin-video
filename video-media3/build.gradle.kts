@@ -6,8 +6,7 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
-// SDK version — single source of truth for both the published Maven
-// artifact version AND the runtime `BuildConfig.SDK_VERSION` field.
+// SDK version — the published Maven artifact version, the same as the SDK's.
 // The catalog value; `-PsdkVersion=X.Y.Z` overrides it for a local build.
 // The release workflow publishes the catalog value, after checking the tag equals it.
 val sdkVersion: String = providers.gradleProperty("sdkVersion")

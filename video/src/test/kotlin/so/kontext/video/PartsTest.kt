@@ -276,6 +276,17 @@ class PartsTest : SdkTest() {
         assertTrue(KontextVideo.VERSION.isNotEmpty())
     }
 
+    @Test fun theVersionIsReadAtRunTimeAndNoBuildConfigIsPublic() {
+        // A field, not a compile-time constant an app would inline: the version the app ships with is the one read.
+        val field = KontextVideo::class.java.getField("VERSION")
+        assertTrue(java.lang.reflect.Modifier.isStatic(field.modifiers))
+        assertEquals(so.kontext.video.internal.SDK_VERSION, field.get(null))
+        assertTrue(
+            "no generated BuildConfig in the SDK's public package",
+            runCatching { Class.forName("so.kontext.video.BuildConfig") }.isFailure,
+        )
+    }
+
     @Test fun aSecondInitializeIsIgnored() {
         val configuration = Sdk.configuration
         KontextVideo.initialize(ApplicationProvider.getApplicationContext(), Configuration("other"))

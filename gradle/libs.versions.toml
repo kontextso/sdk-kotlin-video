@@ -8,7 +8,7 @@
 # Default published version. Override at publish time via
 # `./gradlew :video:publish -PsdkVersion=X.Y.Z` so CI can cut patch
 # releases without bumping this file. Read at runtime as
-# `BuildConfig.SDK_VERSION` (see video/build.gradle.kts).
+# `KontextVideo.VERSION`, from a generated internal source (see video/build.gradle.kts).
 sdk-kotlin-video = "0.1.0"
 
 # ---- Build tooling ----

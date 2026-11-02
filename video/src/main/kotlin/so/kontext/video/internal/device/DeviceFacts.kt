@@ -34,7 +34,7 @@ internal object DeviceFacts {
 
     fun sdk(): JsonObject = buildJsonObject {
         put("name", SDK_NAME)
-        put("version", so.kontext.video.BuildConfig.SDK_VERSION)
+        put("version", so.kontext.video.internal.SDK_VERSION)
     }
 
     /** Identifies this installation of the app; kept until the app is uninstalled. */
