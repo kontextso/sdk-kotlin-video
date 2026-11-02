@@ -1,11 +1,8 @@
 package so.kontext.video
 
 import android.app.Activity
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.content.MutableContextWrapper
 import android.graphics.Rect
-import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -145,6 +142,7 @@ public class VideoAd internal constructor(
     /** The Activity holding an overlay's or pause ad's container, while it is on screen. */
     internal var holdingActivity: WeakReference<Activity>? = null
         private set
+
     /** Stops waiting for the page's first layout, where an image or HTML creative's impression counts. */
     private var impressionWait: (() -> Unit)? = null
 
@@ -858,41 +856,6 @@ public class VideoAd internal constructor(
         // The ad lets its listener go: an Activity held there must not outlive the ad.
         this.listener = null
         listener?.onAdEnded(this, reason)
-    }
-
-    // endregion
-
-    // region Clicks
-
-    internal fun open(url: String, fallback: String?) {
-        val context = Environment.context ?: return
-        if (startView(context, url)) return
-        if (fallback != null && startView(context, fallback)) return
-        Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${Logger.describe(url)}" }
-    }
-
-    /**
-     * Opens [url] as a browser opens a link: a BROWSABLE intent with no component or selector, so only what
-     * declares itself reachable from the web starts (the advertiser's app links do, and the host app's own:
-     * which links an ad may carry is the ad server's decision). An app the system cannot see or that is
-     * absent surfaces as `ActivityNotFoundException`, and the fallback opens.
-     */
-    private fun startView(context: android.content.Context, url: String): Boolean {
-        if (!FrameBridge.isAllowed(url)) {
-            Logger.warning { "ad ${id.take(8)}: the click-through ${Logger.describe(url)} is not a link that may open" }
-            return false
-        }
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        intent.component = null
-        intent.selector = null
-        return try {
-            context.startActivity(intent)
-            true
-        } catch (_: ActivityNotFoundException) {
-            false
-        } catch (_: SecurityException) {
-            false
-        }
     }
 
     // endregion
