@@ -78,8 +78,25 @@ class VideoAdLifecycleTest : SdkTest() {
         laidOut()
         assertEquals(listOf("ended"), recorder.heard)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertEquals("never drawn: no impression", listOf("creativeView", "notViewable"), events)
+        assertEquals("never drawn: no impression, so no verdict", listOf("creativeView"), events)
         assertNull(Sdk.adOnScreen)
+    }
+
+    @Test fun aVerdictFollowsOnlyAnImpression() {
+        // A video overlay nobody started (autoplay refused, no tap): no impression, so no verdict.
+        val payload = Fixtures.overlay(tracking = tracking("creativeView", "impression", "notViewable")).replace("\"creative\": \"image\"", "\"creative\": \"video\"")
+        val video = loaded(AdPayload.parse(Fixtures.json(payload)))
+        video.show(container())
+        laidOut()
+        video.dismiss()
+        assertEquals("unplayed and unbilled: no notViewable", listOf("creativeView"), events)
+        // An image overlay counted at its first layout and dismissed before 1 s owes its notViewable.
+        beacons.clear()
+        val image = overlay(tracking = tracking("creativeView", "impression", "notViewable"))
+        image.show(container())
+        laidOut()
+        image.dismiss()
+        assertEquals(listOf("creativeView", "impression", "notViewable"), events)
     }
 
     @Test fun anAdEndedBeforeItsFirstLayoutNeverCountsAnImpression() {

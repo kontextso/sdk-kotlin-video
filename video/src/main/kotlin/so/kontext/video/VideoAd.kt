@@ -769,7 +769,10 @@ public class VideoAd internal constructor(
             val density = webView.resources.displayMetrics.density.toDouble()
             loadedBridge?.exposure(percentage, visible.left / density, visible.top / density, visible.width() / density, visible.height() / density)
         }
-        meter.onVerdict = { verdict ->
+        meter.onVerdict = verdict@{ verdict ->
+            // A verdict follows an impression: an ad that never had one (an untapped video, a video that failed
+            // before its first frame) was never billed, and its DSP must not hear notViewable for it.
+            if (!impressionRecorded) return@verdict
             withContentPlayhead { tracker.fire(verdict.event) }
             Logger.info { "ad ${id.take(8)}: ${verdict.event}" }
         }

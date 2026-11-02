@@ -31,5 +31,6 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   every tick: its page pauses, no `viewable` fires, and the dwell starts over once the cover goes. A dialog over it
   does not cover it; a full cover stops its screen, as before.
 * `ad.exposure` sends `exposedPercentage` 0–100, the unit of MRAID's `exposureChange`.
+* No viewability verdict for an ad without an impression (an untapped video, a video failing before its first frame).
 * KontextKit for Android 0.1.0: the SDK ships no Open Measurement binary.
 * Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.
