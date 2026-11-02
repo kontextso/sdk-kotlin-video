@@ -2,6 +2,7 @@ package so.kontext.video.internal.rendering
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
 import android.view.ViewGroup
@@ -11,6 +12,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import so.kontext.video.internal.support.Logger
 import java.util.UUID
 
 /**
@@ -102,6 +104,14 @@ internal class LinearAdActivity : ComponentActivity() {
 
         /** Starts the screen for [presentation] from [from]; the token finds it again in `onCreate`. */
         fun start(from: Activity, presentation: Presentation) {
+            // Android adds no other Activity to a singleInstance task: the ad opens in another task of the app,
+            // and when it ends the viewer lands there, not back on the player.
+            if (isSingleInstance(from)) {
+                Logger.warning {
+                    "the linear ad starts from ${from.javaClass.simpleName}, a singleInstance Activity: it opens in another task, " +
+                        "and the viewer returns there, not to the player, when it ends"
+                }
+            }
             val token = UUID.randomUUID().toString()
             presentations[token] = presentation
             // The app started the ad break, the viewer did not leave: without the flag the host hears
@@ -111,6 +121,10 @@ internal class LinearAdActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             from.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
+
+        private fun isSingleInstance(activity: Activity): Boolean = runCatching {
+            activity.packageManager.getActivityInfo(activity.componentName, 0).launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE
+        }.getOrDefault(false)
 
         /** The presentation never reached its screen: its token goes. */
         fun forget(presentation: Presentation) {

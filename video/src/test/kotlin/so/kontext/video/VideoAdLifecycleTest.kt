@@ -466,6 +466,30 @@ class VideoAdLifecycleTest : SdkTest() {
         return controller
     }
 
+    /** A player screen declared `launchMode="singleInstance"`. */
+    class SingleInstanceActivity : android.app.Activity()
+
+    @Test fun aLinearAdStartedFromASingleInstanceActivitySaysItOpensInAnotherTask() {
+        val warnings = mutableListOf<String>()
+        Logger.sink = { level, message -> if (level == Configuration.LogLevel.WARNING) warnings += message }
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        shadowOf(app.packageManager).addOrUpdateActivity(
+            android.content.pm.ActivityInfo().apply {
+                name = SingleInstanceActivity::class.java.name
+                packageName = app.packageName
+                launchMode = android.content.pm.ActivityInfo.LAUNCH_SINGLE_INSTANCE
+            },
+        )
+        linear().show(activity())
+        assertTrue("an ordinary Activity: nothing to say", warnings.none { "singleInstance" in it })
+        Sdk.adOnScreen?.end(VideoAd.EndReason.DISMISSED)
+        val host = Robolectric.buildActivity(SingleInstanceActivity::class.java).setup().get()
+        val ad = linear()
+        ad.show(host)
+        assertTrue("$warnings", warnings.any { "singleInstance" in it })
+        assertTrue("still shown: only a warning", ad.wasShown)
+    }
+
     @Test fun aLinearAdKeepsItsScreenThroughEveryConfigurationChange() {
         val recorder = Recorder()
         val ad = linear()
