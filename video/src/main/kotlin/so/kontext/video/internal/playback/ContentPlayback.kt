@@ -61,7 +61,7 @@ internal class ContentPlayback {
     val playheadMillis: Long
         get() = player?.let { runCatching { it.currentPositionMillis }.getOrNull() }?.coerceIn(0, Tracker.MAX_PLAYHEAD_MILLIS) ?: 0
 
-    /** Ticks run while an overlay or pause ad of this `VideoAds` is on screen, and only then. */
+    /** Ticks run while an overlay or pause ad of this `VideoAds` is on screen with a player tracked, and only then. */
     var isTicking = false
         set(value) {
             if (field == value) return

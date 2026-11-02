@@ -318,6 +318,17 @@ class ParityContentTest : SdkTest() {
         assertFalse("nothing on screen: no ticks", owner.playback.isTicking)
     }
 
+    @Test fun ticksRunOnlyWithATrackedPlayerAndStartWhenOneIsTracked() {
+        val owner = owner()
+        val ad = pause(owner)
+        ad.show(container())
+        assertFalse("no player: nothing to watch, no ticks", owner.playback.isTicking)
+        // A pause ad stays through a newly tracked player (an overlay would end): the ticks start for it.
+        owner.track(Player(playing = false))
+        assertFalse(ad.hasEnded)
+        assertTrue("a player tracked while the ad is on screen starts them", owner.playback.isTicking)
+    }
+
     @Test fun aPlayerThatIsGoneEndsTheOverlayAndRefusesTheNext() {
         val target = Any()
         val player = WeakPlayer(target)

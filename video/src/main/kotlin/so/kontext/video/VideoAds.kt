@@ -209,8 +209,8 @@ public class VideoAds @JvmOverloads constructor(
     internal fun adDidBeginShowing(ad: VideoAd) {
         showing = ad
         // An overlay counts its milliseconds of video, and an overlay or pause ad watches a player without a
-        // listener, on ticks.
-        playback.isTicking = ad.format != AdFormat.LINEAR
+        // listener, on ticks. With no player tracked there is nothing to watch; `track` starts them later.
+        playback.isTicking = ad.format != AdFormat.LINEAR && playback.isTracking
         adDidLeave(ad)
     }
 
