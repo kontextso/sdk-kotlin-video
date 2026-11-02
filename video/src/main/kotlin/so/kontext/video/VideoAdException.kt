@@ -34,7 +34,8 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
     /**
      * The creative failed. Thrown by `load()` when the frame page failed or did not report it loaded within
      * 10 s of active time; delivered through `onAdFailed` when it broke on screen. [code] is the VAST error
-     * code the SDK fired (400 for a video, 500 otherwise, 405 after show, or the page's own).
+     * code the SDK fired (before show 400 for a video, 500 otherwise; 405 after show; or the page's own, 900
+     * when it is outside 100-999).
      */
     public class CreativeFailed(public val code: Int) : VideoAdException("the creative failed (VAST error $code)")
 

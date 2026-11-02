@@ -167,7 +167,7 @@ class FrameMessagesTest {
         assertEquals(FrameEvent.CloseReason.CLOSE, FrameEvent.CloseReason.from("bored"))
     }
 
-    @Test fun aReplacedPageBeforeShowAndADeadRendererWhileLoadingFailWithTheLoadCode() {
+    @Test fun aReplacedPageBeforeShowAndADeadRendererBeforeShowFailWithTheLoadCode() {
         send("ad.loaded")
         events.clear()
         bridge.webView.webViewClient.onPageStarted(bridge.webView, "https://frames.test/replaced", null)
@@ -176,6 +176,13 @@ class FrameMessagesTest {
         val loading = bridge(isVideo = true)
         loading.webView.webViewClient.onRenderProcessGone(loading.webView, io.mockk.mockk(relaxed = true))
         assertEquals(400, (events.single() as FrameEvent.Error).code)
+        events.clear()
+        val loaded = bridge(isVideo = true)
+        send("ad.loaded", to = loaded)
+        events.clear()
+        loaded.webView.webViewClient.onRenderProcessGone(loaded.webView, io.mockk.mockk(relaxed = true))
+        assertEquals("loaded, never shown: still the load error code, not 405", 400, (events.single() as FrameEvent.Error).code)
+        assertEquals(FrameBridge.State.ENDED, loaded.state)
     }
 
     @Test fun theLoadTimeoutCountsOnlyTimeInFrontAndSparesALoadedPage() {

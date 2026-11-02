@@ -373,7 +373,8 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
 
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
             Logger.warning { "frame ${adId.take(8)}: web content process ended" }
-            fail(FrameEvent.Error(if (state == State.LOADING) loadErrorCode else 405), FailureCause.PROCESS_TERMINATED)
+            // 405 is a failure while playing; an ad loaded but never shown gets the load error, like any other.
+            fail(FrameEvent.Error(if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.PROCESS_TERMINATED)
             // The WebView is dead; returning true keeps the app alive.
             return true
         }
