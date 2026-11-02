@@ -100,6 +100,8 @@ public class VideoAd internal constructor(
     internal val tracker = Tracker(payload.id, payload.tracking).apply {
         contentPlayhead = { this@VideoAd.owner.get()?.playheadMillis ?: 0 }
     }
+
+    /** The ad's page, if any: made when loading starts, released when the ad ends. Reading it never makes one. */
     internal var loadedBridge: FrameBridge? = null
     internal val contextWrapper by lazy { MutableContextWrapper(Environment.context) }
     private var loading: Deferred<Unit>? = null
@@ -130,19 +132,6 @@ public class VideoAd internal constructor(
     private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
 
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
-
-    private val bridge: FrameBridge
-        // A linear ad's duration is its video's length; an overlay's is its time on screen, not the video's.
-        get() = loadedBridge ?: makeBridge(
-            contextWrapper,
-            payload.id,
-            payload.frameUrl,
-            payload.creative == AdPayload.Creative.VIDEO,
-            payload.durationMillis.takeIf { format == AdFormat.LINEAR },
-        ).also { bridge ->
-            bridge.onEvent = { event -> handle(event) }
-            loadedBridge = bridge
-        }
 
     // region Loading and rejecting
 
@@ -220,7 +209,17 @@ public class VideoAd internal constructor(
     private fun startLoading(): Deferred<Unit> {
         val owner = owner.get() ?: throw VideoAdException.Destroyed()
         val bridge = try {
-            bridge
+            // A linear ad's duration is its video's length; an overlay's is its time on screen, not the video's.
+            loadedBridge ?: makeBridge(
+                contextWrapper,
+                payload.id,
+                payload.frameUrl,
+                payload.creative == AdPayload.Creative.VIDEO,
+                payload.durationMillis.takeIf { format == AdFormat.LINEAR },
+            ).also { bridge ->
+                bridge.onEvent = { event -> handle(event) }
+                loadedBridge = bridge
+            }
         } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
             // The WebView is missing or updating, or refused the bridge: the app hears a creative that failed
             // to load, never an exception of the platform's.
@@ -319,7 +318,7 @@ public class VideoAd internal constructor(
         // Reserved before any of the app's code runs: adding the host calls the container's own hooks. A show
         // from there finds the slot taken; a destroy there ends this ad. The container may refuse the host (a
         // ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.
-        val bridge = bridge
+        val bridge = shownBridge()
         val wasHeld = owner.get()?.ads?.get(format) === this
         reserve()
         try {
@@ -458,7 +457,7 @@ public class VideoAd internal constructor(
             Logger.warning { "ad ${id.take(8)}: cannot present, the Activity is not visible (stopped, or in picture-in-picture)" }
             throw VideoAdException.PresenterUnavailable()
         }
-        val bridge = bridge
+        val bridge = shownBridge()
         reserve()
         if (hasEnded) return
         followStartingActivity(activity)
@@ -543,6 +542,9 @@ public class VideoAd internal constructor(
         if (!isLoaded) throw VideoAdException.NotLoaded()
         if (contentPaused) throw VideoAdException.ContentPaused()
     }
+
+    /** The page a show puts on screen: a loaded ad has one, made when its loading started. */
+    private fun shownBridge(): FrameBridge = loadedBridge ?: throw VideoAdException.NotLoaded()
 
     /** The system's and the app's insets together; saturated, so a huge app inset cannot wrap around to a small one. */
     private fun combinedInsets(system: Rect): Rect {
@@ -640,7 +642,7 @@ public class VideoAd internal constructor(
     private fun presentNow() {
         if (hasEnded || isPresented) return
         isPresented = true
-        bridge.show()
+        loadedBridge?.show()
         Logger.info { "ad ${id.take(8)}: shown" }
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
         startMeter()
@@ -681,7 +683,7 @@ public class VideoAd internal constructor(
 
     private fun startMeter() {
         if (hasEnded || meter != null) return
-        val webView = bridge.webView
+        val webView = loadedBridge?.webView ?: return
         val meter = ViewabilityMeter(webView, if (payload.creative == AdPayload.Creative.VIDEO) 2_000 else 1_000)
         // MRC: two seconds of the video played. Exposure is measured from show, for the page.
         meter.countsTime = payload.creative != AdPayload.Creative.VIDEO || videoPlaying
