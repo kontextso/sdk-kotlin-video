@@ -132,7 +132,14 @@ public class VideoAd internal constructor(
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
 
     private val bridge: FrameBridge
-        get() = loadedBridge ?: makeBridge(contextWrapper, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO).also { bridge ->
+        // A linear ad's duration is its video's length; an overlay's is its time on screen, not the video's.
+        get() = loadedBridge ?: makeBridge(
+            contextWrapper,
+            payload.id,
+            payload.frameUrl,
+            payload.creative == AdPayload.Creative.VIDEO,
+            payload.durationMillis.takeIf { format == AdFormat.LINEAR },
+        ).also { bridge ->
             bridge.onEvent = { event -> handle(event) }
             loadedBridge = bridge
         }
@@ -849,7 +856,7 @@ public class VideoAd internal constructor(
         var dismissalTimeoutMillis = 2_000L
 
         /** Makes an ad's bridge; tests make one that throws, as a device without a working WebView does. */
-        var makeBridge: (android.content.Context, String, String, Boolean) -> FrameBridge = ::FrameBridge
+        var makeBridge: (android.content.Context, String, String, Boolean, Long?) -> FrameBridge = ::FrameBridge
     }
 
     /** What an ad pays: a CPM in a currency, and whether that figure is a clearing price or a forecast. */

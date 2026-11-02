@@ -49,6 +49,13 @@ class FrameMessagesTest {
         events.clear()
     }
 
+    /** Shown, its video started: what the video's progress, quartiles and complete need first. */
+    private fun started(to: FrameBridge = bridge) {
+        shown(to)
+        send("video.start", to = to)
+        events.clear()
+    }
+
     @Test fun beforeTheAdIsShownOnlyLoadedAndErrorCount() {
         send("ad.loaded")
         events.clear()
@@ -132,7 +139,7 @@ class FrameMessagesTest {
     }
 
     @Test fun progressTakesOnlyAWholeNumberOfMillisecondsWithinADay() {
-        shown()
+        started()
         for (bad in listOf("\"1000\"", "1.5", "-1", "86400001", "null", "{}")) send("video.progress", "\"offset\": $bad")
         send("video.progress")
         assertTrue(events.isEmpty())

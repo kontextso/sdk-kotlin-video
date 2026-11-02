@@ -86,16 +86,72 @@ class PartsTest : SdkTest() {
         bridge.receive("""{"adId":"ad-1","type":"something.new"}""", page, true)
         bridge.receive("""{"adId":"ad-1","type":"video.progress","offset":"soon"}""", page, true)
         bridge.receive("""{"adId":"ad-1","type":"video.mute","playhead":1234}""", page, true)
+        bridge.receive("""{"adId":"ad-1","type":"video.start","playhead":0}""", page, true)
         bridge.receive("""{"adId":"ad-1","type":"video.complete","playhead":30000}""", page, true)
         assertEquals(listOf("ad.show", "ad.exposure"), sent)
-        assertEquals(3, events.size)
+        assertEquals(4, events.size)
         assertEquals(FrameEvent.VideoEvent.MUTE, (events[1] as FrameEvent.Video).event)
         assertEquals(1234, (events[1] as FrameEvent.Video).playheadMillis)
         bridge.hide()
         assertEquals("ad.hide", sent.last())
         assertEquals(FrameBridge.State.ENDED, bridge.state)
         bridge.receive("""{"adId":"ad-1","type":"video.start"}""", page, true) // ended: nothing
-        assertEquals(3, events.size)
+        assertEquals(4, events.size)
+    }
+
+    @Test fun theVideoCountsOnlyAfterVideoStartAndADroppedMessageIsReportedOnce() {
+        val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = true)
+        val events = mutableListOf<FrameEvent>()
+        bridge.onEvent = { events += it }
+        val page = FrameBridge.Origin.of("https://frames.test")
+        fun send(type: String, fields: String = "") = bridge.receive("""{"adId":"ad-1","type":"$type"$fields}""", page, true)
+        send("ad.loaded")
+        bridge.show()
+        events.clear()
+        for (early in listOf("video.firstQuartile", "video.midpoint", "video.thirdQuartile", "video.pause", "video.resume", "video.complete")) send(early)
+        send("video.progress", ""","offset":1000""")
+        assertTrue("nothing of the video before its start: $events", events.isEmpty())
+        assertEquals("one report, its detail named", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
+        assertEquals(listOf("video.beforeStart"), ErrorReporter.bufferedDetails)
+        send("video.mute")
+        send("video.unmute")
+        assertEquals("the viewer's mute and unmute go before the start", listOf(FrameEvent.VideoEvent.MUTE, FrameEvent.VideoEvent.UNMUTE), events.map { (it as FrameEvent.Video).event })
+        send("video.start")
+        send("video.firstQuartile")
+        send("video.progress", ""","offset":1000""")
+        send("video.complete")
+        assertEquals(listOf("Video", "Video", "Video", "Video", "Progress", "Complete"), events.map { it::class.simpleName })
+        val skipping = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = true)
+        val skipped = mutableListOf<FrameEvent>()
+        skipping.onEvent = { skipped += it }
+        skipping.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+        skipping.show()
+        skipping.receive("""{"adId":"ad-1","type":"video.skip","playhead":0}""", page, true)
+        assertTrue("a skip goes before the start", skipped.last() is FrameEvent.Skip)
+    }
+
+    @Test fun aLinearAdsPlayheadAndProgressStopAtItsDurationAndASecond() {
+        val page = FrameBridge.Origin.of("https://frames.test")
+        fun shownBridge(duration: Long?): Pair<FrameBridge, MutableList<FrameEvent>> {
+            val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", true, duration)
+            val events = mutableListOf<FrameEvent>()
+            bridge.onEvent = { events += it }
+            bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+            bridge.show()
+            bridge.receive("""{"adId":"ad-1","type":"video.start","playhead":0}""", page, true)
+            events.clear()
+            return bridge to events
+        }
+        val (linear, events) = shownBridge(30_000)
+        linear.receive("""{"adId":"ad-1","type":"video.progress","offset":50000,"playhead":1e12}""", page, true)
+        val progress = events.single() as FrameEvent.Progress
+        assertEquals("the offset stops at the end and a second", 31_000L, progress.offsetMillis)
+        assertEquals("so does the playhead", 31_000L, progress.playheadMillis)
+        linear.receive("""{"adId":"ad-1","type":"video.complete","playhead":30500}""", page, true)
+        assertEquals("within the grace: as sent", 30_500L, (events.last() as FrameEvent.Complete).playheadMillis)
+        val (overlay, overlayEvents) = shownBridge(null)
+        overlay.receive("""{"adId":"ad-1","type":"video.complete","playhead":1e12}""", page, true)
+        assertEquals("without a duration: a day", 86_400_000L, (overlayEvents.last() as FrameEvent.Complete).playheadMillis)
     }
 
     @Test fun aPageErrorAfterShowDefaultsTo405AndBeforeToTheLoadCode() {

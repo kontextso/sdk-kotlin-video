@@ -47,7 +47,14 @@ import so.kontext.video.internal.wire.AdPayload
  * only from the main frame of the page it loaded, carrying its own ad id, and only in an order that makes sense.
  */
 @SuppressLint("SetJavaScriptEnabled")
-internal class FrameBridge(context: Context, val adId: String, private val url: String, isVideo: Boolean) {
+internal class FrameBridge(
+    context: Context,
+    val adId: String,
+    private val url: String,
+    isVideo: Boolean,
+    /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
+    videoDurationMillis: Long? = null,
+) {
     enum class State { LOADING, LOADED, SHOWN, ENDED }
 
     /** Why the bridge failed: several causes fire the same VAST code, and the error report keeps them apart. */
@@ -73,6 +80,12 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
     private var loadTimeoutJob: Job? = null
     private var lastTouchAt = Long.MIN_VALUE / 2
     private var reportedProtocolViolation = false
+
+    /** `video.start` arrived: the video's progress, quartiles, pause, resume and complete count only after it. */
+    private var videoStarted = false
+
+    /** The highest playhead a page may report, in milliseconds: the video's duration and the grace, or a day. */
+    private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
 
     init {
         webView.setBackgroundColor(Color.TRANSPARENT)
@@ -203,8 +216,9 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
             return
         }
         Logger.debug { "frame ${adId.take(8)}: ← $type" }
-        // Milliseconds into the ad video, clamped to a day.
-        val playhead = (body.double("playhead") ?: 0.0).coerceIn(0.0, DAY_MILLIS.toDouble()).toLong()
+        // Milliseconds into the ad video, clamped to the video's duration (a day without one): a playhead past
+        // the end would fire every checkpoint at once.
+        val playhead = (body.double("playhead") ?: 0.0).coerceIn(0.0, playheadLimitMillis.toDouble()).toLong()
         when (type) {
             "ad.loaded" -> {
                 if (state != State.LOADING) return
@@ -238,16 +252,16 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
                 end()
                 onEvent?.invoke(FrameEvent.Skip(playhead))
             }
-            "video.complete" -> if (state == State.SHOWN) onEvent?.invoke(FrameEvent.Complete(playhead))
+            "video.complete" -> if (state == State.SHOWN && startedBefore(type)) onEvent?.invoke(FrameEvent.Complete(playhead))
             "video.progress" -> {
-                if (state != State.SHOWN) return
+                if (state != State.SHOWN || !startedBefore(type)) return
                 val offset = (body["offset"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
                 if (offset == null || offset % 1.0 != 0.0 || offset !in 0.0..DAY_MILLIS.toDouble()) {
                     Logger.debug { "frame ${adId.take(8)}: video.progress with a malformed offset dropped" }
                     reportProtocolViolation("progress.offset")
                     return
                 }
-                onEvent?.invoke(FrameEvent.Progress(offset.toLong(), playhead))
+                onEvent?.invoke(FrameEvent.Progress(minOf(offset.toLong(), playheadLimitMillis), playhead))
             }
             "ad.error" -> {
                 if (state == State.ENDED) return
@@ -262,7 +276,7 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
                     Logger.debug { "frame ${adId.take(8)}: unknown message $type dropped" }
                     return
                 }
-                if (state == State.SHOWN) onEvent?.invoke(FrameEvent.Video(event, playhead))
+                if (state == State.SHOWN && accepts(event, type)) onEvent?.invoke(FrameEvent.Video(event, playhead))
             }
         }
     }
@@ -304,6 +318,30 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         failureCause = cause
         end()
         onEvent?.invoke(event)
+    }
+
+    /**
+     * `video.start` opens the video; mute and unmute are the viewer's and may come while it still loads; the
+     * rest need the start before them.
+     */
+    private fun accepts(event: FrameEvent.VideoEvent, type: String): Boolean = when (event) {
+        FrameEvent.VideoEvent.START -> {
+            videoStarted = true
+            true
+        }
+        FrameEvent.VideoEvent.MUTE, FrameEvent.VideoEvent.UNMUTE -> true
+        else -> startedBefore(type)
+    }
+
+    /**
+     * Whether `video.start` came before this video message; one that did not is dropped: progress, quartiles
+     * or a complete for a video that never started would be billed with no impression.
+     */
+    private fun startedBefore(type: String): Boolean {
+        if (videoStarted) return true
+        Logger.debug { "frame ${adId.take(8)}: $type before video.start dropped" }
+        reportProtocolViolation("video.beforeStart")
+        return false
     }
 
     private fun reportProtocolViolation(detail: String) {
@@ -441,6 +479,9 @@ internal class FrameBridge(context: Context, val adId: String, private val url: 
         var loadTimeoutMillis = 10_000L
         const val TOUCH_WINDOW_MILLIS = 1_000L
         private const val DAY_MILLIS = 86_400_000L
+
+        /** How far past the video's duration a page playhead may go: the page's rounding, not more. */
+        private const val PLAYHEAD_GRACE_MILLIS = 1_000L
 
         /** VAST's undefined error: what a page's code outside 100-999 becomes. */
         private const val UNDEFINED_ERROR = 900

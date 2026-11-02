@@ -220,6 +220,9 @@ internal object ErrorReporter {
     /** The codes of the reports waiting, for tests. */
     val bufferedCodes: List<String> get() = buffer.map { it.first["code"].toString().trim('"') }
 
+    /** The details of the reports waiting (empty without one), for tests. */
+    val bufferedDetails: List<String> get() = buffer.map { it.first["detail"]?.toString()?.trim('"').orEmpty() }
+
     fun resetForTesting() {
         flushJob?.cancel()
         flushJob = null
