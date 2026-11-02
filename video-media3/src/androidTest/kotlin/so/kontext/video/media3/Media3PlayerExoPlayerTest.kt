@@ -91,10 +91,11 @@ class Media3PlayerExoPlayerTest {
 
     @Test fun theEndOfTheClipIsNoLongerPlaying() {
         main {
-            player.seekTo(5_000)
+            // Two seconds before the end, with room: an emulator's software decoder can sit a while after a seek.
+            player.seekTo(4_000)
             player.play()
         }
-        assertTrue("ended: ${state()}", waitUntil { player.playbackState == androidx.media3.common.Player.STATE_ENDED })
+        assertTrue("ended: ${state()}", waitUntil(30_000) { player.playbackState == androidx.media3.common.Player.STATE_ENDED })
         assertFalse(main { adapter.isPlaying })
         assertEquals("the last word is: not playing", false, heard.lastOrNull())
     }
