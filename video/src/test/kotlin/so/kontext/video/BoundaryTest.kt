@@ -54,6 +54,7 @@ import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.rendering.AdHostView
+import so.kontext.video.internal.rendering.AdPlacement
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.ViewabilityMeter
 import so.kontext.video.internal.support.Environment
@@ -278,6 +279,29 @@ class BoundaryTest {
         val (share, visible) = ViewabilityMeter.exposure(view)
         assertEquals(0.5, share, 0.01)
         assertEquals(Rect(0, 0, 320, 100), visible)
+    }
+
+    @Test fun transparencyMultipliesAlongTheAncestors() {
+        val container = container()
+        var parent: android.view.ViewGroup = container
+        repeat(3) {
+            val layer = FrameLayout(container.context).apply { alpha = 0.1f }
+            parent.addView(layer)
+            layer.layout(0, 0, 320, 400)
+            parent = layer
+        }
+        val view = FrameLayout(container.context)
+        parent.addView(view)
+        view.layout(0, 0, 320, 400)
+        // 0.1 × 0.1 × 0.1 = 0.001: below 1 %, though no single ancestor is.
+        assertEquals("not measured as seen", 0.0, ViewabilityMeter.exposure(view).first, 0.0)
+        assertFalse("not eligible to show", AdPlacement.canBeSeen(view))
+        // Two layers at 0.2 make 0.04: seen.
+        (view.parent as View).alpha = 1f
+        (view.parent!!.parent as View).alpha = 0.2f
+        (view.parent!!.parent!!.parent as View).alpha = 0.2f
+        assertEquals(1.0, ViewabilityMeter.exposure(view).first, 0.001)
+        assertTrue(AdPlacement.canBeSeen(view))
     }
 
     @Test fun aParentsPaddingClipsTheCreative() {

@@ -181,15 +181,10 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             return (seen / whole).coerceIn(0.0, 1.0) to box
         }
 
-        /** Not shown, without an area, in a window that is not visible, or transparent on the way to the root. */
+        /** Not shown, without an area, in a window that is not visible, or transparent: its alpha times its ancestors'. */
         private fun isHidden(view: View): Boolean {
             if (!view.isShown || view.windowVisibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return true
-            var node: Any? = view
-            while (node is View) {
-                if (node.alpha <= 0.01f) return true
-                node = node.parent
-            }
-            return false
+            return AdPlacement.isTransparent(view)
         }
 
         /** [outline], in the root's coordinates, cut by the window and by every ancestor that clips its children. */

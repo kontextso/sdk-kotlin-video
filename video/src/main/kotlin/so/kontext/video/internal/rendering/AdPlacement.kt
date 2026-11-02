@@ -49,15 +49,26 @@ internal object AdPlacement {
         return sum(size.width * density * smallest, insets.left, insets.right) to sum(size.height * density * smallest, insets.top, insets.bottom)
     }
 
-    /** Whether the viewer could see [view]: attached, laid out with an area, shown, and nothing on the way transparent. */
+    /** Whether the viewer could see [view]: attached, laid out with an area, shown, and not transparent (alpha times its ancestors'). */
     fun canBeSeen(view: View): Boolean {
         if (!view.isAttachedToWindow || view.width <= 0 || view.height <= 0 || !view.isShown) return false
         if (view.windowVisibility != View.VISIBLE) return false
+        return !isTransparent(view)
+    }
+
+    /**
+     * Whether [view] draws at no visible opacity: its alpha times each ancestor's, as Android composes them, at most
+     * 1 %. Three ancestors at 0.1 make 0.001, transparent, though none of them is alone.
+     */
+    fun isTransparent(view: View): Boolean {
+        var alpha = 1f
         var node: Any? = view
         while (node is View) {
-            if (node.alpha <= 0.01f) return false
+            alpha *= node.alpha
             node = node.parent
         }
-        return true
+        return alpha <= TRANSPARENT
     }
+
+    private const val TRANSPARENT = 0.01f
 }

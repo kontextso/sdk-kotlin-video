@@ -388,7 +388,7 @@ public class VideoAd internal constructor(
         // A destroy in the container's hook ended the ad and took its host.
         val host = hostView ?: return
         // The container's own hook may have removed the host, or taken the container off screen.
-        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || host.alpha <= 0.01f || !AdPlacement.canBeSeen(container))) {
+        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !AdPlacement.canBeSeen(container) || AdPlacement.isTransparent(host))) {
             Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
             end(EndReason.INTERRUPTED)
             return
