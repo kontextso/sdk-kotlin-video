@@ -13,6 +13,7 @@ import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.State
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.ad.Presentation
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.support.DebugReporter
@@ -39,8 +40,12 @@ internal object Sdk {
     var regulatory: Regulatory? = null
     var variantId: String? = null
 
-    /** The ad on screen, from any `VideoAds`: at most one in the whole app. Set at `show`, cleared at the end. */
-    var adOnScreen: VideoAd? = null
+    /**
+     * The one ad on screen in the whole app, from any `VideoAds`: taken at `show`, released at the end; it
+     * retains the ad until then, whatever the app does with its reference.
+     */
+    var presentation: Presentation? = null
+    val adOnScreen: VideoAd? get() = presentation?.ad
 
     private var initJob: Deferred<Unit>? = null
 
@@ -206,7 +211,7 @@ internal object Sdk {
         user = null
         regulatory = null
         variantId = null
-        adOnScreen = null
+        presentation = null
         DebugReporter.resetForTesting()
         ErrorReporter.resetForTesting()
         DeviceFacts.resetForTesting()

@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.ad.Presentation
 import so.kontext.video.internal.ad.checkEpisode
 import so.kontext.video.internal.ad.chooseSize
 import so.kontext.video.internal.ad.combinedInsets
@@ -109,12 +110,15 @@ public class VideoAd internal constructor(
     internal val contextWrapper by lazy { MutableContextWrapper(Environment.context) }
     private var loading: Deferred<Unit>? = null
     internal var loadSignal: CompletableDeferred<Unit>? = null
-    private var hostView: AdHostView? = null
+
+    /** The ad on screen, from `show` to `onAdEnded`: the slot, the host view or screen, the meter, the clock. */
+    internal var presentation: Presentation? = null
+        private set
+    private val hostView: AdHostView? get() = presentation?.hostView
     internal var extraInsets = Rect()
     internal var chosenSize: AdPayload.Size? = null
-    private var linearScreen: LinearAdActivity? = null
-    internal var linearPresentation: LinearAdActivity.Presentation? = null
-        private set
+    private val linearScreen: LinearAdActivity? get() = presentation?.linearScreen
+    internal val linearPresentation: LinearAdActivity.Presentation? get() = presentation?.linearPresentation
 
     /** Where the ad is in its life. Every public flag above derives from it; it moves only through [transition]. */
     internal var phase: Phase = Phase.Offered
@@ -127,9 +131,9 @@ public class VideoAd internal constructor(
     internal var isPresented = false
         private set
     private var failure: VideoAdException? = null
-    internal var meter: ViewabilityMeter? = null
+    internal val meter: ViewabilityMeter? get() = presentation?.meter
     internal var videoPlaying = false
-    internal var clock: ActiveTimeClock? = null
+    internal val clock: ActiveTimeClock? get() = presentation?.clock
     internal var contentProgress: ContentProgress? = null
 
     /** A pause ad that follows the content saw it paused while on screen: the content playing again ends it. */
@@ -419,7 +423,7 @@ public class VideoAd internal constructor(
                 }
             }
             host.onWindowVisibility = { visible -> clock?.windowVisibilityChanged(visible) }
-            hostView = host
+            presentation?.hostView = host
             container.addView(host)
         } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
             unreserve(container, wasHeld, error)
@@ -566,7 +570,7 @@ public class VideoAd internal constructor(
                     activity.finish()
                     return
                 }
-                linearScreen = activity
+                this@VideoAd.presentation?.linearScreen = activity
                 contextWrapper.baseContext = activity
                 (bridge.webView.parent as? ViewGroup)?.removeView(bridge.webView)
                 root.addView(bridge.webView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
@@ -575,7 +579,7 @@ public class VideoAd internal constructor(
             override fun onScreenShown() = presented()
 
             override fun onScreenGone(byAd: Boolean) {
-                linearScreen = null
+                this@VideoAd.presentation?.linearScreen = null
                 if (byAd) {
                     (phase as? Phase.Ending)?.reason?.let(::finish)
                 } else if (!hasEnded) {
@@ -584,7 +588,7 @@ public class VideoAd internal constructor(
                 }
             }
         }
-        linearPresentation = presentation
+        this.presentation?.linearPresentation = presentation
         // Any launch that throws (the Activity stripped from the merged manifest, a refused start, an app's own
         // startActivity override or a system state that throws something else) is the same failure.
         val started = try {
@@ -669,15 +673,14 @@ public class VideoAd internal constructor(
 
     private fun reserve() {
         transition(Phase.Reserved)
-        Sdk.adOnScreen = this
-        owner.get()?.adDidBeginShowing(this)
+        presentation = Presentation.begin(this, owner.get())
     }
 
     /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */
     private fun unreserve(container: ViewGroup, wasHeld: Boolean, error: Exception) {
         Logger.warning { "ad ${id.take(8)}: the container refused the ad (${error.javaClass.simpleName}); not shown, the ad stays ready" }
         val host = hostView
-        hostView = null
+        presentation?.hostView = null
         if (host != null) {
             // A container that refuses a child may refuse its removal too.
             runCatching { (host.parent as? ViewGroup)?.removeView(host) }
@@ -687,8 +690,8 @@ public class VideoAd internal constructor(
         loadedBridge?.webView?.let { webView -> runCatching { (webView.parent as? ViewGroup)?.removeView(webView) } }
         Environment.context?.let { contextWrapper.baseContext = it }
         if (!transition(Phase.Offered)) return
-        if (Sdk.adOnScreen === this) Sdk.adOnScreen = null
-        owner.get()?.adDidNotShow(this, wasHeld)
+        presentation?.cancel(wasHeld)
+        presentation = null
     }
 
     private fun presented() {
@@ -709,7 +712,7 @@ public class VideoAd internal constructor(
                 isCompleted = true
                 end(EndReason.COMPLETED)
             }
-            this.clock = clock
+            presentation?.clock = clock
             clock.start(visible = hostView?.windowVisibility == View.VISIBLE)
             startFollowingContent()
             hostView?.activity?.let(::followHoldingActivity)
@@ -778,7 +781,7 @@ public class VideoAd internal constructor(
         }
         // Another Activity over a linear ad's screen leaves its view in a visible window, measured whole there.
         meter.isCovered = { linearScreen?.isCovered == true }
-        this.meter = meter
+        presentation?.meter = meter
         meter.start()
     }
 
@@ -801,13 +804,13 @@ public class VideoAd internal constructor(
     //  1. observers: the Activity listener (endNow);
     //  2. timers: the return check (endNow);
     //  3. waiters: the first-layout wait (endNow);
-    //  4. clock and meter: the clock and its onActivate, the viewability meter (endNow);
-    //  5. renderer: the page (hidden, released) and the host view (endNow);
-    //  6. presentation registration: LinearAdActivity.forget, the linear screen closed (endNow), the
-    //     presentation and the screen references dropped (finish);
+    //  4. clock and meter: the clock and its onActivate, the viewability meter (Presentation.tearDown);
+    //  5. renderer: the page (hidden, released; endNow) and the host view (Presentation.tearDown);
+    //  6. presentation registration: LinearAdActivity.forget (Presentation.tearDown), the linear screen closed
+    //     (endNow), the presentation and the screen references dropped (Presentation.release, from finish);
     //  7. context: the WebView's context back to the application's (finish);
-    //  8. the app-wide on-screen slot, Sdk.adOnScreen (finish);
-    //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (finish);
+    //  8. the app-wide on-screen slot, Sdk.presentation (Presentation.release);
+    //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (Presentation.release);
     // 10. listener: dropped just before onAdEnded, the last call (finish).
     private fun endNow(reason: EndReason) {
         if (!transition(Phase.Ending(reason))) return
@@ -819,20 +822,12 @@ public class VideoAd internal constructor(
         impressionWait = null
         if (reason == EndReason.FAILED) failure?.let { listener?.onAdFailed(this, it) }
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
-        val activeTime = clock?.stop() ?: 0
-        // The stopped clock's callback reaches the owner's playback: an ended ad an app keeps must not keep its VideoAds.
-        clock?.onActivate = null
-        clock = null
-        meter?.stop()
-        meter = null
+        val activeTime = presentation?.tearDown() ?: 0
         loadedBridge?.hide()
         loadedBridge = null
-        hostView?.let { (it.parent as? ViewGroup)?.removeView(it) }
-        hostView = null
-        linearPresentation?.let(LinearAdActivity::forget)
         var dismissing = false
         val screen = linearScreen
-        linearScreen = null
+        presentation?.linearScreen = null
         // Every way the ad ends closes a screen still up, an interruption too: its page is gone and Back does
         // nothing there. A screen the system took away has already cleared `linearScreen`.
         if (screen != null && !screen.isFinishing && !screen.isDestroyed) {
@@ -880,11 +875,9 @@ public class VideoAd internal constructor(
     private fun finish(reason: EndReason) {
         if (!transition(Phase.Ended(reason))) return
         // An ended ad keeps its facts, not its presentation: an app that holds it holds no Activity or WebView.
-        linearPresentation = null
-        linearScreen = null
         Environment.context?.let { contextWrapper.baseContext = it }
-        if (Sdk.adOnScreen === this) Sdk.adOnScreen = null
-        owner.get()?.adDidEnd(this)
+        presentation?.release()
+        presentation = null
         val listener = listener
         // The ad lets its listener go: an Activity held there must not outlive the ad.
         this.listener = null
