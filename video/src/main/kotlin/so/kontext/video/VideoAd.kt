@@ -488,20 +488,20 @@ public class VideoAd internal constructor(
             }
         }
         linearPresentation = presentation
+        // Any launch that throws (the Activity stripped from the merged manifest, a refused start, an app's own
+        // startActivity override or a system state that throws something else) is the same failure.
         val started = try {
             LinearAdActivity.start(activity, presentation)
             true
-        } catch (error: ActivityNotFoundException) {
-            Logger.error { "ad ${id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
-            false
-        } catch (error: SecurityException) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
             Logger.error { "ad ${id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
             false
         }
         // A screen that never starts (the system refused it, or the launch threw) must not hold the slot
         // forever. A launch that threw takes the same path at once, after show returns, as Swift's refused
-        // presentation does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED).
-        owner.get()?.scope?.launch {
+        // presentation does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED). On the
+        // SDK's own scope when the owner is gone, so the slot is freed whatever holds the ad.
+        (owner.get()?.scope ?: Environment.scope).launch {
             if (started) delay(presentationTimeoutMillis) else yield()
             // Presented, not merely created: a screen that attached but never came to the front (started, never
             // resumed) would otherwise hold the slot for good.

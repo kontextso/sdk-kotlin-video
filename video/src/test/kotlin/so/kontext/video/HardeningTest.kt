@@ -113,7 +113,13 @@ class HardeningTest : SdkTest() {
     }
 
     @Test fun aLaunchThatThrowsFailsTheAdOnceAndFreesTheSlot() {
-        for (failure in listOf(ActivityNotFoundException("stripped"), SecurityException("not allowed"))) {
+        val failures = listOf(
+            ActivityNotFoundException("stripped"),
+            SecurityException("not allowed"),
+            IllegalStateException("the app's own startActivity refuses"),
+            android.util.AndroidRuntimeException("startActivity from outside an Activity context"),
+        )
+        for (failure in failures) {
             val recorder = Recorder()
             val ad = linear(tracking = tracking("impression"))
             ad.listener = recorder
