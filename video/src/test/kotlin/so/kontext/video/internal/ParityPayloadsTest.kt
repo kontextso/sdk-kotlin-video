@@ -509,9 +509,14 @@ class ParityPayloadsTest {
                 "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear; dismiss() only for overlay and pause)",
         )
         for ((error, expected) in cases) assertEquals(expected, error.message)
-        val request = VideoAdException.Request(ApiException.Http(500, emptyList()))
-        assertEquals("request failed: HTTP 500", request.message, "the underlying error's own words, no internal class name")
-        assertTrue(request.cause is ApiException.Http)
+        val requests = listOf(
+            VideoAdException.RequestFailure.Offline to "request failed (offline)",
+            VideoAdException.RequestFailure.TimedOut to "request failed (timedOut)",
+            VideoAdException.RequestFailure.Server(503) to "request failed (server(503))",
+            VideoAdException.RequestFailure.BadResponse to "request failed (badResponse)",
+        )
+        for ((failure, expected) in requests) assertEquals(expected, VideoAdException.Request(failure).message)
+        assertEquals(VideoAdException.RequestFailure.Server(500), VideoAdException.Request(VideoAdException.RequestFailure.from(ApiException.Http(500, emptyList()))).failure)
     }
 
     @Test fun everyNoFillReasonMapsFromTheWireAndBack() {

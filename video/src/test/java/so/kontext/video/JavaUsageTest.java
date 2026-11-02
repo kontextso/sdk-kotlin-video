@@ -58,6 +58,22 @@ public class JavaUsageTest {
         assertSame(VideoAdException.NoFillReason.FrequencyCap.INSTANCE, ((VideoAdException.NoFill) error).getReason());
 
         assertEquals(VideoAd.EndReason.RESUMED, VideoAd.EndReason.valueOf("RESUMED"));
+
+        VideoAdException.Request request = new VideoAdException.Request(new VideoAdException.RequestFailure.Server(503));
+        VideoAdException.RequestFailure failure = request.getFailure();
+        String advice;
+        if (failure instanceof VideoAdException.RequestFailure.Server) {
+            advice = "later (" + ((VideoAdException.RequestFailure.Server) failure).getStatus() + ")";
+        } else if (failure == VideoAdException.RequestFailure.Offline.INSTANCE) {
+            advice = "when online";
+        } else if (failure == VideoAdException.RequestFailure.TimedOut.INSTANCE) {
+            advice = "later";
+        } else {
+            advice = "report";
+        }
+        assertEquals("later (503)", advice);
+        assertEquals(new VideoAdException.RequestFailure.Server(503), failure);
+        assertEquals("badResponse", VideoAdException.RequestFailure.BadResponse.INSTANCE.toString());
         assertEquals(AdFormat.LINEAR, AdFormat.valueOf("LINEAR"));
         assertTrue(KontextVideo.State.Enabled.INSTANCE instanceof KontextVideo.State);
         assertEquals(Insets.NONE, Insets.NONE);

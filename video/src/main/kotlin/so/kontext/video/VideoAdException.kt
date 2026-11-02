@@ -1,5 +1,12 @@
 package so.kontext.video
 
+import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.ResponseTooLarge
+import so.kontext.video.internal.network.UnexpectedFailure
+import java.io.IOException
+import java.net.ProtocolException
+import java.net.SocketTimeoutException
+
 /**
  * Why the SDK could not do its job, reached two ways.
  *
@@ -32,10 +39,13 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
     public class NoFill(public val reason: NoFillReason) : VideoAdException("no fill ($reason)")
 
     /**
-     * The request failed: no network, a timeout, a server error, an unexpected answer ([cause] says which).
-     * Thrown only when the SDK holds no valid ad for the format; otherwise `format()` returns that one.
+     * The request failed: [failure] says why (no network, a timeout, a server error, an answer the SDK could not
+     * use). Thrown only when the SDK holds no valid ad for the format; otherwise `format()` returns that one.
+     * Never retried by the SDK; the app decides when to ask again. The underlying exception is in the SDK's log,
+     * with the request's id.
+     * @property failure Why the request failed.
      */
-    public class Request(cause: Throwable) : VideoAdException("request failed: ${cause.message ?: cause.javaClass.simpleName}", cause)
+    public class Request(public val failure: RequestFailure) : VideoAdException("request failed ($failure)")
 
     /**
      * The creative failed. Thrown by `load()` when the frame page failed or did not report it loaded within
@@ -85,6 +95,60 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
     public class WrongPresentation : VideoAdException(
         "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear; dismiss() only for overlay and pause)",
     )
+
+    /**
+     * Why an ads request failed, in four outcomes an app can act on. Unlike a no-fill, the server's answer for
+     * the moment is unknown: asking again later may fill. There is no cancelled case: only `destroy()` cancels a
+     * request, and its callers hear `Destroyed`.
+     */
+    public sealed class RequestFailure(private val name: String) {
+        /**
+         * The request did not get through: no connection, the connection lost, the server's name or address
+         * unreachable, a secure connection that failed (often a captive portal). Ask again once the device is
+         * back online, for example at the next episode or the next pause.
+         */
+        public object Offline : RequestFailure("offline")
+
+        /** The server did not answer in time (10 s). The network is slow or the server is busy: ask again later, not straight away. */
+        public object TimedOut : RequestFailure("timedOut")
+
+        /**
+         * The server answered with an error status (5xx, or any other the contract does not expect, 4xx included).
+         * Ask again later; quote `VideoAds.lastRequestId` to Kontext when it repeats.
+         * @property status The HTTP status.
+         */
+        public class Server(public val status: Int) : RequestFailure("server($status)") {
+            override fun equals(other: Any?): Boolean = other is Server && status == other.status
+
+            override fun hashCode(): Int = status
+        }
+
+        /**
+         * An answer arrived and the SDK could not use it: not the JSON of the contract, malformed (one ad under
+         * two formats, for example), empty, cut off, not HTTP, or over the 5 MB limit. Asking again soon is unlikely to
+         * help; quote `VideoAds.lastRequestId` to Kontext.
+         */
+        public object BadResponse : RequestFailure("badResponse")
+
+        /** The case's name, for logs: `offline`, `timedOut`, `server(503)`, `badResponse`. */
+        override fun toString(): String = name
+
+        internal companion object {
+            /**
+             * From what the request threw: a timeout is [TimedOut]; an answer over the size limit, a status line
+             * that is not HTTP or an exchange that threw something unexpected is [BadResponse]; every other I/O
+             * failure is [Offline]. An error status is [Server]; an undecodable answer, and anything else, [BadResponse].
+             */
+            fun from(error: Throwable?): RequestFailure = when (error) {
+                is ApiException.Transport -> from(error.cause)
+                is ApiException.Http -> if (error.status > 0) Server(error.status) else BadResponse
+                is SocketTimeoutException -> TimedOut
+                is ResponseTooLarge, is UnexpectedFailure, is ProtocolException -> BadResponse
+                is IOException -> Offline
+                else -> BadResponse
+            }
+        }
+    }
 
     /** Why the server had nothing for a format; [Other] is a reason this SDK version does not know, as sent. */
     public sealed class NoFillReason(private val wireName: String) {

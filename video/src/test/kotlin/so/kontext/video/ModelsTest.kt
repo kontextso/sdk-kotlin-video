@@ -106,7 +106,7 @@ class ModelsTest {
         val messages = listOf(
             VideoAdException.NotInitialized(), VideoAdException.InitializationFailed(), VideoAdException.Destroyed(),
             VideoAdException.Disabled("paused"), VideoAdException.NoFill(NoFillReason.FrequencyCap),
-            VideoAdException.Request(IllegalStateException("x")), VideoAdException.CreativeFailed(405), VideoAdException.AlreadyShown(),
+            VideoAdException.Request(VideoAdException.RequestFailure.Offline), VideoAdException.CreativeFailed(405), VideoAdException.AlreadyShown(),
             VideoAdException.AnotherAdShowing(), VideoAdException.Invalidated(VideoAd.InvalidationReason.Expired), VideoAdException.NotLoaded(),
             VideoAdException.ContentPaused(), VideoAdException.ContainerTooSmall(480, 120), VideoAdException.PresenterUnavailable(),
             VideoAdException.WrongPresentation(),
@@ -114,7 +114,7 @@ class ModelsTest {
         assertTrue(messages.all { it.isNotBlank() })
         assertEquals(messages.size, messages.toSet().size)
         assertTrue("frequencyCap" in messages[4] && "405" in messages[6] && "480×120" in messages[12])
-        assertTrue(VideoAdException.Request(IllegalStateException("x")).cause is IllegalStateException)
+        assertEquals(VideoAdException.RequestFailure.Offline, VideoAdException.Request(VideoAdException.RequestFailure.Offline).failure)
     }
 
     @Test fun theValueTypesCompareByValue() {

@@ -497,7 +497,7 @@ class ParityAdsTest {
             val held = ok(ads, heldFormat)
             // The next answer leaves the held format out (so its ad is kept) and brings the same id under the other.
             serveAd(id, askedFormat.wireName)
-            format(ads, askedFormat).failure<VideoAdException.Request>()
+            assertEquals("one id under two formats", VideoAdException.RequestFailure.BadResponse, format(ads, askedFormat).failure<VideoAdException.Request>().failure)
             assertNull("$askedFormat: nothing taken from the answer", ads.ads[askedFormat])
             assertSame("$heldFormat: the held ad stays", held, ads.ads[heldFormat])
             assertNull(held.invalidationReason)
@@ -525,7 +525,7 @@ class ParityAdsTest {
     @Test fun serverErrorsAreRequestErrorsNeverRetried() {
         initialize()
         adsAnswer = MockResponse().setResponseCode(400).setBody("""{"errors": [{"status": "400", "code": "invalidRequest"}]}""")
-        format(videoAds()).failure<VideoAdException.Request>()
+        assertEquals(VideoAdException.RequestFailure.Server(400), format(videoAds()).failure<VideoAdException.Request>().failure)
         settle()
         assertEquals(1, adsBodies().size)
     }

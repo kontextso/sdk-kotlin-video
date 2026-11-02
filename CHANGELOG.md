@@ -22,6 +22,10 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   throw `Invalidated(ContentChanged)` at `show`, with no beacon. So do they once the player plays another item
   than at `track`: a Media3 player's current media item (a repeat's next play included), or the optional
   `VideoAdsPlayer.currentItem`. Linear ads are not checked.
+* `VideoAdException.Request` says why the request failed: its `failure`, a `VideoAdException.RequestFailure`, is
+  `Offline` (no connection, the connection lost, the host unreachable; ask again once online), `TimedOut` (ask again
+  later), `Server(status)` (an error status; ask again later, quote `lastRequestId` if it repeats) or `BadResponse`
+  (an answer the SDK could not use; quote `lastRequestId`). The underlying exception stays in the SDK's log.
 * Viewability (MRC), beacons with the IAB and Kontext macros, error and debug reports when the server asks.
 * A linear ad under another Activity (translucent, or a sheet such as a store's in-app overlay) reads as exposure 0 on
   every tick: its page pauses, no `viewable` fires, and the dwell starts over once the cover goes. A dialog over it

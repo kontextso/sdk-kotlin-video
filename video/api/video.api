@@ -522,7 +522,32 @@ public final class so/kontext/video/VideoAdException$PresenterUnavailable : so/k
 }
 
 public final class so/kontext/video/VideoAdException$Request : so/kontext/video/VideoAdException {
-	public fun <init> (Ljava/lang/Throwable;)V
+	public fun <init> (Lso/kontext/video/VideoAdException$RequestFailure;)V
+	public final fun getFailure ()Lso/kontext/video/VideoAdException$RequestFailure;
+}
+
+public abstract class so/kontext/video/VideoAdException$RequestFailure {
+	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAdException$RequestFailure$BadResponse : so/kontext/video/VideoAdException$RequestFailure {
+	public static final field INSTANCE Lso/kontext/video/VideoAdException$RequestFailure$BadResponse;
+}
+
+public final class so/kontext/video/VideoAdException$RequestFailure$Offline : so/kontext/video/VideoAdException$RequestFailure {
+	public static final field INSTANCE Lso/kontext/video/VideoAdException$RequestFailure$Offline;
+}
+
+public final class so/kontext/video/VideoAdException$RequestFailure$Server : so/kontext/video/VideoAdException$RequestFailure {
+	public fun <init> (I)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getStatus ()I
+	public fun hashCode ()I
+}
+
+public final class so/kontext/video/VideoAdException$RequestFailure$TimedOut : so/kontext/video/VideoAdException$RequestFailure {
+	public static final field INSTANCE Lso/kontext/video/VideoAdException$RequestFailure$TimedOut;
 }
 
 public final class so/kontext/video/VideoAdException$WrongPresentation : so/kontext/video/VideoAdException {

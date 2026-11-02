@@ -264,7 +264,7 @@ class RacesTest {
         val call = format(ads)
         await { call.result != null }
         val error = call.result!!.exceptionOrNull() as VideoAdException.Request
-        assertTrue(error.cause is so.kontext.video.internal.network.ApiException.Decoding)
+        assertEquals(VideoAdException.RequestFailure.BadResponse, error.failure)
         ads.destroy()
     }
 }

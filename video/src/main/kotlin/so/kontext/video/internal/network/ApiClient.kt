@@ -71,7 +71,7 @@ internal class ApiClient(
                 } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
                     // A redirect to a port out of range, a revoked network permission, a TLS provider's own
                     // runtime exception, an answer too big for memory: the request failed, the app goes on.
-                    Result.failure(ApiException.Transport(IOException(error)))
+                    Result.failure(ApiException.Transport(UnexpectedFailure(error)))
                 }
                 // A cancelled caller has gone already; its result is dropped.
                 if (continuation.isActive) continuation.resumeWith(result)
@@ -122,7 +122,7 @@ internal class ApiClient(
                 // Only to http or https, and never down from https: anything else is the answer, not followed.
                 if (next == null || next.protocol !in FOLLOWED_SCHEMES || (url.protocol == "https" && next.protocol != "https")) {
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                    if (connection.contentLengthLong > MAX_BODY_BYTES) throw IOException("the answer is over $MAX_BODY_BYTES bytes")
+                    if (connection.contentLengthLong > MAX_BODY_BYTES) throw ResponseTooLarge()
                     return status to (stream?.use(::readCapped) ?: "")
                 }
                 if (status !in KEEP_METHOD) post = false
@@ -142,7 +142,7 @@ internal class ApiClient(
             val read = stream.read(buffer, 0, minOf(buffer.size.toLong(), MAX_BODY_BYTES + 1L - out.size()).toInt())
             if (read == -1) break
             out.write(buffer, 0, read)
-            if (out.size() > MAX_BODY_BYTES) throw IOException("the answer is over $MAX_BODY_BYTES bytes")
+            if (out.size() > MAX_BODY_BYTES) throw ResponseTooLarge()
         }
         return out.toString(Charsets.UTF_8.name())
     }

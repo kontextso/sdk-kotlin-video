@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -25,6 +26,7 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
+import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.support.Environment
@@ -168,6 +170,31 @@ class VideoAdsTest {
         val now = Environment.now()
         Environment.now = { now + 600_001 }
         assertTrue("an expired held ad is not a fallback", format(ads, AdFormat.PAUSE).exceptionOrNull() is VideoAdException.Request)
+        ads.destroy()
+    }
+
+    /** What the app reads from a failed `format()`, end to end: each kind of failure as its reason. */
+    @Test fun aFailedRequestSaysWhy() {
+        initialize()
+        val tooBig = "{\"a\":\"" + "x".repeat(so.kontext.video.internal.network.ApiClient.MAX_BODY_BYTES) + "\"}"
+        val failures = listOf(
+            // Cut off mid-answer: what arrived cannot be decoded. (Offline, which this harness cannot stage
+            // reliably, as its dropped connections may be pooled ones the platform retries, is RequestFailureTest's.)
+            MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString()).setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY) to
+                RequestFailure.BadResponse,
+            MockResponse().setResponseCode(503) to RequestFailure.Server(503),
+            MockResponse().setResponseCode(422).setBody("""{"errors": [{"code": "invalidRequest"}]}""") to RequestFailure.Server(422),
+            MockResponse().setBody("[1, 2]") to RequestFailure.BadResponse,
+            MockResponse().setBody("<html></html>") to RequestFailure.BadResponse,
+            MockResponse() to RequestFailure.BadResponse, // zero bytes
+            MockResponse().setBody(tooBig) to RequestFailure.BadResponse,
+        )
+        val ads = VideoAds(Content("ep", "en"))
+        for ((answer, reason) in failures) {
+            adsAnswer = answer
+            val error = format(ads, AdFormat.PAUSE).exceptionOrNull()
+            assertEquals("$reason", reason, (error as VideoAdException.Request).failure)
+        }
         ads.destroy()
     }
 

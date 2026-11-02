@@ -105,7 +105,7 @@ public class VideoAds @JvmOverloads constructor(
      * `reject()`. Every call asks the server for all formats and lists the unshown ads it holds (`held`); the
      * server returns those unchanged until they expire, so the same ad comes back. Calls made while a request
      * runs share it. A failed request returns the held ad when it is still valid. Throws [VideoAdException]:
-     * `NoFill`, `Request` (nothing valid held), `Destroyed`, `Disabled`, `NotInitialized`, `InitializationFailed`.
+     * `NoFill`, `Request` (nothing valid held; its `failure` says why), `Destroyed`, `Disabled`, `NotInitialized`, `InitializationFailed`.
      * A cancelled caller stops waiting; the request itself continues. Callable from any dispatcher: the work
      * runs on the main thread.
      */
@@ -297,7 +297,7 @@ public class VideoAds @JvmOverloads constructor(
                         failure = ErrorReporter.RequestFailure(error),
                         recovery = if (holdsAds) ErrorReporter.Recovery.HELD_ADS_KEPT else ErrorReporter.Recovery.NO_AD,
                     )
-                    throw VideoAdException.Request(error)
+                    throw VideoAdException.Request(VideoAdException.RequestFailure.from(error))
                 }
                 receive(response, built.requestId)
             }

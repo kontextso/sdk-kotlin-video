@@ -15,6 +15,12 @@ internal sealed class ApiException(message: String, cause: Throwable? = null) : 
     class Decoding(cause: Throwable) : ApiException("decoding error: ${cause.message}", cause)
 }
 
+/** The answer is over [ApiClient.MAX_BODY_BYTES]: never read whole, so an answer the SDK cannot use. */
+internal class ResponseTooLarge : IOException("the answer is over ${ApiClient.MAX_BODY_BYTES} bytes")
+
+/** The exchange threw something other than an `IOException`: a request the SDK could not complete as the contract says. */
+internal class UnexpectedFailure(cause: Throwable) : IOException(cause)
+
 /** One item of the server's error body; every field lenient. */
 internal class ErrorItem(val status: String?, val code: String?, val title: String?, val detail: String?) {
     /** The item as one log phrase: `title`, else `detail`, else `code`. */
