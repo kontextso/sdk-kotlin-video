@@ -112,7 +112,7 @@ class ParityContentTest : SdkTest() {
             every { player.playWhenReady } answers { playWhenReady }
             every { player.playbackState } answers { state }
             every { player.playbackSuppressionReason } returns Media3Player.PLAYBACK_SUPPRESSION_REASON_NONE
-            every { player.currentPosition } returns 0
+            every { player.contentPosition } returns 0
             every { player.addListener(capture(listener)) } returns Unit
         }
     }

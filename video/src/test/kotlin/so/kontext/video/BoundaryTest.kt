@@ -5,6 +5,7 @@ import android.graphics.Rect
 import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
+import androidx.media3.common.C
 import androidx.media3.common.FlagSet
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -12,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -115,13 +117,18 @@ class BoundaryTest {
         every { player.playWhenReady } returns true
         every { player.playbackState } returns Player.STATE_READY
         every { player.playbackSuppressionReason } returns Player.PLAYBACK_SUPPRESSION_REASON_NONE
-        every { player.currentPosition } returns 0
+        every { player.contentPosition } returns 0
+        every { player.isPlayingAd } returns false
         val listener = slot<Player.Listener>()
         every { player.addListener(capture(listener)) } returns Unit
         return player to { listener.captured }
     }
 
     private fun events(event: Int) = Player.Events(FlagSet.Builder().add(event).build())
+
+    /** A position in the content, or in the player's own ad of [adGroup]. */
+    private fun position(millis: Long, adGroup: Int = C.INDEX_UNSET) =
+        Player.PositionInfo(null, 0, null, null, 0, millis, millis, adGroup, if (adGroup == C.INDEX_UNSET) C.INDEX_UNSET else 0)
 
     @Test fun anotherMediaItemEndsTheOverlayWhileStillPlaying() {
         val (player, listener) = media3()
@@ -153,7 +160,7 @@ class BoundaryTest {
         var position = 0L
         Environment.now = { now }
         val (player, listener) = media3()
-        every { player.currentPosition } answers { position }
+        every { player.contentPosition } answers { position }
         val owner = owner()
         owner.track(player)
         val ad = overlay(owner, duration = "500")
@@ -161,10 +168,48 @@ class BoundaryTest {
         // A jump that playback could explain (900 ms in a second): only the seek event tells it apart.
         now = 1000
         position = 900
-        listener().onPositionDiscontinuity(mockk(relaxed = true), mockk(relaxed = true), Player.DISCONTINUITY_REASON_SEEK)
+        listener().onPositionDiscontinuity(position(0), position(900), Player.DISCONTINUITY_REASON_SEEK)
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
         assertFalse(ad.hasEnded)
         assertEquals(0L, ad.contentProgress!!.elapsedMillis)
+    }
+
+    @Test fun thePlayersOwnAdIsNotContentTheOverlayEndsAndThePlayheadIsTheContents() {
+        val (player, listener) = media3()
+        val owner = owner()
+        owner.track(player)
+        val ad = overlay(owner)
+        val container = container()
+        ad.show(container)
+        // A mid-roll of the player's own ads loader: the position inside it is the ad's, the content's stays.
+        every { player.isPlayingAd } returns true
+        every { player.currentPosition } returns 0
+        every { player.contentPosition } returns 40_000
+        listener().onPositionDiscontinuity(position(40_000), position(0, adGroup = 0), Player.DISCONTINUITY_REASON_AUTO_TRANSITION)
+        assertTrue("the overlay does not run over another ad", ad.hasEnded)
+        assertEquals(40_000L, owner.playheadMillis)
+        val next = overlay(owner)
+        try {
+            next.show(container)
+            fail("shown over the player's own ad")
+        } catch (_: VideoAdException.ContentPaused) {
+        }
+        // Back to the content.
+        every { player.isPlayingAd } returns false
+        listener().onPositionDiscontinuity(position(0, adGroup = 0), position(40_000), Player.DISCONTINUITY_REASON_AUTO_TRANSITION)
+        next.show(container)
+        assertTrue(next.wasShown)
+        next.dismiss()
+    }
+
+    @Test fun aPlayerOnAnotherLooperIsNotFollowedAndNothingThrows() {
+        val (player, _) = media3()
+        every { player.applicationLooper } returns mockk(relaxed = true)
+        val owner = owner()
+        owner.track(player)
+        verify(exactly = 0) { player.addListener(any()) }
+        assertFalse("not playing: no overlay over a player the SDK cannot read", owner.playback.isPlaying)
+        assertEquals(0L, owner.playheadMillis)
     }
 
     @Test fun anEndedAdHoldsNoActivity() {

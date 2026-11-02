@@ -3,7 +3,9 @@
 package so.kontext.video.media3
 
 import android.os.Looper
+import android.util.Log
 import androidx.annotation.MainThread
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import so.kontext.video.VideoAds
@@ -12,7 +14,9 @@ import java.lang.ref.WeakReference
 
 /**
  * Follows a Media3 [player] (an `ExoPlayer`, a `MediaController`): `ads.track(exoPlayer)`. The player must
- * run on the main looper, as the SDK reads it from the main thread. Held weakly.
+ * run on the main looper, as the SDK reads it from the main thread; one on another looper is not followed
+ * (an error in the log), and the content counts as not playing. Held weakly. While the player plays an ad of
+ * its own (an ads loader, inserted ads), the content counts as not playing and its position is the content's.
  */
 @MainThread
 public fun VideoAds.track(player: Player) {
@@ -26,14 +30,21 @@ public fun VideoAds.track(player: Player) {
  *
  * Media3 batches the events of one looper iteration and calls `onEvents` once, with the state as it is at the
  * end; a pause and a resume in the same iteration would be lost there. So the adapter follows the individual
- * callbacks, keeps its own copy of the three facts from their parameters, and tells the SDK each change.
+ * callbacks, keeps its own copy of the facts from their parameters, and tells the SDK each change.
+ *
+ * An ad the player inserts itself is not content: an overlay over it would sit on another ad, and its
+ * position is the ad's. Every move into or out of such an ad is a position discontinuity whose new position
+ * names its ad group.
  */
 internal class Media3Player(player: Player) : VideoAdsPlayer {
-    private val player = WeakReference(player)
+    // A player on another looper is never read: the SDK reads on the main thread, which would be a crash in
+    // the player's own checks, or a race. Not thrown either: a release build carries on, without the player.
+    private val player = WeakReference(player.takeIf { it.applicationLooper == Looper.getMainLooper() })
     private val listeners = mutableListOf<VideoAdsPlayer.Listener>()
-    private var playWhenReady = player.playWhenReady
-    private var playbackState = player.playbackState
-    private var suppression = player.playbackSuppressionReason
+    private var playWhenReady = this.player.get()?.playWhenReady ?: false
+    private var playbackState = this.player.get()?.playbackState ?: Player.STATE_IDLE
+    private var suppression = this.player.get()?.playbackSuppressionReason ?: Player.PLAYBACK_SUPPRESSION_REASON_NONE
+    private var playingAd = this.player.get()?.isPlayingAd ?: false
     private var lastPlaying = playing()
 
     private val playerListener = object : Player.Listener {
@@ -59,19 +70,27 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         }
 
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+            playingAd = newPosition.adGroupIndex != C.INDEX_UNSET
             if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
                 listeners.toList().forEach { it.onSeek() }
             }
+            playingMayHaveChanged()
         }
     }
 
     init {
-        require(player.applicationLooper == Looper.getMainLooper()) { "the player must run on the main looper" }
+        if (this.player.get() == null) {
+            Log.e("KontextVideo", "track(player): the player runs on another looper, not the main one; it is not followed and the content counts as not playing")
+        }
     }
 
-    override val currentPositionMillis: Long get() = player.get()?.currentPosition ?: 0
+    /** The content's position, also while the player plays an ad of its own. */
+    override val currentPositionMillis: Long get() = player.get()?.contentPosition ?: 0
 
-    override val isPlaying: Boolean get() = player.get()?.let { it.playWhenReady && it.playbackState.isActive() && it.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE } ?: false
+    override val isPlaying: Boolean
+        get() = player.get()?.let {
+            it.playWhenReady && it.playbackState.isActive() && it.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE && !it.isPlayingAd
+        } ?: false
 
     override val playbackSpeed: Float? get() = player.get()?.playbackParameters?.speed
 
@@ -81,6 +100,7 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
                 playWhenReady = it.playWhenReady
                 playbackState = it.playbackState
                 suppression = it.playbackSuppressionReason
+                playingAd = it.isPlayingAd
                 lastPlaying = playing()
                 it.addListener(playerListener)
             }
@@ -93,7 +113,7 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         if (listeners.isEmpty()) player.get()?.removeListener(playerListener)
     }
 
-    private fun playing(): Boolean = playWhenReady && playbackState.isActive() && suppression == Player.PLAYBACK_SUPPRESSION_REASON_NONE
+    private fun playing(): Boolean = playWhenReady && playbackState.isActive() && suppression == Player.PLAYBACK_SUPPRESSION_REASON_NONE && !playingAd
 
     private fun playingMayHaveChanged() {
         val playing = playing()
