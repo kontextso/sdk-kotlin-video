@@ -7,10 +7,12 @@ import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 
 /**
- * The time an overlay or pause ad spends on screen while its window is visible (the Activity started):
- * `overlayViewDuration` reports it, and an overlay's duration runs on it, so both freeze while the app is in
- * the background, and resume on return (another Activity of the app covering it ends the ad instead). It
- * only counts and tells; the ad decides what an elapsed duration means. The host view tells it when its window shows or hides.
+ * The time an overlay or pause ad is seen: its window visible (the Activity started) and some of it on screen,
+ * as the viewability meter measures. `overlayViewDuration` reports it, and an overlay's duration runs on it, so
+ * both freeze while the app is in the background or the ad is scrolled out of view, and resume on return
+ * (another Activity of the app covering it ends the ad instead). It only counts and tells; the ad decides what
+ * an elapsed duration means. The host view tells it when its window shows or hides, the meter when the ad is
+ * seen.
  */
 internal class ActiveTimeClock(
     private val durationMillis: Long?,
@@ -20,6 +22,8 @@ internal class ActiveTimeClock(
     private var since: Long? = null
     private var accumulated = 0L
     private var started = false
+    private var windowVisible = false
+    private var seen = true
     private var stopped = false
     private var expired = false
     private var timer: Job? = null
@@ -27,23 +31,39 @@ internal class ActiveTimeClock(
     /** An active stretch is running. */
     val isCounting: Boolean get() = since != null
 
-    /** Called when an active stretch begins after the clock started: the window came back. */
+    /** Called when the window came back after the clock started. */
     var onActivate: (() -> Unit)? = null
 
     /** Milliseconds on screen while visible, the current stretch included. */
     val elapsedMillis: Long get() = accumulated + (since?.let { Environment.now() - it } ?: 0)
 
-    /** The ad is on screen; counts from now when its window is visible. */
-    fun start(visible: Boolean) {
+    /** The ad is on screen; counts from now when its window is visible and the ad [seen]. */
+    fun start(visible: Boolean, seen: Boolean = true) {
         if (stopped || started) return
         started = true
-        if (visible) resume(notify = false)
+        windowVisible = visible
+        this.seen = seen
+        update()
     }
 
     /** The host's window was shown or hidden. */
     fun windowVisibilityChanged(visible: Boolean) {
         if (!started || stopped) return
-        if (visible) resume(notify = true) else pause()
+        val returned = visible && !windowVisible
+        windowVisible = visible
+        update()
+        if (returned) onActivate?.invoke()
+    }
+
+    /** The meter found the ad seen, or not seen at all. */
+    fun seenChanged(seen: Boolean) {
+        if (!started || stopped) return
+        this.seen = seen
+        update()
+    }
+
+    private fun update() {
+        if (windowVisible && seen) resume() else pause()
     }
 
     /** The ad ended: the clock freezes for good and returns the active time it counted. */
@@ -65,11 +85,10 @@ internal class ActiveTimeClock(
         if (!stopped) Logger.debug { "ad ${adId.take(8)}: clock frozen at $accumulated ms on screen" }
     }
 
-    private fun resume(notify: Boolean) {
+    private fun resume() {
         if (stopped || since != null) return
         since = Environment.now()
         startTimer()
-        if (notify) onActivate?.invoke()
     }
 
     private fun startTimer() {

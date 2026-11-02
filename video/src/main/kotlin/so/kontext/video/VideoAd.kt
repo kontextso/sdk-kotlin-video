@@ -713,7 +713,7 @@ public class VideoAd internal constructor(
                 end(EndReason.COMPLETED)
             }
             presentation?.clock = clock
-            clock.start(visible = hostView?.windowVisibility == View.VISIBLE)
+            clock.start(visible = hostView?.windowVisibility == View.VISIBLE, seen = meter?.isSeen ?: true)
             startFollowingContent()
             hostView?.activity?.let(::followHoldingActivity)
         }
@@ -781,6 +781,19 @@ public class VideoAd internal constructor(
         }
         // Another Activity over a linear ad's screen leaves its view in a visible window, measured whole there.
         meter.isCovered = { linearScreen?.isCovered == true }
+        // The meter is the one answer to "is it seen": the clock counts only then, and an overlay or pause ad
+        // nobody can see while the app is in front (a feed cell swiped away) ends and frees the slot. Not a linear
+        // ad: a sheet over it after a click is the viewer's own doing.
+        meter.onSeen = { seen -> clock?.seenChanged(seen) }
+        if (format != AdFormat.LINEAR) {
+            meter.isActive = { Environment.isAppInForeground() && hostView?.windowVisibility == View.VISIBLE }
+            meter.onOffScreen = {
+                if (!hasEnded) {
+                    Logger.warning { "ad ${id.take(8)}: nothing of it seen for ${ViewabilityMeter.offScreenGraceMillis} ms; ended as interrupted" }
+                    end(EndReason.INTERRUPTED)
+                }
+            }
+        }
         presentation?.meter = meter
         meter.start()
     }

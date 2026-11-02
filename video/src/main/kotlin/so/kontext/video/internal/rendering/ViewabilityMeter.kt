@@ -38,6 +38,24 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
      */
     var isCovered: (() -> Boolean)? = null
 
+    /**
+     * Whether any of the ad can be seen, from the first measurement on (true before it): the one answer to "is
+     * it seen" the clock and the off-screen rule follow. [onSeen] hears every change.
+     */
+    var isSeen = true
+        private set
+    var onSeen: ((Boolean) -> Unit)? = null
+
+    /** Whether the ad's window is in front: the off-screen rule counts only then. */
+    var isActive: () -> Boolean = { true }
+
+    /**
+     * Nothing of the ad was seen for [offScreenGraceMillis] while [isActive], after the first measurement: a view
+     * scrolled or paged away while it stays in its window. On every tick from then.
+     */
+    var onOffScreen: (() -> Unit)? = null
+    private var unseenSince: Long? = null
+
     var verdict: Verdict? = null
         private set
 
@@ -104,8 +122,13 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         val (percentage, visible) = seen(view)
         report(percentage, visible)
         if (stopped) return
+        checkOffScreen(now)
+        if (!stopped) countDwell(percentage, now, stalled)
+    }
+
+    /** The MRC rule's continuous seconds at 50 % or more; a gap between ticks starts them again. */
+    private fun countDwell(percentage: Double, now: Long, stalled: Boolean) {
         if (percentage >= THRESHOLD && countsTime) {
-            // A gap between ticks breaks the continuity the rule asks for: the clock starts again.
             if (exposedSince == null || stalled) exposedSince = now
             exposedSince?.let { if (now - it >= requiredMillis) decide(Verdict.VIEWABLE) }
         } else {
@@ -116,11 +139,25 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     /** The view's exposure, or none while something covers it. */
     private fun seen(view: View): Pair<Double, Rect> = if (isCovered?.invoke() == true) 0.0 to Rect() else exposure(view)
 
+    private fun checkOffScreen(now: Long) {
+        if (!measured || isSeen || !isActive()) {
+            unseenSince = null
+            return
+        }
+        val since = unseenSince ?: now.also { unseenSince = it }
+        if (now - since >= offScreenGraceMillis) onOffScreen?.invoke()
+    }
+
     private fun report(percentage: Double, visible: Rect) {
         if (!measured) {
             val view = view.get() ?: return
             if (!FirstLayout.isLaidOutInWindow(view)) return
             measured = true
+        }
+        val seen = percentage > 0
+        if (seen != isSeen) {
+            isSeen = seen
+            onSeen?.invoke(seen)
         }
         val rounded = Math.round(percentage * 100) / 100.0
         if (rounded == lastPercentage && visible == lastVisible) return
@@ -152,6 +189,9 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
 
         /** How often the box is measured. A constant in spirit; a variable so the tests can shrink it. */
         var intervalMillis = 250L
+
+        /** How long an ad may stay unseen in front before it ends; a variable so the tests can shrink it. */
+        var offScreenGraceMillis = 1_000L
         const val SHORTEST_STALL_MILLIS = 500L
         const val THRESHOLD = 0.5
 

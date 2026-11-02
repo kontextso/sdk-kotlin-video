@@ -38,5 +38,8 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   iOS.
 * Every accepted click fires `click` entries: an `endCard` click on an ad without end-card entries fires the main
   creative's.
+* An overlay or pause ad's time on screen (`overlayViewDuration`, an untracked overlay's duration) counts only while
+  some of it is seen, as the viewability meter measures; one nobody can see for a second while the app is in front
+  (a feed cell swiped away) ends `INTERRUPTED` and frees the app's one slot.
 * KontextKit for Android 0.1.0: the SDK ships no Open Measurement binary.
 * Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.
