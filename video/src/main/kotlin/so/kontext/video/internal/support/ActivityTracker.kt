@@ -20,6 +20,20 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     private val resumed = WeakHashMap<Activity, Boolean>()
     private var registeredWith = WeakReference<Application>(null)
 
+    /** What happened to an Activity, for the ads on screen that follow the Activity holding them. */
+    enum class Event { STOPPED, DESTROYED }
+
+    /** Told after the tracker noted the event; an ad adds itself while it is on screen. */
+    private val listeners = mutableListOf<(Activity, Event) -> Unit>()
+
+    fun addListener(listener: (Activity, Event) -> Unit) {
+        listeners += listener
+    }
+
+    fun removeListener(listener: (Activity, Event) -> Unit) {
+        listeners.removeAll { it === listener }
+    }
+
     /** Something of the app was on screen at registration, and no lifecycle event has come since. */
     private var visibleAtRegistration = false
 
@@ -65,6 +79,7 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         started.clear()
         resumed.clear()
         visibleAtRegistration = false
+        listeners.clear()
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
@@ -93,6 +108,7 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         visibleAtRegistration = false
         started.remove(activity)
         resumed[activity] = false
+        notify(activity, Event.STOPPED)
     }
 
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
@@ -100,5 +116,9 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     override fun onActivityDestroyed(activity: Activity) {
         started.remove(activity)
         resumed.remove(activity)
+        notify(activity, Event.DESTROYED)
     }
+
+    // A copy: a listener ends its ad, which removes it from the list.
+    private fun notify(activity: Activity, event: Event) = listeners.toList().forEach { it(activity, event) }
 }

@@ -859,6 +859,49 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
     }
 
+    /** A player screen the test drives, and a container in its window, as `container()` makes one. */
+    private fun playerScreen(): Pair<ActivityController<Activity>, FrameLayout> {
+        val controller = Robolectric.buildActivity(Activity::class.java).setup()
+        val view = FrameLayout(controller.get())
+        controller.get().setContentView(view)
+        view.layout(0, 0, 320, 400)
+        idle()
+        view.layout(0, 0, 320, 400)
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(view, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        return controller to view
+    }
+
+    @Test fun anotherScreenOfTheAppOverAShownPauseAdEndsItInterrupted() {
+        for (ad in listOf(pause(), overlay())) {
+            val recorder = Recorder()
+            ad.listener = recorder
+            val (player, container) = playerScreen()
+            ad.show(container)
+            // The app starts a screen of its own over the player: it starts before the player stops.
+            val cover = Robolectric.buildActivity(Activity::class.java).setup()
+            player.pause().stop()
+            assertEquals("as on iOS, where a full-screen cover takes the view out of its window", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+            assertEquals(0, hosts(container))
+            cover.pause().stop().destroy()
+            player.destroy()
+        }
+    }
+
+    @Test fun theAppGoingToTheBackgroundKeepsAShownPauseAd() {
+        val recorder = Recorder()
+        val ad = pause()
+        ad.listener = recorder
+        val (player, container) = playerScreen()
+        ad.show(container)
+        player.pause().stop() // Home: nothing of the app is started any more
+        idle(1_000)
+        assertFalse("the background only freezes it", ad.hasEnded)
+        player.restart().start().resume()
+        assertFalse(ad.hasEnded)
+        ad.dismiss()
+        assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+    }
+
     @Test fun aLinearScreenCoveredByAnotherWaitsAndEndsOnceLater() {
         val recorder = Recorder()
         val ad = linear()

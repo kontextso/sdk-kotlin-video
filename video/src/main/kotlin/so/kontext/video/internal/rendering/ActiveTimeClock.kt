@@ -9,8 +9,8 @@ import so.kontext.video.internal.support.Logger
 /**
  * The time an overlay or pause ad spends on screen while its window is visible (the Activity started):
  * `overlayViewDuration` reports it, and an overlay's duration runs on it, so both freeze while the app is in
- * the background or another Activity covers it, and resume on return. It only counts and tells; the ad
- * decides what an elapsed duration means. The host view tells it when its window shows or hides.
+ * the background, and resume on return (another Activity of the app covering it ends the ad instead). It
+ * only counts and tells; the ad decides what an elapsed duration means. The host view tells it when its window shows or hides.
  */
 internal class ActiveTimeClock(
     private val durationMillis: Long?,

@@ -1,5 +1,6 @@
 package so.kontext.video
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
@@ -23,6 +24,9 @@ import so.kontext.video.internal.ad.handle
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.wire.AdPayload
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /** `show(container)` on real views in a real window: what is off screen or refuses the ad is not shown. */
 @RunWith(AndroidJUnit4::class)
@@ -148,4 +152,55 @@ class InlineShowTest {
             }
         }
     }
+
+    @Test fun anotherScreenOfTheAppOverTheAdEndsItInterrupted() {
+        main {
+            Environment.context = instrumentation.targetContext
+            Environment.sendBeacon = { _, _ -> }
+            Sdk.configureForTesting(Configuration("test-token"))
+        }
+        val activity = instrumentation.startActivitySync(
+            Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        ) as TestHostActivity
+        lateinit var player: FrameLayout
+        main {
+            player = FrameLayout(activity)
+            activity.setContentView(player)
+        }
+        instrumentation.waitForIdleSync()
+        val ended = CountDownLatch(1)
+        var cover: Activity? = null
+        lateinit var owner: VideoAds
+        try {
+            main {
+                owner = VideoAds(Content("ep", "en"))
+                ad(owner).apply {
+                    listener = object : VideoAdListener {
+                        override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                            endReasons += reason
+                            ended.countDown()
+                        }
+                    }
+                    show(player)
+                }
+            }
+            instrumentation.waitForIdleSync()
+            // The app opens a screen of its own over the player, as a sign-in or an episode list would.
+            val monitor = instrumentation.addMonitor(CoverActivity::class.java.name, null, false)
+            main { activity.startActivity(Intent(activity, CoverActivity::class.java)) }
+            cover = instrumentation.waitForMonitorWithTimeout(monitor, 10_000)
+            assertTrue("the ad ended", ended.await(10, TimeUnit.SECONDS))
+            assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), endReasons.toList())
+        } finally {
+            main {
+                owner.destroy()
+                cover?.finish()
+                activity.finish()
+                Sdk.resetForTesting()
+                Environment.reset()
+            }
+        }
+    }
+
+    private val endReasons: MutableList<VideoAd.EndReason> = Collections.synchronizedList(mutableListOf())
 }

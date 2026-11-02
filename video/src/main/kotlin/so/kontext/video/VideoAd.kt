@@ -126,6 +126,9 @@ public class VideoAd internal constructor(
     internal var contentWasPaused = false
     private var impressionRecorded = false
 
+    /** Follows the Activity the ad depends on while it is on screen; removed when the ad ends. */
+    private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
+
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
 
     private val bridge: FrameBridge
@@ -360,6 +363,28 @@ public class VideoAd internal constructor(
         }
         Logger.warning { "ad ${id.take(8)}: cannot show, $why; the ad stays ready" }
         return false
+    }
+
+    /**
+     * Another Activity of the app covers the one holding the container (it stopped while the app stays in
+     * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
+     * its window. The app going to the background only freezes the ad's clock; a stop for a configuration
+     * change recreates the Activity, and the container leaving the window ends the ad there.
+     */
+    private fun followHoldingActivity(holder: Activity) = follow(holder) { activity, event ->
+        if (event == ActivityTracker.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
+            Logger.warning { "ad ${id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
+            end(EndReason.INTERRUPTED)
+        }
+    }
+
+    /** Hears [activity]'s stop and destroy until the ad ends. */
+    private fun follow(activity: Activity, onEvent: (Activity, ActivityTracker.Event) -> Unit) {
+        val target = WeakReference(activity)
+        val listener: (Activity, ActivityTracker.Event) -> Unit = { which, event -> if (which === target.get() && !hasEnded) onEvent(which, event) }
+        activityListener?.let(ActivityTracker::removeListener)
+        activityListener = listener
+        ActivityTracker.addListener(listener)
     }
 
     /** The Activity the view is in, through any context wrappers. */
@@ -608,6 +633,7 @@ public class VideoAd internal constructor(
             this.clock = clock
             clock.start(visible = hostView?.windowVisibility == View.VISIBLE)
             startFollowingContent()
+            hostView?.activity?.let(::followHoldingActivity)
         }
         // At `ad.show`: creativeView and the AdChoices icon's view; the impression too for an image or HTML
         // creative, while a video's waits for its first frame (`video.start`). Every beacon may read the app's
@@ -675,6 +701,8 @@ public class VideoAd internal constructor(
     private fun endNow(reason: EndReason) {
         if (!wasShown || hasEnded) return
         hasEnded = true
+        activityListener?.let(ActivityTracker::removeListener)
+        activityListener = null
         if (reason == EndReason.FAILED) failure?.let { listener?.onAdFailed(this, it) }
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
         val activeTime = clock?.stop() ?: 0
@@ -950,7 +978,9 @@ public class VideoAd internal constructor(
 
         /**
          * The presentation disappeared for a reason the SDK did not cause: the container left the window or
-         * became too small for the ad, the linear ad's screen was destroyed under it. For an overlay with a
+         * became too small for the ad, another screen of the app covered the container's (its Activity stopped
+         * while the app stays in front; the app going to the background only pauses the ad), the linear ad's
+         * screen was destroyed under it. For an overlay with a
          * tracked player, also the content pausing, ending or moving to another item; for a pause ad with a
          * tracked player, the content playing again (resumed outside the ad: the media notification, a headset).
          */
