@@ -56,6 +56,7 @@ public object KontextVideo {
 
     /** Told once `/config` has answered or failed, on the main thread. */
     public fun interface InitializationListener {
+        /** `/config` answered or failed: [state] is where the SDK is now. */
         public fun onInitialized(state: State)
     }
 
@@ -158,17 +159,28 @@ public object KontextVideo {
             DEBUG,
         }
 
-        /** Only `publisherToken` is required. */
+        /**
+         * Only `publisherToken` is required.
+         * @property publisherToken [Configuration.publisherToken].
+         */
         public class Builder(public var publisherToken: String) {
+            /** [Configuration.logLevel]. */
             public var logLevel: LogLevel = LogLevel.WARNING
+
+            /** [Configuration.adServerUrl]. */
             public var adServerUrl: String = DEFAULT_AD_SERVER_URL
 
+            /** Sets [Configuration.logLevel]; returns this builder, for chaining. */
             public fun logLevel(value: LogLevel): Builder = apply { logLevel = value }
+
+            /** Sets [Configuration.adServerUrl]; returns this builder, for chaining. */
             public fun adServerUrl(value: String): Builder = apply { adServerUrl = value }
 
+            /** The [Configuration], from the values set. */
             public fun build(): Configuration = Configuration(this)
         }
 
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
         public companion object {
             /** Production ad server base URL. */
             public const val DEFAULT_AD_SERVER_URL: String = "https://server.megabrain.co"
@@ -248,34 +260,76 @@ public object KontextVideo {
 
         /** Sets what you know about the video; only `id` and `language` are required. */
         public class Builder(
+            /** [Content.id]. */
             public var id: String,
+            /** [Content.language]. */
             public var language: String,
         ) {
+            /** [Content.mediaRating]. */
             public var mediaRating: Rating? = null
+
+            /** [Content.url]. */
             public var url: String? = null
+
+            /** [Content.title]. */
             public var title: String? = null
+
+            /** [Content.categories]. */
             public var categories: List<String>? = null
+
+            /** [Content.description]. */
             public var description: String? = null
+
+            /** [Content.durationMillis]. */
             public var durationMillis: Long? = null
+
+            /** [Content.episodeNumber]. */
             public var episodeNumber: Int? = null
+
+            /** [Content.keywords]. */
             public var keywords: List<String>? = null
+
+            /** [Content.genre]. */
             public var genre: String? = null
+
+            /** [Content.series]. */
             public var series: Series? = null
 
+            /** Sets [Content.mediaRating]; returns this builder, for chaining. */
             public fun mediaRating(value: Rating?): Builder = apply { mediaRating = value }
+
+            /** Sets [Content.url]; returns this builder, for chaining. */
             public fun url(value: String?): Builder = apply { url = value }
+
+            /** Sets [Content.title]; returns this builder, for chaining. */
             public fun title(value: String?): Builder = apply { title = value }
+
+            /** Sets [Content.categories]; returns this builder, for chaining. */
             public fun categories(value: List<String>?): Builder = apply { categories = value }
+
+            /** Sets [Content.description]; returns this builder, for chaining. */
             public fun description(value: String?): Builder = apply { description = value }
+
+            /** Sets [Content.durationMillis]; returns this builder, for chaining. */
             public fun durationMillis(value: Long?): Builder = apply { durationMillis = value }
+
+            /** Sets [Content.episodeNumber]; returns this builder, for chaining. */
             public fun episodeNumber(value: Int?): Builder = apply { episodeNumber = value }
+
+            /** Sets [Content.keywords]; returns this builder, for chaining. */
             public fun keywords(value: List<String>?): Builder = apply { keywords = value }
+
+            /** Sets [Content.genre]; returns this builder, for chaining. */
             public fun genre(value: String?): Builder = apply { genre = value }
+
+            /** Sets [Content.series]; returns this builder, for chaining. */
             public fun series(value: Series?): Builder = apply { series = value }
 
+            /** The [Content], from the values set. */
             public fun build(): Content = Content(this)
         }
 
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
         public companion object {
             /** `KontextVideo.Content(id, language) { title = "…" }`: only `id` and `language` are required. */
             public operator fun invoke(id: String, language: String, block: Builder.() -> Unit = {}): Content =
@@ -296,19 +350,34 @@ public object KontextVideo {
             /** Total number of episodes, at least 1; anything else is left out of the request. */
             public val episodeCount: Int? = builder.episodeCount
 
-            /** Only `id` is required. */
+            /**
+             * Only `id` is required.
+             * @property id [Series.id].
+             */
             public class Builder(public var id: String) {
+                /** [Series.title]. */
                 public var title: String? = null
+
+                /** [Series.description]. */
                 public var description: String? = null
+
+                /** [Series.episodeCount]. */
                 public var episodeCount: Int? = null
 
+                /** Sets [Series.title]; returns this builder, for chaining. */
                 public fun title(value: String?): Builder = apply { title = value }
+
+                /** Sets [Series.description]; returns this builder, for chaining. */
                 public fun description(value: String?): Builder = apply { description = value }
+
+                /** Sets [Series.episodeCount]; returns this builder, for chaining. */
                 public fun episodeCount(value: Int?): Builder = apply { episodeCount = value }
 
+                /** The [Series], from the values set. */
                 public fun build(): Series = Series(this)
             }
 
+            /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
             public companion object {
                 /** `Content.Series(id) { title = "…"; episodeCount = 40 }`. */
                 public operator fun invoke(id: String, block: Builder.() -> Unit = {}): Series = Builder(id).apply(block).build()
@@ -368,19 +437,35 @@ public object KontextVideo {
 
         /** Set what you know; every field may stay `null`. */
         public class Builder {
+            /** [User.id]. */
             public var id: String? = null
+
+            /** [User.email]. */
             public var email: String? = null
+
+            /** [User.emailHash]. */
             public var emailHash: String? = null
+
+            /** [User.keywords]. */
             public var keywords: List<String>? = null
 
+            /** Sets [User.id]; returns this builder, for chaining. */
             public fun id(value: String?): Builder = apply { id = value }
+
+            /** Sets [User.email]; returns this builder, for chaining. */
             public fun email(value: String?): Builder = apply { email = value }
+
+            /** Sets [User.emailHash]; returns this builder, for chaining. */
             public fun emailHash(value: String?): Builder = apply { emailHash = value }
+
+            /** Sets [User.keywords]; returns this builder, for chaining. */
             public fun keywords(value: List<String>?): Builder = apply { keywords = value }
 
+            /** The [User], from the values set. */
             public fun build(): User = User(this)
         }
 
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
         public companion object {
             /** `User { id = "u-42" }`. */
             public operator fun invoke(block: Builder.() -> Unit): User = Builder().apply(block).build()
@@ -437,23 +522,47 @@ public object KontextVideo {
 
         /** Set only what your consent platform did not write; `coppa` can only come from you. */
         public class Builder {
+            /** [Regulatory.gdpr]. */
             public var gdpr: Boolean? = null
+
+            /** [Regulatory.gdprConsent]. */
             public var gdprConsent: String? = null
+
+            /** [Regulatory.coppa]. */
             public var coppa: Boolean? = null
+
+            /** [Regulatory.gpp]. */
             public var gpp: String? = null
+
+            /** [Regulatory.gppSid]. */
             public var gppSid: List<Int>? = null
+
+            /** [Regulatory.usPrivacy]. */
             public var usPrivacy: String? = null
 
+            /** Sets [Regulatory.gdpr]; returns this builder, for chaining. */
             public fun gdpr(value: Boolean?): Builder = apply { gdpr = value }
+
+            /** Sets [Regulatory.gdprConsent]; returns this builder, for chaining. */
             public fun gdprConsent(value: String?): Builder = apply { gdprConsent = value }
+
+            /** Sets [Regulatory.coppa]; returns this builder, for chaining. */
             public fun coppa(value: Boolean?): Builder = apply { coppa = value }
+
+            /** Sets [Regulatory.gpp]; returns this builder, for chaining. */
             public fun gpp(value: String?): Builder = apply { gpp = value }
+
+            /** Sets [Regulatory.gppSid]; returns this builder, for chaining. */
             public fun gppSid(value: List<Int>?): Builder = apply { gppSid = value }
+
+            /** Sets [Regulatory.usPrivacy]; returns this builder, for chaining. */
             public fun usPrivacy(value: String?): Builder = apply { usPrivacy = value }
 
+            /** The [Regulatory], from the values set. */
             public fun build(): Regulatory = Regulatory(this)
         }
 
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
         public companion object {
             /** `Regulatory { coppa = true }`. */
             public operator fun invoke(block: Builder.() -> Unit): Regulatory = Builder().apply(block).build()

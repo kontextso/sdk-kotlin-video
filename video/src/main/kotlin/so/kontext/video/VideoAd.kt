@@ -1020,7 +1020,10 @@ public class VideoAd internal constructor(
                 override fun toString(): String = "EndCard"
             }
 
-            /** A label of the page's own (`cta`, `logo`, ...), passed through unchanged. */
+            /**
+             * A label of the page's own (`cta`, `logo`, ...), passed through unchanged.
+             * @property label The page's label.
+             */
             public class Other(public val label: String) : Area() {
                 override fun equals(other: Any?): Boolean = other is Other && label == other.label
 

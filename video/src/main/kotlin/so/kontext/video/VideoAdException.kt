@@ -19,10 +19,16 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
     /** The `VideoAds` was destroyed. It is terminal: create a new one for the next content. */
     public class Destroyed : VideoAdException("the VideoAds was destroyed")
 
-    /** The server switched the SDK off for this app launch. Loaded ads cannot be shown either; an ad already on screen finishes normally. */
+    /**
+     * The server switched the SDK off for this app launch. Loaded ads cannot be shown either; an ad already on screen finishes normally.
+     * @property reason What the server or the SDK said, for logs.
+     */
     public class Disabled(public val reason: String) : VideoAdException("the SDK is disabled by the server ($reason)")
 
-    /** The request succeeded and the server had nothing for this format. Not a failure, and never retried by the SDK. */
+    /**
+     * The request succeeded and the server had nothing for this format. Not a failure, and never retried by the SDK.
+     * @property reason Why the server had nothing.
+     */
     public class NoFill(public val reason: NoFillReason) : VideoAdException("no fill ($reason)")
 
     /**
@@ -45,7 +51,10 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
     /** Another ad is on screen, from any `VideoAds`: at most one in the whole app. This ad is untouched and still ready. */
     public class AnotherAdShowing : VideoAdException("another ad is on screen; show this one after it ended")
 
-    /** The ad ended before it was shown: it expired, was rejected, or its creative died. `load()`, `show` and `reject()` throw it from then on. */
+    /**
+     * The ad ended before it was shown: it expired, was rejected, or its creative died. `load()` and `show` throw it from then on.
+     * @property reason Why it ended.
+     */
     public class Invalidated(public val reason: VideoAd.InvalidationReason) :
         VideoAdException("the ad ended before it was shown ($reason)")
 
@@ -59,6 +68,8 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
      * No variant of the ad fits the container: it would have to shrink below 50 % (aspect ratio kept), or
      * at all for a creative marked not scalable. The minimum is the smallest container that holds it, in
      * pixels, its insets included. The ad stays ready: show it in a bigger container, or reject it.
+     * @property minimumWidthPx The narrowest container that holds the ad, in pixels.
+     * @property minimumHeightPx The lowest container that holds the ad, in pixels.
      */
     public class ContainerTooSmall(public val minimumWidthPx: Int, public val minimumHeightPx: Int) :
         VideoAdException("the container is too small for the ad; at least $minimumWidthPx×$minimumHeightPx px are needed")
@@ -101,7 +112,10 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
         /** The server gave no reason, or one the SDK could not read. */
         public object Unknown : NoFillReason("unknown")
 
-        /** A reason this SDK version does not know, as the server sent it. */
+        /**
+         * A reason this SDK version does not know, as the server sent it.
+         * @property raw The reason as sent.
+         */
         public class Other(public val raw: String) : NoFillReason(raw) {
             override fun equals(other: Any?): Boolean = other is Other && raw == other.raw
 

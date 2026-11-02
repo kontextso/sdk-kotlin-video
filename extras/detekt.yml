@@ -70,3 +70,15 @@ empty-blocks:
   EmptyFunctionBlock:
     active: true
     ignoreOverridden: true
+
+comments:
+  # AGENTS.md: KDoc on every public declaration. The library's public API only; tests and the example are apps.
+  UndocumentedPublicClass:
+    active: true
+    excludes: [ '**/test/**', '**/androidTest/**', '**/example/**', '**/extras/**' ]
+  UndocumentedPublicFunction:
+    active: true
+    excludes: [ '**/test/**', '**/androidTest/**', '**/example/**', '**/extras/**' ]
+  UndocumentedPublicProperty:
+    active: true
+    excludes: [ '**/test/**', '**/androidTest/**', '**/example/**', '**/extras/**' ]
