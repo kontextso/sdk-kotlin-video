@@ -22,6 +22,7 @@ android {
 
     defaultConfig {
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -137,4 +138,9 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
+
+    // A real ExoPlayer on an emulator, playing a clip from the test APK's assets.
+    androidTestImplementation(libs.androidx.media3.exoplayer)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

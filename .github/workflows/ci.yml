@@ -107,7 +107,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # What needs a real WebView: the frame page's navigations, a frozen renderer, viewability on real views.
+      # What needs a real WebView (the frame page's navigations, a frozen renderer, viewability on real views)
+      # and a real ExoPlayer (the Media3 adapter over a playing clip).
       - name: Run the emulator tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -117,7 +118,7 @@ jobs:
           disable-animations: true
           disk-size: 2048M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
-          script: ./gradlew :video:connectedDebugAndroidTest
+          script: ./gradlew :video:connectedDebugAndroidTest :video-media3:connectedDebugAndroidTest
 
       - name: Upload emulator test reports
         if: always()
