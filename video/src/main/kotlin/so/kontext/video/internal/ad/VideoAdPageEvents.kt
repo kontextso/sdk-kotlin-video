@@ -51,7 +51,10 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         is FrameEvent.Click -> {
             Logger.info { "ad ${id.take(8)}: click (${event.area}) ${Logger.describe(event.url)}" }
             // One occurrence: the beacon and the click-through carry the same fire id.
-            val fireId = tracker.fire("click", part = if (event.area == Click.Area.EndCard) "endCard" else null)
+            // Every accepted click is counted: an end-card click on an ad without end-card entries (an overlay, a
+            // pause ad) fires the main creative's.
+            val endCard = event.area == Click.Area.EndCard && tracker.has("click", "endCard")
+            val fireId = tracker.fire("click", part = if (endCard) "endCard" else null)
             open(tracker.clickThrough(event.url, fireId), event.fallbackUrl?.let { tracker.clickThrough(it, fireId) })
             if (hasEnded) return
             listener?.onAdClicked(this, Click(event.area))

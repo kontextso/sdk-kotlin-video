@@ -36,5 +36,7 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   transparent.
 * A click whose `url` is missing or unusable (a space, a web link without a host) opens its valid `fallbackUrl`, as on
   iOS.
+* Every accepted click fires `click` entries: an `endCard` click on an ad without end-card entries fires the main
+  creative's.
 * KontextKit for Android 0.1.0: the SDK ships no Open Measurement binary.
 * Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.

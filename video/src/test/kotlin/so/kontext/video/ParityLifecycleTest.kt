@@ -794,6 +794,14 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
     }
 
+    @Test fun anEndCardClickOnAnAdWithoutEndCardEntriesFiresTheCreativesClick() {
+        val ad = overlay(tracking = tracking("click"))
+        ad.show(container())
+        ad.loadedBridge!!.noteTouch()
+        page(ad, "ad.click", """"url": "https://brand.test", "area": "endCard"""")
+        assertEquals("every accepted click is counted", listOf("https://t.test/b?e=click"), beacons)
+    }
+
     @Test fun anEndCardClickFiresTheEndCardsEntryOnly() {
         val ad = linear(tracking = tracking("click", "click|endCard"))
         present(ad)

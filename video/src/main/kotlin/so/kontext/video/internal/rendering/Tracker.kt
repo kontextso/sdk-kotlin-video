@@ -50,6 +50,9 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         object Destroyed : NotUsed("destroyed")
     }
 
+    /** Whether the ad has an entry named [event] for [part]. */
+    fun has(event: String, part: String?): Boolean = entries.any { it.event == event && it.part == part }
+
     /**
      * Fires every entry named [event] for [part] (`null` is the main creative) that has not fired yet. Returns
      * the occurrence's fire id, for a click-through that must carry the same one.
