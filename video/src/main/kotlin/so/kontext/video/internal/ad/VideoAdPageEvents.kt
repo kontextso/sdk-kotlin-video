@@ -113,7 +113,11 @@ internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
         return
     }
     when (reason) {
-        FrameEvent.CloseReason.COMPLETE -> end(EndReason.COMPLETED)
+        FrameEvent.CloseReason.COMPLETE -> {
+            // The page ended itself because its creative ran to its end.
+            isCompleted = true
+            end(EndReason.COMPLETED)
+        }
         FrameEvent.CloseReason.RESUME -> {
             tracker.fire("close")
             end(EndReason.RESUMED)

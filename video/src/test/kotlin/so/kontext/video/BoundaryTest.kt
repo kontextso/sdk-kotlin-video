@@ -411,7 +411,7 @@ class BoundaryTest {
 
     @Test fun theAdvertisingIdIsAnAaid() = runBlocking {
         Environment.advertisingId = { "00000000-1111-2222-3333-444444444444" }
-        val request = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", emptyList())
+        val request = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", { emptyList() })
         val ifa = request.body["ifa"]!!.jsonObject
         assertEquals("aaid", ifa["type"]!!.jsonPrimitive.content)
         assertEquals("00000000-1111-2222-3333-444444444444", ifa["id"]!!.jsonPrimitive.content)
@@ -426,7 +426,7 @@ class BoundaryTest {
         KontextVideo.regulatory = Regulatory { gdpr = false }
         var body: kotlinx.serialization.json.JsonObject? = null
         Environment.scope.launch {
-            body = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", emptyList()).body
+            body = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", { emptyList() }).body
         }
         shadowOf(Looper.getMainLooper()).idle()
         // While the user agent is read: the viewer resets the ad id, the consent changes, another user signs in.

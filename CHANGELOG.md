@@ -41,5 +41,14 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
 * An overlay or pause ad's time on screen (`overlayViewDuration`, an untracked overlay's duration) counts only while
   some of it is seen, as the viewability meter measures; one nobody can see for a second while the app is in front
   (a feed cell swiped away) ends `INTERRUPTED` and frees the app's one slot.
+* `isReady` is `false` while the SDK is switched off, for every `VideoAds`.
+* `load()` throws `CreativeFailed` whenever the creative failed, also when it failed right after it reported ready;
+  on an ad already shown it returns at once.
+* The first `track()` while an overlay is on screen leaves it there; only a change from one tracked player to another
+  ends it.
+* A page that ends itself completed (`ad.close` with `reason: complete`) sets `isCompleted`.
+* The ads request lists its `held` ads after its waits (`/config`, the user agent, the advertising id), so an ad
+  shown or rejected meanwhile is not listed.
+* The creative's 10 s load timeout counts the time that passed while the app was in front, not the ticks.
 * KontextKit for Android 0.1.0: the SDK ships no Open Measurement binary.
 * Example app: four videos with labels (inline pause, full-screen pause, overlay, linear) against the ad server.

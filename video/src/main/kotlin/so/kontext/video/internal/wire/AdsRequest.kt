@@ -19,7 +19,8 @@ import kotlin.math.roundToInt
 
 /** The body of `POST /video/ads`: every format, for one video, for one `VideoAds` session. */
 internal object AdsRequest {
-    class Built(val requestId: String, val body: JsonObject, val playheadMillis: Long)
+    /** [held]: the ids the request lists, read after its waits. */
+    class Built(val requestId: String, val body: JsonObject, val playheadMillis: Long, val held: List<String>)
 
     suspend fun make(
         context: Context,
@@ -28,7 +29,7 @@ internal object AdsRequest {
         labels: Map<String, String>,
         playheadMillis: Long,
         sessionId: String,
-        held: List<String>,
+        held: () -> List<String>,
     ): Built {
         val requestId = UUID.randomUUID().toString()
         // The slow prerequisite first: the viewer may reset the ad id, or the consent and the user may change,
@@ -40,6 +41,8 @@ internal object AdsRequest {
         val regulatory = Consent.read(context, Sdk.regulatory)
         // A child's request carries no identifier for advertising: no advertising id, no user id or email.
         val isChild = regulatory?.coppa == true
+        // The ads held now, after the waits: one shown, rejected or expired meanwhile is not listed.
+        val heldIds = held()
         val body = buildJsonObject {
             put("requestId", requestId)
             put("publisherToken", publisherToken)
@@ -75,9 +78,9 @@ internal object AdsRequest {
             put("video", content(content))
             if (labels.isNotEmpty()) put("labels", JsonObject(labels.mapValues { JsonPrimitive(it.value) }))
             put("sessionId", sessionId)
-            put("held", JsonArray(held.map(::JsonPrimitive)))
+            put("held", JsonArray(heldIds.map(::JsonPrimitive)))
         }
-        return Built(requestId, body, playheadMillis)
+        return Built(requestId, body, playheadMillis, heldIds)
     }
 
     /** The SDK assumes a full-screen player: the screen in its current orientation, in dp, and the playhead. */

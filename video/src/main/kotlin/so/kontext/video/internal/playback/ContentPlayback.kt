@@ -37,6 +37,9 @@ internal class ContentPlayback {
 
     /** `track` was called and [stop] was not since. */
     var isTracking = false
+
+    /** A player was tracked before: the first `track` hands no overlay over, it followed nothing. */
+    private var hasTracked = false
         private set
 
     private var player: VideoAdsPlayer? = null
@@ -100,9 +103,16 @@ internal class ContentPlayback {
             if (value) handler.postDelayed(tickRunnable, tickIntervalMillis)
         }
 
-    /** Replaces whatever was tracked. An overlay on screen followed the old player: once bound, it hears `ContentChanged`. */
+    /**
+     * Replaces whatever was tracked. An overlay on screen followed the old player: once bound, it hears
+     * `ContentChanged`. One shown with no player tracked followed nothing, and goes on.
+     */
     fun track(player: VideoAdsPlayer) {
         val expected = generation + 1
+        // Read before `stop()`, and set before it: a `track` nested in the old listener's removal is a change of
+        // player too.
+        val wasTracking = hasTracked
+        hasTracked = true
         stop()
         // Removing the old listener is app code: a `track` or `destroy()` there won, and this call stops.
         if (generation != expected) return
@@ -126,7 +136,7 @@ internal class ContentPlayback {
             return
         }
         adoptEpisodeItem()
-        if (inlineAdWasShown) deliver(Change.ContentChanged, generation)
+        if (inlineAdWasShown && wasTracking) deliver(Change.ContentChanged, generation)
         // The overlay's `onAdEnded` there is app code: a `track` or `destroy()` in it won.
         if (generation != this.generation) return
         claim(player)

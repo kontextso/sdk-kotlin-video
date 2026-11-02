@@ -81,8 +81,8 @@ public class VideoAd internal constructor(
     public var isLoaded: Boolean = false
         internal set
 
-    /** Loaded and still usable: `show` will not throw `NotLoaded` or `Invalidated`. */
-    public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired
+    /** Loaded and still usable: `show` will not throw `NotLoaded`, `Invalidated` or `Disabled`. */
+    public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired && Sdk.disabledReason == null
 
     /** Why the ad ended before it was shown, once it did. */
     public val invalidationReason: InvalidationReason? get() = (phase as? Phase.Invalidated)?.reason
@@ -209,7 +209,9 @@ public class VideoAd internal constructor(
     public suspend fun load(): Unit = withContext(Dispatchers.Main.immediate) { loadOnMain() }
 
     private suspend fun loadOnMain() {
-        checkUsable()
+        // Shown already: nothing to load, whatever the bid's lifetime says now.
+        if (wasShown) return
+        checkLoadable()
         if (isLoaded && loading == null) return
         val task = loading ?: startLoading()
         try {
@@ -283,6 +285,18 @@ public class VideoAd internal constructor(
         }
     }
 
+    /** [checkUsable] as `load` says it: a failed creative is `CreativeFailed`, however it was found. */
+    @Suppress("SwallowedException") // the same failure, in the form `load` promises
+    private fun checkLoadable() {
+        try {
+            checkUsable()
+        } catch (error: VideoAdException.Invalidated) {
+            val reason = error.reason
+            if (reason is InvalidationReason.CreativeFailed) throw VideoAdException.CreativeFailed(reason.code)
+            throw error
+        }
+    }
+
     private fun startLoading(): Deferred<Unit> {
         val owner = owner.get() ?: throw VideoAdException.Destroyed()
         val bridge = try {
@@ -314,11 +328,11 @@ public class VideoAd internal constructor(
                 throw error
             } catch (error: VideoAdException) {
                 // The ad ended meanwhile: say why in the order the app expects.
-                checkUsable()
+                checkLoadable()
                 throw error
             }
-            // Expired while the page loaded: the result is dropped.
-            checkUsable()
+            // Expired while the page loaded, or the creative failed right after it reported ready: the result is dropped.
+            checkLoadable()
             val durationMs = Environment.now() - started
             Logger.info { "$format ad ${id.take(8)}: ready in $durationMs ms" }
             DebugReporter.event("ad.loaded", adId = id, state = mapOf("durationMs" to durationMs))
@@ -350,8 +364,9 @@ public class VideoAd internal constructor(
     // region Showing
 
     /**
-     * Shows an overlay or pause ad inside [container], the view the content plays in. Returns once the ad is
-     * on screen. [insets] (pixels) keep it clear of your own controls, added to the system bars and cutout
+     * Shows an overlay or pause ad inside [container], the view the content plays in. It either throws, and
+     * nothing happened, or it was accepted: the ad is on screen, or, if your own code ended it during the call
+     * (a hook of the container, the impression listener), `onAdEnded` already arrived (`hasEnded == true`). [insets] (pixels) keep it clear of your own controls, added to the system bars and cutout
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
      * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
@@ -531,8 +546,9 @@ public class VideoAd internal constructor(
     }
 
     /**
-     * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Throws as
-     * `show(container)` does; `PresenterUnavailable` for an Activity that is finishing, destroyed, stopped (not
+     * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Either it throws, and
+     * nothing happened, or it was accepted and `onAdEnded` follows, at the latest once the screen is gone.
+     * Throws as `show(container)` does; `PresenterUnavailable` for an Activity that is finishing, destroyed, stopped (not
      * visible) or in picture-in-picture (the ad stays ready; try again once it is visible). A started Activity
      * that is not resumed yet is fine: `onStart`, a result or permission callback, `onNewIntent`.
      */

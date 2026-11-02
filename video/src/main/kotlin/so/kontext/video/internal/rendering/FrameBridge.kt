@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Message
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
@@ -143,11 +144,16 @@ internal class FrameBridge(
         Logger.debug { "frame ${adId.take(8)}: loading ${Logger.describe(url)}" }
         webView.loadUrl(url)
         loadTimeoutJob = Environment.scope.launch {
+            // The time that passed while the app was in front, measured, not the step added per tick: a tick that
+            // comes late (a busy main thread) counts as long as it really took.
             val step = minOf(250L, loadTimeoutMillis)
             var waited = 0L
+            var last = SystemClock.uptimeMillis()
             while (waited < loadTimeoutMillis) {
                 delay(step)
-                if (Environment.isAppInForeground()) waited += step
+                val now = SystemClock.uptimeMillis()
+                if (Environment.isAppInForeground()) waited += now - last
+                last = now
             }
             if (state != State.LOADING) return@launch
             Logger.warning { "frame ${adId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }

@@ -258,12 +258,16 @@ public class VideoAds @JvmOverloads constructor(
     }
 
     /**
-     * The request belongs to the `VideoAds`, not to the caller: nobody cancels it but [destroy]. Expired ads
-     * are dropped first (silently; the server knows `expires`), so `held` lists valid ones.
+     * The request belongs to the `VideoAds`, not to the caller: nobody cancels it but [destroy]. `held` is read
+     * after the request's waits (`/config`, the user agent, the advertising id), just before the body: an ad
+     * shown, rejected or expired meanwhile is not listed. Expired ads are dropped there (silently; the server
+     * knows `expires`), so `held` lists valid ones.
      */
     private fun startRequest(): Deferred<Map<AdFormat, NoFillReason>> {
-        ads.values.filter { it.isExpired }.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }
-        val held = AdFormat.entries.mapNotNull { ads[it]?.id }
+        val held = {
+            ads.values.filter { it.isExpired }.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }
+            AdFormat.entries.mapNotNull { ads[it]?.id }
+        }
         val task = scope.async {
             run {
                 val enabled = Sdk.waitUntilEnabled()
@@ -279,8 +283,8 @@ public class VideoAds @JvmOverloads constructor(
                 // Another video's response may have switched the SDK off meanwhile: nothing leaves.
                 checkStillUsable()
                 lastRequestId = built.requestId
-                Logger.debug { "${content.id}: requesting at playhead ${built.playheadMillis} ms, holding ${held.size}" }
-                DebugReporter.event("ads.request", state = mapOf("held" to held.size, "playhead" to built.playheadMillis))
+                Logger.debug { "${content.id}: requesting at playhead ${built.playheadMillis} ms, holding ${built.held.size}" }
+                DebugReporter.event("ads.request", state = mapOf("held" to built.held.size, "playhead" to built.playheadMillis))
                 val response = try {
                     AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", built.body)).also(::checkIdsAgainstHeld)
                 } catch (error: CancellationException) {

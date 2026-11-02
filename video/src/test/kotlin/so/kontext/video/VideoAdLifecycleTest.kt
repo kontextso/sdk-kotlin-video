@@ -488,7 +488,7 @@ class VideoAdLifecycleTest : SdkTest() {
             }
         })
         idle()
-        assertTrue(heard is VideoAdException.Invalidated)
+        assertEquals("a later load says the same", 500, (heard as VideoAdException.CreativeFailed).code)
     }
 
     @Test fun loadWithACallbackDeliversTheAdOrTheError() {

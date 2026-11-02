@@ -556,7 +556,7 @@ class ParityRequestsTest : SdkTest() {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
     private fun request(content: Content = Content("v", "en"), labels: Map<String, String> = emptyMap(), held: List<String> = emptyList()) =
-        runBlocking { AdsRequest.make(context, "pub-dev", content, labels, 12_345, "s-1", held) }
+        runBlocking { AdsRequest.make(context, "pub-dev", content, labels, 12_345, "s-1", { held }) }
 
     private fun JsonObject.obj(key: String) = this[key]!!.jsonObject
 

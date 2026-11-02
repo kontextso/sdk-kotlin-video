@@ -42,7 +42,7 @@ class GapsTest : SdkTest() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(context.packageName + "_preferences", Context.MODE_PRIVATE).edit()
             .putString("IABGPP_HDR_GppString", "cmp-gpp").putString("IABGPP_GppSID", "2_7").putString("IABUSPrivacy_String", "1YNN").commit()
-        val body = AdsRequest.make(context, "token", Content("ep", "en"), mapOf("stage" to "unlock"), 1_234, "session", listOf("held-1")).body
+        val body = AdsRequest.make(context, "token", Content("ep", "en"), mapOf("stage" to "unlock"), 1_234, "session", { listOf("held-1") }).body
         assertEquals("u-1", body["user"]!!.jsonObject["id"]!!.jsonPrimitive.content)
         assertEquals("b", body["variantId"]!!.jsonPrimitive.content)
         val regulatory = body["regulatory"]!!.jsonObject
