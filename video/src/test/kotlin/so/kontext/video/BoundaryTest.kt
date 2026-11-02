@@ -31,6 +31,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -75,7 +76,7 @@ class BoundaryTest {
 
     @After fun teardown() {
         VideoAd.presentationTimeoutMillis = 5_000
-        VideoAd.dismissalTimeoutMillis = 2_000
+        VideoAd.dismissalTimeoutMillis = 10_000
         owners.forEach { it.destroy() }
         Sdk.resetForTesting()
         Environment.reset()
@@ -273,24 +274,61 @@ class BoundaryTest {
         assertNull(Sdk.adOnScreen)
     }
 
-    @Test fun aLinearScreenThatNeverClosesIsReported() {
+    @Test fun aLinearScreenThatNeverClosesIsReportedAtTheCapAndOnAdEndedComesOnce() {
         VideoAd.dismissalTimeoutMillis = 500
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
-        val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner())
-        var ended = false
+        val owner = owner()
+        val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner)
+        val reasons = mutableListOf<VideoAd.EndReason>()
         ad.listener = object : VideoAdListener {
             override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
-                ended = true
+                reasons += reason
             }
         }
         ad.show(host)
-        // Created and resumed, so presented; Robolectric then never destroys it after finish().
-        Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
+        // Created and resumed, so presented; it never stops or is destroyed after finish().
+        val screen = Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
         ad.end(VideoAd.EndReason.CLOSED)
-        assertFalse("waits for the screen to close", ended)
+        assertTrue(screen.get().isFinishing)
+        assertTrue("waits for the screen to close", reasons.isEmpty())
+        // The screen is still taken while it closes: another ad cannot show over it.
+        val next = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner)
+        assertThrows(VideoAdException.AnotherAdShowing::class.java) { next.show(host) }
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(700))
-        assertTrue("delivered anyway", ended)
-        assertTrue(so.kontext.video.internal.support.ErrorReporter.bufferedCodes.contains("ad.dismissal_timed_out"))
+        assertEquals("delivered at the cap", listOf(VideoAd.EndReason.CLOSED), reasons)
+        assertEquals(listOf("ad.dismissal_timed_out"), so.kontext.video.internal.support.ErrorReporter.bufferedCodes)
+        // The screen goes after all: nothing more.
+        screen.pause().stop().destroy()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2_000))
+        assertEquals("once", listOf(VideoAd.EndReason.CLOSED), reasons)
+        assertEquals("reported once", 1, so.kontext.video.internal.support.ErrorReporter.bufferedCodes.size)
+        assertNull(Sdk.adOnScreen)
+        next.show(host)
+        assertTrue(next.wasShown)
+    }
+
+    @Test fun aLinearScreenThatStopsAsItFinishesDeliversOnAdEndedThenWithoutWaitingForItsDestroy() {
+        val host = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner())
+        val reasons = mutableListOf<VideoAd.EndReason>()
+        ad.listener = object : VideoAdListener {
+            override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                reasons += reason
+            }
+        }
+        ad.show(host)
+        val screen = Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
+        ad.end(VideoAd.EndReason.SKIPPED)
+        assertTrue(reasons.isEmpty())
+        screen.pause()
+        assertTrue("not at the pause", reasons.isEmpty())
+        screen.stop() // the system may hold the destroy back for seconds; the stop is the screen gone
+        assertEquals(listOf(VideoAd.EndReason.SKIPPED), reasons)
+        assertNull(Sdk.adOnScreen)
+        screen.destroy()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(VideoAd.dismissalTimeoutMillis + 1_000))
+        assertEquals("once, and no watchdog report", listOf(VideoAd.EndReason.SKIPPED), reasons)
+        assertTrue("ad.dismissal_timed_out" !in so.kontext.video.internal.support.ErrorReporter.bufferedCodes)
     }
 
     @Test fun aPhoneIsAPhoneOnTheWire() {

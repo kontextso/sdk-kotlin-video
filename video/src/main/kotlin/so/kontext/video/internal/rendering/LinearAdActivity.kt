@@ -71,13 +71,28 @@ internal class LinearAdActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * A finishing screen is gone for the viewer once it stops: the system may hold its onDestroy back for
+     * seconds (until the screen under it is idle), and the app hears `onAdEnded` only when the screen is gone.
+     */
+    override fun onStop() {
+        super.onStop()
+        if (isFinishing) gone()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        val presentation = presentation ?: return
-        intent.getStringExtra(EXTRA_TOKEN)?.let { presentations.remove(it) }
         // The manifest's configChanges lists every change it can declare, so the page lives through rotation,
         // resizing, a new font scale, locale or density. A screen recreated anyway (a change that cannot be
         // declared) has lost its page, as has one the system took away: the ad ends now, interrupted.
+        gone()
+    }
+
+    /** Tells the ad once that its screen is gone: at the stop of a finishing screen, else at its destroy. */
+    private fun gone() {
+        val presentation = presentation ?: return
+        this.presentation = null
+        intent.getStringExtra(EXTRA_TOKEN)?.let { presentations.remove(it) }
         presentation.onScreenGone(isEndingByAd)
     }
 

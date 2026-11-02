@@ -750,7 +750,9 @@ public class VideoAd internal constructor(
             screen.finish()
             @Suppress("DEPRECATION")
             screen.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-            // A screen the system never takes down: the app hears `onAdEnded` anyway.
+            // `onAdEnded` follows the screen's own signal (its stop as it finishes, or its destroy). A screen the
+            // system never takes down is a fault: after a cap well past any transition it is reported, and the
+            // app hears `onAdEnded` anyway, once.
             Environment.scope.launch {
                 delay(dismissalTimeoutMillis)
                 if (!finished) {
@@ -851,9 +853,12 @@ public class VideoAd internal constructor(
     // endregion
 
     internal companion object {
-        /** How long a linear ad's screen may take to start, and to close. Tests shorten them. */
+        /**
+         * How long a linear ad's screen may take to start, and the cap on its closing: a watchdog that reports
+         * a screen the system never takes down. Tests shorten them.
+         */
         var presentationTimeoutMillis = 5_000L
-        var dismissalTimeoutMillis = 2_000L
+        var dismissalTimeoutMillis = 10_000L
 
         /** Makes an ad's bridge; tests make one that throws, as a device without a working WebView does. */
         var makeBridge: (android.content.Context, String, String, Boolean, Long?) -> FrameBridge = ::FrameBridge

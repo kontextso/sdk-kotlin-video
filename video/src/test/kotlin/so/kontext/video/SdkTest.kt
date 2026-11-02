@@ -42,7 +42,7 @@ abstract class SdkTest {
 
     @After fun tearDownSdk() {
         VideoAd.presentationTimeoutMillis = 5_000
-        VideoAd.dismissalTimeoutMillis = 2_000
+        VideoAd.dismissalTimeoutMillis = 10_000
         VideoAd.makeBridge = ::FrameBridge
         owners.forEach { it.destroy() }
         Sdk.resetForTesting()
