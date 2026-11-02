@@ -182,4 +182,45 @@ class LinearLaunchTest {
             shell("settings put system user_rotation $userRotation")
         }
     }
+
+    @Test fun theActivityThatStartedALinearAdFinishingEndsItInterruptedAndClosesItsScreen() {
+        main {
+            Environment.context = instrumentation.targetContext
+            Environment.sendBeacon = { _, _ -> }
+            Sdk.configureForTesting(Configuration("test-token"))
+        }
+        val host = instrumentation.startActivitySync(
+            Intent(instrumentation.targetContext, LeaveHintHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        ) as LeaveHintHostActivity
+        val ended = CountDownLatch(1)
+        var ad: VideoAd? = null
+        try {
+            main {
+                ad = linearAd().also {
+                    it.listener = object : VideoAdListener {
+                        override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                            endReason = reason
+                            ended.countDown()
+                        }
+                    }
+                    it.show(host)
+                }
+            }
+            assertTrue("the ad's screen covered the host", host.paused.await(10, TimeUnit.SECONDS))
+            instrumentation.waitForIdleSync()
+            main { host.finish() } // the app closes the screen that started the ad
+            assertTrue("the ad ended", ended.await(10, TimeUnit.SECONDS))
+            assertEquals(VideoAd.EndReason.INTERRUPTED, endReason)
+            instrumentation.waitForIdleSync()
+            assertEquals("its screen closed", null, resumedLinearScreen())
+        } finally {
+            main {
+                if (ad?.hasEnded == false) ad?.end(VideoAd.EndReason.INTERRUPTED)
+                Sdk.resetForTesting()
+                Environment.reset()
+            }
+        }
+    }
+
+    @Volatile private var endReason: VideoAd.EndReason? = null
 }

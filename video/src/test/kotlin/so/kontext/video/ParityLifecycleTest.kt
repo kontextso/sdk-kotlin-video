@@ -902,6 +902,35 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
     }
 
+    @Test fun theActivityThatStartedALinearAdFinishingUnderItEndsItInterruptedAndClosesItsScreen() {
+        val recorder = Recorder()
+        val ad = linear()
+        ad.listener = recorder
+        val host = Robolectric.buildActivity(Activity::class.java).setup()
+        val screen = present(ad, host.get())
+        page(ad, "video.start", """"playhead": 0""")
+        host.pause().stop()
+        host.get().finish()
+        host.destroy()
+        assertTrue("its screen closes", screen.get().isFinishing && screen.get().isEndingByAd)
+        screen.pause().stop().destroy()
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun theActivityThatStartedALinearAdDestroyedWithoutFinishingKeepsIt() {
+        val recorder = Recorder()
+        val ad = linear()
+        ad.listener = recorder
+        val host = Robolectric.buildActivity(Activity::class.java).setup()
+        val screen = present(ad, host.get())
+        host.pause().stop()
+        host.destroy() // a recreation, or the system reclaiming a screen behind: the app comes back to it
+        assertFalse(ad.hasEnded)
+        page(ad, "video.skip", """"playhead": 6000""")
+        screen.pause().stop().destroy()
+        assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
+    }
+
     @Test fun aLinearScreenCoveredByAnotherWaitsAndEndsOnceLater() {
         val recorder = Recorder()
         val ad = linear()

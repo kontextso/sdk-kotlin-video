@@ -378,6 +378,19 @@ public class VideoAd internal constructor(
         }
     }
 
+    /**
+     * The Activity that started a linear ad finishes under it (the app closed that screen): the ad ends,
+     * interrupted, and its screen closes, as on iOS when the presenter is dismissed. Not a destroy without
+     * finishing (a configuration change, or the system reclaiming a screen behind): the app comes back to it
+     * when the ad ends.
+     */
+    private fun followStartingActivity(starter: Activity) = follow(starter) { activity, event ->
+        if (event == ActivityTracker.Event.DESTROYED && activity.isFinishing) {
+            Logger.warning { "ad ${id.take(8)}: the Activity that started the linear ad finished; ended as interrupted" }
+            end(EndReason.INTERRUPTED)
+        }
+    }
+
     /** Hears [activity]'s stop and destroy until the ad ends. */
     private fun follow(activity: Activity, onEvent: (Activity, ActivityTracker.Event) -> Unit) {
         val target = WeakReference(activity)
@@ -441,6 +454,7 @@ public class VideoAd internal constructor(
         val bridge = bridge
         reserve()
         if (hasEnded) return
+        followStartingActivity(activity)
         val presentation = object : LinearAdActivity.Presentation {
             override fun attach(activity: LinearAdActivity, root: FrameLayout) {
                 if (hasEnded) {
@@ -980,7 +994,7 @@ public class VideoAd internal constructor(
          * The presentation disappeared for a reason the SDK did not cause: the container left the window or
          * became too small for the ad, another screen of the app covered the container's (its Activity stopped
          * while the app stays in front; the app going to the background only pauses the ad), the linear ad's
-         * screen was destroyed under it. For an overlay with a
+         * screen was destroyed under it or the Activity that started it finished. For an overlay with a
          * tracked player, also the content pausing, ending or moving to another item; for a pause ad with a
          * tracked player, the content playing again (resumed outside the ad: the media notification, a headset).
          */
