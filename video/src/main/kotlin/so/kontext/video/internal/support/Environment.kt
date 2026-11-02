@@ -43,6 +43,10 @@ internal object Environment {
     /** The browser's user agent, `navigator.userAgent` of a WebView, as KontextKit reads and caches it. */
     var userAgent: suspend () -> String? = { context?.let { DeviceFacts.userAgent(it) } }
 
+    /** How long an ads request waits for [userAgent] before it goes with a fallback. A constant in spirit; tests shorten it. */
+    var userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
+    const val DEFAULT_USER_AGENT_WAIT_MILLIS = 2_000L
+
     /** Sends one beacon; tests record them instead. */
     var sendBeacon: (url: String, label: String) -> Unit = Tracker::get
 
@@ -54,6 +58,7 @@ internal object Environment {
         now = { SystemClock.elapsedRealtime() }
         assertionFailure = ::failInDebuggableApp
         userAgent = { context?.let { DeviceFacts.userAgent(it) } }
+        userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
         advertisingId = { context?.let { DeviceFacts.advertisingId(it) } }
         isAppInForeground = { ActivityTracker.isAppInForeground }
         sendBeacon = Tracker::get

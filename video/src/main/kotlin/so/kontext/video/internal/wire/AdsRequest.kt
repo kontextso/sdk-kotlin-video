@@ -34,7 +34,7 @@ internal object AdsRequest {
         // The slow prerequisite first: the viewer may reset the ad id, or the consent and the user may change,
         // while it is read. What identifies the viewer and what they allow is read last, just before the body
         // (consent and the user inside it, with nothing suspending between).
-        val userAgent = Environment.userAgent()
+        val userAgent = DeviceFacts.requestUserAgent(context)
         val ifa = Environment.advertisingId()
         val body = buildJsonObject {
             put("requestId", requestId)

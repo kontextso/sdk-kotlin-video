@@ -709,6 +709,27 @@ class ParityAdsTest {
         assertEquals("one notice, for the valid ad", listOf("img-d-new"), fired("notUsed").map { it["id"] })
     }
 
+    @Test fun aSlowUserAgentIsWaitedForAtMostTheCapThenTheRequestGoesWithAFallback() {
+        initialize()
+        val agent = CompletableDeferred<String?>()
+        Environment.userAgent = { agent.await() }
+        Environment.userAgentWaitMillis = 300
+        serveAd("img-ua1")
+        val first = call { videoAds("v1").format(AdFormat.PAUSE) }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue("nothing sent while within the wait", adsBodies().isEmpty())
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(300))
+        assertEquals("img-ua1", first.settled().getOrThrow().id)
+        fun sentAgent(index: Int) = adsBodies()[index]["device"]!!.jsonObject["network"]!!.jsonObject["userAgent"]!!.jsonPrimitive.content
+        val fallback = sentAgent(0)
+        assertTrue("the WebView's shape: $fallback", fallback.startsWith("Mozilla/5.0 (Linux; Android ") && "; wv) AppleWebKit/537.36" in fallback)
+        // The read went on; the next request carries the real one.
+        agent.complete("Mozilla/5.0 real")
+        serveAd("img-ua2")
+        assertEquals("img-ua2", call { videoAds("v2").format(AdFormat.PAUSE) }.settled().getOrThrow().id)
+        assertEquals("Mozilla/5.0 real", sentAgent(1))
+    }
+
     @Test fun destroyWhileTheUserAgentIsReadThrowsDestroyedAtOnceAndTheOthersGoOn() {
         initialize()
         val agent = CompletableDeferred<String?>()
