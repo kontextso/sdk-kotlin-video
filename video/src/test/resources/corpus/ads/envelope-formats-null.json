@@ -1,0 +1,10 @@
+{
+  "description": "formats is null",
+  "response": {
+    "enabled": true,
+    "formats": null
+  },
+  "expect": {
+    "result": "malformed"
+  }
+}

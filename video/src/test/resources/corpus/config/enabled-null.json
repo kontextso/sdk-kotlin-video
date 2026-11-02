@@ -1,0 +1,9 @@
+{
+  "description": "enabled is null",
+  "response": {
+    "enabled": null
+  },
+  "expect": {
+    "result": "malformed"
+  }
+}

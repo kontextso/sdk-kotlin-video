@@ -1,0 +1,7 @@
+{
+  "description": "an empty object",
+  "response": {},
+  "expect": {
+    "result": "malformed"
+  }
+}

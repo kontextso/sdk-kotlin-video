@@ -1,0 +1,68 @@
+{
+  "description": "formats is an object keyed by format, not a list",
+  "response": {
+    "enabled": true,
+    "formats": {
+      "overlay": {
+        "format": "overlay",
+        "ads": [
+          {
+            "id": "o-1",
+            "format": "overlay",
+            "creative": "image",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 7.5,
+              "currency": "USD",
+              "precision": "exact"
+            },
+            "expires": 3600000,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/o-1"
+            },
+            "tracking": [
+              {
+                "event": "impression",
+                "url": "https://ads.test/events/o-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/o-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/o-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/o-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "overlayViewDuration",
+                "url": "https://ads.test/events/o-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+              }
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/o-1/vast",
+            "position": "bottom",
+            "sizes": [
+              {
+                "width": 320,
+                "height": 90,
+                "scalable": true,
+                "maintainAspectRatio": true
+              }
+            ],
+            "duration": 6000
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "result": "malformed"
+  }
+}

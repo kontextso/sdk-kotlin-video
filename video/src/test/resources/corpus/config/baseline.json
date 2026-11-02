@@ -1,0 +1,13 @@
+{
+  "description": "the valid answer",
+  "response": {
+    "enabled": true,
+    "reportDebug": true,
+    "reportErrors": true
+  },
+  "expect": {
+    "result": "enabled",
+    "reportDebug": true,
+    "reportErrors": true
+  }
+}

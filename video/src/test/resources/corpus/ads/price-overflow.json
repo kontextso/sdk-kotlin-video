@@ -1,0 +1,16 @@
+{
+  "description": "the overlay price is 1e400, beyond a Double (raw file: the value cannot be held as a JSON value)",
+  "responseFile": "price-overflow.raw.json",
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "noFill:unknown",
+      "pause": "ad:p-1",
+      "linear": "ad:l-1"
+    },
+    "decodeReports": [
+      "overlay:price.value"
+    ]
+  },
+  "knownDifference": "Swift drops the ad too but reports it at ad, not price.value: the iOS JSON decoder's out-of-range number error carries no field path. Kotlin reports price.value."
+}

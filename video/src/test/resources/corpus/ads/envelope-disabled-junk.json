@@ -1,0 +1,12 @@
+{
+  "description": "enabled false with a numeric disabledReason and formats of the wrong type: still the kill switch",
+  "response": {
+    "enabled": false,
+    "disabledReason": 42,
+    "formats": "junk"
+  },
+  "expect": {
+    "result": "disabled",
+    "disabledReason": "unknown"
+  }
+}

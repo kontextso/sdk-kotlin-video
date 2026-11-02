@@ -1,0 +1,7 @@
+{
+  "description": "the answer is null",
+  "response": null,
+  "expect": {
+    "result": "malformed"
+  }
+}

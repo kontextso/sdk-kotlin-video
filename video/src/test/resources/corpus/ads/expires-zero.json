@@ -1,0 +1,195 @@
+{
+  "description": "expires 0: expired on arrival",
+  "response": {
+    "enabled": true,
+    "formats": [
+      {
+        "format": "overlay",
+        "ads": [
+          {
+            "id": "o-1",
+            "format": "overlay",
+            "creative": "image",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 7.5,
+              "currency": "USD",
+              "precision": "exact"
+            },
+            "expires": 0,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/o-1"
+            },
+            "tracking": [
+              {
+                "event": "impression",
+                "url": "https://ads.test/events/o-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/o-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/o-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/o-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "overlayViewDuration",
+                "url": "https://ads.test/events/o-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+              }
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/o-1/vast",
+            "position": "bottom",
+            "sizes": [
+              {
+                "width": 320,
+                "height": 90,
+                "scalable": true,
+                "maintainAspectRatio": true
+              }
+            ],
+            "duration": 6000
+          }
+        ]
+      },
+      {
+        "format": "pause",
+        "ads": [
+          {
+            "id": "p-1",
+            "format": "pause",
+            "creative": "image",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 5.5,
+              "currency": "EUR",
+              "precision": "estimated"
+            },
+            "expires": 3600000,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/p-1"
+            },
+            "tracking": [
+              {
+                "event": "impression",
+                "url": "https://ads.test/events/p-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/p-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/p-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/p-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "overlayViewDuration",
+                "url": "https://ads.test/events/p-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+              }
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/p-1/vast",
+            "position": "top",
+            "sizes": [
+              {
+                "width": 300,
+                "height": 250,
+                "scalable": false,
+                "maintainAspectRatio": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "format": "linear",
+        "ads": [
+          {
+            "id": "l-1",
+            "format": "linear",
+            "creative": "video",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 12.0,
+              "currency": "USD",
+              "precision": "exact"
+            },
+            "expires": 3600000,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/l-1"
+            },
+            "tracking": [
+              {
+                "event": "impression",
+                "url": "https://ads.test/events/l-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/l-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/l-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/l-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "start",
+                "url": "https://ads.test/events/l-1/start"
+              },
+              {
+                "event": "progress",
+                "url": "https://ads.test/events/l-1/progress",
+                "offset": 5000
+              },
+              {
+                "event": "complete",
+                "url": "https://ads.test/events/l-1/complete"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/l-1/endcard-click",
+                "part": "endCard"
+              }
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/l-1/vast",
+            "duration": 15000,
+            "skipOffset": 5000
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "noFill:unknown",
+      "pause": "ad:p-1",
+      "linear": "ad:l-1"
+    },
+    "decodeReports": [
+      "overlay:expires"
+    ]
+  }
+}

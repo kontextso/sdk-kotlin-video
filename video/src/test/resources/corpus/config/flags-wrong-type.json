@@ -1,0 +1,13 @@
+{
+  "description": "reportDebug \"yes\" and reportErrors 1 read as off",
+  "response": {
+    "enabled": true,
+    "reportDebug": "yes",
+    "reportErrors": 1
+  },
+  "expect": {
+    "result": "enabled",
+    "reportDebug": false,
+    "reportErrors": false
+  }
+}

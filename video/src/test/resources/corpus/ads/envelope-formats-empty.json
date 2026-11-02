@@ -1,0 +1,16 @@
+{
+  "description": "formats is an empty list: every format absent",
+  "response": {
+    "enabled": true,
+    "formats": []
+  },
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "absent",
+      "pause": "absent",
+      "linear": "absent"
+    },
+    "decodeReports": []
+  }
+}

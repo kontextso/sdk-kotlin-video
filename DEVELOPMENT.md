@@ -36,6 +36,10 @@ sdk-kotlin-video/
 ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest   # what CI runs, with the two below
 ```
 
+`internal/CorpusTest` runs the malformed-answer corpus the Swift SDK runs too: `video/src/test/resources/corpus/`
+is a copy of the `video-sdk-corpus` repo (internal), written by its `sync.sh` and never edited here; its README
+has the format and how to add a case.
+
 The publisher app (`extras/publisher-app`) is a separate build that sees only the published artifacts, as a
 publisher's app does, and minifies them with R8. Its log (tag `PublisherApp`) shows an overlay requested,
 loaded and shown:

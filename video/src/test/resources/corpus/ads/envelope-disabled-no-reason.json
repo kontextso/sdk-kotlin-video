@@ -1,0 +1,10 @@
+{
+  "description": "enabled false without a disabledReason: the kill switch, reason unknown",
+  "response": {
+    "enabled": false
+  },
+  "expect": {
+    "result": "disabled",
+    "disabledReason": "unknown"
+  }
+}

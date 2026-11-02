@@ -1,0 +1,11 @@
+{
+  "description": "disabled with a reason this SDK does not know: it passes through",
+  "response": {
+    "enabled": false,
+    "disabledReason": "aReasonFromTheFuture"
+  },
+  "expect": {
+    "result": "disabled",
+    "disabledReason": "aReasonFromTheFuture"
+  }
+}

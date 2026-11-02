@@ -1,0 +1,9 @@
+{
+  "description": "enabled true without formats",
+  "response": {
+    "enabled": true
+  },
+  "expect": {
+    "result": "malformed"
+  }
+}

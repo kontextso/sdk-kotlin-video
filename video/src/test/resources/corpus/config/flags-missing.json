@@ -1,0 +1,11 @@
+{
+  "description": "the flags left out read as off",
+  "response": {
+    "enabled": true
+  },
+  "expect": {
+    "result": "enabled",
+    "reportDebug": false,
+    "reportErrors": false
+  }
+}

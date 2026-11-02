@@ -1,0 +1,11 @@
+{
+  "description": "disabled with a numeric reason: reason unknown",
+  "response": {
+    "enabled": false,
+    "disabledReason": 42
+  },
+  "expect": {
+    "result": "disabled",
+    "disabledReason": "unknown"
+  }
+}
