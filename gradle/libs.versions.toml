@@ -31,7 +31,7 @@ media3-adapter-floor = "1.1.1"
 # ---- Kontext ----
 # Device info, install id, advertising id, TCF consent. 0.1.0 moved Open Measurement to its own artifact,
 # which this SDK does not use: no OMSDK binary ships with it.
-kontext-kit = "0.1.0"
+kontext-kit = "0.2.0"
 
 # ---- Kotlin libraries ----
 kotlinx-coroutines = "1.9.0"
