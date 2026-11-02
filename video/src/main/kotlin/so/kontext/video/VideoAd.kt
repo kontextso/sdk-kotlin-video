@@ -828,11 +828,20 @@ public class VideoAd internal constructor(
                 }
             }
         }
-        // Only for an ad that was on screen: one that ended inside show, before it was presented, had no view.
-        if (format != AdFormat.LINEAR && isPresented) tracker.fire("overlayViewDuration", viewDurationMillis = activeTime)
+        fireEndBeacons(reason, activeTime)
         Logger.info { "ad ${id.take(8)}: ended ($reason)" }
         DebugReporter.event("ad.ended", adId = id, state = mapOf("reason" to reason.name.lowercase()))
         if (!dismissing) finish(reason)
+    }
+
+    /** The beacons of an end, for an ad that was on screen: one that ended inside show, before it was presented, had no view. */
+    private fun fireEndBeacons(reason: EndReason, activeTimeMillis: Long) {
+        if (!isPresented) return
+        // Shown, not billed: a video on screen that never reached its first frame (`video.start`) still gives the
+        // server its outcome. Ended by the viewer, the app or an interruption: `close`. A failure has fired its
+        // `error`; the page's own close or skip has fired its beacon.
+        if (payload.creative == AdPayload.Creative.VIDEO && !impressionRecorded && reason in closedBeforeFirstFrame) tracker.fire("close")
+        if (format != AdFormat.LINEAR) tracker.fire("overlayViewDuration", viewDurationMillis = activeTimeMillis)
     }
 
     private fun finish(reason: EndReason) {
@@ -913,6 +922,9 @@ public class VideoAd internal constructor(
     // endregion
 
     internal companion object {
+        /** The ends a video before its first frame reports as `close`: none fired a beacon of its own. */
+        private val closedBeforeFirstFrame = setOf(EndReason.DISMISSED, EndReason.DESTROYED, EndReason.INTERRUPTED, EndReason.COMPLETED)
+
         /**
          * How long a linear ad's screen may take to start, and the cap on its closing: a watchdog that reports
          * a screen the system never takes down. Tests shorten them.

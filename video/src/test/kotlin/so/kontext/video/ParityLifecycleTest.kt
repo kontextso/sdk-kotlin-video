@@ -642,6 +642,46 @@ class ParityLifecycleTest : SdkTest() {
 
     // region The page's events
 
+    @Test fun aShownVideoEndedBeforeItsFirstFrameSendsCloseAndNoImpression() {
+        // Dismissed by the app.
+        val pause = ad(video(withTracking(Fixtures.pause(position = "fullscreen"), tracking("creativeView", "impression", "close", "error"))))
+        val recorder = Recorder()
+        pause.listener = recorder
+        pause.show(container())
+        pause.dismiss()
+        assertEquals(listOf("creativeView", "close"), events)
+        assertEquals(listOf("ended"), recorder.heard)
+        // A linear ad whose VideoAds the app destroys, and one whose screen the system takes away.
+        for (end in listOf<(VideoAds, ActivityController<LinearAdActivity>) -> Unit>({ owner, screen -> owner.destroy().also { screen.pause().stop().destroy() } }, { _, screen -> screen.pause().stop().destroy() })) {
+            beacons.clear()
+            val owner = owner()
+            val linear = linear(owner, tracking = tracking("creativeView", "impression", "close", "error"))
+            val screen = present(linear)
+            end(owner, screen)
+            assertTrue(linear.hasEnded)
+            assertEquals(listOf("creativeView", "close"), events)
+        }
+    }
+
+    @Test fun aShownVideoThatCannotStartFailsWithItsErrorAndNoClose() {
+        val ad = linear(tracking = tracking("creativeView", "impression", "close", "error"))
+        val recorder = Recorder()
+        ad.listener = recorder
+        val screen = present(ad)
+        page(ad, "ad.error", """"code": 405""")
+        screen.pause().stop().destroy()
+        assertEquals(listOf("failed", "ended"), recorder.heard)
+        assertEquals(listOf("creativeView", "error"), events)
+    }
+
+    @Test fun aVideoEndedAfterItsFirstFrameSendsNoClose() {
+        val ad = ad(video(withTracking(Fixtures.pause(position = "fullscreen"), tracking("impression", "close"))))
+        ad.show(container())
+        page(ad, "video.start", """"playhead": 0""")
+        ad.dismiss()
+        assertEquals(listOf("impression"), events)
+    }
+
     @Test fun aPauseAdsVideoCompletingLeavesItsEndToTheViewer() {
         val recorder = Recorder()
         val ad = ad(video(withTracking(Fixtures.pause(position = "fullscreen"), tracking("complete", "close", "overlayViewDuration"))))
@@ -963,7 +1003,7 @@ class ParityLifecycleTest : SdkTest() {
         screen.destroy()
         idle(1_000)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertTrue(events.isEmpty())
+        assertEquals("shown, not billed: its video never started", listOf("close"), events)
     }
 
     @Test fun aLinearPageTakenOffItsScreenIsInterrupted() {
