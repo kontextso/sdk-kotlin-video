@@ -657,13 +657,12 @@ public class VideoAd internal constructor(
             hostView?.activity?.let(::followHoldingActivity)
         }
         // At `ad.show`: creativeView and the AdChoices icon's view; the impression too for an image or HTML
-        // creative, while a video's waits for its first frame (`video.start`). Every beacon may read the app's
-        // player, which may end the ad: nothing more after that.
+        // creative, while a video's waits for its first frame (`video.start`). The beacons use the playhead read
+        // before this block and call no app code, so one check suffices: what ran above (the meter, following
+        // the content, which reads the player again, and the Activity) may have ended the ad.
         if (hasEnded) return
         tracker.fire("creativeView")
-        if (hasEnded) return
         tracker.fire("iconView")
-        if (hasEnded) return
         if (payload.creative != AdPayload.Creative.VIDEO) recordImpression()
     }
 
