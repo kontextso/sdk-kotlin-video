@@ -48,7 +48,7 @@ class FrameNavigationTest {
         val url = "https://frames.test/v2/frame/ad-1"
         main {
             bridge = FrameBridge(instrumentation.targetContext, "ad-1", url, false)
-            val sdkClient = bridge.webView.webViewClient
+            val sdkClient = bridge.client
             // Serves the page locally, and forwards to the SDK's client what the test does not answer itself.
             bridge.webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) = WebResourceResponse(

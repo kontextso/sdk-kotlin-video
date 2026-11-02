@@ -105,7 +105,7 @@ internal class FrameBridge(
             setSupportZoom(false)
         }
         (webView as TouchNotingWebView).onTouch = ::noteTouch
-        webView.webViewClient = Client()
+        webView.webViewClient = Client().also { client = it }
         webView.webChromeClient = Chrome()
         // A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
         // linear ad has no other way out: Back is consumed and dismiss() refuses it. The ad ends, failed.
@@ -381,6 +381,10 @@ internal class FrameBridge(
         // Not from inside the WebView's own callback (a message, a render-process notice): after it returns.
         android.os.Handler(android.os.Looper.getMainLooper()).post { webView.destroy() }
     }
+
+    /** The SDK's own client of the WebView; tests wrap it (WebView.getWebViewClient() exists only from Android 8). */
+    internal lateinit var client: WebViewClient
+        private set
 
     private inner class Client : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
