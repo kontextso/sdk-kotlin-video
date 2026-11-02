@@ -321,20 +321,24 @@ public class VideoAds @JvmOverloads constructor(
         }
     }
 
-    /** A malformed ad was left out of its format: said once per format, the rest of the answer counts. */
+    /**
+     * A malformed ad was left out of its format, the rest of the answer counts: reported once per dropped ad,
+     * with its format and the field that failed (`overlay:price.currency`), as the Swift SDK does.
+     */
     private fun reportDroppedAds(response: AdsResponse, requestId: String) {
         val results = (response as? AdsResponse.Formats)?.results ?: return
         for (result in results) {
-            if (result.dropped.isEmpty()) continue
-            Logger.error { "${result.format} for ${content.id}: ${result.dropped.size} malformed ad(s) left out of request $requestId: ${result.dropped.first()}" }
-            ErrorReporter.report(
-                ErrorReporter.Code.ADS_DECODE_FAILED,
-                ErrorReporter.Stage.REQUEST,
-                requestId = requestId,
-                sessionId = sessionId,
-                detail = result.format.wireName,
-                recovery = if (result.ads.isEmpty()) ErrorReporter.Recovery.NO_AD else null,
-            )
+            for (dropped in result.dropped) {
+                Logger.error { "${result.format} for ${content.id}: an ad of request $requestId is malformed at ${dropped.path} ($dropped); left out" }
+                ErrorReporter.report(
+                    ErrorReporter.Code.ADS_DECODE_FAILED,
+                    ErrorReporter.Stage.REQUEST,
+                    requestId = requestId,
+                    sessionId = sessionId,
+                    detail = "${result.format.wireName}:${dropped.path}",
+                    recovery = if (result.ads.isEmpty()) ErrorReporter.Recovery.NO_AD else null,
+                )
+            }
         }
     }
 

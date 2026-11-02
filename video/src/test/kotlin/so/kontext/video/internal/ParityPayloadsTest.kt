@@ -140,12 +140,31 @@ class ParityPayloadsTest {
         val overlay = response.result(AdFormat.OVERLAY)!!
         assertTrue(overlay.ads.isEmpty())
         assertEquals(NoFillReason.Unknown, overlay.noFillReason, "ads came and none could be read: no reason of the server's")
-        assertEquals(1, overlay.dropped.size)
+        assertEquals(listOf("creative"), overlay.dropped.map { it.path })
         val pause = response.result(AdFormat.PAUSE)!!
         assertEquals("ad-2", pause.ads.single().id, "the valid ad of the format stays")
-        assertEquals(1, pause.dropped.size)
+        assertEquals(listOf("price.value"), pause.dropped.map { it.path })
         assertEquals("ad-3", response.result(AdFormat.LINEAR)?.ads?.single()?.id, "another format is untouched")
         assertTrue(response.result(AdFormat.LINEAR)!!.dropped.isEmpty())
+    }
+
+    @Test fun aDroppedAdNamesTheFieldThatFailedAsTheSwiftSdkDoes() {
+        fun path(ad: String): String =
+            ads("""{"enabled": true, "formats": [${Fixtures.entry("overlay", ad)}]}""").result(AdFormat.OVERLAY)!!.dropped.single().path
+        val overlay = Fixtures.overlay()
+        assertEquals("ad", path("42"))
+        assertEquals("id", path(Fixtures.overlay(id = "")))
+        assertEquals("price.currency", path(overlay.replace("\"USD\"", "\"usd\"")))
+        assertEquals("price.precision", path(overlay.replace("\"exact\"", "\"floor\"")))
+        assertEquals("expires", path(Fixtures.overlay(expires = 0)))
+        assertEquals("duration", path(Fixtures.overlay(duration = "-1")))
+        assertEquals("sizes", path(Fixtures.overlay(sizes = "[]")))
+        assertEquals("sizes.width", path(Fixtures.overlay(sizes = """[{"width": 0, "height": 80}]""")))
+        assertEquals("sizes.height", path(Fixtures.overlay(sizes = """[{"width": 320}]""")))
+        assertEquals("rendering.url", path(Fixtures.overlay(frameUrl = "file:///sdcard/ad.html")))
+        assertEquals("trigger.kind", path(overlay.replace("\"manual\"", "\"timed\"")))
+        assertEquals("trigger.to", path(overlay.replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 0}")))
+        assertEquals("position", path(overlay.replace("\"bottom\"", "\"left\"")))
     }
 
     @Test fun anAdsAnswerEdges() {
@@ -170,7 +189,8 @@ class ParityPayloadsTest {
         val misfiled = onlyOther.result(AdFormat.PAUSE)!!
         assertTrue(misfiled.ads.isEmpty(), "the only ad, filed under the wrong format: dropped")
         assertEquals(NoFillReason.Unknown, misfiled.noFillReason, "a no-fill of reason unknown, whatever the entry says")
-        assertTrue("the result is PAUSE" in misfiled.dropped.single(), misfiled.dropped.single())
+        assertTrue("the result is PAUSE" in misfiled.dropped.single().reason, misfiled.dropped.single().reason)
+        assertEquals("format", misfiled.dropped.single().path)
         assertNull(onlyOther.result(AdFormat.OVERLAY), "nor is it filed under its own format")
         assertEquals("ad-3", onlyOther.result(AdFormat.LINEAR)?.ads?.single()?.id, "another format is untouched")
     }

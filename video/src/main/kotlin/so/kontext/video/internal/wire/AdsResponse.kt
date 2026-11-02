@@ -17,8 +17,13 @@ import so.kontext.video.internal.network.str
  * result for a format the SDK does not know is ignored. Lenient on the reason.
  */
 internal sealed class AdsResponse {
-    /** [dropped]: why each malformed ad of the format was left out, for the log and one error report. */
-    class FormatResult(val format: AdFormat, val ads: List<AdPayload>, val noFillReason: NoFillReason?, val dropped: List<String> = emptyList())
+    /** [dropped]: each malformed ad of the format that was left out, for the log and its error report. */
+    class FormatResult(val format: AdFormat, val ads: List<AdPayload>, val noFillReason: NoFillReason?, val dropped: List<Dropped> = emptyList())
+
+    /** A malformed ad left out: [path] is the field that failed inside it (`price.currency`), [reason] says why. */
+    class Dropped(val path: String, val reason: String) {
+        override fun toString(): String = reason
+    }
 
     class Formats(val results: List<FormatResult>) : AdsResponse()
 
@@ -48,13 +53,16 @@ internal sealed class AdsResponse {
             val rawAds = entry["ads"]?.arr() ?: invalid("ads is missing")
             // A format of a later contract (one this SDK cannot show) costs the other formats nothing.
             val format = AdFormat.fromWire(wire) ?: return null
-            val dropped = mutableListOf<String>()
+            val dropped = mutableListOf<Dropped>()
             val ads = rawAds.mapNotNull { raw ->
                 try {
                     // The SDK files the ad under the result's format and finds it again by the ad's own: both must agree.
-                    AdPayload.parse(raw).also { if (it.format != format) invalid("ad ${it.id} is ${it.format}, the result is $format") }
+                    AdPayload.parse(raw).also {
+                        if (it.format != format) throw ApiException.Decoding(AdPayload.MalformedField("format", "ad ${it.id} is ${it.format}, the result is $format"))
+                    }
                 } catch (error: ApiException.Decoding) {
-                    dropped += error.cause?.message ?: "malformed"
+                    val cause = error.cause
+                    dropped += Dropped((cause as? AdPayload.MalformedField)?.path ?: "ad", cause?.message ?: "malformed")
                     null
                 }
             }

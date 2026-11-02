@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.arr
 import so.kontext.video.internal.network.bool
 import so.kontext.video.internal.network.double
@@ -44,6 +45,12 @@ internal class AdPayload(
     /** One beacon. `offsetMillis` for `progress`; `part` is `endCard` for a linear ad's end card. */
     data class TrackingEvent(val event: String, val url: String, val offsetMillis: Long?, val part: String?)
 
+    /**
+     * A field of an ad that does not decode: [path] is where inside the ad (`price.currency`, `sizes.width`,
+     * `ad` for the ad itself), keys only, as the Swift SDK names it in the error report.
+     */
+    class MalformedField(val path: String, message: String) : IllegalArgumentException(message)
+
     companion object {
         /** The largest side a creative may have, in dp. */
         const val MAX_SIDE = 10_000
@@ -71,53 +78,58 @@ internal class AdPayload(
 
         private const val MAX_PORT = 65_535
 
+        private fun invalidAt(path: String, reason: String): Nothing = throw ApiException.Decoding(MalformedField(path, reason))
+
         // One check per field of the contract.
         @Suppress("CyclomaticComplexMethod")
         fun parse(element: JsonElement): AdPayload {
-            val ad = element.obj() ?: invalid("an ad is not an object")
-            val id = ad.str("id")?.takeIf { it.isNotEmpty() } ?: invalid("the ad id is missing or empty")
-            val format = AdFormat.fromWire(ad.str("format")) ?: invalid("ad $id: unknown format")
+            val ad = element.obj() ?: invalidAt("ad", "an ad is not an object")
+            val id = ad.str("id")?.takeIf { it.isNotEmpty() } ?: invalidAt("id", "the ad id is missing or empty")
+            val format = AdFormat.fromWire(ad.str("format")) ?: invalidAt("format", "ad $id: unknown format")
             val creative = when (ad.str("creative")) {
                 "image" -> Creative.IMAGE
                 "video" -> Creative.VIDEO
                 "html" -> Creative.HTML
-                else -> invalid("ad $id: unknown creative")
+                else -> invalidAt("creative", "ad $id: unknown creative")
             }
             val price = ad["price"]?.obj()?.let { price ->
                 VideoAd.Price(
-                    value = price.double("value") ?: invalid("ad $id: price.value"),
-                    currency = price.str("currency") ?: invalid("ad $id: price.currency"),
+                    value = price.double("value") ?: invalidAt("price.value", "ad $id: price.value"),
+                    currency = price.str("currency") ?: invalidAt("price.currency", "ad $id: price.currency"),
                     precision = when (price.str("precision")) {
                         "exact" -> VideoAd.Price.Precision.EXACT
                         "estimated" -> VideoAd.Price.Precision.ESTIMATED
-                        else -> invalid("ad $id: price.precision")
+                        else -> invalidAt("price.precision", "ad $id: price.precision")
                     },
                 )
-            } ?: invalid("ad $id: price")
+            } ?: invalidAt("price", "ad $id: price")
             // A CPM: a number, not infinity (`1e400`), and never negative. ISO 4217: three capital letters.
-            if (!price.value.isFinite() || price.value < 0) invalid("ad $id: price.value must be finite and not negative")
-            if (!CURRENCY.matches(price.currency)) invalid("ad $id: price.currency must be an ISO 4217 code")
-            val expires = millis(ad, "expires") ?: invalid("ad $id: expires")
+            if (!price.value.isFinite() || price.value < 0) invalidAt("price.value", "ad $id: price.value must be finite and not negative")
+            if (!CURRENCY.matches(price.currency)) invalidAt("price.currency", "ad $id: price.currency must be an ISO 4217 code")
+            val expires = millis(ad, "expires") ?: invalidAt("expires", "ad $id: expires")
             // An ad that is expired on arrival is not an ad the server meant to give.
-            if (expires <= 0) invalid("ad $id: expires must be positive")
+            if (expires <= 0) invalidAt("expires", "ad $id: expires must be positive")
             val tracking = ad["tracking"]?.arr()?.mapNotNull { entry ->
-                val event = entry.obj() ?: invalid("ad $id: a tracking entry is not an object")
-                val name = event.str("event") ?: invalid("ad $id: tracking.event")
-                val url = event.str("url") ?: invalid("ad $id: tracking.url")
+                val event = entry.obj() ?: invalidAt("tracking", "ad $id: a tracking entry is not an object")
+                val name = event.str("event") ?: invalidAt("tracking.event", "ad $id: tracking.event")
+                val url = event.str("url") ?: invalidAt("tracking.url", "ad $id: tracking.url")
                 // An offset that is no count of milliseconds loses its entry, never the ad.
                 val offset = if (event.has("offset")) offsetMillis(event) ?: return@mapNotNull null else null
                 TrackingEvent(event = name, url = url, offsetMillis = offset, part = event.str("part"))
-            } ?: invalid("ad $id: tracking")
-            val trigger = ad["trigger"]?.obj() ?: invalid("ad $id: trigger")
+            } ?: invalidAt("tracking", "ad $id: tracking")
+            val trigger = ad["trigger"]?.obj() ?: invalidAt("trigger", "ad $id: trigger")
             when (trigger.str("kind")) {
                 "manual" -> Unit
-                "window" -> if (millis(trigger, "from") == null || millis(trigger, "to") == null) invalid("ad $id: trigger window")
-                else -> invalid("ad $id: unknown trigger kind")
+                "window" -> {
+                    if (millis(trigger, "from") == null) invalidAt("trigger.from", "ad $id: trigger window")
+                    if (millis(trigger, "to") == null) invalidAt("trigger.to", "ad $id: trigger window")
+                }
+                else -> invalidAt("trigger.kind", "ad $id: unknown trigger kind")
             }
-            val rendering = ad["rendering"]?.obj() ?: invalid("ad $id: rendering")
-            if (rendering.str("kind") != "frame") invalid("ad $id: unknown rendering kind")
-            val frameUrl = rendering.str("url") ?: invalid("ad $id: rendering.url")
-            frameUrlProblem(frameUrl)?.let { invalid("ad $id: $it") }
+            val rendering = ad["rendering"]?.obj() ?: invalidAt("rendering", "ad $id: rendering")
+            if (rendering.str("kind") != "frame") invalidAt("rendering.kind", "ad $id: unknown rendering kind")
+            val frameUrl = rendering.str("url") ?: invalidAt("rendering.url", "ad $id: rendering.url")
+            frameUrlProblem(frameUrl)?.let { invalidAt("rendering.url", "ad $id: $it") }
 
             var position: Position? = null
             var sizes = emptyList<Size>()
@@ -128,7 +140,7 @@ internal class AdPayload(
                     position = when (ad.str("position")) {
                         "top" -> Position.TOP
                         "bottom" -> Position.BOTTOM
-                        else -> invalid("ad $id: overlay position")
+                        else -> invalidAt("position", "ad $id: overlay position")
                     }
                     sizes = sizes(ad, id)
                     duration = nonNegative(ad, "duration", id)
@@ -138,12 +150,12 @@ internal class AdPayload(
                         "top" -> Position.TOP
                         "bottom" -> Position.BOTTOM
                         "fullscreen" -> Position.FULLSCREEN
-                        else -> invalid("ad $id: pause position")
+                        else -> invalidAt("position", "ad $id: pause position")
                     }
                     if (position != Position.FULLSCREEN) sizes = sizes(ad, id)
                 }
                 AdFormat.LINEAR -> {
-                    duration = millis(ad, "duration") ?: invalid("ad $id: duration")
+                    duration = millis(ad, "duration") ?: invalidAt("duration", "ad $id: duration")
                     skipOffset = nonNegative(ad, "skipOffset", id)
                 }
             }
@@ -152,16 +164,16 @@ internal class AdPayload(
 
         private fun sizes(ad: JsonObject, id: String): List<Size> {
             val sizes = ad["sizes"]?.arr()?.map { element ->
-                val size = element.obj() ?: invalid("ad $id: a size is not an object")
-                val width = size.long("width") ?: invalid("ad $id: size.width")
-                val height = size.long("height") ?: invalid("ad $id: size.height")
+                val size = element.obj() ?: invalidAt("sizes", "ad $id: a size is not an object")
+                val width = size.long("width") ?: invalidAt("sizes.width", "ad $id: size.width")
+                val height = size.long("height") ?: invalidAt("sizes.height", "ad $id: size.height")
                 // Positive, and no larger than any screen could be.
-                if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) invalid("ad $id: a size must be positive and at most $MAX_SIDE")
+                if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) invalidAt("sizes.width", "ad $id: a size must be positive and at most $MAX_SIDE")
                 // Absent is scalable; a flag of the wrong type is a malformed size, not a guess.
-                val scalable = if (size.has("scalable")) size.bool("scalable") ?: invalid("ad $id: size.scalable") else true
+                val scalable = if (size.has("scalable")) size.bool("scalable") ?: invalidAt("sizes.scalable", "ad $id: size.scalable") else true
                 Size(width.toInt(), height.toInt(), scalable)
-            } ?: invalid("ad $id: sizes")
-            if (sizes.isEmpty()) invalid("ad $id: sizes must have at least one entry")
+            } ?: invalidAt("sizes", "ad $id: sizes")
+            if (sizes.isEmpty()) invalidAt("sizes", "ad $id: sizes must have at least one entry")
             return sizes
         }
 
@@ -195,8 +207,8 @@ internal class AdPayload(
         /** An optional count of milliseconds, refused when negative. */
         private fun nonNegative(ad: JsonObject, key: String, id: String): Long? {
             if (!ad.has(key)) return null
-            val value = millis(ad, key) ?: invalid("ad $id: $key")
-            if (value < 0) invalid("ad $id: $key must not be negative")
+            val value = millis(ad, key) ?: invalidAt(key, "ad $id: $key")
+            if (value < 0) invalidAt(key, "ad $id: $key must not be negative")
             return value
         }
     }
