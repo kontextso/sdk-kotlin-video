@@ -5,7 +5,7 @@ import so.kontext.video.KontextVideo.Configuration.LogLevel
 
 /**
  * Writes the SDK's messages to Logcat (tag `KontextVideo`), up to the level set in `Configuration.logLevel`.
- * Callers pass ids, events and codes, never anything private; a URL from outside goes through [describe].
+ * Callers pass ids, events and codes, no personal data; a URL from outside goes through [describe].
  * A message is built only when its level is on.
  */
 internal object Logger {
