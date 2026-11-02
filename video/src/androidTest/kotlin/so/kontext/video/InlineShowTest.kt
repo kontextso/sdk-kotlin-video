@@ -1,13 +1,19 @@
 package so.kontext.video
 
 import android.content.Intent
+import android.graphics.Rect
+import android.graphics.drawable.ColorDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ScrollView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -86,6 +92,52 @@ class InlineShowTest {
                 assertNull(Sdk.adOnScreen)
                 ad.show(visible)
                 assertTrue(ad.wasShown)
+                owner.destroy()
+            }
+        } finally {
+            main {
+                activity.finish()
+                Sdk.resetForTesting()
+                Environment.reset()
+            }
+        }
+    }
+
+    @Test fun aFullScreenPauseAdKeepsItsPageClearOfTheSystemBars() {
+        main {
+            Environment.context = instrumentation.targetContext
+            Environment.sendBeacon = { _, _ -> }
+            Sdk.configureForTesting(Configuration("test-token"))
+        }
+        val activity = instrumentation.startActivitySync(
+            Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        ) as TestHostActivity
+        lateinit var player: FrameLayout
+        main {
+            // An edge-to-edge player, as a video app's: the container reaches under the status and navigation bars.
+            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+            player = FrameLayout(activity)
+            activity.setContentView(player)
+        }
+        instrumentation.waitForIdleSync()
+        try {
+            lateinit var owner: VideoAds
+            lateinit var ad: VideoAd
+            main {
+                owner = VideoAds(Content("ep", "en"))
+                ad = ad(owner)
+                ad.show(player)
+            }
+            instrumentation.waitForIdleSync()
+            main {
+                val bars = ViewCompat.getRootWindowInsets(player)!!
+                    .getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                assertTrue("the emulator shows a status bar", bars.top > 0)
+                val host = player.getChildAt(0)
+                val webView = ad.loadedBridge!!.webView
+                assertEquals("the host covers the whole container", player.height, host.height)
+                assertEquals("opaque behind the bars", 255, (host.background as ColorDrawable).alpha)
+                assertEquals(Rect(bars.left, bars.top, player.width - bars.right, player.height - bars.bottom), Rect(webView.left, webView.top, webView.right, webView.bottom))
                 owner.destroy()
             }
         } finally {

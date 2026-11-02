@@ -267,11 +267,11 @@ public class VideoAd internal constructor(
      * Shows an overlay or pause ad inside [container], the view the content plays in. Returns once the ad is
      * on screen. [insets] (pixels) keep it clear of your own controls, added to the system bars and cutout
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
-     * minimum; a full-screen pause ad ignores them. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`,
-     * `AnotherAdShowing`, `Invalidated`, `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not
-     * attached, not shown, has no area, lies entirely outside its window such as a pager's neighbour page, its
-     * Activity is stopped or the app is in the background, or it refuses a child: a ScrollView that has one, a
-     * ListView),
+     * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
+     * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
+     * `Invalidated`, `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not attached, not shown,
+     * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or
+     * the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
      * `WrongPresentation` (a linear ad).
      */
@@ -318,7 +318,9 @@ public class VideoAd internal constructor(
             (webView.parent as? ViewGroup)?.removeView(webView)
             if (hasEnded) return
             bridge.chosenSize = chosenSize
-            val host = AdHostView(container.context, webView)
+            // A full-screen pause ad's page stops at the bars (see refit): its host fills the strips behind
+            // them and takes their touches, so the paused frame and the player stay covered as on iOS.
+            val host = AdHostView(container.context, webView, coversWhole = payload.position == AdPayload.Position.FULLSCREEN)
             host.place = { width, height, system -> refit(width, height, system, density) }
             host.onUnfit = {
                 if (!hasEnded) {
@@ -531,9 +533,18 @@ public class VideoAd internal constructor(
     }
 
     private fun refit(width: Int, height: Int, system: Rect, density: Float): Rect? {
-        val size = chosenSize
-        if (payload.position == AdPayload.Position.FULLSCREEN || size == null) return Rect(0, 0, width, height)
+        // A full-screen pause ad clears the system bars and the cutout: Android's WebView gives the page no
+        // safe-area insets, so a page laid out edge to edge would put its controls under the clock. The host
+        // still covers the whole container behind the bars.
+        if (payload.position == AdPayload.Position.FULLSCREEN) return clearOfBars(width, height, system)
+        val size = chosenSize ?: return Rect(0, 0, width, height)
         return AdPlacement.frame(size, payload.position, width, height, combinedInsets(system), density)
+    }
+
+    /** The container less the system bars and cutout that overlap it; the whole container when they leave no room. */
+    private fun clearOfBars(width: Int, height: Int, system: Rect): Rect {
+        val frame = Rect(system.left, system.top, width - system.right, height - system.bottom)
+        return if (frame.width() > 0 && frame.height() > 0) frame else Rect(0, 0, width, height)
     }
 
     /** Runs [work] with the content playhead read once before it, so no beacon of it calls the app's player. */

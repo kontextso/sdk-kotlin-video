@@ -347,7 +347,9 @@ class ParityLifecycleTest : SdkTest() {
         card.dismiss()
         val fullscreen = pause(position = "fullscreen")
         fullscreen.show(container)
-        assertEquals("a full-screen pause ad fills the container, under the bars too", Rect(0, 0, 320, 414), adFrame(container))
+        // Android's WebView gives the page no safe-area insets: its page sits clear of the bars and the notch,
+        // while the host still covers the whole container (the emulator test checks the laid-out views).
+        assertEquals("a full-screen pause ad's page stops at the bars", Rect(0, 59, 320, 380), adFrame(container))
         fullscreen.dismiss()
     }
 

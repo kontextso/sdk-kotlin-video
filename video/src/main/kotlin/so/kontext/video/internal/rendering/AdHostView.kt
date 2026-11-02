@@ -2,6 +2,7 @@ package so.kontext.video.internal.rendering
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
@@ -12,10 +13,11 @@ import androidx.core.view.WindowInsetsCompat
 /**
  * What an overlay or pause ad puts into the player's container: a transparent layer over the whole
  * container that holds the creative at its place. Covering the container is what lets it follow a resize or
- * a rotation; touches outside the creative pass through to the player.
+ * a rotation; touches outside the creative pass through to the player (not with
+ * `coversWhole`: a full-screen ad whose page sits inside the bars, the host opaque and taking touches around it).
  */
 @SuppressLint("ViewConstructor")
-internal class AdHostView(context: Context, val content: View) : FrameLayout(context) {
+internal class AdHostView(context: Context, val content: View, coversWhole: Boolean = false) : FrameLayout(context) {
     /** The creative's frame for the container's size and insets, in this view's pixels; `null` when it no longer fits. */
     var place: ((width: Int, height: Int, insets: Rect) -> Rect?)? = null
 
@@ -29,6 +31,10 @@ internal class AdHostView(context: Context, val content: View) : FrameLayout(con
         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         isClickable = false
         isFocusable = false
+        if (coversWhole) {
+            setBackgroundColor(Color.BLACK)
+            isClickable = true
+        }
         addView(content, LayoutParams(0, 0))
     }
 
