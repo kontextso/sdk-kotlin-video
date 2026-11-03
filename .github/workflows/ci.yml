@@ -78,16 +78,16 @@ jobs:
           path: '**/build/reports/tests/'
           retention-days: 7
 
-  # API 34, and API 24, the SDK's minSdk: what a newer Android API called without its version check breaks
-  # there, not here. API 24's image comes with a WebView too old for the page's messages (no updates
-  # without Play), so the tests that need them skip there; the rest run on both.
+  # API 34, and API 26, the SDK's minSdk: what a newer Android API called without its version check breaks
+  # there, not here. API 26's image comes with a WebView that may be too old for the page's messages (no
+  # updates without Play), so the tests that need them skip there; the rest run on both.
   emulator-tests:
     name: Emulator Tests (API ${{ matrix.api-level }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        api-level: [ 24, 34 ]
+        api-level: [ 26, 34 ]
     steps:
       - uses: actions/checkout@v6
 
@@ -129,7 +129,7 @@ jobs:
           disable-animations: true
           disk-size: 2048M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
-          # The WebView's version first: on API 24 it decides which tests skip.
+          # The WebView's version first: on API 26 it decides which tests skip.
           script: |
             adb shell dumpsys webviewupdate | grep -iE "current webview package|version" || true
             ./gradlew :video:connectedDebugAndroidTest :video-media3:connectedDebugAndroidTest

@@ -6,7 +6,7 @@ This guide is for contributors working on the Kontext Kotlin Video SDK locally.
 
 - **JDK 17** (Temurin recommended) — `brew install --cask temurin@17`
 - **Android SDK** with platform 35 installed (Android Studio, or `sdkmanager "platforms;android-35"`)
-- **An Android emulator or physical device** running API 24+ for the example app
+- **An Android emulator or physical device** running API 26+ (Android 8) for the example app
 
 Gradle 8.11 is downloaded by the wrapper on first build.
 
@@ -63,9 +63,9 @@ Once a version is on Maven Central, the same app builds against it instead of ma
 
 - **Lint**: `spotlessCheck` and `detekt`.
 - **Build and Test**: `assembleDebug`, `apiCheck` and the unit tests.
-- **Emulator Tests (API 24)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 24 (the minSdk) and 34.
-  API 24's emulator image has a WebView older than the message listener (WebView 83) and nothing updates it, so
-  the two tests that need the page's own messages skip there; the job prints the WebView's version first.
+- **Emulator Tests (API 26)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 26 (the minSdk) and 34.
+  API 26's emulator image may have a WebView older than the message listener (WebView 83) and nothing updates it,
+  so the two tests that need the page's own messages skip there; the job prints the WebView's version first.
 - **Release check (R8)**: the artifacts published to mavenLocal, then `extras/release-check` built from them,
   minified.
 
@@ -78,7 +78,7 @@ after **Publish SDK** succeeds (it waits for the release to reach Maven Central,
 
 From the build files and the artifacts' dependencies:
 
-- **minSdk 24** (`video` and `video-media3`).
+- **minSdk 26**, Android 8 (`video` and `video-media3`).
 - **compileSdk 34** for `so.kontext:video`, **35** with `so.kontext:video-media3`: AndroidX Core 1.13.1, Activity
   1.8.2 and WebKit 1.12.1 require 34 in their AAR metadata, Media3 1.6.0 requires 35. AGP refuses a lower one.
 - **Android Gradle Plugin 8.1.1+** for compileSdk 34, **8.6+** for 35 (the first versions that support those API

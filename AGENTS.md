@@ -6,7 +6,7 @@ only points here. Details live in [DEVELOPMENT.md](DEVELOPMENT.md), the release 
 ## Project
 
 Kontext Kotlin Video SDK: overlay, pause and linear ads in short-drama and other video-first Android apps. Kotlin
-2.1 (built for apps on Kotlin 1.9+ and Java 11+), min SDK 24, published to Maven Central as `so.kontext:video` (and `so.kontext:video-media3`, the Media3
+2.1 (built for apps on Kotlin 1.9+ and Java 11+), min SDK 26 (Android 8), published to Maven Central as `so.kontext:video` (and `so.kontext:video-media3`, the Media3
 adapter). It is the Android twin of [sdk-swift-video](https://github.com/kontextso/sdk-swift-video): the same
 public API shape, the same wire contract, the same frame protocol and the same behavior, in Android and Kotlin
 idioms. The contract is the Notion document *Video Ads API & SDK v2*; the behavior is the Notion page *SDK

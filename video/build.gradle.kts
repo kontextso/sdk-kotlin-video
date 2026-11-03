@@ -27,7 +27,7 @@ android {
     resourcePrefix = "kontext_video_"
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 26
         // Emulator tests: what needs a real WebView (`./gradlew :video:connectedDebugAndroidTest`).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-proguard-rules.pro")

@@ -67,7 +67,7 @@ class FrameProtocolTest {
     }
 
     @Test fun thePagesOwnMessagesLoadShowAndCountTheAd() {
-        // A WebView older than the message listener (an API 24 image's own) never hears the page: the SDK
+        // A WebView older than the message listener (an old emulator image's own) never hears the page: the SDK
         // refuses such an ad by design, and there is no protocol to test.
         assumeTrue(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
         val activity = instrumentation.startActivitySync(

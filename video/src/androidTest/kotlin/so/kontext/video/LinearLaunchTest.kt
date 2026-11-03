@@ -2,7 +2,6 @@ package so.kontext.video
 
 import android.app.Activity
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.widget.FrameLayout
@@ -13,7 +12,6 @@ import androidx.test.runner.lifecycle.Stage
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.KontextVideo.Configuration
@@ -188,10 +186,6 @@ class LinearLaunchTest {
     }
 
     @Test fun theActivityThatStartedALinearAdFinishingEndsItInterruptedAndClosesItsScreen() {
-        // The ad ends when the host is destroyed. Android 7 destroys a finished Activity under a playing one late,
-        // or not at all while it plays (the ad then ends when it completes or the viewer closes it), and has no
-        // earlier signal: a known limit there, not tested.
-        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }

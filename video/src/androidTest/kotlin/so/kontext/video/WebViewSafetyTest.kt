@@ -55,7 +55,7 @@ class WebViewSafetyTest {
     )
 
     @Test fun anOriginTheWebViewRefusesFailsTheLoadInsteadOfCrashing() {
-        // Only a WebView with the message listener checks the origin; an older one (an API 24 image's own)
+        // Only a WebView with the message listener checks the origin; an older one (an old emulator image's own)
         // never makes the bridge at all.
         assumeTrue(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
         for (url in listOf("ftp://frames.test/a", "myapp://frames.test/a", "https://frames.test:99999/a")) {
