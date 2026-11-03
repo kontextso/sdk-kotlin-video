@@ -18,7 +18,10 @@ sdk-kotlin-video/
 │   └── internal/                             #   Sdk.kt, then ad/ rendering/ playback/ payloads/ network/ device/ support/
 ├── video/src/test/                           # JUnit 5 and Robolectric tests
 ├── video/api/video.api                       # the public API, checked by apiCheck
-├── adapters/media3/                          # :video-media3, VideoAds.track(Player) for a Media3 player
+├── adapters/                                 # player adapters, one module each (see adapters/README.md)
+│   ├── media3/                               #   :video-media3, VideoAds.track(Player) for a Media3 player
+│   └── ttsdk/                                #   :video-ttsdk, VideoAds.track(TTVideoEngine) for a TTSDK engine
+├── integrations/compose/                     # :video-compose, rememberVideoAds and VideoAdHost for Jetpack Compose
 ├── example/                                  # classic-View demo app: the four formats
 ├── extras/release-check/                     # a publisher's app built from the published SDK (see its README)
 ├── detekt.yml                                # lint rules
@@ -35,7 +38,7 @@ sdk-kotlin-video/
 ./gradlew apiCheck                            # the public API against video/api and adapters/media3/api
 ./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
 ./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
-./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest   # what CI runs, with the two below
+./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest   # what CI runs, with the two below
 ```
 
 `internal/CorpusTest` runs the malformed-answer corpus the Swift SDK runs too: `video/src/test/resources/corpus/`
@@ -47,7 +50,7 @@ artifacts, as a publisher's app does, and minifies them with R8. Its log (tag `R
 loaded and shown:
 
 ```bash
-./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal
+./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal :video-ttsdk:publishToMavenLocal :video-compose:publishToMavenLocal
 ./gradlew -p extras/release-check assembleRelease   # or installRelease, on a running emulator
 ```
 
@@ -78,7 +81,7 @@ after **Publish SDK** succeeds (it waits for the release to reach Maven Central,
 
 From the build files and the artifacts' dependencies:
 
-- **minSdk 26**, Android 8 (`video` and `video-media3`).
+- **minSdk 26**, Android 8 (every module).
 - **compileSdk 34** for `so.kontext:video`, **35** with `so.kontext:video-media3`: AndroidX Core 1.13.1, Activity
   1.8.2 and WebKit 1.12.1 require 34 in their AAR metadata, Media3 1.6.0 requires 35. AGP refuses a lower one.
 - **Android Gradle Plugin 8.1.1+** for compileSdk 34, **8.6+** for 35 (the first versions that support those API

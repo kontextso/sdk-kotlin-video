@@ -37,7 +37,7 @@ jobs:
 
       # Android Lint over the published libraries: manifest, resource prefix, thread annotations.
       - name: Check Android Lint
-        run: ./gradlew :video:lintRelease :video-media3:lintRelease
+        run: ./gradlew :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease
 
   build-and-test:
     name: Build and Test
@@ -68,7 +68,7 @@ jobs:
         run: ./gradlew apiCheck
 
       - name: Run unit tests
-        run: ./gradlew :video:testDebug :video-media3:testDebug
+        run: ./gradlew :video:testDebug :video-media3:testDebug :video-ttsdk:testDebug
 
       - name: Upload test reports
         if: always()
@@ -166,7 +166,7 @@ jobs:
 
       # The artifacts as a publisher gets them, then an app built only from those, minified by R8.
       - name: Publish to mavenLocal
-        run: ./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal
+        run: ./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal :video-ttsdk:publishToMavenLocal :video-compose:publishToMavenLocal
 
       - name: Build the minified release check
         run: ./gradlew -p extras/release-check assembleRelease

@@ -7,6 +7,8 @@ In progress.
 The first release: an SDK on the v2 contract, the Android twin of sdk-swift-video 0.2.0.
 
 * Android 8.0 (API 26) and later.
+* `so.kontext:video-ttsdk`: `ads.track(engine)` follows a TTSDK `TTVideoEngine` (1.40+, the app's own TTSDK).
+* `so.kontext:video-compose`: `rememberVideoAds(content)` and `VideoAdHost(ad)` for Jetpack Compose.
 
 * `KontextVideo.initialize(context, KontextVideo.Configuration(token))` once at launch; `user`, `regulatory`, `variantId`.
 * `VideoAds(content, labels)` per episode; `format(AdFormat)` returns a `VideoAd` (suspend, or a callback for Java);

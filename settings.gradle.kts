@@ -48,10 +48,17 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        // TTSDK, only for :video-ttsdk to compile against (compileOnly); nothing from it ships.
+        maven("https://artifact.byteplus.com/repository/public/") {
+            content { includeGroup("com.bytedanceapi") }
+        }
     }
 }
 
-include(":video", ":video-media3", ":example")
+include(":video", ":video-media3", ":video-ttsdk", ":video-compose", ":example")
 
-// Player adapters live under adapters/; each keeps its published name (so.kontext:video-<player>).
+// Player adapters live under adapters/, UI integrations under integrations/; each keeps its published name
+// (so.kontext:video-<name>).
 project(":video-media3").projectDir = file("adapters/media3")
+project(":video-ttsdk").projectDir = file("adapters/ttsdk")
+project(":video-compose").projectDir = file("integrations/compose")

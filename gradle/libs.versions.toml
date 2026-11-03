@@ -28,6 +28,16 @@ androidx-webkit = "1.12.1"              # addWebMessageListener: the frame page'
 media3 = "1.6.0"
 media3-adapter-floor = "1.1.1"
 
+# ---- Compose ----
+# :video-compose compiles against this floor, the oldest Compose it supports; an app's own, newer Compose wins at
+# resolution, so the module never raises the app's Compose version.
+compose-floor = "1.6.8"
+
+# ---- TTSDK ----
+# :video-ttsdk compiles against the oldest TTSDK it supports (1.40 added addVideoEngineCallback) and does not ship
+# it: the app brings its own, licensed TTSDK.
+ttsdk-floor = "1.40.1.5"
+
 # ---- Kontext ----
 # Device info, install id, advertising id, TCF consent. 0.1.0 moved Open Measurement to its own artifact,
 # which this SDK does not use: no OMSDK binary ships with it.
@@ -77,6 +87,13 @@ androidx-media3-common = { module = "androidx.media3:media3-common", version.ref
 androidx-media3-common-floor = { module = "androidx.media3:media3-common", version.ref = "media3-adapter-floor" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 
+# Compose: the floor :video-compose compiles against
+androidx-compose-ui-floor = { module = "androidx.compose.ui:ui", version.ref = "compose-floor" }
+androidx-compose-foundation-layout-floor = { module = "androidx.compose.foundation:foundation-layout", version.ref = "compose-floor" }
+
+# TTSDK player (the BytePlus repository): compileOnly in :video-ttsdk
+ttsdk-ttplayer-floor = { module = "com.bytedanceapi:ttsdk-ttplayer", version.ref = "ttsdk-floor" }
+
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
@@ -95,6 +112,7 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

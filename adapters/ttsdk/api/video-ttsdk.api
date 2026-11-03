@@ -1,0 +1,6 @@
+public final class so/kontext/video/ttsdk/TTSDK {
+	public static final fun track (Lso/kontext/video/VideoAds;Lcom/ss/ttvideoengine/TTVideoEngine;)V
+	public static final fun track (Lso/kontext/video/VideoAds;Lcom/ss/ttvideoengine/TTVideoEngine;Lkotlin/jvm/functions/Function0;)V
+	public static synthetic fun track$default (Lso/kontext/video/VideoAds;Lcom/ss/ttvideoengine/TTVideoEngine;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)V
+}
+

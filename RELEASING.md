@@ -15,7 +15,7 @@ The release is cut from `main`, as every change is (AGENTS.md: no feature branch
    emulator tests and the minified release check).
 2. Run CI's checks locally and make sure everything is green (the release workflow runs them before it publishes):
    ```bash
-   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest
+   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest
    ```
 4. Run the example against the ad server on a device: each of the four videos shows its ad, and the status line
    shows the impression, then the one end.
