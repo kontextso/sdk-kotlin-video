@@ -52,6 +52,7 @@ import so.kontext.video.VideoAds
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.Tracker
@@ -241,7 +242,7 @@ class ParityTrackerTest : ParityHarness() {
 
             override fun put(uri: URI, connection: URLConnection): CacheRequest? = null
         })
-        Environment.sendBeacon = Tracker.Companion::get
+        Environment.sendBeacon = BeaconClient::send
         val tracker = Tracker("ad-1", listOf(entry("loaded", server.url("/events/ad-1/loaded").toString())))
         tracker.fire("loaded")
         await { requests("/events/ad-1/loaded").isNotEmpty() }
@@ -366,7 +367,7 @@ class ParityTrackerTest : ParityHarness() {
     }
 
     @Test fun anInvalidUrlIsSkippedWithoutStoppingTheOthers() {
-        Environment.sendBeacon = Tracker.Companion::get
+        Environment.sendBeacon = BeaconClient::send
         val valid = { copy: Int -> entry("impression", server.url("/events/ad-1/impression?copy=$copy").toString()) }
         val invalid = entry("impression", "")
         Tracker("ad-1", listOf(invalid, valid(1), invalid, entry("impression", "not a url"), valid(2), invalid)).fire("impression")
@@ -377,7 +378,7 @@ class ParityTrackerTest : ParityHarness() {
 
     @Test fun aFailedBeaconIsNotRetried() {
         answer("/events/") { MockResponse().setResponseCode(503) }
-        Environment.sendBeacon = Tracker.Companion::get
+        Environment.sendBeacon = BeaconClient::send
         val tracker = Tracker("ad-1", listOf(entry("impression", server.url("/events/ad-1/impression").toString())))
         tracker.fire("impression")
         await { requests("/events/ad-1/impression").isNotEmpty() }

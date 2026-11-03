@@ -12,7 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import so.kontext.video.internal.device.DeviceInfo
-import so.kontext.video.internal.rendering.Tracker
+import so.kontext.video.internal.network.BeaconClient
 
 /**
  * The SDK's seams: what tests replace and production never touches. Every value has its production
@@ -51,7 +51,7 @@ internal object Environment {
     var userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
 
     /** Sends one beacon; tests record them instead. */
-    var sendBeacon: (url: String, label: String) -> Unit = Tracker.Companion::get
+    var sendBeacon: (url: String, label: String) -> Unit = BeaconClient::send
 
     /** The advertising id when the viewer allows it, else `null`. */
     var advertisingId: suspend () -> String? = { context?.let { DeviceInfo.advertisingId(it) } }
@@ -68,7 +68,7 @@ internal object Environment {
         userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
         advertisingId = { context?.let { DeviceInfo.advertisingId(it) } }
         isAppInForeground = { ActivityTracker.isAppInForeground }
-        sendBeacon = Tracker.Companion::get
+        sendBeacon = BeaconClient::send
     }
 
     private fun failInDebuggableApp(message: String) {

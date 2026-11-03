@@ -41,6 +41,7 @@ import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
@@ -279,7 +280,7 @@ class ParityPayloadsTest {
             Tracker(ad.id, ad.tracking).fireProgress(5_000)
             assertEquals((0..4).map { "https://t.test/p?n=$it" }, sent.sorted())
         } finally {
-            Environment.sendBeacon = Tracker.Companion::get
+            Environment.sendBeacon = BeaconClient::send
         }
     }
 

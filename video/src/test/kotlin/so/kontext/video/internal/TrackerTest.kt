@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
@@ -18,7 +19,7 @@ class TrackerTest {
     }
 
     @AfterEach fun restore() {
-        Environment.sendBeacon = Tracker.Companion::get
+        Environment.sendBeacon = BeaconClient::send
     }
 
     private fun tracker() = Tracker("ad-1", AdPayload.parse(Fixtures.json(Fixtures.overlay())).tracking)

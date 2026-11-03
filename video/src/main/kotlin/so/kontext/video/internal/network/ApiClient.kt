@@ -9,9 +9,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
@@ -19,7 +17,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 
-/** Sends JSON requests to the ad server's `/v2/` routes, off the main thread. */
+/** Sends JSON requests to the ad server's `/v2/` routes, off the main thread, through [HttpTransport]. */
 internal class ApiClient(
     private val baseUrl: String,
     private val timeoutMillis: Int = DEFAULT_TIMEOUT_MILLIS,
@@ -62,8 +60,10 @@ internal class ApiClient(
                 // before the connection exists would not stop the connect that follows.)
                 if (!continuation.isActive) return@execute
                 val result = try {
-                    val (status, text) = follow(url, bytes, current) { continuation.isActive }
-                    Result.success(answer(status, text))
+                    val answer = HttpTransport.exchange(url, bytes, REDIRECT_POLICY, timeoutMillis, MAX_BODY_BYTES.toLong(), current) {
+                        continuation.isActive
+                    }
+                    Result.success(answer(answer.status, answer.body.orEmpty()))
                 } catch (error: ApiException) {
                     Result.failure(error)
                 } catch (error: IOException) {
@@ -85,64 +85,6 @@ internal class ApiClient(
         return parseAnswer(text)
     }
 
-    /**
-     * Sends the request and follows redirects as the Swift SDK's URLSession does: a 307 or 308 sends the POST
-     * again, body and all; a 301, 302 or 303 continues as a GET. At most [MAX_REDIRECTS], only to http or
-     * https, and never from https to http. Deliberate: the routes do not redirect today, so a redirect would be our own server
-     * moving, and refusing it would be an outage of every installed SDK. Each hop is one connection whose body
-     * is streamed, so the HTTP stack cannot send it again on its own when a connection drops.
-     */
-    private fun follow(start: URL, bytes: ByteArray, current: AtomicReference<HttpURLConnection?>, isActive: () -> Boolean): Pair<Int, String> {
-        var url = start
-        var post = true
-        repeat(MAX_REDIRECTS + 1) {
-            if (!isActive()) throw IOException("cancelled")
-            val connection = url.openConnection() as HttpURLConnection
-            current.set(connection)
-            try {
-                connection.instanceFollowRedirects = false
-                connection.connectTimeout = timeoutMillis
-                connection.readTimeout = timeoutMillis
-                connection.useCaches = false
-                if (post) {
-                    connection.requestMethod = "POST"
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json")
-                    connection.setFixedLengthStreamingMode(bytes.size)
-                    connection.outputStream.use { it.write(bytes) }
-                } else {
-                    connection.requestMethod = "GET"
-                }
-                val status = connection.responseCode
-                val next = connection.getHeaderField("Location")?.takeIf { status in REDIRECTS }?.let { runCatching { URL(url, it) }.getOrNull() }
-                // Only to http or https, and never down from https: anything else is the answer, not followed.
-                if (next == null || next.protocol !in FOLLOWED_SCHEMES || (url.protocol == "https" && next.protocol != "https")) {
-                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                    if (connection.contentLengthLong > MAX_BODY_BYTES) throw ResponseTooLarge()
-                    return status to (stream?.use(::readCapped) ?: "")
-                }
-                if (status !in KEEP_METHOD) post = false
-                url = next
-            } finally {
-                connection.disconnect()
-            }
-        }
-        throw IOException("more than $MAX_REDIRECTS redirects")
-    }
-
-    /** The body as UTF-8, reading at most one byte past [MAX_BODY_BYTES]: a longer one fails without being read whole. */
-    private fun readCapped(stream: InputStream): String {
-        val out = ByteArrayOutputStream()
-        val buffer = ByteArray(BUFFER_BYTES)
-        while (true) {
-            val read = stream.read(buffer, 0, minOf(buffer.size.toLong(), MAX_BODY_BYTES + 1L - out.size()).toInt())
-            if (read == -1) break
-            out.write(buffer, 0, read)
-            if (out.size() > MAX_BODY_BYTES) throw ResponseTooLarge()
-        }
-        return out.toString(Charsets.UTF_8.name())
-    }
-
     companion object {
         const val DEFAULT_TIMEOUT_MILLIS = 10_000
 
@@ -152,11 +94,14 @@ internal class ApiClient(
          * whole, as when the connection drops.
          */
         const val MAX_BODY_BYTES = 5 * 1024 * 1024
-        private const val BUFFER_BYTES = 16 * 1024
-        const val MAX_REDIRECTS = 5
-        private val REDIRECTS = setOf(301, 302, 303, 307, 308)
-        private val KEEP_METHOD = setOf(307, 308)
-        private val FOLLOWED_SCHEMES = setOf("http", "https")
+
+        /**
+         * Redirects as the Swift SDK's URLSession follows them: a 307 or 308 sends the POST again, body and all; a 301,
+         * 302 or 303 continues as a GET. At most `HttpTransport.MAX_REDIRECTS`, never from https down to http (it is our own server).
+         * Deliberate: the routes do not redirect today, so a redirect would be our own server moving, and refusing it
+         * would be an outage of every installed SDK.
+         */
+        private val REDIRECT_POLICY = HttpTransport.Redirects(allowDowngrade = false)
 
         /** The JSON:API-shaped error body; an item that is not an object fails the whole body, which then counts as none. */
         fun parseErrors(text: String): List<ErrorItem> = runCatching {

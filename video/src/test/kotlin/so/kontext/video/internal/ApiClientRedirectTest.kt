@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.HttpTransport
 
 /** Redirects are followed as the Swift SDK follows them: 307 and 308 keep the POST and its body, 301 to 303 become a GET. */
 class ApiClientRedirectTest {
@@ -63,9 +64,9 @@ class ApiClientRedirectTest {
     }
 
     @Test fun moreThanFiveRedirectsFailAsATransportError() {
-        repeat(ApiClient.MAX_REDIRECTS + 1) { server.enqueue(redirect(307, "/v2/again")) }
+        repeat(HttpTransport.MAX_REDIRECTS + 1) { server.enqueue(redirect(307, "/v2/again")) }
         assertThrows<ApiException.Transport> { post() }
-        assertEquals(ApiClient.MAX_REDIRECTS + 1, server.requestCount, "the first request and five hops, no more")
+        assertEquals(HttpTransport.MAX_REDIRECTS + 1, server.requestCount, "the first request and five hops, no more")
     }
 
     @Test fun aRedirectWithoutATargetIsTheAnswer() {

@@ -17,11 +17,12 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.network.BeaconClient
+import so.kontext.video.internal.network.HttpTransport
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.FrameEvent
-import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
@@ -191,7 +192,7 @@ class PartsTest : SdkTest() {
         server.start()
         try {
             server.enqueue(MockResponse().setResponseCode(204))
-            Tracker.get(server.url("/beacon?e=impression").toString(), "ad: impression")
+            BeaconClient.send(server.url("/beacon?e=impression").toString(), "ad: impression")
             val deadline = System.currentTimeMillis() + 5_000
             var request: okhttp3.mockwebserver.RecordedRequest? = null
             while (request == null && System.currentTimeMillis() < deadline) {
@@ -223,7 +224,7 @@ class PartsTest : SdkTest() {
             first.enqueue(MockResponse().setResponseCode(302).setHeader("Location", second.url("/hop?e=impression").toString()))
             second.enqueue(MockResponse().setResponseCode(301).setHeader("Location", "/final?e=impression"))
             second.enqueue(MockResponse().setResponseCode(204))
-            Tracker.get(first.url("/beacon?e=impression").toString(), "ad: impression")
+            BeaconClient.send(first.url("/beacon?e=impression").toString(), "ad: impression")
             assertEquals(listOf("/beacon?e=impression"), received(first, 1).map { it.path })
             assertEquals("a relative Location too", listOf("/hop?e=impression", "/final?e=impression"), received(second, 2).map { it.path })
         } finally {
@@ -235,12 +236,12 @@ class PartsTest : SdkTest() {
     @Test fun aBeaconStopsAfterTenRedirects() {
         val server = MockWebServer().apply { start() }
         try {
-            repeat(Tracker.MAX_REDIRECTS + 5) {
+            repeat(HttpTransport.MAX_REDIRECTS + 5) {
                 server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/again"))
             }
-            Tracker.get(server.url("/beacon").toString(), "ad: impression")
-            val requests = received(server, Tracker.MAX_REDIRECTS + 2)
-            assertEquals("the first request and ten redirects, no more", Tracker.MAX_REDIRECTS + 1, requests.size)
+            BeaconClient.send(server.url("/beacon").toString(), "ad: impression")
+            val requests = received(server, HttpTransport.MAX_REDIRECTS + 2)
+            assertEquals("the first request and ten redirects, no more", HttpTransport.MAX_REDIRECTS + 1, requests.size)
         } finally {
             server.shutdown()
         }
@@ -274,7 +275,7 @@ class PartsTest : SdkTest() {
         }
         serving.start()
         try {
-            Tracker.get("http://127.0.0.1:${server.localPort}/beacon?e=impression", "ad: impression")
+            BeaconClient.send("http://127.0.0.1:${server.localPort}/beacon?e=impression", "ad: impression")
             while (serving.isAlive) {
                 idle(10)
                 serving.join(10)
