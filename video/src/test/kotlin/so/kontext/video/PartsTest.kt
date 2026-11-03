@@ -84,7 +84,7 @@ class PartsTest : SdkTest() {
         bridge.receive("""{"type":"ad.loaded"}""", page, true)
         assertEquals("one report for a broken page", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
-        bridge.chosenSize = so.kontext.video.internal.wire.AdPayload.Size(320, 80)
+        bridge.chosenSize = so.kontext.video.internal.payloads.AdPayload.Size(320, 80)
         bridge.show()
         bridge.exposure(0.5, 0.0, 0.0, 10.0, 10.0)
         bridge.receive("""{"adId":"ad-1","type":"something.new"}""", page, true)

@@ -19,11 +19,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
 
 /** Whether the app, and the Activity a linear ad starts from, are in front: what the clocks and `show(activity)` read. */
 @RunWith(RobolectricTestRunner::class)

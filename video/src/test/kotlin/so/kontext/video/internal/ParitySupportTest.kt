@@ -52,13 +52,13 @@ import so.kontext.video.VideoAds
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
 import java.net.CacheRequest
 import java.net.CacheResponse
 import java.net.ResponseCache

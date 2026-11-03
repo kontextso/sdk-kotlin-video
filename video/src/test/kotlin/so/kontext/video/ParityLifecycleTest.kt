@@ -32,11 +32,11 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.handle
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.FrameEvent
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
 
 /**
  * The ad lifecycle rules of the Swift suite that the other suites here left unchecked: what show places and

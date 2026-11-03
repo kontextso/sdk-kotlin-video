@@ -18,6 +18,9 @@ import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.contentDidChange
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.payloads.AdsRequest
+import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
@@ -25,9 +28,6 @@ import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Labels
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
-import so.kontext.video.internal.wire.AdsRequest
-import so.kontext.video.internal.wire.AdsResponse
 import java.util.UUID
 
 /**

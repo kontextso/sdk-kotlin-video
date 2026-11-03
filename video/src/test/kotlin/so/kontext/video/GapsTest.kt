@@ -19,10 +19,10 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
-import so.kontext.video.internal.wire.AdsRequest
 
 /** What the other suites leave: the full request body, the payload's last refusals, the content rules' paths. */
 @RunWith(RobolectricTestRunner::class)

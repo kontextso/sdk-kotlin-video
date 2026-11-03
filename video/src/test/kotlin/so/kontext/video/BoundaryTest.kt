@@ -52,14 +52,14 @@ import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.AdPlacement
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.ViewabilityMeter
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
-import so.kontext.video.internal.wire.AdsRequest
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit

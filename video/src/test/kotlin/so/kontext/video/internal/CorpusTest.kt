@@ -23,8 +23,8 @@ import org.junit.jupiter.api.TestFactory
 import so.kontext.video.AdFormat
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.parseAnswer
-import so.kontext.video.internal.wire.AdsResponse
-import so.kontext.video.internal.wire.ConfigResponse
+import so.kontext.video.internal.payloads.AdsResponse
+import so.kontext.video.internal.payloads.ConfigResponse
 import java.io.File
 
 /**

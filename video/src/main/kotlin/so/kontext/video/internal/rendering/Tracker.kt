@@ -3,9 +3,9 @@ package so.kontext.video.internal.rendering
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode

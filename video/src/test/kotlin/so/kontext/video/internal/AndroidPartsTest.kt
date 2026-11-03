@@ -13,12 +13,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAdsPlayer
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.rendering.AdPlacement
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.FrameEvent
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
 
 /** The parts that need Android classes: player tracking, placement arithmetic, the frame bridge's checks. */
 @RunWith(RobolectricTestRunner::class)

@@ -34,6 +34,7 @@ import so.kontext.video.internal.ad.holdingActivityResumed
 import so.kontext.video.internal.ad.refit
 import so.kontext.video.internal.ad.runAppCodeBeforeShow
 import so.kontext.video.internal.ad.startFollowingContent
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView
@@ -48,7 +49,6 @@ import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
 import java.lang.ref.WeakReference
 
 /**

@@ -3,9 +3,9 @@ package so.kontext.video.internal.ad
 import android.graphics.Rect
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.AdPlacement
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
 
 // Where an overlay or pause ad goes in the app's container, at `show` and at every resize: the size variant,
 // its scale, and the frame inside the system bars, the cutout and the app's insets.

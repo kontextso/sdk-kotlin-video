@@ -12,12 +12,12 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.device.Consent
+import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Labels
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdsRequest
 
 /** The pure rules: labels, the overlay's video-time count, consent sections, the models and the request body. */
 class LogicTest {

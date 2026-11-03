@@ -36,10 +36,10 @@ import so.kontext.video.VideoAd
 import so.kontext.video.internal.network.double
 import so.kontext.video.internal.network.obj
 import so.kontext.video.internal.network.str
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
 
 /**
  * Owns the WebView of one ad and speaks the Kontext Frame Protocol v2 with its page. The page posts to

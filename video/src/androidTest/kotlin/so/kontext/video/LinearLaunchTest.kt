@@ -18,10 +18,10 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.handle
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 

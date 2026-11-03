@@ -41,13 +41,13 @@ import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.payloads.AdsRequest
+import so.kontext.video.internal.payloads.AdsResponse
+import so.kontext.video.internal.payloads.ConfigResponse
+import so.kontext.video.internal.payloads.UNKNOWN_REASON
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.wire.AdPayload
-import so.kontext.video.internal.wire.AdsRequest
-import so.kontext.video.internal.wire.AdsResponse
-import so.kontext.video.internal.wire.ConfigResponse
-import so.kontext.video.internal.wire.UNKNOWN_REASON
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.junit.Assert as JUnit4
 import org.junit.Test as JUnit4Test

@@ -22,11 +22,11 @@ import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.wire.AdPayload
 
 /** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
 @RunWith(RobolectricTestRunner::class)

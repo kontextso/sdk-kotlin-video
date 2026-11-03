@@ -1,4 +1,4 @@
-package so.kontext.video.internal.wire
+package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
