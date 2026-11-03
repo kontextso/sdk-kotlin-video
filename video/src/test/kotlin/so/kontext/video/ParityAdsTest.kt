@@ -39,7 +39,7 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
@@ -1001,10 +1001,10 @@ class ParityAdsTest {
         assertEquals(configuration, Sdk.configuration)
         val body = Json.parseToJsonElement(received.first { it.first == "/v2/config" }.second).jsonObject
         assertEquals("test-token", body["publisherToken"]!!.jsonPrimitive.content)
-        val installId = DeviceFacts.installId(ApplicationProvider.getApplicationContext())
+        val installId = DeviceInfo.installId(ApplicationProvider.getApplicationContext())
         assertEquals(installId, body["installId"]!!.jsonPrimitive.content)
         assertEquals("a UUID", installId, UUID.fromString(installId).toString())
-        assertEquals("stable", installId, DeviceFacts.installId(ApplicationProvider.getApplicationContext()))
+        assertEquals("stable", installId, DeviceInfo.installId(ApplicationProvider.getApplicationContext()))
     }
 
     @Test fun aResetDuringInitializeIsNotUndoneByTheCancelledRequest() {

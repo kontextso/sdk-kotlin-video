@@ -11,7 +11,7 @@ import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.device.Consent
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.support.Environment
 import java.util.UUID
@@ -35,7 +35,7 @@ internal object AdsRequest {
         // The slow prerequisite first: the viewer may reset the ad id, or the consent and the user may change,
         // while it is read. What identifies the viewer and what they allow is read last, just before the body
         // (consent and the user inside it, with nothing suspending between).
-        val userAgent = DeviceFacts.requestUserAgent(context)
+        val userAgent = DeviceInfo.requestUserAgent(context)
         val ifa = Environment.advertisingId()
         // A usable CMP value wins per field; the publisher fills in the rest. COPPA comes only from the publisher.
         val regulatory = Consent.read(context, Sdk.regulatory)
@@ -46,7 +46,7 @@ internal object AdsRequest {
         val body = buildJsonObject {
             put("requestId", requestId)
             put("publisherToken", publisherToken)
-            put("installId", DeviceFacts.installId(context))
+            put("installId", DeviceInfo.installId(context))
             (if (isChild) Sdk.user?.withoutIdentity else Sdk.user)?.let { put("user", user(it)) }
             putIfNotNull("variantId", Sdk.variantId)
             // Only an id the viewer allows: one with limited ad tracking is not read at all.
@@ -61,16 +61,16 @@ internal object AdsRequest {
                 )
             }
             regulatory?.let { put("regulatory", regulatory(it)) }
-            put("sdk", DeviceFacts.sdk())
-            put("app", DeviceFacts.app(context))
+            put("sdk", DeviceInfo.sdk())
+            put("app", DeviceInfo.app(context))
             put(
                 "device",
                 buildJsonObject {
-                    put("os", DeviceFacts.os(context))
-                    put("hardware", DeviceFacts.hardware(context))
-                    put("screen", DeviceFacts.screen(context))
-                    put("power", DeviceFacts.power(context))
-                    put("audio", DeviceFacts.audio(context))
+                    put("os", DeviceInfo.os(context))
+                    put("hardware", DeviceInfo.hardware(context))
+                    put("screen", DeviceInfo.screen(context))
+                    put("power", DeviceInfo.power(context))
+                    put("audio", DeviceInfo.audio(context))
                     put("network", buildJsonObject { putIfNotNull("userAgent", userAgent) })
                 },
             )

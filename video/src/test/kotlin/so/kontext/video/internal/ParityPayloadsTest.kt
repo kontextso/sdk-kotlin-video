@@ -38,7 +38,7 @@ import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.VideoAds
 import so.kontext.video.internal.device.Consent
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
@@ -495,7 +495,7 @@ class ParityPayloadsTest {
 
     @Test fun theSdkCarriesItsNameAndAReleaseVersion() {
         assertTrue(Regex("""\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z""").matches(KontextVideo.VERSION), KontextVideo.VERSION)
-        val sdk = DeviceFacts.sdk()
+        val sdk = DeviceInfo.sdk()
         assertEquals("sdk-kotlin-video", sdk["name"]!!.jsonPrimitive.content)
         assertEquals(KontextVideo.VERSION, sdk["version"]!!.jsonPrimitive.content)
     }
@@ -586,7 +586,7 @@ class ParityRequestsTest : SdkTest() {
         JUnit4.assertEquals(built.requestId, body.text("requestId"))
         for (absent in listOf("adServerUrl", "adServerURL", "formats", "placementId")) JUnit4.assertNull(absent, body[absent])
         JUnit4.assertEquals("pub-dev", body.text("publisherToken"))
-        JUnit4.assertEquals(DeviceFacts.installId(context), body.text("installId"))
+        JUnit4.assertEquals(DeviceInfo.installId(context), body.text("installId"))
         JUnit4.assertEquals("u1", body.obj("user").text("id"))
         JUnit4.assertEquals("exp-b", body.text("variantId"))
         JUnit4.assertEquals(false, body.obj("ifa").bool("limitAdTracking"))
@@ -644,16 +644,16 @@ class ParityRequestsTest : SdkTest() {
     }
 
     @JUnit4Test fun deviceFactsHaveTheWireShape() {
-        val screen = DeviceFacts.screen(context)
+        val screen = DeviceInfo.screen(context)
         JUnit4.assertTrue(screen.text("width").toInt() > 0)
         val metrics = context.resources.displayMetrics
         JUnit4.assertEquals("in dp, not physical pixels", Math.round(metrics.widthPixels / metrics.density), screen.text("width").toInt())
         JUnit4.assertTrue(screen["dpr"]!!.jsonPrimitive.doubleOrNull!! >= 1)
         JUnit4.assertNotNull(screen.bool("darkMode"))
-        val os = DeviceFacts.os(context)
+        val os = DeviceInfo.os(context)
         JUnit4.assertEquals("android", os.text("name"))
         JUnit4.assertTrue(os.text("locale").isNotEmpty() && os.text("timezone").isNotEmpty())
-        JUnit4.assertTrue(DeviceFacts.hardware(context).text("type") in setOf("phone", "tablet", "tv", "desktop", "other"))
+        JUnit4.assertTrue(DeviceInfo.hardware(context).text("type") in setOf("phone", "tablet", "tv", "desktop", "other"))
     }
 
     @JUnit4Test fun theConfigRequestCarriesTheIdentityAndEachHasItsOwnId() {
@@ -685,7 +685,7 @@ class ParityRequestsTest : SdkTest() {
         JUnit4.assertTrue(first.text("requestId"), Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$").matches(first.text("requestId")))
         JUnit4.assertNotEquals(first.text("requestId"), second.text("requestId"))
         JUnit4.assertEquals("pub-dev", first.text("publisherToken"))
-        JUnit4.assertEquals(DeviceFacts.installId(context), first.text("installId"))
+        JUnit4.assertEquals(DeviceInfo.installId(context), first.text("installId"))
         JUnit4.assertEquals("sdk-kotlin-video", first.obj("sdk").text("name"))
         JUnit4.assertEquals(context.packageName, first.obj("app").text("bundleId"))
         JUnit4.assertEquals("android", first.obj("device").obj("os").text("name"))

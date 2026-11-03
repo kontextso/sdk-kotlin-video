@@ -49,7 +49,7 @@ import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
@@ -656,7 +656,7 @@ class ParitySupportTest : ParityHarness() {
         }
         val body = request.json!!
         assertEquals("test-token", body.str("publisherToken"))
-        assertEquals(DeviceFacts.installId(Environment.context!!), body.str("installId"))
+        assertEquals(DeviceInfo.installId(Environment.context!!), body.str("installId"))
         assertEquals("sdk-kotlin-video", body["sdk"]!!.jsonObject.str("name"))
         assertNotNull(body["app"]!!.jsonObject["bundleId"])
         assertNotNull(body["os"]!!.jsonObject["name"])
@@ -848,7 +848,7 @@ class ParitySupportTest : ParityHarness() {
         await { debugBatches("ad.loaded").isNotEmpty() }
         val body = requests("/v2/debug").last().json!!
         assertEquals("test-token", body.str("publisherToken"))
-        assertEquals(DeviceFacts.installId(Environment.context!!), body.str("installId"))
+        assertEquals(DeviceInfo.installId(Environment.context!!), body.str("installId"))
         assertEquals("sdk-kotlin-video", body["sdk"]!!.jsonObject.str("name"))
         assertTrue("config.response", debugNames().contains("config.response"))
         val events = debugBatches().flatten()

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.internal.Sdk
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.putIfNotNull
 import java.text.SimpleDateFormat
@@ -116,8 +116,8 @@ internal object DebugReporter {
         buffer.clear()
         val body = buildJsonObject {
             put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceFacts.installId(context))
-            put("sdk", DeviceFacts.sdk())
+            put("installId", DeviceInfo.installId(context))
+            put("sdk", DeviceInfo.sdk())
             put("events", JsonArray(events))
         }
         try {

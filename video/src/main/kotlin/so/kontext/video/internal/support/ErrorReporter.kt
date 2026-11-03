@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.internal.Sdk
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.putIfNotNull
@@ -305,13 +305,13 @@ internal object ErrorReporter {
      */
     private fun makeBatch(configuration: so.kontext.video.KontextVideo.Configuration, context: android.content.Context): Batch? {
         val batchId = UUID.randomUUID().toString()
-        val os = DeviceFacts.os(context)
+        val os = DeviceInfo.os(context)
         fun body(errors: List<JsonObject>, dropped: Int) = buildJsonObject {
             put("batchId", batchId)
             put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceFacts.installId(context))
-            put("sdk", DeviceFacts.sdk())
-            put("app", DeviceFacts.app(context))
+            put("installId", DeviceInfo.installId(context))
+            put("sdk", DeviceInfo.sdk())
+            put("app", DeviceInfo.app(context))
             put(
                 "os",
                 buildJsonObject {

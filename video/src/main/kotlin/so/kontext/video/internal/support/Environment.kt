@@ -11,7 +11,7 @@ import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.rendering.Tracker
 
 /**
@@ -44,7 +44,7 @@ internal object Environment {
     var assertionFailure: (String) -> Unit = ::failInDebuggableApp
 
     /** The browser's user agent, `navigator.userAgent` of a WebView, as KontextKit reads and caches it. */
-    var userAgent: suspend () -> String? = { context?.let { DeviceFacts.userAgent(it) } }
+    var userAgent: suspend () -> String? = { context?.let { DeviceInfo.userAgent(it) } }
 
     /** How long an ads request waits for [userAgent] before it goes with a fallback. A constant in spirit; tests shorten it. */
     const val DEFAULT_USER_AGENT_WAIT_MILLIS = 2_000L
@@ -54,7 +54,7 @@ internal object Environment {
     var sendBeacon: (url: String, label: String) -> Unit = Tracker.Companion::get
 
     /** The advertising id when the viewer allows it, else `null`. */
-    var advertisingId: suspend () -> String? = { context?.let { DeviceFacts.advertisingId(it) } }
+    var advertisingId: suspend () -> String? = { context?.let { DeviceInfo.advertisingId(it) } }
 
     /** The name of the process the SDK runs in, `null` when it cannot be read. */
     var processName: (Context) -> String? = ::currentProcessName
@@ -64,9 +64,9 @@ internal object Environment {
         scope = newScope()
         now = { SystemClock.elapsedRealtime() }
         assertionFailure = ::failInDebuggableApp
-        userAgent = { context?.let { DeviceFacts.userAgent(it) } }
+        userAgent = { context?.let { DeviceInfo.userAgent(it) } }
         userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
-        advertisingId = { context?.let { DeviceFacts.advertisingId(it) } }
+        advertisingId = { context?.let { DeviceInfo.advertisingId(it) } }
         isAppInForeground = { ActivityTracker.isAppInForeground }
         sendBeacon = Tracker.Companion::get
     }

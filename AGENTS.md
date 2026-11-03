@@ -55,7 +55,7 @@ adb logcat -s KontextVideo
   - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time).
   - `payloads/`: `AdPayload`, `AdsResponse`, `ConfigResponse`, `AdsRequest`.
   - `network/`: `ApiClient`, `ApiException`, the JSON helpers.
-  - `device/`: `DeviceFacts`, `Consent` (through KontextKit).
+  - `device/`: `DeviceInfo`, `Consent` (through KontextKit).
   - `support/`: `Environment` (the seams the tests replace), `ActivityTracker`, `Logger`,
     `ErrorReporter`, `DebugReporter`.
 - One main type per file. The root package holds the public API only.

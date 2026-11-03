@@ -49,7 +49,7 @@ import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.Sdk
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
@@ -405,7 +405,7 @@ class BoundaryTest {
     }
 
     @Test fun aPhoneIsAPhoneOnTheWire() {
-        assertEquals("phone", DeviceFacts.hardware(Environment.context!!)["type"]!!.jsonPrimitive.content)
+        assertEquals("phone", DeviceInfo.hardware(Environment.context!!)["type"]!!.jsonPrimitive.content)
     }
 
     @Test fun theAdvertisingIdIsAnAaid() = runBlocking {

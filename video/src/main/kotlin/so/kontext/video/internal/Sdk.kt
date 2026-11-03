@@ -14,7 +14,7 @@ import so.kontext.video.KontextVideo.State
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.ad.Presentation
-import so.kontext.video.internal.device.DeviceFacts
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.support.DebugReporter
@@ -155,14 +155,14 @@ internal object Sdk {
         val body = buildJsonObject {
             put("requestId", requestId)
             put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceFacts.installId(context))
-            put("sdk", DeviceFacts.sdk())
-            put("app", DeviceFacts.app(context))
+            put("installId", DeviceInfo.installId(context))
+            put("sdk", DeviceInfo.sdk())
+            put("app", DeviceInfo.app(context))
             put(
                 "device",
                 buildJsonObject {
-                    put("os", DeviceFacts.os(context))
-                    put("hardware", DeviceFacts.hardware(context))
+                    put("os", DeviceInfo.os(context))
+                    put("hardware", DeviceInfo.hardware(context))
                 },
             )
         }
@@ -214,7 +214,7 @@ internal object Sdk {
         presentation = null
         DebugReporter.resetForTesting()
         ErrorReporter.resetForTesting()
-        DeviceFacts.resetForTesting()
+        DeviceInfo.resetForTesting()
         Logger.level = Configuration.LogLevel.WARNING
     }
 }

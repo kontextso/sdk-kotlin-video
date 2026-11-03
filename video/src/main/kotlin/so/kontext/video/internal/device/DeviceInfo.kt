@@ -29,7 +29,7 @@ import kotlin.math.roundToInt
  * form factors in its OpenRTB-derived set, sizes in dp (the server multiplies by `dpr` where OpenRTB wants
  * physical pixels). As the Swift SDK does.
  */
-internal object DeviceFacts {
+internal object DeviceInfo {
     /** The SDK's identity, as the server knows it. */
     const val SDK_NAME = "sdk-kotlin-video"
 
