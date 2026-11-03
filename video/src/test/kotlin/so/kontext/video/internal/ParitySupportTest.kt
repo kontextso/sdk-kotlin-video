@@ -49,6 +49,7 @@ import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException

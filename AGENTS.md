@@ -47,7 +47,7 @@ adb logcat -s KontextVideo
   overlay and pause, `show(activity)` for linear, `dismiss()`; the page's events mapped to beacons and the listener;
   `end()` is the only terminal path.
 - `internal/`, mirroring the Swift SDK's folders:
-  - `Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
+  - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
   - `ad/`: `VideoAd`'s logic outside its class: the page's events, and the overlay-follows-content rules.
   - `rendering/`: `FrameBridge` (the WebView and the frame protocol; the page's messages come through
     `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,

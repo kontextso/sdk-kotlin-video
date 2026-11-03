@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
-import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.putIfNotNull

@@ -10,7 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.util.ReflectionHelpers
-import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.rendering.ViewabilityMeter
 import so.kontext.video.internal.support.Environment
 

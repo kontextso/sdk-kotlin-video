@@ -7,7 +7,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.ActivityTracker

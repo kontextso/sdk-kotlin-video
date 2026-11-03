@@ -14,7 +14,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
-import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.playback.ContentPlayback
 
 /**

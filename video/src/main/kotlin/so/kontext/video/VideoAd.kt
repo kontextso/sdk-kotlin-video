@@ -22,7 +22,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.Presentation
 import so.kontext.video.internal.ad.checkEpisode
 import so.kontext.video.internal.ad.chooseSize
@@ -34,6 +33,7 @@ import so.kontext.video.internal.ad.holdingActivityResumed
 import so.kontext.video.internal.ad.refit
 import so.kontext.video.internal.ad.runAppCodeBeforeShow
 import so.kontext.video.internal.ad.startFollowingContent
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.rendering.ActiveTimeClock

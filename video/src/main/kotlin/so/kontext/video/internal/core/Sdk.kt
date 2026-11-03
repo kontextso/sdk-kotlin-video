@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.core
 
 import android.content.Context
 import android.os.Looper
@@ -11,6 +11,7 @@ import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.State
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.SDK_VERSION
 import so.kontext.video.internal.ad.Presentation
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient

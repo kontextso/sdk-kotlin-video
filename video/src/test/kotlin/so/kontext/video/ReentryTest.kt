@@ -50,7 +50,7 @@ class ReentryTest : SdkTest() {
         laidOut()
         assertEquals(listOf("impression", "ended DISMISSED"), heard)
         assertTrue(ad.hasEnded)
-        assertNull("the slot is free", so.kontext.video.internal.Sdk.adOnScreen)
+        assertNull("the slot is free", so.kontext.video.internal.core.Sdk.adOnScreen)
         assertEquals(listOf("creativeView", "impression", "overlayViewDuration"), events)
     }
 

@@ -30,8 +30,8 @@ import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.ad.handle
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.FrameEvent

@@ -5,7 +5,7 @@ import androidx.annotation.MainThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import so.kontext.video.internal.SDK_VERSION
-import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.core.Sdk
 
 /**
  * The SDK's one entry point. Call [initialize] once, in `Application.onCreate`; then create a [VideoAds]

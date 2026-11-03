@@ -3,7 +3,7 @@ package so.kontext.video.internal.ad
 import android.view.ViewGroup
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.Sdk
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.LinearAdActivity
