@@ -142,8 +142,8 @@ jobs:
           path: video/build/reports/androidTests/
           retention-days: 7
 
-  publisher-app:
-    name: Publisher App (R8)
+  release-check:
+    name: Release check (R8)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -168,5 +168,5 @@ jobs:
       - name: Publish to mavenLocal
         run: ./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal
 
-      - name: Build the minified publisher app
-        run: ./gradlew -p extras/publisher-app assembleRelease
+      - name: Build the minified release check
+        run: ./gradlew -p extras/release-check assembleRelease

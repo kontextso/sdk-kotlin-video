@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
-        android:name=".PublisherApp"
-        android:label="Publisher"
+        android:name=".ReleaseCheckApp"
+        android:label="Release check"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
             android:name=".EpisodeActivity"

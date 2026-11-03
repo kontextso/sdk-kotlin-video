@@ -1,4 +1,4 @@
-package so.kontext.video.publisher
+package so.kontext.video.releasecheck
 
 import android.app.Activity
 import android.os.Bundle
@@ -19,7 +19,7 @@ import so.kontext.video.media3.track
 
 /**
  * The integration a publisher writes, after R8: an episode, its ads, an overlay requested, loaded and shown.
- * Each step logs under the tag "PublisherApp", so a run on a device shows how far the minified SDK got.
+ * Each step logs under the tag "ReleaseCheckApp", so a run on a device shows how far the minified SDK got.
  */
 class EpisodeActivity : Activity(), VideoAdListener {
     private lateinit var player: ExoPlayer
@@ -39,7 +39,7 @@ class EpisodeActivity : Activity(), VideoAdListener {
         root.addView(adArea, match())
         setContentView(root)
 
-        ads = VideoAds(Content("publisher-app-episode-1", "en") { title = "Episode 1" })
+        ads = VideoAds(Content("release-check-episode-1", "en") { title = "Episode 1" })
         ads.track(player)
         ads.format(AdFormat.OVERLAY, object : VideoAdsCallback<VideoAd> {
             override fun onSuccess(result: VideoAd) {
@@ -90,7 +90,7 @@ class EpisodeActivity : Activity(), VideoAdListener {
     private fun match() = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
     private companion object {
-        const val TAG = "PublisherApp"
+        const val TAG = "ReleaseCheck"
         const val SAMPLE_VIDEO = "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
     }
 }

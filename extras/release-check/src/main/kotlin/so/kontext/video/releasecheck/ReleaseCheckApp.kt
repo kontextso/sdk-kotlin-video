@@ -1,13 +1,13 @@
-package so.kontext.video.publisher
+package so.kontext.video.releasecheck
 
 import android.app.Application
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo
 
-class PublisherApp : Application() {
+class ReleaseCheckApp : Application() {
     override fun onCreate() {
         super.onCreate()
         // The ad server's demo routes answer any token.
-        KontextVideo.initialize(this, Configuration("publisher-app-check"))
+        KontextVideo.initialize(this, Configuration("release-check"))
     }
 }

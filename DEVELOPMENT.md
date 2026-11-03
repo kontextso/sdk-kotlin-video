@@ -20,6 +20,8 @@ sdk-kotlin-video/
 ├── video/api/video.api                       # the public API, checked by apiCheck
 ├── video-media3/                             # VideoAds.track(Player) for a Media3 player
 ├── example/                                  # classic-View demo app: the four formats
+├── extras/release-check/                     # a publisher's app built from the published SDK (see its README)
+├── detekt.yml                                # lint rules
 ├── AGENTS.md                                 # guidance for coding agents (CLAUDE.md imports it)
 └── RELEASING.md                              # how to cut a release
 ```
@@ -40,19 +42,19 @@ sdk-kotlin-video/
 is a copy of the `video-sdk-corpus` repo (internal), written by its `sync.sh` and never edited here; its README
 has the format and how to add a case.
 
-The publisher app (`extras/publisher-app`) is a separate build that sees only the published artifacts, as a
-publisher's app does, and minifies them with R8. Its log (tag `PublisherApp`) shows an overlay requested,
+The release check (`extras/release-check`, see its README) is a separate build that sees only the published
+artifacts, as a publisher's app does, and minifies them with R8. Its log (tag `ReleaseCheck`) shows an overlay requested,
 loaded and shown:
 
 ```bash
 ./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal
-./gradlew -p extras/publisher-app assembleRelease   # or installRelease, on a running emulator
+./gradlew -p extras/release-check assembleRelease   # or installRelease, on a running emulator
 ```
 
 Once a version is on Maven Central, the same app builds against it instead of mavenLocal:
 
 ```bash
-./gradlew -p extras/publisher-app assembleRelease -PsdkFromMavenCentral -PsdkVersion=0.1.0
+./gradlew -p extras/release-check assembleRelease -PsdkFromMavenCentral -PsdkVersion=0.1.0
 ```
 
 ## CI
@@ -64,11 +66,11 @@ Once a version is on Maven Central, the same app builds against it instead of ma
 - **Emulator Tests (API 24)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 24 (the minSdk) and 34.
   API 24's emulator image has a WebView older than the message listener (WebView 83) and nothing updates it, so
   the two tests that need the page's own messages skip there; the job prints the WebView's version first.
-- **Publisher App (R8)**: the artifacts published to mavenLocal, then `extras/publisher-app` built from them,
+- **Release check (R8)**: the artifacts published to mavenLocal, then `extras/release-check` built from them,
   minified.
 
 `.github/workflows/publish_sdk.yml` publishes a release tag (see [RELEASING.md](RELEASING.md)).
-`.github/workflows/release-consumer.yml` builds the publisher app from Maven Central once that release is there:
+`.github/workflows/release-consumer.yml` builds the release check from Maven Central once that release is there:
 after **Publish SDK** succeeds (it waits for the release to reach Maven Central, up to 90 minutes), and by hand
 (Actions → Release consumer → Run workflow, with the version).
 
@@ -86,7 +88,7 @@ From the build files and the artifacts' dependencies:
   metadata at most one version newer than its own. A Java app needs no Kotlin plugin.
 - R8 needs nothing from the app: the consumer rules ship in the AAR.
 
-What CI builds a publisher's app with (`extras/publisher-app`): AGP 8.7.3, Gradle 8.11.1, Kotlin 2.1.0, JDK 17,
+What CI builds a publisher's app with (`extras/release-check`): AGP 8.7.3, Gradle 8.11.1, Kotlin 2.1.0, JDK 17,
 compileSdk 35. The older minimums above follow from the metadata and are not built by any job.
 
 ## Running the example app

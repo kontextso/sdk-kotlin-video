@@ -1,6 +1,6 @@
 name: Release consumer
 
-# The publisher app (extras/publisher-app) built against a release on Maven Central, minified by R8: what a
+# The release check (extras/release-check) built against a release on Maven Central, minified by R8: what a
 # publisher's app gets, signed and synced, not what mavenLocal holds. It runs after "Publish SDK" succeeds and on
 # demand for a version already released; CI on main and pull requests never runs it, since before a release
 # there is nothing on Maven Central to resolve.
@@ -15,8 +15,8 @@ on:
         required: true
 
 jobs:
-  publisher-app:
-    name: Publisher App from Maven Central (R8)
+  release-check:
+    name: Release check from Maven Central (R8)
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -50,5 +50,5 @@ jobs:
             echo "not on Maven Central yet"; sleep 60
           done
 
-      - name: Build the minified publisher app from Maven Central
-        run: ./gradlew -p extras/publisher-app assembleRelease -PsdkFromMavenCentral -PsdkVersion="$SDK_VERSION"
+      - name: Build the minified release check from Maven Central
+        run: ./gradlew -p extras/release-check assembleRelease -PsdkFromMavenCentral -PsdkVersion="$SDK_VERSION"

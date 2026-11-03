@@ -86,7 +86,7 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    // The release passes the key; a local publish (publishToMavenLocal, the publisher-app check) has none.
+    // The release passes the key; a local publish (publishToMavenLocal, the release check) has none.
     if (providers.gradleProperty("signingInMemoryKey").isPresent) signAllPublications()
 
     coordinates(
@@ -151,7 +151,7 @@ spotless {
 
 detekt {
     buildUponDefaultConfig = true
-    config.from("${rootDir.absolutePath}/extras/detekt.yml")
+    config.from("${rootDir.absolutePath}/detekt.yml")
     parallel = true
 }
 

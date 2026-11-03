@@ -12,7 +12,7 @@
 The release is cut from `main`, as every change is (AGENTS.md: no feature branches).
 
 1. Checkout branch `main` and pull the latest changes; CI on its last commit is green (the checks below, the
-   emulator tests and the minified publisher app).
+   emulator tests and the minified release check).
 2. Run CI's checks locally and make sure everything is green (the release workflow runs them before it publishes):
    ```bash
    ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest
@@ -74,6 +74,6 @@ git push origin 1.0.0
 ## 6. Verify
 
 1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0` and
-   `so.kontext:video-media3:1.0.0` on Maven Central, then builds `extras/publisher-app` from them, minified by
+   `so.kontext:video-media3:1.0.0` on Maven Central, then builds `extras/release-check` from them, minified by
    R8. It must be green; rerun it by hand (Actions → Release consumer → Run workflow) with the version.
 2. Integrate the new version into the example app and confirm it builds and runs.

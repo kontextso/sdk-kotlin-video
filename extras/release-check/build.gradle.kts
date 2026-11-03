@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "so.kontext.video.publisher"
+    namespace = "so.kontext.video.releasecheck"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "so.kontext.video.publisher"
+        applicationId = "so.kontext.video.releasecheck"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
