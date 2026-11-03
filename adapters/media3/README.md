@@ -1,4 +1,4 @@
-# video-media3
+# Media3 adapter (`so.kontext:video-media3`)
 
 Optional add-on for apps that play content with Media3 (ExoPlayer). It adds one call, `ads.track(player)`, so the
 SDK can follow the content player (playhead, play and pause, the current item) without the app writing its own

@@ -52,3 +52,6 @@ dependencyResolutionManagement {
 }
 
 include(":video", ":video-media3", ":example")
+
+// Player adapters live under adapters/; each keeps its published name (so.kontext:video-<player>).
+project(":video-media3").projectDir = file("adapters/media3")

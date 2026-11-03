@@ -18,7 +18,7 @@ sdk-kotlin-video/
 │   └── internal/                             #   Sdk.kt, then ad/ rendering/ playback/ wire/ network/ device/ support/
 ├── video/src/test/                           # JUnit 5 and Robolectric tests
 ├── video/api/video.api                       # the public API, checked by apiCheck
-├── video-media3/                             # VideoAds.track(Player) for a Media3 player
+├── adapters/media3/                          # :video-media3, VideoAds.track(Player) for a Media3 player
 ├── example/                                  # classic-View demo app: the four formats
 ├── extras/release-check/                     # a publisher's app built from the published SDK (see its README)
 ├── detekt.yml                                # lint rules
@@ -32,7 +32,7 @@ sdk-kotlin-video/
 ./gradlew assembleDebug                       # the SDK, the Media3 adapter and the example
 ./gradlew :video:testDebugUnitTest            # unit tests (JUnit 5 and Robolectric)
 ./gradlew spotlessApply detekt                # format + static analysis
-./gradlew apiCheck                            # the public API against video/api and video-media3/api
+./gradlew apiCheck                            # the public API against video/api and adapters/media3/api
 ./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
 ./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
 ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest   # what CI runs, with the two below
