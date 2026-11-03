@@ -30,26 +30,12 @@ android {
             // SDK doesn't minify itself — the consuming app's R8 pass
             // does that with full visibility into what's used.
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    testOptions {
-        unitTests.all {
-            it.useJUnitPlatform()
-        }
-        // Stubs Android framework methods called from unit tests
-        // (e.g. `android.util.Log.d(...)`) to return defaults instead
-        // of throwing `RuntimeException("Method ... not mocked")`.
-        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -147,10 +133,7 @@ dependencies {
     // newer Media3 wins at resolution; a 1.6.0 floor would raise all of the app's Media3 modules to 1.6.0.
     api(libs.androidx.media3.common.floor)
 
-    testImplementation(libs.junit.jupiter)
-    testImplementation(libs.mockk)
-
-    // A real ExoPlayer on an emulator, playing a clip from the test APK's assets.
+    // The adapter's unit tests run in :video (Robolectric, a mocked Player). Here: a real ExoPlayer on an emulator, playing a clip from the test APK's assets.
     androidTestImplementation(libs.androidx.media3.exoplayer)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
