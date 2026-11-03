@@ -24,6 +24,16 @@ internal object HttpTransport {
      */
     const val MAX_REDIRECTS = 10
 
+    /** The statuses that redirect; a 307 or 308 keeps the method and body, the others continue as a GET. */
+    private val REDIRECTS = setOf(301, 302, 303, 307, 308)
+    private val KEEP_METHOD = setOf(307, 308)
+
+    /** Only web addresses are followed: never a redirect to another scheme (`file:`, an app's own). */
+    private val FOLLOWED_SCHEMES = setOf("http", "https")
+
+    /** How much of a body is read at a time. */
+    private const val BUFFER_BYTES = 16 * 1024
+
     /**
      * How redirects are followed: at most [MAX_REDIRECTS]; only to http or https; from https down to http only
      * when [allowDowngrade]. A 307 or 308 sends the request again as it was, body and all; a 301, 302 or 303
@@ -110,9 +120,4 @@ internal object HttpTransport {
         }
         return out.toString(Charsets.UTF_8.name())
     }
-
-    private const val BUFFER_BYTES = 16 * 1024
-    private val REDIRECTS = setOf(301, 302, 303, 307, 308)
-    private val KEEP_METHOD = setOf(307, 308)
-    private val FOLLOWED_SCHEMES = setOf("http", "https")
 }
