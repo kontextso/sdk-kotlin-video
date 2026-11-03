@@ -11,9 +11,28 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
+/*
+ * How the SDK reads JSON, and why.
+ *
+ * Answers are parsed into a JSON tree (`Json.parseToJsonElement`, kotlinx.serialization's equivalent of
+ * `JSON.parse`) and read field by field with the lenient readers below, not decoded into `@Serializable` classes:
+ * - Leniency where it matters: a missing or wrongly typed field reads as `null`, so one malformed ad can be dropped
+ *   while the rest of the answer is used (see `AdsResponse`), where typed decoding fails all or nothing.
+ * - Nothing for the app's R8 to keep: no generated serializers, nothing reached by reflection, which is why
+ *   `consumer-proguard-rules.pro` has no rules.
+ * Answers are a few KB (at most 5 MB, see `ApiClient`) and parsed off the main thread: well under a millisecond.
+ *
+ * Before parsing, [parseAnswer] measures how deep the answer's arrays and objects nest. The parser is recursive,
+ * one call per level: an answer like `[[[[…]]]]` nested 100 000 deep would exhaust the stack and throw
+ * `StackOverflowError`, an `Error` that no `catch (Exception)` stops, crashing the app from an ad request. The
+ * measure is one pass over the characters with no recursion; brackets inside strings (text such as
+ * `"Watch [Episode 2]"`, escaped quotes included) are not counted, only the JSON's own structure is.
+ */
+
 /**
  * The deepest an answer's arrays and objects may nest: the iOS JSON decoder's limit, so both SDKs refuse the same
- * answers. No answer of the contract comes near it; one past it is not the server's.
+ * answers (the shared corpus's `deep-nesting-*` cases). A real answer nests about 6 deep; one past 512 is not the
+ * server's, and is a `BadResponse`, not a crash.
  */
 internal const val MAX_JSON_DEPTH = 512
 

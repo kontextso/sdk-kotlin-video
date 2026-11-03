@@ -15,6 +15,13 @@ import so.kontext.video.internal.network.str
  * `format` and `ads`), a format listed twice and an ad id listed twice, which fail the whole answer. Each ad is
  * read on its own: a malformed one is dropped, and leaves its format a no-fill when nothing valid is left; a
  * result for a format the SDK does not know is ignored. Lenient on the reason.
+ *
+ * Why two levels: the envelope says what the answer is, so a broken or contradictory one cannot be trusted at all
+ * (`Request(BadResponse)`, no ads). An ad is self-contained, so one bad ad (no price, a bad URL) should not cost
+ * the others: it is dropped and reported, and every other ad and format is used. An unknown format is skipped so
+ * that a newer server, offering a format this SDK version lacks, never breaks an older app. For example, an
+ * answer with a valid overlay, a pause ad without a price and a `banner` entry gives the overlay, a pause no-fill,
+ * and nothing for `banner`. The shared malformed-answer corpus checks these rules in both SDKs.
  */
 internal sealed class AdsResponse {
     /** [dropped]: each malformed ad of the format that was left out, for the log and its error report. */
