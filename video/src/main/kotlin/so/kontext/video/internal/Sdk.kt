@@ -6,8 +6,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.State
@@ -16,12 +14,12 @@ import so.kontext.video.VideoAd
 import so.kontext.video.internal.ad.Presentation
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
+import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
-import java.util.UUID
 
 /** What `KontextVideo` holds: the configuration, where `/config` got to, and the one ad on screen. Main thread only. */
 internal object Sdk {
@@ -151,23 +149,10 @@ internal object Sdk {
     /** One attempt, whatever the failure: after a failure the SDK is `Failed`, and the next ads request tries again. */
     private suspend fun fetchConfig(configuration: Configuration) {
         val context = Environment.context ?: return
-        val requestId = UUID.randomUUID().toString()
-        val body = buildJsonObject {
-            put("requestId", requestId)
-            put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceInfo.installId(context))
-            put("sdk", DeviceInfo.sdk())
-            put("app", DeviceInfo.app(context))
-            put(
-                "device",
-                buildJsonObject {
-                    put("os", DeviceInfo.os(context))
-                    put("hardware", DeviceInfo.hardware(context))
-                },
-            )
-        }
+        val request = ConfigRequest.make(context, configuration)
+        val requestId = request.requestId
         try {
-            when (val response = ConfigResponse.parse(ApiClient(configuration.adServerUrl).post("config", body))) {
+            when (val response = ConfigResponse.parse(ApiClient(configuration.adServerUrl).post("config", request.body))) {
                 is ConfigResponse.Enabled -> {
                     DebugReporter.isEnabled = response.reportDebug
                     ErrorReporter.configure(response.reportErrors)
