@@ -14,7 +14,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
-import so.kontext.video.internal.ad.contentDidChange
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
@@ -22,6 +21,7 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.playback.ContentPlayback
+import so.kontext.video.internal.playback.contentDidChange
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment

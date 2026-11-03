@@ -12,11 +12,11 @@ import so.kontext.video.KontextVideo.State
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.SDK_VERSION
-import so.kontext.video.internal.ad.Presentation
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
+import so.kontext.video.internal.rendering.Presentation
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter

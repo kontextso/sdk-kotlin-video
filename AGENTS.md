@@ -48,11 +48,13 @@ adb logcat -s KontextVideo
   `end()` is the only terminal path.
 - `internal/`, mirroring the Swift SDK's folders:
   - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
-  - `ad/`: `VideoAd`'s logic outside its class: the page's events, and the overlay-follows-content rules.
   - `rendering/`: `FrameBridge` (the WebView and the frame protocol; the page's messages come through
     `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,
-    `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdPlacement`, `LinearAdActivity`.
-  - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time).
+    `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdPlacement`, `LinearAdActivity`;
+    `Presentation` (one ad on screen), `VideoAdSlot` (the slot behind Compose's `VideoAdHost`), and `VideoAd`'s
+    logic outside its class: `VideoAdPageEvents` (the page's events), `VideoAdPlacement`, `VideoAdClicks`.
+  - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `VideoAdContent` (the
+    overlay-follows-content rules).
   - `payloads/`: `AdPayload`, `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.

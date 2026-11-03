@@ -1,13 +1,9 @@
-package so.kontext.video.internal.ad
+package so.kontext.video.internal.rendering
 
 import android.view.ViewGroup
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAds
 import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.rendering.ActiveTimeClock
-import so.kontext.video.internal.rendering.AdHostView
-import so.kontext.video.internal.rendering.LinearAdActivity
-import so.kontext.video.internal.rendering.ViewabilityMeter
 import java.lang.ref.WeakReference
 
 /**

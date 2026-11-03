@@ -11,9 +11,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.ad.handle
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.rendering.FrameEvent
+import so.kontext.video.internal.rendering.handle
 import so.kontext.video.internal.support.Environment
 
 /** The public API's corners: when an ad is ready, which size it takes, where a click lands, what equals what. */

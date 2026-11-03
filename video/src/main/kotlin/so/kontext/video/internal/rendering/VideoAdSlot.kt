@@ -1,4 +1,4 @@
-package so.kontext.video.internal.ad
+package so.kontext.video.internal.rendering
 
 import android.app.Activity
 import android.content.Context

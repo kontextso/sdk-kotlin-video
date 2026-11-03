@@ -1,11 +1,10 @@
-package so.kontext.video.internal.ad
+package so.kontext.video.internal.rendering
 
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import so.kontext.video.VideoAd
-import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 

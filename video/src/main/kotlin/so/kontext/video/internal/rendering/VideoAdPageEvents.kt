@@ -1,4 +1,4 @@
-package so.kontext.video.internal.ad
+package so.kontext.video.internal.rendering
 
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
@@ -6,8 +6,6 @@ import so.kontext.video.VideoAd.Click
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.FrameEvent
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
 

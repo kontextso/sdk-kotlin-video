@@ -8,8 +8,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import so.kontext.video.internal.ad.VideoAdSlot
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.rendering.VideoAdSlot
 
 /** The declarative slot behind `VideoAdHost`: the ad it is given is shown, replaced or dismissed. */
 @RunWith(RobolectricTestRunner::class)

@@ -1,4 +1,4 @@
-package so.kontext.video.internal.ad
+package so.kontext.video.internal.playback
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -8,8 +8,6 @@ import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
