@@ -406,7 +406,6 @@ class BoundaryTest {
 
     @Test fun aPhoneIsAPhoneOnTheWire() {
         assertEquals("phone", DeviceFacts.hardware(Environment.context!!)["type"]!!.jsonPrimitive.content)
-        assertEquals("other", DeviceFacts.contractType("watch"))
     }
 
     @Test fun theAdvertisingIdIsAnAaid() = runBlocking {

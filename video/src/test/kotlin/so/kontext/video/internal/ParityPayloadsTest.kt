@@ -646,12 +646,14 @@ class ParityRequestsTest : SdkTest() {
     @JUnit4Test fun deviceFactsHaveTheWireShape() {
         val screen = DeviceFacts.screen(context)
         JUnit4.assertTrue(screen.text("width").toInt() > 0)
+        val metrics = context.resources.displayMetrics
+        JUnit4.assertEquals("in dp, not physical pixels", Math.round(metrics.widthPixels / metrics.density), screen.text("width").toInt())
         JUnit4.assertTrue(screen["dpr"]!!.jsonPrimitive.doubleOrNull!! >= 1)
         JUnit4.assertNotNull(screen.bool("darkMode"))
         val os = DeviceFacts.os(context)
         JUnit4.assertEquals("android", os.text("name"))
         JUnit4.assertTrue(os.text("locale").isNotEmpty() && os.text("timezone").isNotEmpty())
-        JUnit4.assertTrue(DeviceFacts.hardware(context).text("type") in setOf("phone", "tablet", "tv", "settopbox", "desktop", "other"))
+        JUnit4.assertTrue(DeviceFacts.hardware(context).text("type") in setOf("phone", "tablet", "tv", "desktop", "other"))
     }
 
     @JUnit4Test fun theConfigRequestCarriesTheIdentityAndEachHasItsOwnId() {
@@ -756,7 +758,8 @@ class ParityRequestsTest : SdkTest() {
     }
 
     @JUnit4Test fun gppSectionsAreReadSingleUnderscoredCommaSeparatedOrAsANumber() {
-        for ((raw, expected) in listOf("7" to listOf(7), "8,10" to listOf(8, 10), "2_7" to listOf(2, 7), "x_y" to null)) {
+        // Parts that are not numbers are skipped, as KontextKit reads them on both platforms.
+        for ((raw, expected) in listOf("7" to listOf(7), "8,10" to listOf(8, 10), "2_7" to listOf(2, 7), "2_x_7" to listOf(2, 7), "x_y" to null)) {
             preferences().edit().putString("IABGPP_GppSID", raw).commit()
             JUnit4.assertEquals(raw, expected, Consent.read(context, null)?.gppSid)
         }

@@ -18,15 +18,16 @@ import so.kontext.kit.deviceinfo.HardwareInfoProvider
 import so.kontext.kit.deviceinfo.InstallIdProvider
 import so.kontext.kit.deviceinfo.NetworkInfoProvider
 import so.kontext.kit.deviceinfo.OSInfoProvider
+import so.kontext.kit.deviceinfo.ScreenInfoProvider
 import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 import kotlin.math.roundToInt
-import android.content.res.Configuration as AndroidConfiguration
 
 /**
- * The device, app and OS facts every request carries, read through KontextKit. Sizes go in dp: the server
- * multiplies by `dpr` where OpenRTB wants physical pixels.
+ * The device, app and OS facts every request carries, read through KontextKit, whose values are the contract's:
+ * form factors in its OpenRTB-derived set, sizes in dp (the server multiplies by `dpr` where OpenRTB wants
+ * physical pixels). As the Swift SDK does.
  */
 internal object DeviceFacts {
     /** The SDK's identity, as the server knows it. */
@@ -63,26 +64,18 @@ internal object DeviceFacts {
         return buildJsonObject {
             put("brand", info.brand)
             put("model", info.model)
-            put("type", contractType(info.type))
+            put("type", info.type)
         }
-    }
-
-    /** KontextKit's form factor in the contract's OpenRTB-derived vocabulary: its `handset` is a `phone`. */
-    fun contractType(kitType: String): String = when (kitType) {
-        "handset", "phone" -> "phone"
-        "tablet", "tv", "settopbox", "desktop" -> kitType
-        else -> "other"
     }
 
     /** The screen in dp, its density, and the system's dark mode. */
     fun screen(context: Context): JsonObject {
-        val metrics = context.resources.displayMetrics
-        val night = context.resources.configuration.uiMode and AndroidConfiguration.UI_MODE_NIGHT_MASK
+        val info = ScreenInfoProvider.collect(context)
         return buildJsonObject {
-            put("width", (metrics.widthPixels / metrics.density).roundToInt())
-            put("height", (metrics.heightPixels / metrics.density).roundToInt())
-            put("dpr", metrics.density.toDouble())
-            put("darkMode", night == AndroidConfiguration.UI_MODE_NIGHT_YES)
+            put("width", info.width)
+            put("height", info.height)
+            put("dpr", info.dpr)
+            put("darkMode", info.darkMode)
         }
     }
 
@@ -95,12 +88,12 @@ internal object DeviceFacts {
         }
     }
 
-    /** The media volume, 0–100; below 1 % counts as muted. */
+    /** The media volume, 0–100, and whether it is muted (KontextKit counts 0 % as muted). */
     fun audio(context: Context): JsonObject {
         val info = AudioInfoProvider.collect(context)
         return buildJsonObject {
             put("volume", info.volume)
-            put("muted", info.muted || info.volume < 1)
+            put("muted", info.muted)
         }
     }
 

@@ -41,7 +41,7 @@ ttsdk-floor = "1.40.1.5"
 # ---- Kontext ----
 # Device info, install id, advertising id, TCF consent. 0.1.0 moved Open Measurement to its own artifact,
 # which this SDK does not use: no OMSDK binary ships with it.
-kontext-kit = "0.2.0"
+kontext-kit = "0.3.0"
 
 # ---- Kotlin libraries ----
 kotlinx-coroutines = "1.9.0"

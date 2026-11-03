@@ -17,7 +17,6 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.device.DeviceFacts
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
@@ -55,13 +54,6 @@ class GapsTest : SdkTest() {
         assertEquals("held-1", body["held"]!!.jsonArray.single().jsonPrimitive.content)
         assertTrue(body["device"]!!.jsonObject.keys.containsAll(listOf("os", "hardware", "screen", "power", "audio", "network")))
         assertNull("no ad id without the viewer's leave", body["ifa"])
-    }
-
-    @Test fun everyFormFactorHasItsContractName() {
-        assertEquals(
-            listOf("phone", "phone", "tablet", "tv", "settopbox", "desktop", "other"),
-            listOf("handset", "phone", "tablet", "tv", "settopbox", "desktop", "car").map(DeviceFacts::contractType),
-        )
     }
 
     @Test fun thePayloadsLastRefusals() {

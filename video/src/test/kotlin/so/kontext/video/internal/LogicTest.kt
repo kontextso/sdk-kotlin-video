@@ -3,7 +3,6 @@ package so.kontext.video.internal
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.video.KontextVideo.Configuration
@@ -11,13 +10,12 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
-import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 
-/** The pure rules: the overlay's video-time count, consent sections, the models and the request body. */
+/** The pure rules: the overlay's video-time count, the models and the request body. */
 class LogicTest {
     private var now = 0L
 
@@ -48,11 +46,6 @@ class LogicTest {
         now += 1_000
         progress.advance(2_000, counting = true) // a loop back
         assertEquals(4_000, progress.elapsedMillis)
-    }
-
-    @Test fun gppSectionsAreParsedStrictly() {
-        assertEquals(listOf(2, 7), Consent.parseSections("2_7"))
-        assertNull(Consent.parseSections("2_x"))
     }
 
     @Test fun theConfigurationSaysWhatIsWrong() {
