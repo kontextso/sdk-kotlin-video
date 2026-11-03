@@ -6,9 +6,9 @@ import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import so.kontext.video.internal.payloads.ErrorResponse
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
@@ -80,7 +80,7 @@ internal class ApiClient(
 
     /** Parses the body where it was read, off the main thread: a large answer must not stall the app's UI. */
     private fun answer(status: Int, text: String): JsonElement? {
-        if (status !in 200..299) throw ApiException.Http(status, parseErrors(text))
+        if (status !in 200..299) throw ApiException.Http(status, ErrorResponse.parse(text))
         if (text.isBlank()) return null
         return parseAnswer(text)
     }
@@ -102,13 +102,5 @@ internal class ApiClient(
          * would be an outage of every installed SDK.
          */
         private val REDIRECT_POLICY = HttpTransport.Redirects(allowDowngrade = false)
-
-        /** The JSON:API-shaped error body; an item that is not an object fails the whole body, which then counts as none. */
-        fun parseErrors(text: String): List<ErrorItem> = runCatching {
-            Json.parseToJsonElement(text).obj()?.get("errors")?.arr()?.map { element ->
-                val item = element.obj() ?: error("not an object")
-                ErrorItem(item.str("status"), item.str("code"), item.str("title"), item.str("detail"))
-            }
-        }.getOrNull() ?: emptyList()
     }
 }

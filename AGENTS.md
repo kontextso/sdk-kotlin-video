@@ -53,7 +53,7 @@ adb logcat -s KontextVideo
     `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,
     `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdPlacement`, `LinearAdActivity`.
   - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time).
-  - `payloads/`: `AdPayload`, `AdsResponse`, `ConfigResponse`, `AdsRequest`.
+  - `payloads/`: `AdPayload`, `AdsResponse`, `ConfigResponse`, `AdsRequest`, `ErrorResponse`.
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.
   - `device/`: `DeviceInfo`, `Consent` (through KontextKit).

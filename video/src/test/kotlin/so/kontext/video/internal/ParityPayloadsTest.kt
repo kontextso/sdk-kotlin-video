@@ -39,13 +39,13 @@ import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.VideoAds
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
-import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.payloads.ConfigResponse
+import so.kontext.video.internal.payloads.ErrorResponse
 import so.kontext.video.internal.payloads.UNKNOWN_REASON
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
@@ -349,7 +349,7 @@ class ParityPayloadsTest {
     }
 
     @Test fun anErrorItemIsSummarizedByTitleThenDetailThenCode() {
-        fun summaries(items: String) = ApiClient.parseErrors("""{"errors": $items}""").map { it.summary }
+        fun summaries(items: String) = ErrorResponse.parse("""{"errors": $items}""").map { it.summary }
         assertEquals(listOf("T"), summaries("""[{"title": "T", "detail": "D", "code": "C"}]"""))
         assertEquals(listOf("D"), summaries("""[{"detail": "D", "code": "C"}]"""))
         assertEquals(listOf("C"), summaries("""[{"code": "C"}]"""))
@@ -359,15 +359,15 @@ class ParityPayloadsTest {
     }
 
     @Test fun anErrorLineSaysWhatEachItemCanSay() {
-        val codeOnly = ApiClient.parseErrors("""{"errors": [{"code": "invalidRequest"}]}""")
+        val codeOnly = ErrorResponse.parse("""{"errors": [{"code": "invalidRequest"}]}""")
         assertEquals("invalidRequest", codeOnly.single().code)
         assertNull(codeOnly.single().title)
         assertEquals("HTTP 400: invalidRequest", ApiException.Http(400, codeOnly).message)
-        val mixed = ApiClient.parseErrors("""{"errors": [{"title": "Something broke"}, {"code": 42, "title": ["not", "a", "string"]}, {"code": "rateLimited"}]}""")
+        val mixed = ErrorResponse.parse("""{"errors": [{"title": "Something broke"}, {"code": 42, "title": ["not", "a", "string"]}, {"code": "rateLimited"}]}""")
         assertEquals(listOf(null, null, "rateLimited"), mixed.map { it.code }, "nothing dropped; a missing or malformed code is null")
         assertEquals("HTTP 500: Something broke; rateLimited", ApiException.Http(500, mixed).message)
         assertEquals("HTTP 500", ApiException.Http(500, listOf(mixed[1])).message)
-        val full = ApiClient.parseErrors("""{"errors": [{"status": "429", "code": "rateLimited", "title": "slow down"}]}""").single()
+        val full = ErrorResponse.parse("""{"errors": [{"status": "429", "code": "rateLimited", "title": "slow down"}]}""").single()
         assertEquals("rateLimited", full.code)
         assertNull(full.detail)
     }

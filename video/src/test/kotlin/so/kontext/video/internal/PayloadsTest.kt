@@ -8,11 +8,11 @@ import org.junit.jupiter.api.assertThrows
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
-import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.payloads.ConfigResponse
+import so.kontext.video.internal.payloads.ErrorResponse
 import so.kontext.video.internal.payloads.UNKNOWN_REASON
 
 class PayloadsTest {
@@ -107,10 +107,10 @@ class PayloadsTest {
     }
 
     @Test fun theErrorBodyIsReadLeniently() {
-        val items = ApiClient.parseErrors("""{"errors": [{"status": "400", "title": "Bad token", "code": 7}]}""")
+        val items = ErrorResponse.parse("""{"errors": [{"status": "400", "title": "Bad token", "code": 7}]}""")
         assertEquals("Bad token", items.single().summary)
         assertNull(items.single().code, "a code that is not a string")
-        assertTrue(ApiClient.parseErrors("""{"errors": ["text"]}""").isEmpty())
-        assertTrue(ApiClient.parseErrors("not json").isEmpty())
+        assertTrue(ErrorResponse.parse("""{"errors": ["text"]}""").isEmpty())
+        assertTrue(ErrorResponse.parse("not json").isEmpty())
     }
 }
