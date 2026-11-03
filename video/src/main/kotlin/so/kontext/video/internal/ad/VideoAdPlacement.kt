@@ -38,9 +38,8 @@ internal fun VideoAd.chooseSize(width: Int, height: Int, insets: Rect, density: 
 
 private fun VideoAd.tooSmall(size: AdPayload.Size, insets: Rect, density: Float, what: String): VideoAdException {
     val (minWidth, minHeight) = AdPlacement.minimum(size, insets, density)
-    Logger.warning {
-        "ad ${id.take(8)}: $what the ad's ${size.width}×${size.height} dp${if (size.scalable) " at 50 %" else ", which may not shrink"}; the ad stays ready"
-    }
+    val limit = if (size.scalable) " at 50 %" else ", which may not shrink"
+    Logger.warning { "ad ${id.take(8)}: $what the ad's ${size.width}×${size.height} dp$limit; the ad stays ready" }
     return VideoAdException.ContainerTooSmall(minWidth, minHeight)
 }
 

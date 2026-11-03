@@ -182,7 +182,8 @@ internal object ErrorReporter {
                 ),
             )
         }
-        Logger.debug { "error report ${code.wire}${adId?.let { " ad=${it.take(8)}" } ?: ""}" }
+        val adPart = adId?.let { " ad=" + it.take(8) } ?: ""
+        Logger.debug { "error report ${code.wire}$adPart" }
         val size = report.toString().toByteArray().size
         if (size > MAX_BATCH_BYTES) {
             dropped += 1

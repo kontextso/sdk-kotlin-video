@@ -489,7 +489,7 @@ public object KontextVideo {
 
         // No personal data in logs: the fields are only said to be set.
         override fun toString(): String =
-            "User(id=${id?.let { "set" }}, email=${email?.let { "set" }}, emailHash=${emailHash?.let { "set" }}, keywords=${keywords?.size})"
+            "User(id=${said(id)}, email=${said(email)}, emailHash=${said(emailHash)}, keywords=${keywords?.size})"
     }
 
     /**
@@ -575,11 +575,14 @@ public object KontextVideo {
 
         override fun hashCode(): Int = fields.hashCode()
 
-        override fun toString(): String = "Regulatory(gdpr=$gdpr, gdprConsent=${gdprConsent?.let { "set" }}, coppa=$coppa, " +
-            "gpp=${gpp?.let { "set" }}, gppSid=$gppSid, usPrivacy=$usPrivacy)"
+        override fun toString(): String = "Regulatory(gdpr=$gdpr, gdprConsent=${said(gdprConsent)}, coppa=$coppa, " +
+            "gpp=${said(gpp)}, gppSid=$gppSid, usPrivacy=$usPrivacy)"
 
         private val fields: List<Any?> get() = listOf(gdpr, gdprConsent, coppa, gpp, gppSid, usPrivacy)
     }
 }
 
 private val AD_SERVER_URL = Regex("^https?://[^/?#\\s]+.*$")
+
+/** A personal value as `toString()` may show it: only whether it is set. */
+private fun said(value: String?): String? = if (value == null) null else "set"

@@ -623,9 +623,8 @@ public class VideoAd internal constructor(
             // Presented, not merely created: a screen that attached but never came to the front (started, never
             // resumed) would otherwise hold the slot for good.
             if (hasEnded || isPresented) return@launch
-            Logger.error {
-                "ad ${id.take(8)}: the linear ad's screen ${if (linearScreen == null) "did not start" else "never came to the front"}; ended as failed"
-            }
+            val what = if (linearScreen == null) "did not start" else "never came to the front"
+            Logger.error { "ad ${id.take(8)}: the linear ad's screen $what; ended as failed" }
             LinearAdActivity.forget(presentation)
             ErrorReporter.report(
                 ErrorReporter.Code.PRESENTATION_FAILED,
