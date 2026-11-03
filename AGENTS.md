@@ -52,7 +52,7 @@ adb logcat -s KontextVideo
     `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,
     `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdPlacement`, `LinearAdActivity`;
     `Presentation` (one ad on screen), `VideoAdSlot` (the slot behind Compose's `VideoAdHost`), and `VideoAd`'s
-    logic outside its class: `VideoAdPageEvents` (the page's events), `VideoAdPlacement`, `VideoAdClicks`.
+    logic outside its class: `VideoAdPageEvents` (the page's events), `VideoAdPlacement`, `VideoAdClick` (a click: beacon, click-through, listener).
   - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `VideoAdContent` (the
     overlay-follows-content rules).
   - `payloads/`: `AdPayload`, `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.

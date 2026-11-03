@@ -2,7 +2,6 @@ package so.kontext.video.internal.rendering
 
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
-import so.kontext.video.VideoAd.Click
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
@@ -46,17 +45,7 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
                 else -> invalidate(InvalidationReason.CreativeFailed(event.code))
             }
         }
-        is FrameEvent.Click -> {
-            Logger.info { "ad ${id.take(8)}: click (${event.area}) ${event.url}" }
-            // One occurrence: the beacon and the click-through carry the same fire id.
-            // Every accepted click is counted: an end-card click on an ad without end-card entries (an overlay, a
-            // pause ad) fires the main creative's.
-            val endCard = event.area == Click.Area.EndCard && tracker.has("click", "endCard")
-            val fireId = tracker.fire("click", part = if (endCard) "endCard" else null)
-            open(tracker.clickThrough(event.url, fireId), event.fallbackUrl?.let { tracker.clickThrough(it, fireId) })
-            if (hasEnded) return
-            listener?.onAdClicked(this, Click(event.area))
-        }
+        is FrameEvent.Click -> click(event.url, event.fallbackUrl, event.area)
         is FrameEvent.Open -> {
             Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${event.url}" }
             if (event.purpose == "adChoices") tracker.fire("iconClick")
