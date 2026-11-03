@@ -211,7 +211,9 @@ class LinearLaunchTest {
             assertTrue("the ad's screen covered the host", host.paused.await(10, TimeUnit.SECONDS))
             instrumentation.waitForIdleSync()
             main { host.finish() } // the app closes the screen that started the ad
-            assertTrue("the ad ended", ended.await(10, TimeUnit.SECONDS))
+            // The ad ends when the host is destroyed. Android 7 destroys a finished Activity under another one only
+            // once the top one goes idle, or after its 10 s idle timeout: the playing ad screen may never be idle.
+            assertTrue("the ad ended", ended.await(20, TimeUnit.SECONDS))
             assertEquals(VideoAd.EndReason.INTERRUPTED, endReason)
             instrumentation.waitForIdleSync()
             assertEquals("its screen closed", null, resumedLinearScreen())
