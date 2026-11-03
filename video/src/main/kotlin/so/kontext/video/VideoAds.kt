@@ -26,7 +26,6 @@ import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Labels
 import so.kontext.video.internal.support.Logger
 import java.util.UUID
 
@@ -38,8 +37,8 @@ import java.util.UUID
  *
  * [labels] say where the ads play, such as the viewer's stage in the series or the player's layout
  * (`mapOf("stage" to "first_episode")`); every ads request of this `VideoAds` carries them, fixed for its
- * life. Keys of `a-z`, `0-9` and `_`, values not empty, both at most 64 bytes, at most 20 pairs; the rest is
- * dropped with a warning. They describe the screen, never the viewer: no personal data.
+ * life. They are sent as given: use the names and values Kontext gives you. They describe the screen, never the
+ * viewer: no personal data.
  */
 public class VideoAds @JvmOverloads constructor(
     /** The video the ads are for; every request carries it. */
@@ -54,7 +53,9 @@ public class VideoAds @JvmOverloads constructor(
     public var lastRequestId: String? = null
         private set
 
-    internal val labels: Map<String, String> = Labels.checked(labels, content.id)
+    // Labels are a free format on purpose: Kontext defines them per publisher and the server ignores the ones it
+    // does not use, so the SDK sends exactly what the app gives, with no checks (any key, any value, any number).
+    internal val labels: Map<String, String> = labels.toMap()
     internal val playback = ContentPlayback()
 
     /** One per `VideoAds`, sent with every request: the server keeps the bids it gave out per session. */

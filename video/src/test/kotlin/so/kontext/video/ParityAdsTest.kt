@@ -285,21 +285,20 @@ class ParityAdsTest {
         assertNull("none: left out", adsBodies()[2]["labels"])
     }
 
-    @Test fun labelsThatBreakTheRulesAreDroppedWithOneWarningAndWhatIsKeptIsSent() {
+    @Test fun labelsAreSentExactlyAsGivenWithoutChecks() {
         initialize()
         val warnings = mutableListOf<String>()
-        Logger.sink = { level, message -> if (level == Configuration.LogLevel.WARNING && "labels of video" in message) warnings += message }
-        val labels = mutableMapOf("stage" to "unlock", "Stage" to "x", "bad-key" to "x", "empty" to "", "long" to "é".repeat(33))
-        repeat(25) { labels["k$it"] = "v" }
+        Logger.sink = { level, message -> if (level == Configuration.LogLevel.WARNING) warnings += message }
+        // A free format on purpose: any key, any value, any number of them.
+        val labels = mapOf("stage" to "unlock", "my-ad" to "x", "Player Layout" to "é".repeat(80), "empty" to "") +
+            (1..25).associate { "k$it" to "v" }
         val ads = videoAds("ep-d", labels)
-        assertEquals(20, ads.labels.size)
-        assertTrue(listOf("Stage", "bad-key", "empty", "long").none { it in ads.labels })
-        assertEquals("one warning names them all", 1, warnings.size)
-        assertTrue("bad-key" in warnings[0] && "more than 20" in warnings[0])
+        assertEquals(labels, ads.labels)
+        assertTrue("no warning: $warnings", warnings.none { "label" in it })
         serveAd("vid-d1", "linear")
         ok(ads, AdFormat.LINEAR)
         val sent = adsBodies()[0]["labels"]!!.jsonObject.mapValues { it.value.jsonPrimitive.content }
-        assertEquals("what the property holds is what goes", ads.labels, sent)
+        assertEquals("what the app gave is what goes", labels, sent)
     }
 
     @Test fun everyVideoAdsHasItsOwnSession() {

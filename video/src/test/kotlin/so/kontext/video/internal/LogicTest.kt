@@ -16,25 +16,13 @@ import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Labels
 import so.kontext.video.internal.support.Logger
 
-/** The pure rules: labels, the overlay's video-time count, consent sections, the models and the request body. */
+/** The pure rules: the overlay's video-time count, consent sections, the models and the request body. */
 class LogicTest {
     private var now = 0L
 
     @AfterEach fun restore() = Environment.reset()
-
-    @Test fun labelsKeepOnlyWhatTheServerAccepts() {
-        val kept = Labels.checked(
-            mapOf("stage" to "first_episode", "Bad-Key" to "x", "empty" to "", "long" to "v".repeat(65), "layout" to "fullscreen"),
-            "ep",
-        )
-        assertEquals(mapOf("layout" to "fullscreen", "stage" to "first_episode"), kept)
-        val many = Labels.checked((1..25).associate { "k%02d".format(it) to "v" }, "ep")
-        assertEquals(20, many.size)
-        assertTrue("k01" in many && "k21" !in many, "the first in key order are kept")
-    }
 
     @Test fun anOverlayCountsVideoTimeAndNotSeeks() {
         Environment.now = { now }
