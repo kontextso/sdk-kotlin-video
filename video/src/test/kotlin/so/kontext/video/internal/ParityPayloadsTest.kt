@@ -46,6 +46,7 @@ import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.payloads.ErrorResponse
+import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.payloads.UNKNOWN_REASON
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
@@ -496,7 +497,7 @@ class ParityPayloadsTest {
 
     @Test fun theSdkCarriesItsNameAndAReleaseVersion() {
         assertTrue(Regex("""\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z""").matches(KontextVideo.VERSION), KontextVideo.VERSION)
-        val sdk = DeviceInfo.sdk()
+        val sdk = SdkInfo.json()
         assertEquals("sdk-kotlin-video", sdk["name"]!!.jsonPrimitive.content)
         assertEquals(KontextVideo.VERSION, sdk["version"]!!.jsonPrimitive.content)
     }

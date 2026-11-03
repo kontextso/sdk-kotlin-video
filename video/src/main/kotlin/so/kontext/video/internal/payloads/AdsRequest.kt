@@ -61,7 +61,7 @@ internal object AdsRequest {
                 )
             }
             regulatory?.let { put("regulatory", regulatory(it)) }
-            put("sdk", DeviceInfo.sdk())
+            put("sdk", SdkInfo.json())
             put("app", DeviceInfo.app(context))
             put(
                 "device",

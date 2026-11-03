@@ -29,7 +29,7 @@ internal class ConfigRequest private constructor(
                     put("requestId", requestId)
                     put("publisherToken", configuration.publisherToken)
                     put("installId", DeviceInfo.installId(context))
-                    put("sdk", DeviceInfo.sdk())
+                    put("sdk", SdkInfo.json())
                     put("app", DeviceInfo.app(context))
                     put(
                         "device",

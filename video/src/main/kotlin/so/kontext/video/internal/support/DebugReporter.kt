@@ -12,6 +12,7 @@ import so.kontext.video.internal.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.putIfNotNull
+import so.kontext.video.internal.payloads.SdkInfo
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -117,7 +118,7 @@ internal object DebugReporter {
         val body = buildJsonObject {
             put("publisherToken", configuration.publisherToken)
             put("installId", DeviceInfo.installId(context))
-            put("sdk", DeviceInfo.sdk())
+            put("sdk", SdkInfo.json())
             put("events", JsonArray(events))
         }
         try {

@@ -13,6 +13,7 @@ import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.putIfNotNull
+import so.kontext.video.internal.payloads.SdkInfo
 import java.util.UUID
 import kotlin.math.min
 import kotlin.math.pow
@@ -310,7 +311,7 @@ internal object ErrorReporter {
             put("batchId", batchId)
             put("publisherToken", configuration.publisherToken)
             put("installId", DeviceInfo.installId(context))
-            put("sdk", DeviceInfo.sdk())
+            put("sdk", SdkInfo.json())
             put("app", DeviceInfo.app(context))
             put(
                 "os",

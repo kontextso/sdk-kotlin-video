@@ -30,14 +30,6 @@ import kotlin.math.roundToInt
  * physical pixels). As the Swift SDK does.
  */
 internal object DeviceInfo {
-    /** The SDK's identity, as the server knows it. */
-    const val SDK_NAME = "sdk-kotlin-video"
-
-    fun sdk(): JsonObject = buildJsonObject {
-        put("name", SDK_NAME)
-        put("version", so.kontext.video.internal.SDK_VERSION)
-    }
-
     /** Identifies this installation of the app; kept until the app is uninstalled. */
     fun installId(context: Context): String = InstallIdProvider.getOrCreate(context)
 
