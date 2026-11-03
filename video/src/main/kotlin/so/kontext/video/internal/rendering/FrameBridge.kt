@@ -141,7 +141,7 @@ internal class FrameBridge(
 
     /** Loads the page. `ad.loaded` must arrive within [loadTimeoutMillis] of time the app is in front. */
     fun load() {
-        Logger.debug { "frame ${adId.take(8)}: loading ${Logger.describe(url)}" }
+        Logger.debug { "frame ${adId.take(8)}: loading $url" }
         webView.loadUrl(url)
         loadTimeoutJob = Environment.scope.launch {
             // The time that passed while the app was in front, measured, not the step added per tick: a tick that
@@ -249,7 +249,7 @@ internal class FrameBridge(
                 // A click whose link may not open still has its fallback, which then is the click-through.
                 val target = primary ?: fallback ?: return
                 if (!consumeTouch()) {
-                    Logger.warning { "frame ${adId.take(8)}: $type to ${Logger.describe(target)} dropped, no touch before it" }
+                    Logger.warning { "frame ${adId.take(8)}: $type to $target dropped, no touch before it" }
                     return
                 }
                 if (type == "ad.click") {
@@ -323,7 +323,7 @@ internal class FrameBridge(
     /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
     private fun externalNavigation(target: String) {
         if (state != State.SHOWN || !isAllowed(target) || !consumeTouch()) {
-            Logger.warning { "frame ${adId.take(8)}: navigation to ${Logger.describe(target)} cancelled" }
+            Logger.warning { "frame ${adId.take(8)}: navigation to $target cancelled" }
             return
         }
         onEvent?.invoke(FrameEvent.Click(target, null, VideoAd.Click.Area.Creative))

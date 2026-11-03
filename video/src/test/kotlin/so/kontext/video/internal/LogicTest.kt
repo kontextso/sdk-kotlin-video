@@ -16,7 +16,6 @@ import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Logger
 
 /** The pure rules: the overlay's video-time count, consent sections, the models and the request body. */
 class LogicTest {
@@ -104,10 +103,5 @@ class LogicTest {
         assertEquals("a".repeat(64), ErrorReporter.capped("a".repeat(80)))
         val emoji = "😀".repeat(20) // 4 bytes each
         assertEquals("😀".repeat(16), ErrorReporter.capped(emoji))
-    }
-
-    @Test fun aUrlIsLoggedAsSchemeAndHostOnly() {
-        assertEquals("https://brand.test", Logger.describe("https://user:pw@brand.test/path?q=secret"))
-        assertEquals("mailto:", Logger.describe("mailto:someone@x.test"))
     }
 }

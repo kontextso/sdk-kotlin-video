@@ -5,7 +5,8 @@ import so.kontext.video.KontextVideo.Configuration.LogLevel
 
 /**
  * Writes the SDK's messages to Logcat (tag `KontextVideo`), up to the level set in `Configuration.logLevel`.
- * Callers pass ids, events and codes, no personal data; a URL from outside goes through [describe].
+ * Callers pass ids, events, codes and URLs as they are, unredacted on purpose: the log is for development, read
+ * with the development token's test ads, and the ad URLs are Kontext's own.
  * A message is built only when its level is on.
  */
 internal object Logger {
@@ -20,15 +21,6 @@ internal object Logger {
     fun warning(message: () -> String) = log(LogLevel.WARNING, message)
     fun info(message: () -> String) = log(LogLevel.INFO, message)
     fun debug(message: () -> String) = log(LogLevel.DEBUG, message)
-
-    /** A URL from outside as the log may show it: scheme and host, never the path, query or anything else. */
-    fun describe(url: String): String {
-        val match = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*):(//([^/?#]*))?").find(url) ?: return "(no scheme)"
-        val scheme = match.groupValues[1] + ":"
-        // The host alone: the user info and the port go, as they do in the Swift SDK's log.
-        val host = match.groups[3]?.value?.substringAfterLast('@')?.replace(Regex(":\\d*$"), "")
-        return if (host.isNullOrEmpty()) scheme else "$scheme//$host"
-    }
 
     private fun log(messageLevel: LogLevel, build: () -> String) {
         if (messageLevel == LogLevel.NONE || messageLevel > level) return

@@ -525,15 +525,6 @@ class ParityNetworkTest : ParityHarness() {
         }
     }
 
-    @Test fun aUrlIsLoggedAsItsSchemeAndHostOnly() {
-        assertEquals("no credentials, port, path, query or fragment", "https://brand.test", Logger.describe("https://user:secret@brand.test:8443/p?uid=1#frag"))
-        assertEquals("https://brand.test", Logger.describe("https://brand.test/offer?uid=42&sig=abc"))
-        assertEquals("brandapp://offer", Logger.describe("brandapp://offer/7?token=x"))
-        assertEquals("mailto:", Logger.describe("mailto:viewer@example.com"))
-        assertEquals("javascript:", Logger.describe("javascript:alert(document.cookie)"))
-        assertEquals("(no scheme)", Logger.describe("relative/path"))
-    }
-
     // endregion
 }
 

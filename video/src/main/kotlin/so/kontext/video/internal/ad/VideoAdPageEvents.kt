@@ -49,7 +49,7 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
             }
         }
         is FrameEvent.Click -> {
-            Logger.info { "ad ${id.take(8)}: click (${event.area}) ${Logger.describe(event.url)}" }
+            Logger.info { "ad ${id.take(8)}: click (${event.area}) ${event.url}" }
             // One occurrence: the beacon and the click-through carry the same fire id.
             // Every accepted click is counted: an end-card click on an ad without end-card entries (an overlay, a
             // pause ad) fires the main creative's.
@@ -60,7 +60,7 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
             listener?.onAdClicked(this, Click(event.area))
         }
         is FrameEvent.Open -> {
-            Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${Logger.describe(event.url)}" }
+            Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${event.url}" }
             if (event.purpose == "adChoices") tracker.fire("iconClick")
             open(event.url, null)
         }

@@ -15,7 +15,7 @@ internal fun VideoAd.open(url: String, fallback: String?) {
     val context = Environment.context ?: return
     if (startView(context, url)) return
     if (fallback != null && startView(context, fallback)) return
-    Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${Logger.describe(url)}" }
+    Logger.warning { "ad ${id.take(8)}: nothing could open the click-through $url" }
 }
 
 /**
@@ -26,7 +26,7 @@ internal fun VideoAd.open(url: String, fallback: String?) {
  */
 private fun VideoAd.startView(context: Context, url: String): Boolean {
     if (!FrameBridge.isAllowed(url)) {
-        Logger.warning { "ad ${id.take(8)}: the click-through ${Logger.describe(url)} is not a link that may open" }
+        Logger.warning { "ad ${id.take(8)}: the click-through $url is not a link that may open" }
         return false
     }
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
