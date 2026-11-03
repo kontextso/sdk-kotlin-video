@@ -516,7 +516,7 @@ class ParityPayloadsTest {
             VideoAdException.ContainerTooSmall(150, 150) to "the container is too small for the ad; at least 150×150 px are needed",
             VideoAdException.PresenterUnavailable() to "nothing on screen can hold the ad now",
             VideoAdException.WrongPresentation() to
-                "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear; dismiss() only for overlay and pause)",
+                "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear)",
         )
         for ((error, expected) in cases) assertEquals(expected, error.message)
         val requests = listOf(

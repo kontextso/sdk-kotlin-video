@@ -10,7 +10,7 @@ import java.net.SocketTimeoutException
 /**
  * Why the SDK could not do its job, reached two ways.
  *
- * - Thrown by a call (`format`, `load`, `show`, `reject`, `dismiss`): that call did not happen. Nothing is
+ * - Thrown by a call (`format`, `load`, `show`, `reject`): that call did not happen. Nothing is
  *   shown. Whether the ad stays usable is said per case.
  * - Delivered through [VideoAdListener.onAdFailed], after a `show` that was accepted: the ad broke on
  *   screen ([CreativeFailed]), or the linear ad's screen never started ([PresenterUnavailable]).
@@ -85,15 +85,16 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
         VideoAdException("the container is too small for the ad; at least $minimumWidthPx×$minimumHeightPx px are needed")
 
     /**
-     * Nothing on screen can hold the ad: the container is not attached to a window, is not shown, or has no
-     * area; for a linear ad the Activity is finishing or destroyed. The ad stays ready. Delivered through
+     * Nothing on screen can hold the ad: the container is not attached to a window, is not shown, has no area
+     * or lies wholly outside its window, its Activity is stopped or the app is in the background; for a linear ad
+     * the Activity is finishing, destroyed, stopped or in picture-in-picture. The ad stays ready. Delivered through
      * `onAdFailed` when `show` was accepted but the linear ad's screen never started; the ad is over then.
      */
     public class PresenterUnavailable : VideoAdException("nothing on screen can hold the ad now")
 
-    /** The call does not fit the format: `show(activity)` on an overlay or pause ad, `show(container)` or `dismiss()` on a linear ad. */
+    /** The call does not fit the format: `show(activity)` on an overlay or pause ad, `show(container)` on a linear ad. */
     public class WrongPresentation : VideoAdException(
-        "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear; dismiss() only for overlay and pause)",
+        "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear)",
     )
 
     /**
