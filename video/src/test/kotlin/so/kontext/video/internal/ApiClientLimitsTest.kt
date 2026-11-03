@@ -83,6 +83,22 @@ class ApiClientLimitsTest {
         assertTrue(post()!!.jsonObject.containsKey("b"))
     }
 
+    @Test fun theDepthCheckReadsEscapesAsTheParserDoes() {
+        val bs = "\\"
+        val q = "\""
+        val deep = "[".repeat(MAX_JSON_DEPTH * 2)
+        // Text: an escaped quote, an escaped backslash then an escaped quote, a bracket written as a code. The
+        // string goes on, and its brackets are not nesting.
+        for (text in listOf(q + "sfs" + bs + q + deep + q, q + "a" + bs + bs + bs + q + deep + q, q + bs + "u005B" + deep + q)) {
+            server.enqueue(MockResponse().setBody("{\"a\": $text, \"b\": [1]}"))
+            assertTrue(post()!!.jsonObject.containsKey("b"), text.take(12))
+        }
+        // An escaped backslash then a quote: the string ends (`C:\`), and the brackets after it are nesting.
+        val nesting = "[".repeat(MAX_JSON_DEPTH) + "]".repeat(MAX_JSON_DEPTH)
+        server.enqueue(MockResponse().setBody("{\"p\": ${q}C:$bs$bs$q, \"x\": $nesting}"))
+        assertThrows<ApiException.Decoding> { post() }
+    }
+
     @Test fun theAnswerIsParsedOnTheWorkerNotOnTheCallersThread() {
         server.enqueue(MockResponse().setBody("{not json"))
         val error = assertThrows<ApiException.Decoding> { post() }
