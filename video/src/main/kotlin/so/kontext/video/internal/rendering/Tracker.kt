@@ -118,27 +118,50 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         val REPEATABLE = setOf("click", "pause", "resume", "mute", "unmute")
         private const val TIMEOUT_MILLIS = 10_000
 
+        /** The most redirects a beacon follows: tracking chains hand a beacon on through several servers. */
+        const val MAX_REDIRECTS = 10
+
         /**
          * A GET of [url] off the main thread, once: no retries. [label] names it in the log. Only the status is
          * read; the body never is, and disconnecting drops whatever the server still sends, however large.
+         *
+         * Redirects are followed here, not by `HttpURLConnection`: it never follows one that changes protocol
+         * (`http` to `https` or back), and tracking chains do, so the beacon would stop at the first hop without
+         * any error. As iOS's `URLSession` does: any 3xx with a `Location`, to http or https, at most
+         * [MAX_REDIRECTS]; the app's network security config still decides whether cleartext http may go.
          */
         fun get(url: String, label: String) {
             Environment.scope.launch {
                 withContext(Dispatchers.IO) {
-                    runCatching {
-                        val connection = URL(url).openConnection() as HttpURLConnection
-                        try {
-                            connection.connectTimeout = TIMEOUT_MILLIS
-                            connection.readTimeout = TIMEOUT_MILLIS
-                            connection.useCaches = false
-                            val status = connection.responseCode
-                            if (status >= 400) Logger.warning { "$label beacon answered $status" }
-                        } finally {
-                            connection.disconnect()
-                        }
-                    }.onFailure { Logger.warning { "$label beacon failed, ${it.javaClass.simpleName}" } }
+                    runCatching { follow(URL(url), label) }
+                        .onFailure { Logger.warning { "$label beacon failed, ${it.javaClass.simpleName}" } }
                 }
             }
+        }
+
+        private fun follow(start: URL, label: String) {
+            var url = start
+            repeat(MAX_REDIRECTS + 1) {
+                val connection = url.openConnection() as HttpURLConnection
+                try {
+                    connection.instanceFollowRedirects = false
+                    connection.connectTimeout = TIMEOUT_MILLIS
+                    connection.readTimeout = TIMEOUT_MILLIS
+                    connection.useCaches = false
+                    val status = connection.responseCode
+                    val next = connection.getHeaderField("Location")?.takeIf { status in 300..399 }
+                        ?.let { runCatching { URL(url, it) }.getOrNull() }
+                        ?.takeIf { it.protocol == "http" || it.protocol == "https" }
+                    if (next == null) {
+                        if (status >= 400) Logger.warning { "$label beacon answered $status" }
+                        return
+                    }
+                    url = next
+                } finally {
+                    connection.disconnect()
+                }
+            }
+            Logger.warning { "$label beacon: more than $MAX_REDIRECTS redirects, stopped" }
         }
 
         /** Playheads beyond ten years are nonsense and clamped. */

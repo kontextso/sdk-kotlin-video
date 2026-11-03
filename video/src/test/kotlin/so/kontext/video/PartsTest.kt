@@ -204,6 +204,48 @@ class PartsTest : SdkTest() {
         }
     }
 
+    /** The requests [server] received within five seconds of [count], polling as a beacon is sent off the main thread. */
+    private fun received(server: MockWebServer, count: Int): List<okhttp3.mockwebserver.RecordedRequest> {
+        val requests = mutableListOf<okhttp3.mockwebserver.RecordedRequest>()
+        val deadline = System.currentTimeMillis() + 5_000
+        while (requests.size < count && System.currentTimeMillis() < deadline) {
+            idle(10)
+            server.takeRequest(10, TimeUnit.MILLISECONDS)?.let { requests += it }
+        }
+        return requests
+    }
+
+    @Test fun aBeaconFollowsRedirectsToAnotherServer() {
+        // A tracking chain: the first server hands the beacon on to another (another host, here another port).
+        val first = MockWebServer().apply { start() }
+        val second = MockWebServer().apply { start() }
+        try {
+            first.enqueue(MockResponse().setResponseCode(302).setHeader("Location", second.url("/hop?e=impression").toString()))
+            second.enqueue(MockResponse().setResponseCode(301).setHeader("Location", "/final?e=impression"))
+            second.enqueue(MockResponse().setResponseCode(204))
+            Tracker.get(first.url("/beacon?e=impression").toString(), "ad: impression")
+            assertEquals(listOf("/beacon?e=impression"), received(first, 1).map { it.path })
+            assertEquals("a relative Location too", listOf("/hop?e=impression", "/final?e=impression"), received(second, 2).map { it.path })
+        } finally {
+            first.shutdown()
+            second.shutdown()
+        }
+    }
+
+    @Test fun aBeaconStopsAfterTenRedirects() {
+        val server = MockWebServer().apply { start() }
+        try {
+            repeat(Tracker.MAX_REDIRECTS + 5) {
+                server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/again"))
+            }
+            Tracker.get(server.url("/beacon").toString(), "ad: impression")
+            val requests = received(server, Tracker.MAX_REDIRECTS + 2)
+            assertEquals("the first request and ten redirects, no more", Tracker.MAX_REDIRECTS + 1, requests.size)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun aBeaconReadsTheStatusAndNeverTheBody() {
         // A 6 MiB answer to one beacon: the SDK reads the status line and closes, so the server cannot write it all.
         val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())
