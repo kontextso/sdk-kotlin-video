@@ -42,10 +42,6 @@ android {
             // SDK doesn't minify itself — the consuming app's R8 pass
             // does that with full visibility into what's used.
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
         }
     }
 
