@@ -89,16 +89,36 @@ internal class AdHostView(context: Context, val content: View, coversWhole: Bool
 
     companion object {
         /**
-         * The part of the system bars and display cutout that overlaps [view], in its pixels: the Android
-         * counterpart of a safe area. Zero where the bars do not reach the view.
+         * How much of [view] the phone's own UI covers (status bar, navigation bar, camera notch), from each
+         * edge, in the view's pixels: the Android counterpart of iOS's safe area, which iOS gives for free.
+         *
+         * Android reports the bars for the whole window, but the player may be smaller and sit anywhere in it.
+         * So only the part of each bar that reaches into [view] counts, never less than 0:
+         *
+         * ```
+         * screen ┌───────────────────────────┐
+         *        │▓▓▓▓▓ status bar 24 ▓▓▓▓▓▓▓│ ← overlaps a full-screen player: top = 24
+         *        │                           │
+         *        │  ┌── player in middle ──┐ │ ← no bar reaches it: all 0
+         *        │  └──────────────────────┘ │
+         *        │▓▓▓▓▓▓ nav bar 48 ▓▓▓▓▓▓▓▓▓│
+         *        └───────────────────────────┘
+         * ```
+         *
+         * A full-screen player: the status bar overlaps its top, so the ad stays below it. A player in the middle
+         * of the screen: nothing overlaps, and the ad may use all of it. Not attached yet: all 0. Like CSS
+         * `env(safe-area-inset-*)`, but for one view. `place` adds the app's own insets to these.
          */
         fun systemInsets(view: View): Rect {
+            // 1. How far the bars and the notch reach in from the window's edges.
             val insets = ViewCompat.getRootWindowInsets(view)
                 ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()) ?: return Rect()
+            // 2. Where this view sits in the window.
             val root = view.rootView
             val location = IntArray(2).also(view::getLocationInWindow)
             val x = location[0]
             val y = location[1]
+            // 3. How far each of them reaches into this view.
             return Rect(
                 maxOf(0, insets.left - x),
                 maxOf(0, insets.top - y),
