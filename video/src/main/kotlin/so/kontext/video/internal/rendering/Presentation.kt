@@ -16,11 +16,10 @@ internal class Presentation private constructor(
     /** Retained from `show` to `onAdEnded`, whatever the app does with its own reference. */
     val ad: VideoAd,
     owner: VideoAds?,
+    /** Where the ad is shown: inline in the app's container, or its own screen. Made by `show` as it reserves. */
+    val screen: AdScreen,
 ) {
     private val owner = WeakReference(owner)
-
-    /** Where the ad is shown: inline in the app's container, or its own screen. Set by `show` once it made it. */
-    var screen: AdScreen? = null
 
     /** Decides `viewable` / `notViewable` and reports exposure while the ad is on screen. */
     var meter: ViewabilityMeter? = null
@@ -36,16 +35,13 @@ internal class Presentation private constructor(
 
     /** The ad is ending: measuring stops and the inline page leaves the screen. Returns the active time seen. */
     fun tearDown(): Long {
-        val activeTime = screen?.stopClock() ?: 0
-        meter?.stop()
+        val activeTime = screen.tearDown(meter)
         meter = null
-        screen?.tearDown()
         return activeTime
     }
 
     /** `onAdEnded` is next: the slot is free and the owner stops following the ad. */
     fun release() {
-        screen = null
         if (Sdk.presentation === this) Sdk.presentation = null
         owner.get()?.adDidEnd(ad)
     }
@@ -58,8 +54,8 @@ internal class Presentation private constructor(
 
     companion object {
         /** `show` committed: the ad takes the app's one slot and its owner hears it is showing, before any app code runs. */
-        fun begin(ad: VideoAd, owner: VideoAds?): Presentation {
-            val presentation = Presentation(ad, owner)
+        fun begin(ad: VideoAd, owner: VideoAds?, screen: AdScreen): Presentation {
+            val presentation = Presentation(ad, owner, screen)
             Sdk.presentation = presentation
             owner?.adDidBeginShowing(ad)
             return presentation

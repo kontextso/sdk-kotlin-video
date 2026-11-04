@@ -414,7 +414,8 @@ public class VideoAd internal constructor(
         // ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.
         val bridge = shownBridge()
         val wasHeld = owner.get()?.ads?.get(format) === this
-        reserve()
+        val screen = AdScreen.InlineScreen(this)
+        reserve(screen)
         try {
             contextWrapper.baseContext = container.context
             val webView = bridge.webView
@@ -425,10 +426,10 @@ public class VideoAd internal constructor(
             // them and takes their touches, so the paused frame and the player stay covered as on iOS.
             val host = AdHostView(container.context, webView, coversWhole = payload.position == AdPayload.Position.FULLSCREEN)
             host.place = { width, height, system -> refit(width, height, system, density) }
-            presentation?.screen = AdScreen.InlineScreen(this, host)
+            screen.attach(host)
             container.addView(host)
         } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-            unreserve(container, wasHeld, error)
+            unreserve(container, screen, wasHeld, error)
             // An ad its owner ended meanwhile (a destroy in the container's hook) has had its onAdEnded: show
             // was accepted and is over. Otherwise nothing was shown and nothing spent.
             if (hasEnded) return
@@ -553,11 +554,10 @@ public class VideoAd internal constructor(
             throw VideoAdException.PresenterUnavailable()
         }
         val bridge = shownBridge()
-        reserve()
+        val screen = AdScreen.LinearScreen(this, bridge)
+        reserve(screen)
         if (hasEnded) return
         followStartingActivity(activity)
-        val screen = AdScreen.LinearScreen(this, bridge)
-        presentation?.screen = screen
         // Any launch that throws (the Activity stripped from the merged manifest, a refused start, an app's own
         // startActivity override or a system state that throws something else) is the same failure.
         val started = try {
@@ -619,10 +619,22 @@ public class VideoAd internal constructor(
         val contentPaused = contentRule.refusesShow()
         if (wasShown) throw VideoAdException.AlreadyShown()
         checkUsable()
-        contentRule.checkEpisode()
+        checkEpisode()
         if (Sdk.adOnScreen != null) throw VideoAdException.AnotherAdShowing()
         if (!isLoaded) throw VideoAdException.NotLoaded()
         if (contentPaused) throw VideoAdException.ContentPaused()
+    }
+
+    /**
+     * An episode's ads only in that episode: one requested for it is counted for it. An overlay or pause ad whose
+     * episode no longer plays in the tracked player (another `VideoAds` took it, or it plays another item) ends
+     * before show, with no beacon, and `show` throws. Not a linear ad (see ContentRule.checksEpisode).
+     */
+    private fun checkEpisode() {
+        if (!contentRule.checksEpisode || owner.get()?.playback?.playsAnotherEpisode != true) return
+        Logger.warning { "ad ${id.take(8)}: cannot show, its episode no longer plays in the tracked player; ended as ContentChanged" }
+        invalidate(InvalidationReason.ContentChanged)
+        throw VideoAdException.Invalidated(InvalidationReason.ContentChanged)
     }
 
     /** The page a show puts on screen: a loaded ad has one, made when its loading started. */
@@ -643,16 +655,16 @@ public class VideoAd internal constructor(
         }
     }
 
-    private fun reserve() {
+    private fun reserve(screen: AdScreen) {
         transition(Phase.Reserved)
-        presentation = Presentation.begin(this, owner.get())
+        presentation = Presentation.begin(this, owner.get(), screen)
     }
 
     /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */
-    private fun unreserve(container: ViewGroup, wasHeld: Boolean, error: Exception) {
+    private fun unreserve(container: ViewGroup, screen: AdScreen.InlineScreen, wasHeld: Boolean, error: Exception) {
         Logger.warning { "ad ${id.take(8)}: the container refused the ad (${error.javaClass.simpleName}); not shown, the ad stays ready" }
         val host = hostView
-        presentation?.screen = null
+        screen.hostView = null
         if (host != null) {
             // A container that refuses a child may refuse its removal too.
             runCatching { (host.parent as? ViewGroup)?.removeView(host) }
@@ -678,8 +690,8 @@ public class VideoAd internal constructor(
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
         val screen = presentation?.screen
         startMeter()
-        // Inline: the clock, the content rule and the holding Activity start (see AdScreen.InlineScreen.started).
-        screen?.started()
+        // Inline: the clock, the content rule and the holding Activity start (see AdScreen.InlineScreen.presented).
+        screen?.presented()
         // At `ad.show`: creativeView and the AdChoices icon's view. The impression of an image or HTML creative
         // waits for the page's first layout with an area, a video's for its first frame (`video.start`). The
         // beacons use the playhead read before this block and call no app code, so one check suffices: what ran
@@ -775,12 +787,11 @@ public class VideoAd internal constructor(
     //  1. observers: the Activity listener (endNow);
     //  2. timers: the content rule's return check (ContentRule.cancel, from endNow);
     //  3. waiters: the first-layout wait (endNow);
-    //  4. clock and meter: the clock and its onActivate (AdScreen.stopClock), the viewability meter
-    //     (Presentation.tearDown);
-    //  5. renderer: the host view (AdScreen.tearDown, from Presentation.tearDown) and the page (hidden, released;
-    //     endNow);
+    //  4. clock and meter: the clock and its onActivate, then the viewability meter (AdScreen.tearDown, from
+    //     Presentation.tearDown);
+    //  5. renderer: the host view (AdScreen.tearDown) and the page (hidden, released; endNow);
     //  6. the linear screen's callbacks: LinearAdActivity.forget (AdScreen.tearDown), the linear screen closed
-    //     (AdScreen.close, from endNow), the presentation and its screen dropped (Presentation.release, from finish);
+    //     (AdScreen.close, from endNow), the presentation and its screen dropped (finish);
     //  7. context: the WebView's context back to the application's (finish);
     //  8. the app-wide on-screen slot, Sdk.presentation (Presentation.release);
     //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (Presentation.release);

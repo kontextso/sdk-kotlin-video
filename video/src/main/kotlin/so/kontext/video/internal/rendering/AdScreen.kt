@@ -21,17 +21,20 @@ import so.kontext.video.internal.support.activity
  * full-screen Activity of its own. Kept in one class per kind of screen, `VideoAd` and `Presentation` ask
  * "the screen" and never the format.
  *
- * How: `show` makes the screen and hands it to the ad's `Presentation`; the ad then calls it at fixed moments:
+ * How: `show` makes the screen as it reserves the slot and hands it to the ad's `Presentation`; the ad then calls
+ * it at fixed moments:
  *
  * ```
  *                  InlineScreen                        LinearScreen
- * show             AdHostView into the container       LinearAdActivity started (these Callbacks)
+ * show             attach(host): AdHostView into the   LinearAdActivity started; its attach (these
+ *                  container                           Callbacks) puts the page in it
  * configure(meter) on-screen rule, seen → clock        covered by another Activity
- * started()        the clock runs, the content rule    nothing: the screen's own onResume presented it
+ * presented()      the clock runs, the content rule    nothing: the screen's own onResume presented it
  *                  starts, the holding Activity
  * end:
- *   stopClock()    the active time (overlayViewDuration)   0
- *   tearDown()     the host view out of the container  the screen's registration forgotten
+ *   tearDown(meter) clock → meter → host view out;     meter stopped, the screen's registration
+ *                  returns the active time             forgotten; returns 0
+ *                  (overlayViewDuration)
  *   close(onGone)  nothing to wait for: false          the screen finishes; onGone once it is gone: true
  * ```
  *
@@ -52,13 +55,13 @@ internal sealed class AdScreen {
     abstract fun configure(meter: ViewabilityMeter)
 
     /** The ad is presented: what runs while it is on screen starts. */
-    abstract fun started()
+    abstract fun presented()
 
-    /** The ad is ending: its clock freezes for good. Returns the active time seen on screen. */
-    abstract fun stopClock(): Long
-
-    /** The ad is ending: what it put on screen goes (after the meter stopped). */
-    abstract fun tearDown()
+    /**
+     * The ad is ending, in this order: its clock freezes for good, [meter] stops, what it put on screen goes.
+     * Returns the active time seen on screen.
+     */
+    abstract fun tearDown(meter: ViewabilityMeter?): Long
 
     /**
      * Closes what is still up. Returns `true` when the ad must wait: [onGone] then runs once the screen is gone
@@ -70,11 +73,11 @@ internal sealed class AdScreen {
      * An overlay or pause ad: the [AdHostView] in the app's container, and the [ActiveTimeClock] that counts its
      * time seen (and an overlay's wall-clock duration). It follows the Activity holding the container.
      */
-    class InlineScreen(private val ad: VideoAd, host: AdHostView) : AdScreen() {
+    class InlineScreen(private val ad: VideoAd) : AdScreen() {
         /** The view the SDK put into the app's container; gone once the ad ends, or the container refused it. */
-        var hostView: AdHostView? = host
+        var hostView: AdHostView? = null
 
-        /** Time seen on screen; it also ends an overlay whose wall-clock duration elapsed. From [started] to [stopClock]. */
+        /** Time seen on screen; it also ends an overlay whose wall-clock duration elapsed. From [presented] to [tearDown]. */
         var clock: ActiveTimeClock? = null
             private set
 
@@ -84,7 +87,9 @@ internal sealed class AdScreen {
         override val impressionTarget: View? get() = hostView
         override val isPlaced: Boolean get() = hostView?.hasPlacedContent ?: true
 
-        init {
+        /** `show` made [host] for the container: the screen hears its fit and its window. */
+        fun attach(host: AdHostView) {
+            hostView = host
             host.onUnfit = {
                 if (!ad.hasEnded) {
                     Logger.warning {
@@ -117,7 +122,7 @@ internal sealed class AdScreen {
          * 2. The content rule starts (an overlay counts video time from the playhead now).
          * 3. The ad follows the Activity holding the container.
          */
-        override fun started() {
+        override fun presented() {
             val clock = ActiveTimeClock(ad.contentRule.wallClockDurationMillis, ad.id) {
                 if (ad.hasEnded) return@ActiveTimeClock
                 Logger.debug { "ad ${ad.id.take(8)}: overlay duration of ${ad.durationMillis ?: 0} ms on screen elapsed" }
@@ -130,17 +135,15 @@ internal sealed class AdScreen {
             hostView?.activity?.let(ad::followHoldingActivity)
         }
 
-        override fun stopClock(): Long {
+        override fun tearDown(meter: ViewabilityMeter?): Long {
             val activeTime = clock?.stop() ?: 0
             // The stopped clock's callback reaches the owner's playback: an ended ad an app keeps must not keep its VideoAds.
             clock?.onActivate = null
             clock = null
-            return activeTime
-        }
-
-        override fun tearDown() {
+            meter?.stop()
             hostView?.let { (it.parent as? ViewGroup)?.removeView(it) }
             hostView = null
+            return activeTime
         }
 
         override fun close(onGone: () -> Unit): Boolean = false
@@ -192,11 +195,13 @@ internal sealed class AdScreen {
             meter.isCovered = { activity?.isCovered == true }
         }
 
-        override fun started() = Unit
+        override fun presented() = Unit
 
-        override fun stopClock(): Long = 0
-
-        override fun tearDown() = LinearAdActivity.forget(this)
+        override fun tearDown(meter: ViewabilityMeter?): Long {
+            meter?.stop()
+            LinearAdActivity.forget(this)
+            return 0
+        }
 
         /**
          * Every way the ad ends closes a screen still up, an interruption too: its page is gone and Back does

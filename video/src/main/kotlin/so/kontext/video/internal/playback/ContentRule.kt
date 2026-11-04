@@ -6,8 +6,6 @@ import kotlinx.coroutines.launch
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
-import so.kontext.video.VideoAd.InvalidationReason
-import so.kontext.video.VideoAdException
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
@@ -34,10 +32,7 @@ import so.kontext.video.internal.support.Logger
  *
  * Whether a player is tracked is read at each call, never fixed at show: `VideoAds.track` may come later.
  */
-internal sealed class ContentRule(protected val ad: VideoAd) {
-    /** The ad's `VideoAds` tracks a player, now. */
-    protected val isTracking: Boolean get() = ad.owner.get()?.playback?.isTracking == true
-
+internal sealed class ContentRule {
     /**
      * Whether an ad of another episode ends before show (`ContentChanged`). A linear ad covers the content: not
      * checked.
@@ -49,18 +44,6 @@ internal sealed class ContentRule(protected val ad: VideoAd) {
 
     /** Whether `show` refuses the ad because of the content now (`ContentPaused`). Reads the player. */
     open fun refusesShow(): Boolean = false
-
-    /**
-     * An episode's ads only in that episode: one requested for it is counted for it. An overlay or pause ad whose
-     * episode no longer plays in the tracked player (another `VideoAds` took it, or it plays another item) ends
-     * before show, with no beacon, and `show` throws.
-     */
-    fun checkEpisode() {
-        if (!checksEpisode || ad.owner.get()?.playback?.playsAnotherEpisode != true) return
-        Logger.warning { "ad ${ad.id.take(8)}: cannot show, its episode no longer plays in the tracked player; ended as ContentChanged" }
-        ad.invalidate(InvalidationReason.ContentChanged)
-        throw VideoAdException.Invalidated(InvalidationReason.ContentChanged)
-    }
 
     /** The ad is on screen, its [clock] (inline formats) running. */
     open fun started(clock: ActiveTimeClock?) = Unit
@@ -92,7 +75,7 @@ internal sealed class ContentRule(protected val ad: VideoAd) {
      * app over it is not the background: it ends the overlay (see `VideoAd.followHoldingActivity`), and so does a
      * pause there.
      */
-    class OverlayRule(ad: VideoAd) : ContentRule(ad) {
+    class OverlayRule(private val ad: VideoAd) : ContentRule() {
         /** The overlay's duration in milliseconds of video, once shown over a tracked player. */
         var contentProgress: ContentProgress? = null
             private set
@@ -109,6 +92,9 @@ internal sealed class ContentRule(protected val ad: VideoAd) {
             private set
 
         override val wallClockDurationMillis: Long? get() = if (isTracking) null else ad.durationMillis
+
+        /** The ad's `VideoAds` tracks a player, now. */
+        private val isTracking: Boolean get() = ad.owner.get()?.playback?.isTracking == true
 
         /**
          * The overlay is away: the app is in the background, or on its way there (the Activity holding it paused
@@ -246,10 +232,13 @@ internal sealed class ContentRule(protected val ad: VideoAd) {
      * `onStop` changes nothing for content already paused, and content playing again, on the return or in the
      * background, ends the pause ad as it should. Its clock never has a duration.
      */
-    class PauseRule(ad: VideoAd) : ContentRule(ad) {
+    class PauseRule(private val ad: VideoAd) : ContentRule() {
         /** The pause ad saw the content paused while on screen: the content playing again ends it. */
         var contentWasPaused = false
             private set
+
+        /** The ad's `VideoAds` tracks a player, now. */
+        private val isTracking: Boolean get() = ad.owner.get()?.playback?.isTracking == true
 
         /** It notes whether the content is paused now, so it ends once it plays after a pause. */
         override fun started(clock: ActiveTimeClock?) {
@@ -302,7 +291,7 @@ internal sealed class ContentRule(protected val ad: VideoAd) {
     }
 
     /** A linear ad covers the content in its own screen: the content changes nothing for it, nor its episode. */
-    class NoContentRule(ad: VideoAd) : ContentRule(ad) {
+    object NoContentRule : ContentRule() {
         override val checksEpisode: Boolean get() = false
     }
 
@@ -311,7 +300,7 @@ internal sealed class ContentRule(protected val ad: VideoAd) {
         fun of(ad: VideoAd): ContentRule = when (ad.format) {
             AdFormat.OVERLAY -> OverlayRule(ad)
             AdFormat.PAUSE -> PauseRule(ad)
-            AdFormat.LINEAR -> NoContentRule(ad)
+            AdFormat.LINEAR -> NoContentRule
         }
     }
 }
