@@ -21,7 +21,6 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.playback.contentDidChange
 import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
@@ -101,7 +100,7 @@ public class VideoAds @JvmOverloads constructor(
         if (content.leftOut.isNotEmpty()) Logger.warning { "content ${content.id}: ${content.leftOut.joinToString()}" }
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
         // The ad on screen hears of the player: an overlay ends when the content stops, and counts its time.
-        playback.onChange = { change -> showing?.contentDidChange(change) }
+        playback.onChange = { change -> showing?.contentRule?.contentDidChange(change) }
         playback.isInlineAdShown = { showing?.let { it.format != AdFormat.LINEAR && !it.hasEnded } ?: false }
         Logger.debug { "VideoAds created for video ${content.id}" }
     }

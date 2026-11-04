@@ -16,7 +16,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -25,12 +24,7 @@ import kotlinx.coroutines.yield
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentProgress
-import so.kontext.video.internal.playback.checkEpisode
-import so.kontext.video.internal.playback.endIfContentStopped
-import so.kontext.video.internal.playback.followsContent
-import so.kontext.video.internal.playback.holdingActivityResumed
-import so.kontext.video.internal.playback.runAppCodeBeforeShow
-import so.kontext.video.internal.playback.startFollowingContent
+import so.kontext.video.internal.playback.ContentRule
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView
 import so.kontext.video.internal.rendering.FirstLayout
@@ -133,20 +127,13 @@ public class VideoAd internal constructor(
     internal val meter: ViewabilityMeter? get() = presentation?.meter
     internal var videoPlaying = false
     internal val clock: ActiveTimeClock? get() = presentation?.clock
-    internal var contentProgress: ContentProgress? = null
 
-    /** A pause ad that follows the content saw it paused while on screen: the content playing again ends it. */
-    internal var contentWasPaused = false
+    /** How the ad follows the content under it, by format: see [ContentRule]. */
+    internal val contentRule: ContentRule = ContentRule.of(this)
+
+    /** An overlay's duration in milliseconds of video, once shown over a tracked player (tests read it). */
+    internal val contentProgress: ContentProgress? get() = (contentRule as? ContentRule.OverlayRule)?.contentProgress
     private var impressionRecorded = false
-
-    /**
-     * An overlay that follows the content saw it paused while away (the app in the background, or on its way
-     * there): it stays, frozen, and [returnCheck] decides once the app is back.
-     */
-    internal var contentPausedAway = false
-
-    /** The check [returnGraceMillis] after the return, for an overlay whose content paused while away. */
-    internal var returnCheck: Job? = null
 
     /** The Activity holding an overlay's or pause ad's container, while it is on screen. */
     internal var holdingActivity: WeakReference<Activity>? = null
@@ -465,7 +452,7 @@ public class VideoAd internal constructor(
             end(EndReason.INTERRUPTED)
             return
         }
-        endIfContentStopped()
+        contentRule.endIfContentStopped()
         presented()
     }
 
@@ -494,13 +481,13 @@ public class VideoAd internal constructor(
      * Another Activity of the app covers the one holding the container (it stopped while the app stays in
      * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
      * its window. The app going to the background only freezes the ad's clock (and an overlay's content
-     * pausing there, see `contentDidChange`); a stop for a configuration change recreates the Activity, and the
+     * pausing there, see `ContentRule.OverlayRule`); a stop for a configuration change recreates the Activity, and the
      * container leaving the window ends the ad there.
      */
     private fun followHoldingActivity(holder: Activity) {
         holdingActivity = WeakReference(holder)
         follow(holder) { activity, event ->
-            if (event == ActivityTracker.Event.RESUMED) holdingActivityResumed()
+            if (event == ActivityTracker.Event.RESUMED) contentRule.holdingActivityResumed()
             if (event == ActivityTracker.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
                 Logger.warning { "ad ${id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
                 end(EndReason.INTERRUPTED)
@@ -658,10 +645,13 @@ public class VideoAd internal constructor(
         "VideoAd(id=${id.take(8)}, format=$format, price=$price, loaded=$isLoaded, shown=$wasShown, ended=$hasEnded)"
 
     private fun checkShowable() {
-        val contentPaused = runAppCodeBeforeShow()
+        // The app code a show runs before its checks: an ad on screen over content that no longer fits it ends
+        // (its `onAdEnded`; another ad, see ContentRule.endIfContentStopped), and the player is read.
+        if (!wasShown) Sdk.adOnScreen?.contentRule?.endIfContentStopped()
+        val contentPaused = contentRule.refusesShow()
         if (wasShown) throw VideoAdException.AlreadyShown()
         checkUsable()
-        checkEpisode()
+        contentRule.checkEpisode()
         if (Sdk.adOnScreen != null) throw VideoAdException.AnotherAdShowing()
         if (!isLoaded) throw VideoAdException.NotLoaded()
         if (contentPaused) throw VideoAdException.ContentPaused()
@@ -720,7 +710,7 @@ public class VideoAd internal constructor(
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
         startMeter()
         if (format != AdFormat.LINEAR) {
-            val clock = ActiveTimeClock(if (format == AdFormat.OVERLAY && !followsContent) durationMillis else null, id) {
+            val clock = ActiveTimeClock(contentRule.wallClockDurationMillis, id) {
                 if (hasEnded) return@ActiveTimeClock
                 Logger.debug { "ad ${id.take(8)}: overlay duration of ${durationMillis ?: 0} ms on screen elapsed" }
                 isCompleted = true
@@ -728,7 +718,7 @@ public class VideoAd internal constructor(
             }
             presentation?.clock = clock
             clock.start(visible = hostView?.windowVisibility == View.VISIBLE, seen = meter?.isSeen ?: true)
-            startFollowingContent()
+            contentRule.started(clock)
             hostView?.activity?.let(::followHoldingActivity)
         }
         // At `ad.show`: creativeView and the AdChoices icon's view. The impression of an image or HTML creative
@@ -836,7 +826,7 @@ public class VideoAd internal constructor(
     // Every end releases, in this order (an ad ended before show: [invalidate] releases what it ever had, the
     // load waiter, the page, the listener and its place in the owner):
     //  1. observers: the Activity listener (endNow);
-    //  2. timers: the return check (endNow);
+    //  2. timers: the content rule's return check (ContentRule.cancel, from endNow);
     //  3. waiters: the first-layout wait (endNow);
     //  4. clock and meter: the clock and its onActivate, the viewability meter (Presentation.tearDown);
     //  5. renderer: the page (hidden, released; endNow) and the host view (Presentation.tearDown);
@@ -850,8 +840,7 @@ public class VideoAd internal constructor(
         if (!transition(Phase.Ending(reason))) return
         activityListener?.let(ActivityTracker::removeListener)
         activityListener = null
-        returnCheck?.cancel()
-        returnCheck = null
+        contentRule.cancel()
         impressionWait?.invoke()
         impressionWait = null
         if (reason == EndReason.FAILED) failure?.let { listener?.onAdFailed(this, it) }

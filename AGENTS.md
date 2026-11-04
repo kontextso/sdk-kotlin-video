@@ -53,8 +53,8 @@ adb logcat -s KontextVideo
     `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdGeometry` (the placement arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen);
     `Presentation` (one ad on screen), `VideoAdSlot` (the slot behind Compose's `VideoAdHost`), and `VideoAd`'s
     logic outside its class: `VideoAdPageEvents` (the page's events), `VideoAdPlacement`, `VideoAdClick` (a click: beacon, click-through, listener).
-  - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `VideoAdContent` (the
-    overlay-follows-content rules).
+  - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `ContentRule` (how
+    an ad follows the content, one class per format: `OverlayRule`, `PauseRule`, `NoContentRule`).
   - `payloads/`: `AdPayload`, `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.
