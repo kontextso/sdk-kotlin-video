@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.VisibleForTesting
 import so.kontext.video.internal.support.Environment
 import java.lang.ref.WeakReference
 import kotlin.math.abs
@@ -209,12 +210,24 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     }
 
     companion object {
-        /** How often the box is measured. A constant in spirit; a variable so the tests can shrink it. */
+        /**
+         * How often the box is measured. A constant in spirit: only tests set it, shorter to run fast, or so long
+         * that the test calls [tick] itself.
+         */
+        @set:VisibleForTesting
         var intervalMillis = 250L
 
-        /** How long an ad may stay unseen in front before it ends; a variable so the tests can shrink it. */
+        /** How long an ad may stay unseen in front before it ends. A constant in spirit: only tests set it. */
+        @set:VisibleForTesting
         var offScreenGraceMillis = 1_000L
+
+        /**
+         * A gap between two ticks longer than this, and than two intervals, means the loop stalled (the app froze
+         * or slept): time nobody measured cannot count as continuous, and the 50 % stretch starts again.
+         */
         const val SHORTEST_STALL_MILLIS = 500L
+
+        /** The MRC rule's share: at least half of the ad on screen. */
         const val THRESHOLD = 0.5
 
         /**
