@@ -970,7 +970,7 @@ public class VideoAd internal constructor(
     public class Price internal constructor(
         /** Per 1,000 impressions. */
         public val value: Double,
-        /** ISO 4217. */
+        /** ISO 4217, as the server sends it (not checked). */
         public val currency: String,
         /** Whether [value] is a DSP's clearing price or a forecast. */
         public val precision: Precision,

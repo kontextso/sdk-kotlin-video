@@ -1,5 +1,5 @@
 {
-  "description": "the currency is lowercase",
+  "description": "the currency is lowercase: a free string, taken as sent",
   "response": {
     "enabled": true,
     "formats": [
@@ -184,12 +184,10 @@
   "expect": {
     "result": "formats",
     "formats": {
-      "overlay": "noFill:unknown",
+      "overlay": "ad:o-1",
       "pause": "ad:p-1",
       "linear": "ad:l-1"
     },
-    "decodeReports": [
-      "overlay:price.currency"
-    ]
+    "decodeReports": []
   }
 }

@@ -161,7 +161,7 @@ class ParityPayloadsTest {
         val overlay = Fixtures.overlay()
         assertEquals("ad", path("42"))
         assertEquals("id", path(Fixtures.overlay(id = "")))
-        assertEquals("price.currency", path(overlay.replace("\"USD\"", "\"usd\"")))
+        assertEquals("price.currency", path(overlay.replace("\"USD\"", "840")))
         assertEquals("price.precision", path(overlay.replace("\"exact\"", "\"floor\"")))
         assertEquals("expires", path(Fixtures.overlay(expires = 0)))
         assertEquals("duration", path(Fixtures.overlay(duration = "-1")))
@@ -311,18 +311,20 @@ class ParityPayloadsTest {
         for (bad in refused) assertThrows<ApiException.Decoding>(bad) { parse(Fixtures.overlay(frameUrl = bad)) }
     }
 
-    @Test fun aPriceIsAFiniteCpmNotNegativeInAnIsoCurrency() {
-        fun overlay(value: String, currency: String = "USD") =
-            Fixtures.overlay().replace(""""value": 8.0, "currency": "USD"""", """"value": $value, "currency": "$currency"""")
+    @Test fun aPriceIsAFiniteCpmNotNegativeInAnyCurrencyString() {
+        fun overlay(value: String, currency: String = "\"USD\"") =
+            Fixtures.overlay().replace(""""value": 8.0, "currency": "USD"""", """"value": $value, "currency": $currency""")
         for (value in listOf("1e400", "-1e400", "-1", "-0.01", "\"NaN\"", "\"Infinity\"", "NaN", "Infinity")) {
             assertThrows<ApiException>(value) { parse(overlay(value)) }
         }
+        // The currency is a free string, taken as sent.
         for (currency in listOf("usd", "US", "EURO", "", "U5D")) {
-            assertThrows<ApiException.Decoding>(currency) { parse(overlay("8.0", currency)) }
+            assertEquals(currency, parse(overlay("8.0", "\"$currency\"")).price.currency)
         }
+        assertThrows<ApiException.Decoding>("a number") { parse(overlay("8.0", "840")) }
         assertEquals(0.0, parse(overlay("0")).price.value)
         assertEquals(1e300, parse(overlay("1e300")).price.value)
-        assertEquals("EUR", parse(overlay("8.0", "EUR")).price.currency)
+        assertEquals("EUR", parse(overlay("8.0", "\"EUR\"")).price.currency)
     }
 
     @Test fun trackingEntriesKeepOffsetAndPart() {
