@@ -117,7 +117,7 @@ public class VideoAd internal constructor(
     internal var extraInsets = Rect()
     internal var chosenSize: AdPayload.Size? = null
     private val linearScreen: LinearAdActivity? get() = presentation?.linearScreen
-    internal val linearPresentation: LinearAdActivity.Presentation? get() = presentation?.linearPresentation
+    internal val linearCallbacks: LinearAdActivity.Callbacks? get() = presentation?.linearCallbacks
 
     /** Where the ad is in its life. Every public flag above derives from it; it moves only through [transition]. */
     internal var phase: Phase = Phase.Offered
@@ -578,7 +578,7 @@ public class VideoAd internal constructor(
         reserve()
         if (hasEnded) return
         followStartingActivity(activity)
-        val presentation = object : LinearAdActivity.Presentation {
+        val callbacks = object : LinearAdActivity.Callbacks {
             override fun attach(activity: LinearAdActivity, root: FrameLayout) {
                 if (hasEnded) {
                     activity.isEndingByAd = true
@@ -603,11 +603,11 @@ public class VideoAd internal constructor(
                 }
             }
         }
-        this.presentation?.linearPresentation = presentation
+        presentation?.linearCallbacks = callbacks
         // Any launch that throws (the Activity stripped from the merged manifest, a refused start, an app's own
         // startActivity override or a system state that throws something else) is the same failure.
         val started = try {
-            LinearAdActivity.start(activity, presentation)
+            LinearAdActivity.start(activity, callbacks)
             true
         } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
             Logger.error { "ad ${id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
@@ -624,7 +624,7 @@ public class VideoAd internal constructor(
             if (hasEnded || isPresented) return@launch
             val what = if (linearScreen == null) "did not start" else "never came to the front"
             Logger.error { "ad ${id.take(8)}: the linear ad's screen $what; ended as failed" }
-            LinearAdActivity.forget(presentation)
+            LinearAdActivity.forget(callbacks)
             ErrorReporter.report(
                 ErrorReporter.Code.PRESENTATION_FAILED,
                 ErrorReporter.Stage.PRESENTATION,
@@ -840,7 +840,7 @@ public class VideoAd internal constructor(
     //  3. waiters: the first-layout wait (endNow);
     //  4. clock and meter: the clock and its onActivate, the viewability meter (Presentation.tearDown);
     //  5. renderer: the page (hidden, released; endNow) and the host view (Presentation.tearDown);
-    //  6. presentation registration: LinearAdActivity.forget (Presentation.tearDown), the linear screen closed
+    //  6. the linear screen's callbacks: LinearAdActivity.forget (Presentation.tearDown), the linear screen closed
     //     (endNow), the presentation and the screen references dropped (Presentation.release, from finish);
     //  7. context: the WebView's context back to the application's (finish);
     //  8. the app-wide on-screen slot, Sdk.presentation (Presentation.release);

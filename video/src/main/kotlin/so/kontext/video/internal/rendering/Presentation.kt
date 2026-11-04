@@ -24,7 +24,7 @@ internal class Presentation private constructor(
 
     /** A linear ad's screen once it attached, and the registration that hands it the ad. */
     var linearScreen: LinearAdActivity? = null
-    var linearPresentation: LinearAdActivity.Presentation? = null
+    var linearCallbacks: LinearAdActivity.Callbacks? = null
 
     /** Decides `viewable` / `notViewable` and reports exposure while the ad is on screen. */
     var meter: ViewabilityMeter? = null
@@ -42,13 +42,13 @@ internal class Presentation private constructor(
         meter = null
         hostView?.let { (it.parent as? ViewGroup)?.removeView(it) }
         hostView = null
-        linearPresentation?.let(LinearAdActivity::forget)
+        linearCallbacks?.let(LinearAdActivity::forget)
         return activeTime
     }
 
     /** `onAdEnded` is next: the slot is free and the owner stops following the ad. */
     fun release() {
-        linearPresentation = null
+        linearCallbacks = null
         linearScreen = null
         if (Sdk.presentation === this) Sdk.presentation = null
         owner.get()?.adDidEnd(ad)

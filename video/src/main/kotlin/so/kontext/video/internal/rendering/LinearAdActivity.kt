@@ -23,7 +23,7 @@ import java.util.UUID
  */
 internal class LinearAdActivity : ComponentActivity() {
     /** What a linear ad gives its screen. */
-    interface Presentation {
+    interface Callbacks {
         /** The screen is up: put the page in [root]. */
         fun attach(activity: LinearAdActivity, root: FrameLayout)
 
@@ -34,7 +34,7 @@ internal class LinearAdActivity : ComponentActivity() {
         fun onScreenGone(byAd: Boolean)
     }
 
-    private var presentation: Presentation? = null
+    private var callbacks: Callbacks? = null
     private var shown = false
 
     /** Set by the ad while it finishes the screen itself, so `onDestroy` is not an interruption. */
@@ -53,13 +53,13 @@ internal class LinearAdActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = intent.getStringExtra(EXTRA_TOKEN)
-        val presentation = token?.let { presentations[it] }
+        val callbacks = token?.let { callbacksByToken[it] }
         // A screen restored after the process died, or started twice: there is no ad for it.
-        if (presentation == null || savedInstanceState != null) {
+        if (callbacks == null || savedInstanceState != null) {
             finish()
             return
         }
-        this.presentation = presentation
+        this.callbacks = callbacks
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -73,14 +73,14 @@ internal class LinearAdActivity : ComponentActivity() {
                 override fun handleOnBackPressed() = Unit
             },
         )
-        presentation.attach(this, root)
+        callbacks.attach(this, root)
     }
 
     override fun onResume() {
         super.onResume()
         if (!shown) {
             shown = true
-            presentation?.onScreenShown()
+            callbacks?.onScreenShown()
         }
     }
 
@@ -103,18 +103,18 @@ internal class LinearAdActivity : ComponentActivity() {
 
     /** Tells the ad once that its screen is gone: at the stop of a finishing screen, else at its destroy. */
     private fun gone() {
-        val presentation = presentation ?: return
-        this.presentation = null
-        intent.getStringExtra(EXTRA_TOKEN)?.let { presentations.remove(it) }
-        presentation.onScreenGone(isEndingByAd)
+        val callbacks = callbacks ?: return
+        this.callbacks = null
+        intent.getStringExtra(EXTRA_TOKEN)?.let { callbacksByToken.remove(it) }
+        callbacks.onScreenGone(isEndingByAd)
     }
 
     companion object {
         private const val EXTRA_TOKEN = "so.kontext.video.token"
-        private val presentations = mutableMapOf<String, Presentation>()
+        private val callbacksByToken = mutableMapOf<String, Callbacks>()
 
-        /** Starts the screen for [presentation] from [from]; the token finds it again in `onCreate`. */
-        fun start(from: Activity, presentation: Presentation) {
+        /** Starts the screen for [callbacks] from [from]; the token finds them again in `onCreate`. */
+        fun start(from: Activity, callbacks: Callbacks) {
             // Android adds no other Activity to a singleInstance task: the ad opens in another task of the app,
             // and when it ends the viewer lands there, not back on the player.
             if (isSingleInstance(from)) {
@@ -124,7 +124,7 @@ internal class LinearAdActivity : ComponentActivity() {
                 }
             }
             val token = UUID.randomUUID().toString()
-            presentations[token] = presentation
+            callbacksByToken[token] = callbacks
             // The app started the ad break, the viewer did not leave: without the flag the host hears
             // onUserLeaveHint(), where apps enter picture-in-picture or note that the user left.
             val intent = Intent(from, LinearAdActivity::class.java).putExtra(EXTRA_TOKEN, token)
@@ -138,9 +138,9 @@ internal class LinearAdActivity : ComponentActivity() {
             activity.packageManager.getActivityInfo(activity.componentName, 0).launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE
         }.getOrDefault(false)
 
-        /** The presentation never reached its screen: its token goes. */
-        fun forget(presentation: Presentation) {
-            presentations.entries.removeAll { it.value === presentation }
+        /** The ad never reached its screen: its token goes. */
+        fun forget(callbacks: Callbacks) {
+            callbacksByToken.entries.removeAll { it.value === callbacks }
         }
     }
 }

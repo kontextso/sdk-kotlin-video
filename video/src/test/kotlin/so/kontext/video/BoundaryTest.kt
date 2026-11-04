@@ -230,10 +230,10 @@ class BoundaryTest {
         val owner = owner()
         val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner)
         ad.show(container().context as Activity)
-        assertTrue(ad.linearPresentation != null)
+        assertTrue(ad.linearCallbacks != null)
         ad.end(VideoAd.EndReason.DESTROYED)
         assertNull(ad.loadedBridge)
-        assertNull("it captures the bridge and its destroyed WebView", ad.linearPresentation)
+        assertNull("it captures the bridge and its destroyed WebView", ad.linearCallbacks)
     }
 
     @Test fun aHostRemovedByTheContainersHookEndsTheAdWithoutAnImpression() {
