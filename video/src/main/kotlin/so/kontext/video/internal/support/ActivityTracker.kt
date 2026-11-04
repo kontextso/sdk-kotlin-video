@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.os.Bundle
+import android.view.View
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
@@ -126,3 +127,14 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     // A copy: a listener ends its ad, which removes it from the list.
     private fun notify(activity: Activity, event: Event) = listeners.toList().forEach { it(activity, event) }
 }
+
+/** The Activity the view is in, through any context wrappers. */
+internal val View.activity: Activity?
+    get() {
+        var context: android.content.Context? = context
+        while (context is android.content.ContextWrapper) {
+            if (context is Activity) return context
+            context = context.baseContext
+        }
+        return null
+    }
