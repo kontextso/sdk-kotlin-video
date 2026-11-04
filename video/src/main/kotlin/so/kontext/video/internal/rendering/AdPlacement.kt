@@ -26,11 +26,16 @@ internal object AdPlacement {
 
     /** Where [size] goes inside [width]×[height] less [insets]; `null` when it does not fit. */
     fun frame(size: AdPayload.Size, position: AdPayload.Position?, width: Int, height: Int, insets: Rect, density: Float): Rect? {
+        // 1. The free space: the view less the insets. Nothing left: it does not fit.
         val room = room(width, height, insets) ?: return null
+        // 2. The largest scale at which the ad fits that space, at most 1 (full size, never enlarged).
         val scale = scale(size, room, density)
+        // 3. It would have to shrink below its limit (half, or not at all for a fixed ad): it does not fit.
         if (scale < smallestScale(size)) return null
+        // 4. Its size in pixels at that scale: dp × density × scale.
         val scaledWidth = (size.width * density * scale).roundToInt()
         val scaledHeight = (size.height * density * scale).roundToInt()
+        // 5. Centred across, at the top or the bottom (the default) of the free space.
         val left = room.left + (room.width() - scaledWidth) / 2
         val top = if (position == AdPayload.Position.TOP) room.top else room.bottom - scaledHeight
         return Rect(left, top, left + scaledWidth, top + scaledHeight)
