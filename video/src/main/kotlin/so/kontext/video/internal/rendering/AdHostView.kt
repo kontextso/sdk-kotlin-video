@@ -15,6 +15,20 @@ import androidx.core.view.WindowInsetsCompat
  * container that holds the creative at its place. Covering the container is what lets it follow a resize or
  * a rotation; touches outside the creative pass through to the player (not with
  * `coversWhole`: a full-screen ad whose page sits inside the bars, the host opaque and taking touches around it).
+ *
+ * ```
+ * ┌────────── AdHostView = the whole player, e.g. 800×400 ──────────┐
+ * │                                                                 │
+ * │                (transparent, taps pass through)                 │
+ * │                                                                 │
+ * │                  ┌──── WebView 320×80 ────┐                     │
+ * │                  └────────────────────────┘                     │
+ * │                      ↑ above the bottom inset                   │
+ * └─────────────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * The WebView is only as big as the ad (its size from the server, shrunk at most to half when it does not fit),
+ * placed by [place] at every layout pass, so it follows a resize or a rotation.
  */
 @SuppressLint("ViewConstructor")
 internal class AdHostView(context: Context, val content: View, coversWhole: Boolean = false) : FrameLayout(context) {
