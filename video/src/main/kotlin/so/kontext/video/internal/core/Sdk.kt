@@ -22,7 +22,18 @@ import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
 
-/** What `KontextVideo` holds: the configuration, where `/config` got to, and the one ad on screen. Main thread only. */
+/**
+ * The machinery behind `KontextVideo`: the configuration, where `/config` got to, the values the app sets (`user`,
+ * `regulatory`, `variantId`) and the one ad on screen in the whole app. Every public call on `KontextVideo` is a
+ * thin wrapper that forwards here. Main thread only.
+ *
+ * Why not in `KontextVideo` itself: a JVM quirk. Kotlin's `internal` means "visible only inside this module", but
+ * the JVM has no such level: an `internal` member of a public class compiles as public, with a slightly mangled
+ * name, so a Java app could see and call it. Were the SDK's state (`configuration`, `presentation`, `initJob`,
+ * `disable()`) internal members of the public `KontextVideo`, Java code could reach into it. An `internal object`
+ * of its own keeps all of it out of reach. Swift needs no such split: its `internal` is truly invisible outside
+ * the module, and the same state lives in `KontextVideo.swift`.
+ */
 internal object Sdk {
     /** The [State.Disabled] reason in a process other than the app's main one. */
     const val NOT_MAIN_PROCESS = "not the app's main process"
