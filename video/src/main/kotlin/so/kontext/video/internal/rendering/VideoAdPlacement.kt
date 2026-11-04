@@ -6,8 +6,18 @@ import so.kontext.video.VideoAdException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Logger
 
-// Where an overlay or pause ad goes in the app's container, at `show` and at every resize: the size variant,
-// its scale, and the frame inside the system bars, the cutout and the app's insets.
+// Where an overlay or pause ad goes in the app's container: the ad's own choices, made with AdGeometry's
+// arithmetic (which knows no ad).
+//
+//   show(container, insets)
+//     └─ chooseSize   once: which of the server's size variants fits; none: ContainerTooSmall, the ad stays ready
+//   every layout pass of AdHostView (first show, rotation, resize, bars shown or hidden)
+//     └─ refit        where the chosen variant goes now; null: it no longer fits, and the ad ends
+//
+//   combinedInsets   what the ad stays clear of: the system bars and cutout plus the app's own insets
+//   tooSmall         the ContainerTooSmall error, with the smallest container that would do
+//
+// A full-screen pause ad skips the variants: it takes the whole container less the bars (clearOfBars).
 
 /** The system's and the app's insets together; saturated, so a huge app inset cannot wrap around to a small one. */
 internal fun VideoAd.combinedInsets(system: Rect): Rect {
