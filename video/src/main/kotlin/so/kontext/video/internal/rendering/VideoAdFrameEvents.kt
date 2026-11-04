@@ -11,6 +11,14 @@ import so.kontext.video.internal.support.Logger
 // What the frame page reports, as beacons, the ad's state and the listener: VideoAd's half of the frame
 // protocol, the bridge (`FrameBridge`) being the other.
 
+/**
+ * Every message of the page goes through here: [handleNow] with the content playhead read once first, when any URL
+ * of the moment asks for it (`[CONTENTPLAYHEAD]`), so every beacon of one event carries the same time and the app's
+ * player is asked once. The tracking URLs came from the ad server, and the tracker knows by itself whether one asks.
+ * A click is the one event that brings URLs of its own, the click-through and its fallback, which the SDK fills in
+ * too (`Tracker.clickThrough`): they are passed so a macro in them alone is found. `Open`'s URL is opened as it
+ * is, with no macros, so it needs nothing.
+ */
 internal fun VideoAd.handle(event: FrameEvent) {
     val urls = if (event is FrameEvent.Click) listOfNotNull(event.url, event.fallbackUrl) else emptyList()
     withContentPlayhead(urls) { handleNow(event) }
