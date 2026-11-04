@@ -4,12 +4,15 @@ import android.view.View
 import android.view.ViewTreeObserver
 
 /**
- * Waits for [view]'s first layout in a window with an area: the moment it can first be drawn. An image or
- * HTML creative's impression counts from there, not from `show`: a container that gives the ad no room (a
- * vertical LinearLayout appending it after the player) never draws it.
+ * Has the ad's view really appeared on screen, with a size? And if not yet, a way to wait until it has.
+ *
+ * Why: adding a view does not place it. Until Android's next layout pass measures it, its width and height are
+ * 0, and some containers never give it room at all (a vertical LinearLayout that puts the ad after a full-height
+ * player). So an image or HTML ad's impression counts from its first layout with a size, not from `show`, and
+ * the viewability meter measures nothing before it. Like waiting for a ResizeObserver to report a real size.
  */
 internal object FirstLayout {
-    /** Laid out in a window with an area. Before that every measurement of the view is 0 for want of a layout. */
+    /** In a window, laid out and bigger than 0×0. Before that every measurement of the view is 0. */
     fun isLaidOutInWindow(view: View): Boolean = view.isAttachedToWindow && view.isLaidOut && view.width > 0 && view.height > 0
 
     /**
