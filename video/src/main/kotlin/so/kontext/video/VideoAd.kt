@@ -33,7 +33,6 @@ import so.kontext.video.internal.playback.runAppCodeBeforeShow
 import so.kontext.video.internal.playback.startFollowingContent
 import so.kontext.video.internal.rendering.ActiveTimeClock
 import so.kontext.video.internal.rendering.AdHostView
-import so.kontext.video.internal.rendering.AdPlacement
 import so.kontext.video.internal.rendering.FirstLayout
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.LinearAdActivity
@@ -402,7 +401,7 @@ public class VideoAd internal constructor(
             throw VideoAdException.WrongPresentation()
         }
         checkShowable()
-        if (!AdPlacement.canBeSeen(container)) {
+        if (!ViewabilityMeter.canBeSeen(container)) {
             Logger.warning { "ad ${id.take(8)}: cannot show, the container is not on screen or is hidden" }
             throw VideoAdException.PresenterUnavailable()
         }
@@ -461,7 +460,7 @@ public class VideoAd internal constructor(
         // A destroy in the container's hook ended the ad and took its host.
         val host = hostView ?: return
         // The container's own hook may have removed the host, or taken the container off screen.
-        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !AdPlacement.canBeSeen(container) || AdPlacement.isTransparent(host))) {
+        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !ViewabilityMeter.canBeSeen(container) || ViewabilityMeter.isTransparent(host))) {
             Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
             end(EndReason.INTERRUPTED)
             return

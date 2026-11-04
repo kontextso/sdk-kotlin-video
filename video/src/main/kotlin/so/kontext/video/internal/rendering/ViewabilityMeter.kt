@@ -181,6 +181,35 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         const val SHORTEST_STALL_MILLIS = 500L
         const val THRESHOLD = 0.5
 
+        /**
+         * At most this opacity (1 %) a view counts as invisible, though it is shown: its alpha times every
+         * ancestor's, as Android draws it. Not 0: three ancestors at 0.1 make 0.001, which nobody can see, yet no
+         * single view is transparent; an ad drawn like that (by accident, or to fake views) must not be shown, get
+         * an impression or count as seen. 1 % is invisible to the eye, and far below any fade a real UI rests at.
+         */
+        private const val TRANSPARENT = 0.01f
+
+        /** Whether the viewer could see [view]: attached, laid out with an area, shown, and not transparent (alpha times its ancestors'). */
+        fun canBeSeen(view: View): Boolean {
+            if (!view.isAttachedToWindow || view.width <= 0 || view.height <= 0 || !view.isShown) return false
+            if (view.windowVisibility != View.VISIBLE) return false
+            return !isTransparent(view)
+        }
+
+        /**
+         * Whether [view] draws at no visible opacity: its alpha times each ancestor's, as Android composes them, at most
+         * 1 %. Three ancestors at 0.1 make 0.001, transparent, though none of them is alone.
+         */
+        fun isTransparent(view: View): Boolean {
+            var alpha = 1f
+            var node: Any? = view
+            while (node is View) {
+                alpha *= node.alpha
+                node = node.parent
+            }
+            return alpha <= TRANSPARENT
+        }
+
         /** The view's own coordinates to the root view's: each ancestor's transform and position, up to the root. */
         fun transformToRoot(view: View): Matrix {
             val matrix = Matrix()
@@ -224,7 +253,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         /** Not shown, without an area, in a window that is not visible, or transparent: its alpha times its ancestors'. */
         private fun isHidden(view: View): Boolean {
             if (!view.isShown || view.windowVisibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return true
-            return AdPlacement.isTransparent(view)
+            return isTransparent(view)
         }
 
         /** [outline], in the root's coordinates, cut by the window and by every ancestor that clips its children. */

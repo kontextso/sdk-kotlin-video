@@ -56,7 +56,6 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.rendering.AdHostView
-import so.kontext.video.internal.rendering.AdPlacement
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.ViewabilityMeter
 import so.kontext.video.internal.support.Environment
@@ -295,13 +294,13 @@ class BoundaryTest {
         view.layout(0, 0, 320, 400)
         // 0.1 × 0.1 × 0.1 = 0.001: below 1 %, though no single ancestor is.
         assertEquals("not measured as seen", 0.0, ViewabilityMeter.exposure(view).first, 0.0)
-        assertFalse("not eligible to show", AdPlacement.canBeSeen(view))
+        assertFalse("not eligible to show", ViewabilityMeter.canBeSeen(view))
         // Two layers at 0.2 make 0.04: seen.
         (view.parent as View).alpha = 1f
         (view.parent!!.parent as View).alpha = 0.2f
         (view.parent!!.parent!!.parent as View).alpha = 0.2f
         assertEquals(1.0, ViewabilityMeter.exposure(view).first, 0.001)
-        assertTrue(AdPlacement.canBeSeen(view))
+        assertTrue(ViewabilityMeter.canBeSeen(view))
     }
 
     @Test fun aParentsPaddingClipsTheCreative() {

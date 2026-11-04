@@ -19,24 +19,24 @@ internal fun VideoAd.combinedInsets(system: Rect): Rect {
 internal fun VideoAd.chooseSize(width: Int, height: Int, insets: Rect, density: Float) {
     val defaultSize = payload.sizes.firstOrNull()
     if (payload.position == AdPayload.Position.FULLSCREEN || defaultSize == null) return
-    val room = AdPlacement.room(width, height, insets) ?: run {
+    val room = AdGeometry.room(width, height, insets) ?: run {
         chosenSize = null
         throw tooSmall(defaultSize, insets, density, "the insets leave no room for")
     }
-    val fit = { candidate: AdPayload.Size -> AdPlacement.scale(candidate, room, density) }
+    val fit = { candidate: AdPayload.Size -> AdGeometry.scale(candidate, room, density) }
     val size = payload.sizes.filter { fit(it) >= 1 }.maxByOrNull { it.width * it.height }
-        ?: payload.sizes.filter { fit(it) >= AdPlacement.smallestScale(it) }.maxByOrNull(fit)
+        ?: payload.sizes.filter { fit(it) >= AdGeometry.smallestScale(it) }.maxByOrNull(fit)
         ?: payload.sizes.maxByOrNull(fit)
         ?: defaultSize
     chosenSize = size
-    if (AdPlacement.frame(size, payload.position, width, height, insets, density) == null) {
+    if (AdGeometry.frame(size, payload.position, width, height, insets, density) == null) {
         chosenSize = null
         throw tooSmall(size, insets, density, "a $width×$height px container is too small for")
     }
 }
 
 private fun VideoAd.tooSmall(size: AdPayload.Size, insets: Rect, density: Float, what: String): VideoAdException {
-    val (minWidth, minHeight) = AdPlacement.minimum(size, insets, density)
+    val (minWidth, minHeight) = AdGeometry.minimum(size, insets, density)
     val limit = if (size.scalable) " at 50 %" else ", which may not shrink"
     Logger.warning { "ad ${id.take(8)}: $what the ad's ${size.width}×${size.height} dp$limit; the ad stays ready" }
     return VideoAdException.ContainerTooSmall(minWidth, minHeight)
@@ -48,7 +48,7 @@ internal fun VideoAd.refit(width: Int, height: Int, system: Rect, density: Float
     // still covers the whole container behind the bars.
     if (payload.position == AdPayload.Position.FULLSCREEN) return clearOfBars(width, height, system)
     val size = chosenSize ?: return Rect(0, 0, width, height)
-    return AdPlacement.frame(size, payload.position, width, height, combinedInsets(system), density)
+    return AdGeometry.frame(size, payload.position, width, height, combinedInsets(system), density)
 }
 
 /** The container less the system bars and cutout that overlap it; the whole container when they leave no room. */

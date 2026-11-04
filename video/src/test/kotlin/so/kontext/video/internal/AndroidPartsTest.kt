@@ -15,7 +15,7 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAdsPlayer
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.rendering.AdPlacement
+import so.kontext.video.internal.rendering.AdGeometry
 import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.rendering.FrameEvent
 import so.kontext.video.internal.support.Environment
@@ -100,13 +100,13 @@ class AndroidPartsTest {
     @Test fun anAdIsScaledToFitNeverEnlargedAndRefusedBelowHalf() {
         val size = AdPayload.Size(320, 80)
         // 1080 px wide at density 3: 360 dp of room, the ad at its own 320 dp is 960 px, centred at the bottom.
-        assertEquals(Rect(60, 1680, 1020, 1920), AdPlacement.frame(size, AdPayload.Position.BOTTOM, 1080, 1920, Rect(), 3f))
+        assertEquals(Rect(60, 1680, 1020, 1920), AdGeometry.frame(size, AdPayload.Position.BOTTOM, 1080, 1920, Rect(), 3f))
         // 480 px of room for 960: half size, the smallest allowed.
-        assertEquals(Rect(0, 0, 480, 120), AdPlacement.frame(size, AdPayload.Position.TOP, 480, 1920, Rect(), 3f))
-        assertNull(AdPlacement.frame(size, AdPayload.Position.TOP, 470, 1920, Rect(), 3f))
-        assertNull("not scalable", AdPlacement.frame(size.copy(scalable = false), AdPayload.Position.TOP, 900, 1920, Rect(), 3f))
-        assertNull("insets that leave no room", AdPlacement.room(1080, 1920, Rect(0, 0, 0, 2000)))
-        assertEquals(Pair(480 + 10, 120 + 200), AdPlacement.minimum(size, Rect(0, 0, 10, 200), 3f))
+        assertEquals(Rect(0, 0, 480, 120), AdGeometry.frame(size, AdPayload.Position.TOP, 480, 1920, Rect(), 3f))
+        assertNull(AdGeometry.frame(size, AdPayload.Position.TOP, 470, 1920, Rect(), 3f))
+        assertNull("not scalable", AdGeometry.frame(size.copy(scalable = false), AdPayload.Position.TOP, 900, 1920, Rect(), 3f))
+        assertNull("insets that leave no room", AdGeometry.room(1080, 1920, Rect(0, 0, 0, 2000)))
+        assertEquals(Pair(480 + 10, 120 + 200), AdGeometry.minimum(size, Rect(0, 0, 10, 200), 3f))
     }
 
     private fun bridge() = FrameBridge(ApplicationProvider.getApplicationContext(), "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = false)
