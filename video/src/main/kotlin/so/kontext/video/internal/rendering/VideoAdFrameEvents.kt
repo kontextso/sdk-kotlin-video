@@ -98,8 +98,20 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
 }
 
 /**
- * The page's own close control. A linear ad's close before `complete` is a skip; `complete` is the page
- * ending itself after the video with no end card: nobody closed anything, so no `close` fires.
+ * The page's own close control: how a page's close and skip end an ad, and why a linear ad's close can be a skip.
+ *
+ * ```
+ *   what the viewer does (linear ad)        message        result
+ *   taps Skip, after the skip offset        ad.skip        `skip` beacon, SKIPPED
+ *   taps Close before the video finished    ad.close       `skip` beacon, SKIPPED
+ *   closes the end card after the video     ad.close       `close` beacon, CLOSED
+ *   nothing: the video ended, no end card   ad.close       COMPLETED, no `close` (nobody closed anything)
+ * ```
+ *
+ * For a video ad what counts is whether the viewer watched it to the end. Leaving early is a skip, through
+ * Skip or through Close alike, as video ad tracking counts it; `close` is for closing what already finished.
+ * `isCompleted` is set only by the page's `complete` event, never by a close. Overlay and pause ads have no
+ * "watch to the end": a close is CLOSED, or RESUMED when it resumed the content.
  */
 internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
     // A fact of the linear format, not of its screen.
