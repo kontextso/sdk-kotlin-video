@@ -319,6 +319,75 @@ class BoundaryTest {
         assertEquals(Rect(60, 60, 140, 140), visible)
     }
 
+    @Test fun aViewInAScrolledParentIsMeasuredWhereItShows() {
+        // container 320×400 └─ a scrolling parent at (0, 100), 320×300 └─ the ad 320×80 at (40, 300)
+        val container = container()
+        val scroller = FrameLayout(container.context)
+        container.addView(scroller)
+        scroller.layout(0, 100, 320, 400)
+        val view = FrameLayout(container.context)
+        scroller.addView(view)
+        view.layout(40, 300, 360, 380)
+        // Scrolled down by 200: the ad sits at y 100–180 in the parent, whole in height; the parent cuts the
+        // 40 px it sticks out on the right.
+        scroller.scrollTo(0, 200)
+        val (share, visible) = ViewabilityMeter.exposure(view)
+        assertEquals("280×80 of 320×80", 0.875, share, 0.001)
+        assertEquals(Rect(0, 0, 280, 80), visible)
+        // Scrolled by 350: the ad sits at y −50 to 30, only its bottom 30 rows show.
+        scroller.scrollTo(0, 350)
+        val (scrolledShare, scrolledVisible) = ViewabilityMeter.exposure(view)
+        assertEquals("280×30 of 320×80", 0.328, scrolledShare, 0.001)
+        assertEquals(Rect(0, 50, 280, 80), scrolledVisible)
+    }
+
+    @Test fun aParentThatDoesNotClipLetsTheAdShowBeyondIt() {
+        // The ad, 120×80 at x 100 in a 160×200 parent, sticks out 60 px; the 320×400 container around both clips.
+        val container = container()
+        val parent = FrameLayout(container.context).apply { clipChildren = false }
+        container.addView(parent)
+        parent.layout(0, 0, 160, 200)
+        val view = FrameLayout(container.context)
+        parent.addView(view)
+        view.layout(100, 0, 220, 80)
+        assertEquals("all of it inside the container", 1.0, ViewabilityMeter.exposure(view).first, 0.001)
+        parent.clipChildren = true
+        assertEquals("cut at the parent's edge: 60 of 120", 0.5, ViewabilityMeter.exposure(view).first, 0.001)
+    }
+
+    @Test fun paddingDoesNotClipWithoutClipToPadding() {
+        val container = container()
+        val padded = FrameLayout(container.context).apply {
+            setPadding(60, 60, 60, 60)
+            clipChildren = false
+            clipToPadding = false
+        }
+        container.addView(padded)
+        padded.layout(0, 0, 200, 200)
+        val view = FrameLayout(container.context)
+        padded.addView(view)
+        view.layout(0, 0, 200, 200)
+        val (share, visible) = ViewabilityMeter.exposure(view)
+        assertEquals("the padding is only spacing", 1.0, share, 0.001)
+        assertEquals(Rect(0, 0, 200, 200), visible)
+    }
+
+    @Test fun paddingThatLeavesNoRoomHidesTheAd() {
+        val container = container()
+        val padded = FrameLayout(container.context).apply {
+            setPadding(100, 0, 100, 0) // 200 px of padding in a 200 px wide parent
+            clipChildren = false
+        }
+        container.addView(padded)
+        padded.layout(0, 0, 200, 200)
+        val view = FrameLayout(container.context)
+        padded.addView(view)
+        view.layout(0, 0, 200, 200)
+        val (share, visible) = ViewabilityMeter.exposure(view)
+        assertEquals(0.0, share, 0.0)
+        assertTrue("nothing to show", visible.isEmpty)
+    }
+
     @Test fun aLinearScreenThatNeverComesToTheFrontEndsTheAd() {
         VideoAd.presentationTimeoutMillis = 1_000
         VideoAd.dismissalTimeoutMillis = 300 // the failed screen is finished; Robolectric never destroys it
