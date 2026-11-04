@@ -1,6 +1,9 @@
 package so.kontext.video
 
 import android.content.Context
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonArray
@@ -13,10 +16,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
@@ -156,4 +161,89 @@ class GapsTest : SdkTest() {
         listener.onAdEnded(ad, VideoAd.EndReason.DISMISSED)
         assertFalse(ad.hasEnded)
     }
+
+    // region Format rules the refactor into ContentRule and AdScreen must keep
+
+    @Test fun aPauseAdsClockNeverGetsADuration() {
+        // A pause payload carries no duration; one with a duration anyway must still stay until something ends it.
+        val parsed = AdPayload.parse(Fixtures.json(Fixtures.pause()))
+        val payload = AdPayload(
+            parsed.id, parsed.format, parsed.creative, parsed.price, parsed.expiresMillis, parsed.frameUrl, parsed.tracking,
+            parsed.position, parsed.sizes, 1_000, parsed.skipOffsetMillis,
+        )
+        val recorder = Recorder()
+        val ad = loaded(payload)
+        ad.listener = recorder
+        ad.show(container())
+        idle(5_000)
+        assertTrue("no end from the clock", recorder.reasons.isEmpty())
+        assertFalse(ad.hasEnded || ad.isCompleted)
+        ad.dismiss()
+        assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+    }
+
+    @Test fun anOverlayShownBeforeTrackKeepsItsWallClockDurationAndEndsOnAPause() {
+        // Shown with no player: its duration runs on the clock. A player tracked later does not move it to video
+        // time (no ContentProgress), but a pause of that player ends it.
+        val owner = owner()
+        val recorder = Recorder()
+        val ad = overlay(owner, duration = "2000")
+        ad.listener = recorder
+        ad.show(container())
+        idle(500)
+        val player = Player()
+        owner.track(player)
+        assertTrue("the ticks start for the overlay on screen", owner.playback.isTicking)
+        owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
+        assertNull("no video time for an overlay shown before track", ad.contentProgress)
+        assertFalse(ad.hasEnded)
+        idle(1_600)
+        assertEquals("its wall-clock duration elapsed", listOf(VideoAd.EndReason.COMPLETED), recorder.reasons)
+        assertTrue(ad.isCompleted)
+
+        val other = owner()
+        val second = overlay(other, duration = "2000")
+        val secondRecorder = Recorder()
+        second.listener = secondRecorder
+        second.show(container())
+        val secondPlayer = Player()
+        other.track(secondPlayer)
+        assertNull(second.contentProgress)
+        secondPlayer.listeners.single().onIsPlayingChanged(false)
+        assertEquals("a pause of the tracked player ends it", listOf(VideoAd.EndReason.INTERRUPTED), secondRecorder.reasons)
+    }
+
+    @Test fun aContainerThatRefusesAFullScreenPauseAdsHostLeavesItReadyAndTheSlotFree() {
+        val owner = owner()
+        val recorder = Recorder()
+        val ad = pause(owner, position = "fullscreen")
+        owner.ads[AdFormat.PAUSE] = ad
+        ad.listener = recorder
+        val activity = activity()
+        val refusing = object : FrameLayout(activity) {
+            override fun addView(child: View, index: Int, params: ViewGroup.LayoutParams) {
+                error("not here")
+            }
+        }
+        activity.setContentView(refusing)
+        refusing.layout(0, 0, 320, 400)
+        idle()
+        refusing.layout(0, 0, 320, 400)
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(refusing, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        try {
+            ad.show(refusing)
+            org.junit.Assert.fail("shown")
+        } catch (error: VideoAdException) {
+            assertTrue("$error", error is VideoAdException.PresenterUnavailable)
+        }
+        assertNull("the slot is free", Sdk.adOnScreen)
+        assertTrue("the ad stays ready", ad.isReady && !ad.wasShown)
+        assertEquals("the owner holds it again", ad, owner.ads[AdFormat.PAUSE])
+        assertEquals(0, refusing.childCount)
+        assertTrue("nothing heard", recorder.heard.isEmpty())
+        ad.show(container())
+        assertTrue(ad.wasShown)
+    }
+
+    // endregion
 }
