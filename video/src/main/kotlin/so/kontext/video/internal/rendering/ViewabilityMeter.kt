@@ -133,23 +133,32 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
 
     /** One measurement. Internal so tests can drive it with a frozen clock. */
     fun tick() {
+        // 1. Did the loop stall (more than two ticks, and at least 500 ms, since the last: the app froze or slept)?
+        //    Then the 50 % stretch cannot be called continuous, and countDwell starts it again.
         val now = Environment.now()
         val stalled = lastTick?.let { now - it > maxOf(intervalMillis * 2, SHORTEST_STALL_MILLIS) } ?: false
         lastTick = now
+        // 2. Is the view still there, in a window? Held weakly: the meter never keeps a view alive.
         val view = view.get()
         if (view == null || !view.isAttachedToWindow) {
             report(0.0, Rect())
             exposedSince = null
-            // One tick of grace: a view re-parented within the same turn is not gone.
+            // One tick of grace: a view re-parented within the same turn is not gone. Two in a row: the ad ends.
             detachedTicks += 1
             if (view != null && detachedTicks >= 2) onDetached?.invoke()
             return
         }
         detachedTicks = 0
+        // 3. Measure: the share on screen and its rectangle (0 when something covers it).
         val (percentage, visible) = seen(view)
+        // 4. Tell: onExposure when it changed, onSeen when "any of it visible" flipped. First, so the page and the
+        //    clock are current before the rules below may end the ad.
         report(percentage, visible)
+        // A listener may have ended the ad just now (each check below can too).
         if (stopped) return
+        // 5. Nothing seen for a second while the app is in front: onOffScreen, the ad ends.
         checkOffScreen(now)
+        // 6. The 50 % rule: the continuous time at 50 % or more; long enough, the verdict VIEWABLE, once.
         if (!stopped) countDwell(percentage, now, stalled)
     }
 
