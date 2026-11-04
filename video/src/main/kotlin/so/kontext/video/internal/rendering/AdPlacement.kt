@@ -16,6 +16,12 @@ internal object AdPlacement {
     /** Below this share of the nominal size a scalable ad is not shown. */
     const val MINIMUM_SCALE = 0.5
 
+    /**
+     * At most this opacity (1 %) a view counts as invisible, though it is shown: its alpha times every
+     * ancestor's, as Android draws it. Not 0: three ancestors at 0.1 make 0.001, which nobody can see, yet no
+     * single view is transparent; an ad drawn like that (by accident, or to fake views) must not be shown, get
+     * an impression or count as seen. 1 % is invisible to the eye, and far below any fade a real UI rests at.
+     */
     private const val TRANSPARENT = 0.01f
 
     /** Where [size] goes inside [width]×[height] less [insets]; `null` when it does not fit. */
