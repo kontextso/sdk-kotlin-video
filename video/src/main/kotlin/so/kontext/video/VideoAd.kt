@@ -56,6 +56,15 @@ public class VideoAd internal constructor(
     private val receivedAt: Long,
     owner: VideoAds,
 ) {
+    // Format differences live in two places, not in branches here:
+    // - how the ad follows the content under it: its ContentRule (OverlayRule, PauseRule, NoContentRule), made
+    //   once from the format;
+    // - where it is shown: its presentation's AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
+    //   a linear ad), made by show.
+    // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
+    // and a close before `complete` being a skip (VideoAdPageEvents). A full-screen pause ad is a placement of the
+    // inline screen (its host covers the container), not a format of its own.
+
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id
 
@@ -287,6 +296,7 @@ public class VideoAd internal constructor(
         val owner = owner.get() ?: throw VideoAdException.Destroyed()
         val bridge = try {
             // A linear ad's duration is its video's length; an overlay's is its time on screen, not the video's.
+            // A fact of the linear format, not of its screen.
             loadedBridge ?: makeBridge(
                 contextWrapper,
                 payload.id,
@@ -372,6 +382,7 @@ public class VideoAd internal constructor(
     }
 
     private fun showInline(container: ViewGroup, insets: Insets) {
+        // The public guard: a fact of the linear format, not of its screen.
         if (format == AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.show(container) on a linear ad; show(activity) presents it")
             throw VideoAdException.WrongPresentation()
@@ -525,6 +536,7 @@ public class VideoAd internal constructor(
     }
 
     private fun showLinear(activity: Activity) {
+        // The public guard: a fact of the linear format, not of its screen.
         if (format != AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.show(activity) on an overlay or pause ad; show(container) shows it")
             throw VideoAdException.WrongPresentation()
@@ -586,6 +598,7 @@ public class VideoAd internal constructor(
     @MainThread
     public fun dismiss() {
         Sdk.checkMainThread("VideoAd.dismiss()")
+        // A fact of the linear format, not of its screen: it ends by itself or by the viewer.
         if (format == AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.dismiss() on a linear ad; it ends by itself, VideoAds.destroy() forces it off")
             Logger.error { "ad ${id.take(8)}: dismiss() on a linear ad does nothing; it ends by itself or by the viewer, destroy() forces it off" }

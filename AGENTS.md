@@ -46,12 +46,16 @@ adb logcat -s KontextVideo
 - `VideoAd`: the facts (`price`, `durationMillis`), `load()` (shared), `reject()`, `show(container, insets)` for
   overlay and pause, `show(activity)` for linear, `dismiss()`; the page's events mapped to beacons and the listener;
   `end()` is the only terminal path.
+- Format differences live in two places: `ContentRule` (how an ad follows the content: `OverlayRule`,
+  `PauseRule`, `NoContentRule`) and `AdScreen` (where it is shown: `InlineScreen`, the host view and the clock;
+  `LinearScreen`, its own Activity and its closing). `VideoAd` asks them rather than branching on the format.
 - `internal/`, mirroring the Swift SDK's folders:
   - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
   - `rendering/`: `FrameBridge` (the WebView and the frame protocol; the page's messages come through
     `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,
     `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdGeometry` (the placement arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen);
-    `Presentation` (one ad on screen), `VideoAdSlot` (the slot behind Compose's `VideoAdHost`), and `VideoAd`'s
+    `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`), `Presentation` (one ad on screen: the slot,
+    its screen, the meter), `VideoAdSlot` (the slot behind Compose's `VideoAdHost`), and `VideoAd`'s
     logic outside its class: `VideoAdPageEvents` (the page's events), `VideoAdPlacement`, `VideoAdClick` (a click: beacon, click-through, listener).
   - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `ContentRule` (how
     an ad follows the content, one class per format: `OverlayRule`, `PauseRule`, `NoContentRule`).

@@ -94,6 +94,7 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
  * ending itself after the video with no end card: nobody closed anything, so no `close` fires.
  */
 internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
+    // A fact of the linear format, not of its screen.
     if (format == AdFormat.LINEAR && !isCompleted) {
         tracker.fire("skip")
         end(EndReason.SKIPPED)
