@@ -13,11 +13,38 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
- * Measures how much of an ad's view is on screen while it is shown, and decides the one viewability event:
- * `viewable` once at least 50 % of the box was on screen for the required continuous time (1 s for an image,
- * 2 s for a video), `notViewable` when the ad ended before that, `viewUndetermined` when it could not measure.
- * Keeps measuring after the verdict, until the ad ends: it also reports exposure changes, which the page
- * relays to the creative, and notices the view leaving the window.
+ * A measuring loop: every 250 ms ([intervalMillis]) it asks how much of the ad's view the viewer can see right
+ * now, and turns the answer into a few signals. It decides the one viewability event, the industry's (MRC)
+ * rule: `viewable` once at least 50 % of the ad was on screen without a break for 1 s (2 s for a video),
+ * `notViewable` when the ad ended before that, `viewUndetermined` when it could not measure.
+ *
+ * ```
+ * every 250 ms: tick()
+ *   ├─ measure:   exposure(view): share on screen (0–1) and the visible rectangle   (companion: geometry)
+ *   ├─ report:    changed? onExposure(share, rect)       → the page, which tells the creative
+ *   │             any of it seen? changed: onSeen(bool)  → ActiveTimeClock
+ *   ├─ off-screen: nothing seen for 1 s while the app is in front: onOffScreen  → the ad ends
+ *   └─ dwell:     ≥ 50 % without a break for the required time: onVerdict(VIEWABLE), once
+ * stop() at the ad's end: no verdict yet? NOT_VIEWABLE (VIEW_UNDETERMINED when the view is gone)
+ * ```
+ *
+ * Outputs: [onVerdict] (the beacon), [onExposure] (`ad.exposure` to the page), [onSeen] / [isSeen] (the clock),
+ * [onOffScreen] and [onDetached] (the ad ends). Inputs: [isCovered] (something it cannot measure covers the ad,
+ * such as another screen over a linear ad), [isActive] (the app is in front), [countsTime] (off while a video
+ * creative is not playing: a paused video does not count towards its 2 s).
+ *
+ * The two hard parts. The geometry, `exposure` in the companion: the view's corners are carried through every
+ * ancestor's transform (rotation, scale, scroll), and the shape is cut by every ancestor that clips its children
+ * and by the window; visible area over full area is the share. Real shapes, not rectangles, so a rotated view
+ * is not over-counted. The timing, [countDwell]: `exposedSince` marks when the ad reached 50 %, and starts again
+ * when the share drops, the video pauses, or the loop stalled (a frozen app cannot prove the time was
+ * continuous).
+ *
+ * Safety: nothing is reported before the first layout ([measured]), where every measurement is 0 only for want
+ * of a size and a page would pause its video for nothing; one tick of grace before [onDetached], since a view
+ * moved to another parent in the same moment is not gone; the verdict is decided once.
+ *
+ * Not ActiveTimeClock: that one adds up any time seen, with breaks; this one judges the 50 % rule.
  */
 internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     enum class Verdict(val event: String) { VIEWABLE("viewable"), NOT_VIEWABLE("notViewable"), VIEW_UNDETERMINED("viewUndetermined") }
