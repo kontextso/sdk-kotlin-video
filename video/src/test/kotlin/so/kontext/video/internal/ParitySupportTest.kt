@@ -88,6 +88,8 @@ abstract class ParityHarness : SdkTest() {
     /** What a path answers; anything else is `204`. A test replaces an answer whenever it likes. */
     protected val answers = java.util.concurrent.ConcurrentHashMap<String, (RecordedRequest) -> MockResponse>()
 
+    protected val baseUrl get() = server.url("/").toString()
+
     @Before fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -107,8 +109,6 @@ abstract class ParityHarness : SdkTest() {
         ResponseCache.setDefault(null)
         server.shutdown()
     }
-
-    protected val baseUrl get() = server.url("/").toString()
 
     protected fun fastReporters() {
         ErrorReporter.intervalMillis = 10
@@ -538,6 +538,10 @@ class ParityNetworkTest : ParityHarness() {
 class ParitySupportTest : ParityHarness() {
     // region Initialization
 
+    private val reportsOn = """{"enabled": true, "reportErrors": true}"""
+
+    private val debugOn = """{"enabled": true, "reportDebug": true}"""
+
     @Test fun initializeInAnotherProcessOfTheAppStaysOffWithoutAServerCall() {
         Sdk.resetForTesting()
         answer("/v2/config", """{"enabled": true}""")
@@ -569,8 +573,6 @@ class ParitySupportTest : ParityHarness() {
     // endregion
 
     // region ErrorReporter
-
-    private val reportsOn = """{"enabled": true, "reportErrors": true}"""
 
     @Test fun reportsAreOffWhenConfigLeavesThemOutOrDisablesTheSdk() {
         initialize()
@@ -840,8 +842,6 @@ class ParitySupportTest : ParityHarness() {
     // endregion
 
     // region DebugReporter
-
-    private val debugOn = """{"enabled": true, "reportDebug": true}"""
 
     @Test fun enabledByConfigEventsAreBatchedWithTheBodyShape() {
         initialize(debugOn)

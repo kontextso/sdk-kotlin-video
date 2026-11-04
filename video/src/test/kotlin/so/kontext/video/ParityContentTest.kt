@@ -34,6 +34,8 @@ import androidx.media3.common.Player as Media3Player
  */
 @RunWith(RobolectricTestRunner::class)
 class ParityContentTest : SdkTest() {
+    private val tick get() = ContentPlayback.tickIntervalMillis
+
     private inline fun <reified T : VideoAdException> assertThrows(block: () -> Unit): T {
         try {
             block()
@@ -86,8 +88,6 @@ class ParityContentTest : SdkTest() {
         override val currentPositionMillis = 0L
         override val isPlaying: Boolean get() = target.get() != null
     }
-
-    private val tick get() = ContentPlayback.tickIntervalMillis
 
     /** A container whose add-view hook the test fills: app code that runs while `show` attaches the ad. */
     private fun hooking(onAdd: () -> Unit): FrameLayout {

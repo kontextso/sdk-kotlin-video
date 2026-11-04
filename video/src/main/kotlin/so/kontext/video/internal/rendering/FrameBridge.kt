@@ -88,6 +88,10 @@ internal class FrameBridge(
     /** The highest playhead a page may report, in milliseconds: the video's duration and the grace, or a day. */
     private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
 
+    /** The SDK's own client of the WebView; tests wrap it (WebView.getWebViewClient() exists only from Android 8). */
+    internal lateinit var client: WebViewClient
+        private set
+
     init {
         webView.setBackgroundColor(Color.TRANSPARENT)
         webView.isVerticalScrollBarEnabled = false
@@ -387,10 +391,6 @@ internal class FrameBridge(
         // Not from inside the WebView's own callback (a message, a render-process notice): after it returns.
         android.os.Handler(android.os.Looper.getMainLooper()).post { webView.destroy() }
     }
-
-    /** The SDK's own client of the WebView; tests wrap it (WebView.getWebViewClient() exists only from Android 8). */
-    internal lateinit var client: WebViewClient
-        private set
 
     private inner class Client : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {

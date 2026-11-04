@@ -183,16 +183,6 @@ public object KontextVideo {
             public fun build(): Configuration = Configuration(this)
         }
 
-        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
-        public companion object {
-            /** Production ad server base URL. */
-            public const val DEFAULT_AD_SERVER_URL: String = "https://server.megabrain.co"
-
-            /** `KontextVideo.Configuration("your-token-dev") { logLevel = LogLevel.DEBUG }`. */
-            public operator fun invoke(publisherToken: String, block: Builder.() -> Unit = {}): Configuration =
-                Builder(publisherToken).apply(block).build()
-        }
-
         /** What is wrong with the options, one phrase each; empty when they are usable. */
         internal val problems: List<String>
             get() = listOfNotNull(
@@ -206,6 +196,16 @@ public object KontextVideo {
         override fun hashCode(): Int = listOf(publisherToken, logLevel, adServerUrl).hashCode()
 
         override fun toString(): String = "Configuration(publisherToken=$publisherToken, logLevel=$logLevel, adServerUrl=$adServerUrl)"
+
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
+        public companion object {
+            /** Production ad server base URL. */
+            public const val DEFAULT_AD_SERVER_URL: String = "https://server.megabrain.co"
+
+            /** `KontextVideo.Configuration("your-token-dev") { logLevel = LogLevel.DEBUG }`. */
+            public operator fun invoke(publisherToken: String, block: Builder.() -> Unit = {}): Configuration =
+                Builder(publisherToken).apply(block).build()
+        }
     }
 
     /**
@@ -332,13 +332,6 @@ public object KontextVideo {
             public fun build(): Content = Content(this)
         }
 
-        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
-        public companion object {
-            /** `KontextVideo.Content(id, language) { title = "…" }`: only `id` and `language` are required. */
-            public operator fun invoke(id: String, language: String, block: Builder.() -> Unit = {}): Content =
-                Builder(id, language).apply(block).build()
-        }
-
         /** The series an episode belongs to. */
         public class Series private constructor(builder: Builder) {
             /** Required and non-empty; a series with an empty id is left out of the request. */
@@ -380,18 +373,18 @@ public object KontextVideo {
                 public fun build(): Series = Series(this)
             }
 
-            /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
-            public companion object {
-                /** `Content.Series(id) { title = "…"; episodeCount = 40 }`. */
-                public operator fun invoke(id: String, block: Builder.() -> Unit = {}): Series = Builder(id).apply(block).build()
-            }
-
             override fun equals(other: Any?): Boolean = other is Series && id == other.id && title == other.title &&
                 description == other.description && episodeCount == other.episodeCount
 
             override fun hashCode(): Int = listOf(id, title, description, episodeCount).hashCode()
 
             override fun toString(): String = "Series(id=$id, title=$title, episodeCount=$episodeCount)"
+
+            /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
+            public companion object {
+                /** `Content.Series(id) { title = "…"; episodeCount = 40 }`. */
+                public operator fun invoke(id: String, block: Builder.() -> Unit = {}): Series = Builder(id).apply(block).build()
+            }
         }
 
         /** Required fields left empty: every request would fail at the server. */
@@ -407,6 +400,9 @@ public object KontextVideo {
                 series?.episodeCount?.takeIf { it < 1 }?.let { "series.episodeCount $it left out" },
             )
 
+        private val fields: List<Any?>
+            get() = listOf(id, language, mediaRating, url, title, categories, description, durationMillis, episodeNumber, keywords, genre, series)
+
         override fun equals(other: Any?): Boolean = other is Content && fields == other.fields
 
         override fun hashCode(): Int = fields.hashCode()
@@ -414,8 +410,12 @@ public object KontextVideo {
         override fun toString(): String = "Content(id=$id, language=$language, title=$title, durationMillis=$durationMillis, " +
             "episodeNumber=$episodeNumber, series=$series)"
 
-        private val fields: List<Any?>
-            get() = listOf(id, language, mediaRating, url, title, categories, description, durationMillis, episodeNumber, keywords, genre, series)
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
+        public companion object {
+            /** `KontextVideo.Content(id, language) { title = "…" }`: only `id` and `language` are required. */
+            public operator fun invoke(id: String, language: String, block: Builder.() -> Unit = {}): Content =
+                Builder(id, language).apply(block).build()
+        }
     }
 
     /**
@@ -468,12 +468,6 @@ public object KontextVideo {
             public fun build(): User = User(this)
         }
 
-        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
-        public companion object {
-            /** `User { id = "u-42" }`. */
-            public operator fun invoke(block: Builder.() -> Unit): User = Builder().apply(block).build()
-        }
-
         /** The user without what identifies the viewer (id, email, email hash), for a COPPA request; `null` when nothing else is left. */
         internal val withoutIdentity: User?
             get() = keywords?.let { kept -> User { keywords = kept } }
@@ -490,6 +484,12 @@ public object KontextVideo {
         // No personal data in logs: the fields are only said to be set.
         override fun toString(): String =
             "User(id=${said(id)}, email=${said(email)}, emailHash=${said(emailHash)}, keywords=${keywords?.size})"
+
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
+        public companion object {
+            /** `User { id = "u-42" }`. */
+            public operator fun invoke(block: Builder.() -> Unit): User = Builder().apply(block).build()
+        }
     }
 
     /**
@@ -565,11 +565,7 @@ public object KontextVideo {
             public fun build(): Regulatory = Regulatory(this)
         }
 
-        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
-        public companion object {
-            /** `Regulatory { coppa = true }`. */
-            public operator fun invoke(block: Builder.() -> Unit): Regulatory = Builder().apply(block).build()
-        }
+        private val fields: List<Any?> get() = listOf(gdpr, gdprConsent, coppa, gpp, gppSid, usPrivacy)
 
         override fun equals(other: Any?): Boolean = other is Regulatory && fields == other.fields
 
@@ -578,7 +574,11 @@ public object KontextVideo {
         override fun toString(): String = "Regulatory(gdpr=$gdpr, gdprConsent=${said(gdprConsent)}, coppa=$coppa, " +
             "gpp=${said(gpp)}, gppSid=$gppSid, usPrivacy=$usPrivacy)"
 
-        private val fields: List<Any?> get() = listOf(gdpr, gdprConsent, coppa, gpp, gppSid, usPrivacy)
+        /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
+        public companion object {
+            /** `Regulatory { coppa = true }`. */
+            public operator fun invoke(block: Builder.() -> Unit): Regulatory = Builder().apply(block).build()
+        }
     }
 }
 

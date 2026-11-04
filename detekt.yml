@@ -38,6 +38,10 @@ naming:
     active: false
 
 style:
+  # Properties first, then functions, then the companion object (Kotlin's class layout); the same inside a
+  # companion: its constants at its top.
+  ClassOrdering:
+    active: true
   ForbiddenComment:
     active: false
   FunctionOnlyReturningConstant:

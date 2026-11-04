@@ -68,12 +68,12 @@ internal class TTEngine(engine: TTVideoEngine) : Engine {
     private val engine = WeakReference(engine)
     private var callback: VideoEngineCallback? = null
 
-    private fun live(): TTVideoEngine? = engine.get()?.takeUnless { it.isReleased }
-
     override val isGone: Boolean get() = live() == null
     override val position: Int get() = live()?.currentPlaybackTime ?: 0
     override val playbackState: Int get() = live()?.playbackState ?: PLAYBACK_STATE_STOPPED
     override val videoId: String? get() = live()?.videoID
+
+    private fun live(): TTVideoEngine? = engine.get()?.takeUnless { it.isReleased }
 
     override fun listen(events: Engine.Events) {
         val callback = object : VideoEngineCallback {

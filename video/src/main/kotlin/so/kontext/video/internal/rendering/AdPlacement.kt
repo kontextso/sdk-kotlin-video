@@ -16,6 +16,8 @@ internal object AdPlacement {
     /** Below this share of the nominal size a scalable ad is not shown. */
     const val MINIMUM_SCALE = 0.5
 
+    private const val TRANSPARENT = 0.01f
+
     /** Where [size] goes inside [width]×[height] less [insets]; `null` when it does not fit. */
     fun frame(size: AdPayload.Size, position: AdPayload.Position?, width: Int, height: Int, insets: Rect, density: Float): Rect? {
         val room = room(width, height, insets) ?: return null
@@ -69,6 +71,4 @@ internal object AdPlacement {
         }
         return alpha <= TRANSPARENT
     }
-
-    private const val TRANSPARENT = 0.01f
 }

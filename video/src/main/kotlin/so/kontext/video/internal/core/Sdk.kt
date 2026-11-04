@@ -24,6 +24,9 @@ import so.kontext.video.internal.support.Logger
 
 /** What `KontextVideo` holds: the configuration, where `/config` got to, and the one ad on screen. Main thread only. */
 internal object Sdk {
+    /** The [State.Disabled] reason in a process other than the app's main one. */
+    const val NOT_MAIN_PROCESS = "not the app's main process"
+
     var configuration: Configuration? = null
         private set
     var state: State = State.NotInitialized
@@ -178,9 +181,6 @@ internal object Sdk {
             ErrorReporter.report(ErrorReporter.Code.CONFIG_FAILED, ErrorReporter.Stage.CONFIG, requestId = requestId, failure = ErrorReporter.RequestFailure(error))
         }
     }
-
-    /** The [State.Disabled] reason in a process other than the app's main one. */
-    const val NOT_MAIN_PROCESS = "not the app's main process"
 
     /** A configuration without `/config`, as if initialized and enabled. Tests only. */
     fun configureForTesting(configuration: Configuration) {

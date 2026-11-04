@@ -75,6 +75,8 @@ class ParityAdsTest {
 
     @Volatile private var adsGate: CountDownLatch? = null
 
+    private val configuration get() = Configuration("test-token") { adServerUrl = server.url("/").toString() }
+
     @Before fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -112,8 +114,6 @@ class ParityAdsTest {
     }
 
     // region Helpers
-
-    private val configuration get() = Configuration("test-token") { adServerUrl = server.url("/").toString() }
 
     private fun initialize(configuration: Configuration = this.configuration): KontextVideo.State {
         var state: KontextVideo.State? = null

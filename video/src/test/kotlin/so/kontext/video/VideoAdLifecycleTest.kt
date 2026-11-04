@@ -31,6 +31,10 @@ import so.kontext.video.internal.support.Logger
 /** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
 @RunWith(RobolectricTestRunner::class)
 class VideoAdLifecycleTest : SdkTest() {
+    private val app get() = ApplicationProvider.getApplicationContext<android.app.Application>()
+
+    private var lastError: VideoAdException? = null
+
     private inline fun <reified T : VideoAdException> assertThrows(block: () -> Unit): T {
         try {
             block()
@@ -204,8 +208,6 @@ class VideoAdLifecycleTest : SdkTest() {
     }
 
     // region Click-throughs: what may open
-
-    private val app get() = ApplicationProvider.getApplicationContext<android.app.Application>()
 
     /** An Activity of [packageName] that opens [scheme] links from the web, as an app's deep link declares it. */
     private fun appLink(packageName: String, scheme: String) {
@@ -518,8 +520,6 @@ class VideoAdLifecycleTest : SdkTest() {
         error = lastError
         assertTrue(error is VideoAdException.Invalidated)
     }
-
-    private var lastError: VideoAdException? = null
 
     @Test fun aLoadInFlightThrowsDestroyedWhenItsOwnerIsDestroyed() {
         val owner = owner()

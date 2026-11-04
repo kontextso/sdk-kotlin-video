@@ -77,6 +77,8 @@ adb logcat -s KontextVideo
   escape where the server may send its own value. `apiCheck` must pass; a deliberate change runs `apiDump`.
 - Never name other companies' products in code, comments, tests or docs.
 - Comments say *why*, in prose; KDoc on every public declaration.
+- A class reads top down: its constants and properties first, then its functions, then its companion object, whose
+  own constants come first too. detekt's `ClassOrdering` checks it.
 - Facts about the device and consent come from KontextKit; what the SDK needs and KontextKit lacks goes into
   KontextKit, not into a workaround here.
 - Tests: deterministic, no wall-clock bounds a slow CI runner breaks; the clock moves through `Environment.now`.

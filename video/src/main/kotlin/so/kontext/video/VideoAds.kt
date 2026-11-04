@@ -84,6 +84,11 @@ public class VideoAds @JvmOverloads constructor(
         override fun onLowMemory() = dropExpiredAds()
     }
 
+    /** Content time in milliseconds, read now, or 0. */
+    internal val playheadMillis: Long get() = playback.playheadMillis
+
+    private val holdsAds: Boolean get() = ads.values.any { !it.isExpired }
+
     init {
         Sdk.requireInitialized("VideoAds(content)")
         // What the publisher passed wrong, said once here rather than as a server 400 later.
@@ -211,9 +216,6 @@ public class VideoAds @JvmOverloads constructor(
 
     override fun toString(): String = "VideoAds(content=${content.id}, destroyed=$isDestroyed)"
 
-    /** Content time in milliseconds, read now, or 0. */
-    internal val playheadMillis: Long get() = playback.playheadMillis
-
     /** An ad ended before `show`, or was shown: it leaves its format, and its id is never accepted again. */
     internal fun adDidLeave(ad: VideoAd) {
         if (ads[ad.format] === ad) ads.remove(ad.format)
@@ -250,8 +252,6 @@ public class VideoAds @JvmOverloads constructor(
         Logger.info { "${content.id}: memory pressure, ${expired.size} expired ad(s) released" }
         expired.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }
     }
-
-    private val holdsAds: Boolean get() = ads.values.any { !it.isExpired }
 
     private fun checkStillUsable() {
         if (isDestroyed) throw VideoAdException.Destroyed()

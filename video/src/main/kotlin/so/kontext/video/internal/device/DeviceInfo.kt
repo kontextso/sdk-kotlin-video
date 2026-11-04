@@ -30,6 +30,11 @@ import kotlin.math.roundToInt
  * physical pixels). As the Swift SDK does.
  */
 internal object DeviceInfo {
+    /** The one user-agent lookup in flight or done: KontextKit makes a WebView until it has cached the answer. */
+    private var userAgentLookup: Deferred<String?>? = null
+
+    private const val TABLET_WIDTH_DP = 600
+
     /** Identifies this installation of the app; kept until the app is uninstalled. */
     fun installId(context: Context): String = InstallIdProvider.getOrCreate(context)
 
@@ -89,9 +94,6 @@ internal object DeviceInfo {
         }
     }
 
-    /** The one user-agent lookup in flight or done: KontextKit makes a WebView until it has cached the answer. */
-    private var userAgentLookup: Deferred<String?>? = null
-
     /** `navigator.userAgent` of a WebView; `null` when WebKit could not answer, and the next caller tries again. */
     suspend fun userAgent(context: Context): String? {
         val lookup = userAgentLookup ?: Environment.scope.lookUpUserAgent(context).also { userAgentLookup = it }
@@ -132,8 +134,6 @@ internal object DeviceInfo {
         return "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; ${Build.MODEL} Build/${Build.ID}; wv) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0$chrome$mobile Safari/537.36"
     }
-
-    private const val TABLET_WIDTH_DP = 600
 
     /** The advertising id, `null` when the viewer limited ad tracking or Play services cannot tell. */
     suspend fun advertisingId(context: Context): String? = runCatching {

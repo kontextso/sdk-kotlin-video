@@ -26,6 +26,14 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     /** Told after the tracker noted the event; an ad adds itself while it is on screen. */
     private val listeners = mutableListOf<(Activity, Event) -> Unit>()
 
+    /** Something of the app was on screen at registration, and no lifecycle event has come since. */
+    private var visibleAtRegistration = false
+
+    val isAppInForeground: Boolean get() = started.isNotEmpty() || visibleAtRegistration
+
+    /** Some Activity of the app is resumed, as far as the events since registration tell. */
+    val hasResumedActivity: Boolean get() = resumed.containsValue(true)
+
     fun addListener(listener: (Activity, Event) -> Unit) {
         listeners += listener
     }
@@ -34,16 +42,8 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         listeners.removeAll { it === listener }
     }
 
-    /** Something of the app was on screen at registration, and no lifecycle event has come since. */
-    private var visibleAtRegistration = false
-
-    val isAppInForeground: Boolean get() = started.isNotEmpty() || visibleAtRegistration
-
     /** Whether [activity] is resumed, `null` when no event of it has come since registration. */
     fun isResumed(activity: Activity): Boolean? = resumed[activity]
-
-    /** Some Activity of the app is resumed, as far as the events since registration tell. */
-    val hasResumedActivity: Boolean get() = resumed.containsValue(true)
 
     /**
      * Whether [activity] is started (visible, resumed or not), `null` when no event of it has come since

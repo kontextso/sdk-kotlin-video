@@ -115,6 +115,9 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         /** Playheads beyond ten years are nonsense and clamped. */
         const val MAX_PLAYHEAD_MILLIS = 315_360_000_000L
 
+        /** Seventeen significant digits always identify a Double. */
+        private const val MAX_DIGITS = 17
+
         fun asksForContentPlayhead(template: String): Boolean {
             val normalized = template.replace("%5B", "[", ignoreCase = true).replace("%5D", "]", ignoreCase = true)
             return "[MEDIAPLAYHEAD]" in normalized || "[CONTENTPLAYHEAD]" in normalized
@@ -166,9 +169,6 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
             }
             return exact.stripTrailingZeros()
         }
-
-        /** Seventeen significant digits always identify a Double. */
-        private const val MAX_DIGITS = 17
 
         fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
     }

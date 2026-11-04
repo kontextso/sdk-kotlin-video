@@ -5,6 +5,14 @@ import kotlinx.serialization.json.JsonElement
 
 /** Ads as the server sends them, as JSON text, with the fields a test changes. */
 internal object Fixtures {
+    const val TRACKING = """[
+        {"event": "impression", "url": "https://t.test/i?cb=[CACHEBUSTING]&ph=[CONTENTPLAYHEAD]&fid=[KONTEXT_FIREID]"},
+        {"event": "click", "url": "https://t.test/c"},
+        {"event": "progress", "url": "https://t.test/p5", "offset": 5000},
+        {"event": "progress", "url": "https://t.test/p2", "offset": 2000},
+        {"event": "click", "url": "https://t.test/end", "part": "endCard"}
+    ]"""
+
     fun overlay(
         id: String = "ad-1",
         expires: Long = 600_000,
@@ -32,14 +40,6 @@ internal object Fixtures {
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/$id"}, "tracking": [],
          "duration": 30000, "skipOffset": 5000}
     """.trimIndent()
-
-    const val TRACKING = """[
-        {"event": "impression", "url": "https://t.test/i?cb=[CACHEBUSTING]&ph=[CONTENTPLAYHEAD]&fid=[KONTEXT_FIREID]"},
-        {"event": "click", "url": "https://t.test/c"},
-        {"event": "progress", "url": "https://t.test/p5", "offset": 5000},
-        {"event": "progress", "url": "https://t.test/p2", "offset": 2000},
-        {"event": "click", "url": "https://t.test/end", "part": "endCard"}
-    ]"""
 
     fun json(text: String): JsonElement = Json.parseToJsonElement(text)
 

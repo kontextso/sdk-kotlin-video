@@ -55,6 +55,13 @@ internal class AdPayload(
         /** The largest side a creative may have, in dp. */
         const val MAX_SIDE = 10_000
 
+        /** The highest port a URL can name: a frame URL's port must be from 1 to this (or none). */
+        private const val MAX_PORT = 65_535
+
+        /** The largest count of milliseconds taken: ten years, as the playheads are clamped. Beyond it a value is nonsense. */
+        private const val MAX_MILLIS = 315_360_000_000.0
+
+        /** ISO 4217: three capital letters. */
         private val CURRENCY = Regex("[A-Z]{3}")
 
         /**
@@ -75,8 +82,6 @@ internal class AdPayload(
             if (uri.port != -1 && uri.port !in 1..MAX_PORT) return "the frame URL's port must be from 1 to $MAX_PORT"
             return null
         }
-
-        private const val MAX_PORT = 65_535
 
         private fun invalidAt(path: String, reason: String): Nothing = throw ApiException.Decoding(MalformedField(path, reason))
 
@@ -191,9 +196,6 @@ internal class AdPayload(
             if (value < 0) return null
             return millis(value)
         }
-
-        /** The largest count of milliseconds taken: ten years, as the playheads are clamped. Beyond it a value is nonsense. */
-        private const val MAX_MILLIS = 315_360_000_000.0
 
         /**
          * A wire `number` of milliseconds as whole ones, rounded to the nearest: the contract types durations and

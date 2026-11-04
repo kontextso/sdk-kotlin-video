@@ -106,6 +106,18 @@ internal object ErrorReporter {
     private var failures = 0
     private var flushJob: Job? = null
 
+    /** Reports waiting, for tests. */
+    val bufferedCount: Int get() = buffer.size
+
+    /** The encoded sizes of the reports waiting, for tests. */
+    val bufferedSizes: List<Int> get() = buffer.map { it.second }
+
+    /** The codes of the reports waiting, for tests. */
+    val bufferedCodes: List<String> get() = buffer.map { it.first["code"].toString().trim('"') }
+
+    /** The details of the reports waiting (empty without one), for tests. */
+    val bufferedDetails: List<String> get() = buffer.map { it.first["detail"]?.toString()?.trim('"').orEmpty() }
+
     /** [text] cut to [MAX_FIELD_LENGTH] UTF-8 bytes, at a code point boundary so it stays valid text. */
     fun capped(text: String): String {
         if (text.toByteArray().size <= MAX_FIELD_LENGTH) return text
@@ -212,18 +224,6 @@ internal object ErrorReporter {
             recovery = recovery,
         )
     }
-
-    /** Reports waiting, for tests. */
-    val bufferedCount: Int get() = buffer.size
-
-    /** The encoded sizes of the reports waiting, for tests. */
-    val bufferedSizes: List<Int> get() = buffer.map { it.second }
-
-    /** The codes of the reports waiting, for tests. */
-    val bufferedCodes: List<String> get() = buffer.map { it.first["code"].toString().trim('"') }
-
-    /** The details of the reports waiting (empty without one), for tests. */
-    val bufferedDetails: List<String> get() = buffer.map { it.first["detail"]?.toString()?.trim('"').orEmpty() }
 
     fun resetForTesting() {
         flushJob?.cancel()

@@ -159,6 +159,19 @@ public class VideoAd internal constructor(
     /** Follows the Activity the ad depends on while it is on screen; removed when the ad ends. */
     private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
 
+    internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
+
+    /** The Activity the view is in, through any context wrappers. */
+    private val View.activity: Activity?
+        get() {
+            var context: android.content.Context? = context
+            while (context is android.content.ContextWrapper) {
+                if (context is Activity) return context
+                context = context.baseContext
+            }
+            return null
+        }
+
     /** Where an ad is in its life. */
     internal sealed class Phase {
         /** Returned by `format()`; [isLoaded] says whether the creative is ready. */
@@ -196,8 +209,6 @@ public class VideoAd internal constructor(
         if (legal) phase = next
         return legal
     }
-
-    internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
 
     // region Loading and rejecting
 
@@ -519,17 +530,6 @@ public class VideoAd internal constructor(
         activityListener = listener
         ActivityTracker.addListener(listener)
     }
-
-    /** The Activity the view is in, through any context wrappers. */
-    private val View.activity: Activity?
-        get() {
-            var context: android.content.Context? = context
-            while (context is android.content.ContextWrapper) {
-                if (context is Activity) return context
-                context = context.baseContext
-            }
-            return null
-        }
 
     /**
      * Whether [activity] is visible to the viewer: started, resumed or not, and not in picture-in-picture.

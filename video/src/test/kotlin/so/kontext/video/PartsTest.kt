@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit
 /** The pieces around an ad: the host view, the clock, the bridge's remaining paths, beacons, logging and the facade. */
 @RunWith(RobolectricTestRunner::class)
 class PartsTest : SdkTest() {
+    private var callbackError: VideoAdException? = null
+
     @Test fun theHostRefitsTheAdWhenTheContainerResizesAndEndsItWhenTooSmall() {
         val recorder = Recorder()
         val ad = overlay()
@@ -355,8 +357,6 @@ class PartsTest : SdkTest() {
         error = callbackError
         assertTrue(error is VideoAdException.Disabled)
     }
-
-    private var callbackError: VideoAdException? = null
 
     @Test fun aVideoAdsWithoutAnIdAsksAndAfterDestroyRefusesEverything() {
         var asserted: String? = null

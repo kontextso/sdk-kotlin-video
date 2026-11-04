@@ -558,6 +558,15 @@ class ParityPayloadsTest {
 class ParityRequestsTest : SdkTest() {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
+    private val publisher = Regulatory {
+        gdpr = false
+        gdprConsent = "PUB-TC"
+        coppa = false
+        gpp = "PUB-GPP"
+        gppSid = listOf(9)
+        usPrivacy = "1NNN"
+    }
+
     private fun request(content: Content = Content("v", "en"), labels: Map<String, String> = emptyMap(), held: List<String> = emptyList()) =
         runBlocking { AdsRequest.make(context, "pub-dev", content, labels, 12_345, "s-1", { held }) }
 
@@ -569,15 +578,6 @@ class ParityRequestsTest : SdkTest() {
     private fun JsonObject.bool(key: String) = this[key]!!.jsonPrimitive.takeIf { !it.isString }?.booleanOrNull
 
     private fun preferences() = context.getSharedPreferences(context.packageName + "_preferences", Context.MODE_PRIVATE)
-
-    private val publisher = Regulatory {
-        gdpr = false
-        gdprConsent = "PUB-TC"
-        coppa = false
-        gpp = "PUB-GPP"
-        gppSid = listOf(9)
-        usPrivacy = "1NNN"
-    }
 
     @JUnit4Test fun theAdsRequestBodyHasEveryField() {
         Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }

@@ -173,6 +173,14 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     }
 
     companion object {
+        /** How often the box is measured. A constant in spirit; a variable so the tests can shrink it. */
+        var intervalMillis = 250L
+
+        /** How long an ad may stay unseen in front before it ends; a variable so the tests can shrink it. */
+        var offScreenGraceMillis = 1_000L
+        const val SHORTEST_STALL_MILLIS = 500L
+        const val THRESHOLD = 0.5
+
         /** The view's own coordinates to the root view's: each ancestor's transform and position, up to the root. */
         fun transformToRoot(view: View): Matrix {
             val matrix = Matrix()
@@ -186,14 +194,6 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
             }
             return matrix
         }
-
-        /** How often the box is measured. A constant in spirit; a variable so the tests can shrink it. */
-        var intervalMillis = 250L
-
-        /** How long an ad may stay unseen in front before it ends; a variable so the tests can shrink it. */
-        var offScreenGraceMillis = 1_000L
-        const val SHORTEST_STALL_MILLIS = 500L
-        const val THRESHOLD = 0.5
 
         /**
          * The share of [view] the viewer can see, and that part's bounding rectangle in the view's own pixels: its
