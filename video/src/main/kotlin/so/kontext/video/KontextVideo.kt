@@ -54,7 +54,12 @@ public object KontextVideo {
         }
     }
 
-    /** Told once `/config` has answered or failed, on the main thread. */
+    /**
+     * Told once `/config` has answered or failed, on the main thread: the optional "tell me when the SDK is
+     * ready" of [initialize]. Rarely needed: ads wait for `/config` by themselves, so an app may initialize and
+     * request ads at once. For an app that wants the result, to log it or to skip ad UI when the SDK is disabled.
+     * From Kotlin, [awaitInitialization] does the same as a suspend call; this listener is its callback form.
+     */
     public fun interface InitializationListener {
         /** `/config` answered or failed: [state] is where the SDK is now. */
         public fun onInitialized(state: State)
