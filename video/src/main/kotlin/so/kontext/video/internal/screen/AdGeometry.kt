@@ -1,4 +1,4 @@
-package so.kontext.video.internal.rendering
+package so.kontext.video.internal.screen
 
 import android.graphics.Rect
 import so.kontext.video.internal.payloads.AdPayload

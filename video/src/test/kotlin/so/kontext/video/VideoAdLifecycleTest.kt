@@ -22,9 +22,9 @@ import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.LinearAdActivity
+import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 

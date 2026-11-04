@@ -1,4 +1,4 @@
-package so.kontext.video.internal.rendering
+package so.kontext.video.internal.measurement
 
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Environment

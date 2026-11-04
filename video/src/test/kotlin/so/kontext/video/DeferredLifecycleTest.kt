@@ -14,9 +14,9 @@ import org.robolectric.shadows.ShadowSystemClock
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
-import so.kontext.video.internal.rendering.FrameBridge
 import so.kontext.video.internal.support.Environment
 import java.time.Duration
 

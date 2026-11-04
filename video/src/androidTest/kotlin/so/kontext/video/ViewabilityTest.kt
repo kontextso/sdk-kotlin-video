@@ -10,7 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import so.kontext.video.internal.rendering.ViewabilityMeter
+import so.kontext.video.internal.measurement.ViewabilityMeter
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 

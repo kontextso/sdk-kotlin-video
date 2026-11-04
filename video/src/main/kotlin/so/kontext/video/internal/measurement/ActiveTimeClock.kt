@@ -1,4 +1,4 @@
-package so.kontext.video.internal.rendering
+package so.kontext.video.internal.measurement
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

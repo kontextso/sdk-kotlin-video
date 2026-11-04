@@ -51,12 +51,12 @@ import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
+import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter

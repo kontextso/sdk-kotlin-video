@@ -21,7 +21,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.playback.ContentProgress
-import so.kontext.video.internal.rendering.AdHostView
+import so.kontext.video.internal.screen.AdHostView
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.media3.track
 import java.lang.ref.WeakReference

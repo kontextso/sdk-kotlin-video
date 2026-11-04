@@ -17,12 +17,12 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
-import so.kontext.video.internal.rendering.ActiveTimeClock
-import so.kontext.video.internal.rendering.AdHostView
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.FrameEvent
+import so.kontext.video.internal.screen.AdHostView
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger

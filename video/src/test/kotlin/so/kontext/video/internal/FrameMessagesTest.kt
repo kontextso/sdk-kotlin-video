@@ -13,8 +13,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAd
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.FrameEvent
+import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.support.Environment
 import java.time.Duration
 

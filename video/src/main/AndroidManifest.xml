@@ -4,7 +4,7 @@
 
     <application>
         <activity
-            android:name="so.kontext.video.internal.rendering.LinearAdActivity"
+            android:name="so.kontext.video.internal.screen.LinearAdActivity"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection|density|colorMode|fontWeightAdjustment|grammaticalGender"
             android:exported="false"
             android:screenOrientation="behind"

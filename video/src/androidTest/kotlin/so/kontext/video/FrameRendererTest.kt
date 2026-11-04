@@ -10,8 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.FrameEvent
+import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.FrameEvent
 
 /**
  * A page whose renderer stops answering ends the ad: a linear ad would have no other way out. When Chromium

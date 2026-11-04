@@ -50,14 +50,14 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
+import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.rendering.AdHostView
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.ViewabilityMeter
+import so.kontext.video.internal.screen.AdHostView
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
@@ -402,7 +402,7 @@ class BoundaryTest {
         ad.show(host)
         val started = shadowOf(host).nextStartedActivity
         // The screen is created and started (it attaches the page) but never resumed.
-        val screen = Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, started).create().start()
+        val screen = Robolectric.buildActivity(so.kontext.video.internal.screen.LinearAdActivity::class.java, started).create().start()
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1_500))
         assertTrue(ad.hasEnded)
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
@@ -428,7 +428,7 @@ class BoundaryTest {
         }
         ad.show(host)
         // Created and resumed, so presented; it never stops or is destroyed after finish().
-        val screen = Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
+        val screen = Robolectric.buildActivity(so.kontext.video.internal.screen.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
         ad.end(VideoAd.EndReason.CLOSED)
         assertTrue(screen.get().isFinishing)
         assertTrue("waits for the screen to close", reasons.isEmpty())
@@ -458,7 +458,7 @@ class BoundaryTest {
             }
         }
         ad.show(host)
-        val screen = Robolectric.buildActivity(so.kontext.video.internal.rendering.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
+        val screen = Robolectric.buildActivity(so.kontext.video.internal.screen.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
         ad.end(VideoAd.EndReason.SKIPPED)
         assertTrue(reasons.isEmpty())
         screen.pause()

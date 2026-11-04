@@ -51,12 +51,16 @@ adb logcat -s KontextVideo
   `LinearScreen`, its own Activity and its closing). `VideoAd` asks them rather than branching on the format.
 - `internal/`, mirroring the Swift SDK's folders:
   - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
-  - `rendering/`: `FrameBridge` (the WebView and the frame protocol; the page's messages come through
-    `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`,
-    `Tracker` (which beacons fire, sent by `BeaconClient`), `ViewabilityMeter`, `ActiveTimeClock`, `AdHostView`, `AdGeometry` (the placement arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen);
-    `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`), `Presentation` (one ad on screen: the slot,
-    its screen, the meter), `VideoAdSlot` (the slot behind Compose's `VideoAdHost`), and `VideoAd`'s
-    logic outside its class: `VideoAdFrameEvents` (what the ad does with each message of its frame page), `VideoAdPlacement`, `VideoAdClick` (a click: beacon, click-through, listener).
+  - `frame/`, the ad's web page and its messages: `FrameBridge` (the WebView and the frame protocol; the page's
+    messages come through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame
+    only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
+    message of its frame page), `VideoAdClick` (a click: beacon, click-through, listener).
+  - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
+    `Presentation` (one ad on screen: the slot, its screen, the meter), `AdHostView`, `AdGeometry` (the placement
+    arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
+    behind Compose's `VideoAdHost`), `VideoAdPlacement`, `FirstLayout`.
+  - `measurement/`, measuring and reporting: `Tracker` (which beacons fire, sent by `BeaconClient`),
+    `ViewabilityMeter`, `ActiveTimeClock`.
   - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `ContentRule` (how
     an ad follows the content, one class per format: `OverlayRule`, `PauseRule`, `NoContentRule`).
   - `payloads/`: `AdPayload`, `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.

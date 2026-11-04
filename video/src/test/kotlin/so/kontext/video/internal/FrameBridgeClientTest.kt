@@ -20,8 +20,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import so.kontext.video.internal.rendering.FrameBridge
-import so.kontext.video.internal.rendering.FrameEvent
+import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.support.Environment
 
 /** What only a WebView calls on the bridge: navigation decisions, load errors, a dead renderer, dialogs. */

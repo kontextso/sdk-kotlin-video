@@ -1,4 +1,4 @@
-package so.kontext.video.internal.rendering
+package so.kontext.video.internal.measurement
 
 import android.graphics.Matrix
 import android.graphics.Rect
@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.VisibleForTesting
+import so.kontext.video.internal.screen.FirstLayout
 import so.kontext.video.internal.support.Environment
 import java.lang.ref.WeakReference
 import kotlin.math.abs

@@ -1,4 +1,4 @@
-package so.kontext.video.internal.rendering
+package so.kontext.video.internal.frame
 
 import so.kontext.video.VideoAd
 

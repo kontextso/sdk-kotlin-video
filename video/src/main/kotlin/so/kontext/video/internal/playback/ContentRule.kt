@@ -6,7 +6,7 @@ import kotlinx.coroutines.launch
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
-import so.kontext.video.internal.rendering.ActiveTimeClock
+import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger

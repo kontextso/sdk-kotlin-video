@@ -7,10 +7,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.handle
+import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.rendering.ActiveTimeClock
-import so.kontext.video.internal.rendering.FrameEvent
-import so.kontext.video.internal.rendering.handle
 import so.kontext.video.internal.support.Environment
 
 /**

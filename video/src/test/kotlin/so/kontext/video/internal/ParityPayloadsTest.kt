@@ -40,6 +40,7 @@ import so.kontext.video.VideoAds
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
+import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
@@ -49,7 +50,6 @@ import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.payloads.ErrorResponse
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.payloads.UNKNOWN_REASON
-import so.kontext.video.internal.rendering.Tracker
 import so.kontext.video.internal.support.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.junit.Assert as JUnit4

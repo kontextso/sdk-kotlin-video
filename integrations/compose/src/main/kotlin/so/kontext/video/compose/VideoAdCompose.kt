@@ -24,7 +24,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdListener
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.rendering.VideoAdSlot
+import so.kontext.video.internal.screen.VideoAdSlot
 
 /**
  * The `VideoAds` of one episode, for as long as this composition shows it: created for [content] (a new one when
