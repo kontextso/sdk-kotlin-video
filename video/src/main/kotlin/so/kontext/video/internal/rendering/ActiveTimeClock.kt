@@ -7,12 +7,26 @@ import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
 
 /**
- * The time an overlay or pause ad is seen: its window visible (the Activity started) and some of it on screen,
- * as the viewability meter measures. `overlayViewDuration` reports it, and an overlay's duration runs on it, so
- * both freeze while the app is in the background or the ad is scrolled out of view, and resume on return
- * (another Activity of the app covering it ends the ad instead). It only counts and tells; the ad decides what
- * an elapsed duration means. The host view tells it when its window shows or hides, the meter when the ad is
- * seen.
+ * A stopwatch that runs only while the viewer can see an overlay or pause ad.
+ *
+ * Why: an overlay's `duration` (say 10 s) must mean 10 s in front of the viewer. Without it, an app sent to the
+ * background for a minute would come back to an overlay already gone, unseen; and `overlayViewDuration` would
+ * report time nobody watched.
+ *
+ * How: it runs while both are true, and pauses, keeping its time, as soon as one is not:
+ * - the window is visible: the app is in front, its Activity started (AdHostView.onWindowVisibility tells it);
+ * - the ad is seen: some of it is on screen, not scrolled away (ViewabilityMeter.onSeen tells it).
+ * It adds up the stretches: `accumulated` holds the finished ones, `since` when the current one began.
+ *
+ *     shown ─ 4 s ─ background ─ (paused) ─ back ─ 6 s ─ 10 s reached: onElapsed, the ad ends
+ *
+ * Used for: an overlay's duration (a timer waits out only the time still missing, then calls [onElapsed] once),
+ * and the active time [stop] returns at the end, reported as `overlayViewDuration`. An overlay that follows a
+ * tracked player counts its duration in video time instead (ContentProgress): its clock gets no duration.
+ *
+ * Not the 50 %-for-1-second viewability rule: that is ViewabilityMeter's (at least half on screen, without a
+ * break). This clock counts any part seen, with breaks. It only counts and tells; the ad decides what an
+ * elapsed duration means.
  */
 internal class ActiveTimeClock(
     private val durationMillis: Long?,
