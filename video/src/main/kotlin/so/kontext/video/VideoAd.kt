@@ -62,7 +62,7 @@ public class VideoAd internal constructor(
     // - where it is shown: its presentation's AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
     //   a linear ad), made by show.
     // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
-    // and a close before `complete` being a skip (VideoAdPageEvents). A full-screen pause ad is a placement of the
+    // and a close before `complete` being a skip (VideoAdFrameEvents). A full-screen pause ad is a placement of the
     // inline screen (its host covers the container), not a format of its own.
 
     /** The server's id of the ad, for support. */
