@@ -125,6 +125,23 @@ public object KontextVideo {
     /** Waits until `/config` has answered or failed, and returns the state; at once when it already has. Callable from any dispatcher. */
     public suspend fun awaitInitialization(): State = withContext(Dispatchers.Main.immediate) { Sdk.awaitInitialization() }
 
+    // The models below (Configuration, Content, User, Regulatory) share one shape, the builder pattern:
+    //
+    //   class Model private constructor(builder: Builder)   read-only `val`s, fixed once built
+    //   class Builder(required…)                            a mutable draft: `var`s with defaults
+    //     fun field(value): Builder = apply { … }           a chainable setter: sets, returns the builder (for Java)
+    //     fun build(): Model                                freezes the draft
+    //   companion object { operator fun invoke(…) }         Kotlin's `Model(required) { field = … }`: it makes a
+    //                                                       Builder, runs the block on it, builds
+    //
+    //   Kotlin: KontextVideo.Content("episode-42", "en") { genre = "drama" }
+    //   Java:   new KontextVideo.Content.Builder("episode-42", "en").genre("drama").build()
+    //
+    // Why not a constructor or a data class: binary compatibility. A new option is one more `var` with a default
+    // in the Builder, and apps built against an older SDK keep working; a new constructor parameter (or a data
+    // class's generated copy and componentN) would change signatures they call, and they would crash with a
+    // method not found. So equals, hashCode and toString are written by hand.
+
     /**
      * The options a publisher sets when initializing the SDK. They do not change during a run; what the viewer
      * is and consented to can change later and lives on [KontextVideo] (`user`, `regulatory`, `variantId`).
