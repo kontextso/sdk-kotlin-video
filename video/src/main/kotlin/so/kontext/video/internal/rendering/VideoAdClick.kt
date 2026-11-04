@@ -20,6 +20,8 @@ internal fun VideoAd.click(url: String, fallback: String?, area: Click.Area) {
     val endCard = area == Click.Area.EndCard && tracker.has("click", "endCard")
     val fireId = tracker.fire("click", part = if (endCard) "endCard" else null)
     open(tracker.clickThrough(url, fireId), fallback?.let { tracker.clickThrough(it, fireId) })
+    // The listener hears nothing after `onAdEnded`. Opening the click-through does not end the ad today; the check
+    // keeps that rule if it ever does.
     if (hasEnded) return
     listener?.onAdClicked(this, Click(area))
 }
