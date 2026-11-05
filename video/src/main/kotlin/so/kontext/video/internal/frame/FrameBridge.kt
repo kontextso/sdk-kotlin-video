@@ -1,22 +1,13 @@
 package so.kontext.video.internal.frame
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.MutableContextWrapper
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.net.Uri
-import android.os.Message
 import android.os.SystemClock
-import android.view.MotionEvent
-import android.webkit.JsPromptResult
-import android.webkit.JsResult
-import android.webkit.PermissionRequest
 import android.webkit.RenderProcessGoneDetail
-import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.JavaScriptReplyProxy
@@ -53,10 +44,9 @@ import so.kontext.video.internal.platform.LinkOpener
  *                                                                   endThenDeliver: the page torn down, then onEvent
  * ```
  *
- * Here: the WebView, its settings and clients, the load and its timeout, pausing and resuming the page, what the
+ * Here: the WebView ([FrameWebView], its lockdown) and its client, the load and its timeout, pausing and resuming the page, what the
  * SDK sends the page, and the teardown.
  */
-@SuppressLint("SetJavaScriptEnabled")
 internal class FrameBridge(
     /** The application's context: the WebView's base while the ad is not on screen. */
     private val applicationContext: Context,
@@ -75,7 +65,7 @@ internal class FrameBridge(
      */
     val contextWrapper = MutableContextWrapper(applicationContext)
 
-    val webView: WebView = TouchNotingWebView(contextWrapper)
+    val webView = FrameWebView(contextWrapper)
 
     /** The frame protocol's rules and state for this page. */
     private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, LinkOpener::isAllowed)
@@ -99,25 +89,9 @@ internal class FrameBridge(
         private set
 
     init {
-        webView.setBackgroundColor(Color.TRANSPARENT)
-        webView.isVerticalScrollBarEnabled = false
-        webView.isHorizontalScrollBarEnabled = false
-        webView.overScrollMode = WebView.OVER_SCROLL_NEVER
-        with(webView.settings) {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            mediaPlaybackRequiresUserGesture = false
-            javaScriptCanOpenWindowsAutomatically = false
-            setSupportMultipleWindows(true) // target=_blank comes to onCreateWindow, where it is refused
-            allowFileAccess = false
-            allowContentAccess = false
-            cacheMode = WebSettings.LOAD_NO_CACHE
-            builtInZoomControls = false
-            setSupportZoom(false)
-        }
-        (webView as TouchNotingWebView).onTouch = ::noteTouch
+        webView.onTouch = ::noteTouch
+        webView.onNewWindow = ::externalNavigation
         webView.webViewClient = Client().also { client = it }
-        webView.webChromeClient = Chrome()
         // A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
         // linear ad has no other way out: Back is consumed and dismiss() refuses it. The ad ends, failed.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE)) {
@@ -360,33 +334,6 @@ internal class FrameBridge(
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)
-    }
-
-    private inner class Chrome : WebChromeClient() {
-        // A target=_blank link: no new window, treated like any other navigation out.
-        override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-            val target = view.hitTestResult.extra
-            if (target != null) externalNavigation(target)
-            return false
-        }
-
-        // The page's dialogs are answered at once, as dismissed; no camera or microphone.
-        override fun onJsAlert(view: WebView, url: String?, message: String?, result: JsResult): Boolean = true.also { result.cancel() }
-        override fun onJsConfirm(view: WebView, url: String?, message: String?, result: JsResult): Boolean = true.also { result.cancel() }
-        override fun onJsPrompt(view: WebView, url: String?, message: String?, defaultValue: String?, result: JsPromptResult): Boolean =
-            true.also { result.cancel() }
-        override fun onPermissionRequest(request: PermissionRequest) = request.deny()
-    }
-
-    /** Notes when the viewer touches the WebView, without taking the touch away from the page. */
-    @SuppressLint("ViewConstructor")
-    private class TouchNotingWebView(context: Context) : WebView(context) {
-        var onTouch: (() -> Unit)? = null
-
-        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-            if (event.actionMasked == MotionEvent.ACTION_DOWN) onTouch?.invoke()
-            return super.dispatchTouchEvent(event)
-        }
     }
 
     /** A scheme, host and port, the default port spelled out. */
