@@ -133,7 +133,6 @@ public class VideoAd internal constructor(
     /** Every fact of the ad's life (see [AdState]): every public flag above reads from it, live. */
     internal val state = AdState()
     internal val meter: ViewabilityMeter? get() = shownAd?.meter
-    internal var isVideoPlaying = false
     internal val onScreenClock: OnScreenTimeClock? get() = shownAd?.onScreenClock
 
     /** How the ad follows the content under it, by format: see [ContentRule]. */
@@ -664,7 +663,7 @@ public class VideoAd internal constructor(
         val webView = loadedBridge?.webView ?: return
         val meter = ViewabilityMeter(webView, if (payload.creative == AdPayload.Creative.VIDEO) 2_000 else 1_000)
         // MRC: two seconds of the video played. Exposure is measured from show, for the page.
-        meter.countsTime = payload.creative != AdPayload.Creative.VIDEO || isVideoPlaying
+        meter.countsTime = payload.creative != AdPayload.Creative.VIDEO || state.isVideoPlaying
         meter.onExposure = { percentage, visible ->
             val density = webView.resources.displayMetrics.density.toDouble()
             loadedBridge?.exposure(percentage, visible.left / density, visible.top / density, visible.width() / density, visible.height() / density)

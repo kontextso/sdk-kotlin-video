@@ -52,8 +52,14 @@ internal class FrameBridge(
     /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
     videoDurationMillis: Long? = null,
 ) {
-    /** Why the bridge failed: several causes fire the same VAST code, and the error report keeps them apart. */
-    enum class FailureCause { PAGE, LOAD_TIMEOUT, LOAD_FAILED, PROCESS_TERMINATED, UNRESPONSIVE }
+    /** Why the bridge failed: several causes fire the same VAST code, and the error report keeps them apart ([reportCode]). */
+    enum class FailureCause(val reportCode: ErrorReport.Code) {
+        PAGE(ErrorReport.Code.CREATIVE_FAILED),
+        LOAD_TIMEOUT(ErrorReport.Code.LOAD_TIMEOUT),
+        LOAD_FAILED(ErrorReport.Code.FRAME_LOAD_FAILED),
+        PROCESS_TERMINATED(ErrorReport.Code.PROCESS_TERMINATED),
+        UNRESPONSIVE(ErrorReport.Code.UNRESPONSIVE),
+    }
 
     /**
      * The WebView's context: the application's while the page loads off screen and after the ad ends, the

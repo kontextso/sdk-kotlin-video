@@ -72,11 +72,11 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         }
         is FrameEvent.Video -> {
             when (event.event) {
-                FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> isVideoPlaying = true
-                FrameEvent.VideoEvent.PAUSE -> isVideoPlaying = false
+                FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> state.markVideoPlaying(true)
+                FrameEvent.VideoEvent.PAUSE -> state.markVideoPlaying(false)
                 else -> Unit
             }
-            meter?.countsTime = isVideoPlaying
+            meter?.countsTime = state.isVideoPlaying
             tracker.record(event)
             // The listener last: it may end the ad on the spot.
             if (event.event == FrameEvent.VideoEvent.START) recordImpression()
@@ -84,8 +84,8 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         is FrameEvent.Progress -> tracker.record(event)
         is FrameEvent.Complete -> {
             state.markCompleted()
-            isVideoPlaying = false
-            meter?.countsTime = false
+            state.markVideoPlaying(false)
+            meter?.countsTime = state.isVideoPlaying
             tracker.record(event)
             Logger.info { "ad ${id.take(8)}: complete" }
         }
@@ -118,15 +118,8 @@ internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
 }
 
 internal fun VideoAd.reportCreativeError(vastCode: Int) {
-    val code = when (loadedBridge?.failureCause ?: FrameBridge.FailureCause.PAGE) {
-        FrameBridge.FailureCause.PAGE -> ErrorReport.Code.CREATIVE_FAILED
-        FrameBridge.FailureCause.LOAD_TIMEOUT -> ErrorReport.Code.LOAD_TIMEOUT
-        FrameBridge.FailureCause.LOAD_FAILED -> ErrorReport.Code.FRAME_LOAD_FAILED
-        FrameBridge.FailureCause.PROCESS_TERMINATED -> ErrorReport.Code.PROCESS_TERMINATED
-        FrameBridge.FailureCause.UNRESPONSIVE -> ErrorReport.Code.UNRESPONSIVE
-    }
     ErrorReporter.report(
-        code,
+        (loadedBridge?.failureCause ?: FrameBridge.FailureCause.PAGE).reportCode,
         if (wasShown) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
         sessionId = owner.get()?.sessionId,
         adId = id,

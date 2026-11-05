@@ -52,6 +52,14 @@ internal class AdState {
     var failure: VideoAdException? = null
         private set
 
+    /**
+     * The ad's video is playing: from the page's `video.start` or `resume` to its `pause` or `complete`. Not a
+     * milestone: it goes back and forth. The viewability meter counts time only while it holds. Set by
+     * [markVideoPlaying].
+     */
+    var isVideoPlaying: Boolean = false
+        private set
+
     /** `show` was accepted and not taken back (a container that refuses the ad returns it to offered). */
     val wasShown: Boolean get() = phase !is Phase.Offered && phase !is Phase.Invalidated
 
@@ -80,6 +88,11 @@ internal class AdState {
     /** The creative ran to its end. Once; never undone. */
     fun markCompleted() {
         isCompleted = true
+    }
+
+    /** The page said its video plays, or stopped. */
+    fun markVideoPlaying(isPlaying: Boolean) {
+        isVideoPlaying = isPlaying
     }
 
     /** Records why the shown ad failed. The first failure stays; never undone. */
