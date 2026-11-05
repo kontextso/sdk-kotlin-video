@@ -18,6 +18,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.AdGeometry
@@ -117,8 +118,8 @@ class AndroidPartsTest {
         val bridge = bridge()
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
-        val page = FrameBridge.Origin.of("https://frames.test")
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of("https://evil.test"), isMainFrame = true)
+        val page = Origin.of("https://frames.test")
+        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://evil.test"), isMainFrame = true)
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, isMainFrame = false)
         bridge.receive("""{"adId":"other","type":"ad.loaded"}""", page, isMainFrame = true)
         bridge.receive("""{"adId":"ad-1","type":"video.start"}""", page, isMainFrame = true)
@@ -132,7 +133,7 @@ class AndroidPartsTest {
         val bridge = bridge()
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
-        val page = FrameBridge.Origin.of("https://frames.test:443")
+        val page = Origin.of("https://frames.test:443")
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
         bridge.show()
         val click = """{"adId":"ad-1","type":"ad.click","url":"https://brand.test","area":"endCard"}"""
@@ -151,7 +152,7 @@ class AndroidPartsTest {
         val bridge = bridge()
         assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
         assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test", true, null))
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of("https://frames.test"), true)
+        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://frames.test"), true)
         val current = "https://frames.test/v2/frame/ad-1"
         assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
         assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("$current#card", true, current))
@@ -162,7 +163,7 @@ class AndroidPartsTest {
         val bridge = bridge()
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
-        bridge.receive("""{"adId":"ad-1","type":"ad.error","code":403}""", FrameBridge.Origin.of("https://frames.test"), true)
+        bridge.receive("""{"adId":"ad-1","type":"ad.error","code":403}""", Origin.of("https://frames.test"), true)
         assertEquals(403, (events.single() as FrameEvent.Error).code)
         assertEquals(FrameBridge.FailureCause.PAGE, bridge.failureCause)
         assertEquals(FramePhase.ENDED, bridge.state)

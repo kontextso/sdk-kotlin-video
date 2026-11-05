@@ -57,7 +57,7 @@ import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.diagnostics.ReportFormat
 import so.kontext.video.internal.diagnostics.ReportQueue
-import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
@@ -713,11 +713,11 @@ class ParitySupportTest : ParityHarness() {
         Sdk.recordErrorReporting(true)
         val ad = pause()
         val bridge = ad.loadedBridge!!
-        val origin = FrameBridge.Origin.of(ad.payload.frameUrl)
+        val origin = Origin.of(ad.payload.frameUrl)
         bridge.receive("""{"adId":"someone-else","type":"ad.loaded"}""", origin, true)
         bridge.receive("""{"type":"ad.loaded"}""", origin, true)
         bridge.receive("""{"adId":"${ad.id}","type":"ad.fromTheFuture"}""", origin, true) // a newer page: not a violation
-        bridge.receive("""{"adId":"x"}""", FrameBridge.Origin.of("https://creative.test"), false)
+        bridge.receive("""{"adId":"x"}""", Origin.of("https://creative.test"), false)
         await { errorReports("frame.protocol_violation").isNotEmpty() }
         settle()
         val violations = errorReports("frame.protocol_violation")
@@ -999,7 +999,7 @@ class ParitySupportTest : ParityHarness() {
         val ad = format(owner(), AdFormat.PAUSE).getOrThrow()
         var loaded: Result<Unit>? = null
         Environment.scope.launch { loaded = runCatching { ad.load() } }
-        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.loaded"}""", FrameBridge.Origin.of(ad.payload.frameUrl), true)
+        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.loaded"}""", Origin.of(ad.payload.frameUrl), true)
         await { loaded != null }
         loaded!!.getOrThrow()
         await { debugNames().contains("ad.loaded") }

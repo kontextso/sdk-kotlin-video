@@ -17,6 +17,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
@@ -88,7 +89,7 @@ abstract class SdkTest {
     internal fun loaded(payload: AdPayload, owner: VideoAds = owner()): VideoAd {
         val ad = VideoAd(payload, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
-        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", FrameBridge.Origin.of(payload.frameUrl), true)
+        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
         bridge.onEvent = { event -> ad.handle(event) } // as the ad wires the bridges it makes itself
         ad.loadedBridge = bridge
         ad.state.markLoaded()
@@ -107,7 +108,7 @@ abstract class SdkTest {
     /** Sends the ad's page a message, as its main frame. */
     protected fun page(ad: VideoAd, type: String, fields: String = "") {
         val bridge = ad.loadedBridge ?: return
-        bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", FrameBridge.Origin.of(ad.payload.frameUrl), true)
+        bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", Origin.of(ad.payload.frameUrl), true)
     }
 
     companion object {

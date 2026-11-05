@@ -52,6 +52,7 @@ import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
@@ -105,7 +106,7 @@ class BoundaryTest {
     private fun loaded(payload: AdPayload, owner: VideoAds): VideoAd {
         val ad = VideoAd(payload, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
-        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", FrameBridge.Origin.of(payload.frameUrl), true)
+        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
         ad.loadedBridge = bridge
         ad.state.markLoaded()
         return ad

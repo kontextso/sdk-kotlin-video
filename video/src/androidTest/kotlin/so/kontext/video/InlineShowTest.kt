@@ -23,6 +23,7 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
@@ -47,7 +48,7 @@ class InlineShowTest {
         val parsed = AdPayload.parse(Json.parseToJsonElement(payload))
         val ad = VideoAd(parsed, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, parsed.id, parsed.frameUrl, false)
-        bridge.receive("""{"adId":"ad-2","type":"ad.loaded"}""", FrameBridge.Origin.of(parsed.frameUrl), true)
+        bridge.receive("""{"adId":"ad-2","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
         bridge.onEvent = { ad.handle(it) }
         ad.loadedBridge = bridge
         ad.state.markLoaded()

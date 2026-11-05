@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
+import so.kontext.video.internal.frame.Origin
 
 /**
  * A page whose renderer stops answering ends the ad: a linear ad would have no other way out. When Chromium
@@ -41,7 +42,7 @@ class FrameRendererTest {
                 val bridge = FrameBridge(instrumentation.targetContext, "ad-1", url, isVideo)
                 bridge.onEvent = { events += it }
                 if (shown) {
-                    bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of(url), true)
+                    bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of(url), true)
                     bridge.show()
                     events.clear()
                 }

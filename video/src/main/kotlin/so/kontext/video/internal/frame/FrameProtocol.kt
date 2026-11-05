@@ -41,12 +41,12 @@ internal class FrameProtocol(
     /** The ad's id: every message of its page carries it. */
     val adId: String,
     /** The page's own origin, the one sender whose messages count; `null` for a URL with none (none count). */
-    val origin: FrameBridge.Origin?,
+    val origin: Origin?,
     isVideo: Boolean,
     /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
     videoDurationMillis: Long?,
     /** A URL's origin, for a navigation's target. */
-    private val originOf: (String) -> FrameBridge.Origin?,
+    private val originOf: (String) -> Origin?,
     /** Whether a link may open (`LinkOpener.isAllowed`). */
     private val isAllowed: (String) -> Boolean,
 ) {
@@ -93,7 +93,7 @@ internal class FrameProtocol(
      * Checks the sender of one text message from the page, reads it ([FrameMessage.parse]: a broken envelope is
      * a violation), and says what to do with it.
      */
-    fun accept(raw: String?, sender: FrameBridge.Origin?, isMainFrame: Boolean, now: Long): Step {
+    fun accept(raw: String?, sender: Origin?, isMainFrame: Boolean, now: Long): Step {
         if (state == FramePhase.ENDED) return Step.Ignore
         if (!isFromPage(sender, isMainFrame)) return Step.Drop("message from another frame dropped")
         val message = FrameMessage.parse(raw, adId, playheadLimitMillis) ?: return drop("malformed message dropped", "envelope")
@@ -146,7 +146,7 @@ internal class FrameProtocol(
      * A message that is not text (an ArrayBuffer) is never read: its `data` accessor throws. From the page itself
      * it is a broken envelope.
      */
-    fun acceptNonText(sender: FrameBridge.Origin?, isMainFrame: Boolean): Step {
+    fun acceptNonText(sender: Origin?, isMainFrame: Boolean): Step {
         if (state == FramePhase.ENDED || !isFromPage(sender, isMainFrame)) return Step.Ignore
         return drop("a message that is not text dropped", "envelope")
     }
@@ -185,7 +185,7 @@ internal class FrameProtocol(
         return Step.Deliver(FrameEvent.Click(target, null, VideoAd.Click.Area.Creative))
     }
 
-    private fun isFromPage(sender: FrameBridge.Origin?, isMainFrame: Boolean) = isMainFrame && sender != null && sender == origin
+    private fun isFromPage(sender: Origin?, isMainFrame: Boolean) = isMainFrame && sender != null && sender == origin
 
     /** A click or an open: on screen, to a link that may open, right after a touch. */
     private fun click(message: FrameMessage, now: Long): Step {

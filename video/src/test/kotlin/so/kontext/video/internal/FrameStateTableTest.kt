@@ -10,6 +10,7 @@ import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
 
 /**
@@ -29,7 +30,7 @@ import so.kontext.video.internal.platform.Environment
 @RunWith(RobolectricTestRunner::class)
 class FrameStateTableTest {
     private val url = "https://frames.test/v2/frame/ad-1"
-    private val origin = FrameBridge.Origin.of(url)
+    private val origin = Origin.of(url)
     private val events = mutableListOf<FrameEvent>()
 
     @Before fun make() {

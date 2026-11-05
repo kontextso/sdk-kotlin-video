@@ -43,8 +43,8 @@ import so.kontext.video.internal.core.problems
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.Logger
-import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FramePhase
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.measurement.TrackingMacros
 import so.kontext.video.internal.platform.Environment
 import java.net.URLDecoder
@@ -194,7 +194,7 @@ class ParityAdsTest {
     /** Sends the ad's page a message, as its main frame. */
     private fun page(ad: VideoAd, type: String, fields: String = "") {
         val bridge = checkNotNull(ad.loadedBridge) { "no page for ${ad.id}" }
-        bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", FrameBridge.Origin.of(ad.payload.frameUrl), true)
+        bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", Origin.of(ad.payload.frameUrl), true)
     }
 
     /** `load()` with the page reporting `ad.loaded`. */

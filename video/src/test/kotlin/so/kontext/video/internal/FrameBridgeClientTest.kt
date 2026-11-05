@@ -24,6 +24,7 @@ import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
 
 /** What only a WebView calls on the bridge: navigation decisions, load errors, a dead renderer, dialogs. */
@@ -46,7 +47,7 @@ class FrameBridgeClientTest {
         every { isForMainFrame } returns mainFrame
     }
 
-    private fun loaded() = bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of(url), true)
+    private fun loaded() = bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of(url), true)
 
     @Test fun navigationsGoWhereTheStateAllows() {
         val client = bridge.webView.webViewClient

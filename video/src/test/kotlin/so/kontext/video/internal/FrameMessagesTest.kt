@@ -17,6 +17,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
 import java.time.Duration
 
@@ -24,7 +25,7 @@ import java.time.Duration
 @RunWith(RobolectricTestRunner::class)
 class FrameMessagesTest {
     private val url = "https://frames.test/v2/frame/ad-1"
-    private val origin = FrameBridge.Origin.of(url)
+    private val origin = Origin.of(url)
     private val events = mutableListOf<FrameEvent>()
     private var now = 1_000_000L
     private lateinit var bridge: FrameBridge
@@ -117,7 +118,7 @@ class FrameMessagesTest {
     @Test fun messagesFromAnywhereButThePageItselfAreDropped() {
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", origin, isMainFrame = false)
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", null, true)
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of("https://evil.test"), true)
+        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://evil.test"), true)
         bridge.receive(null, origin, true)
         bridge.receive("not json", origin, true)
         bridge.receive("[1, 2]", origin, true)
@@ -236,13 +237,13 @@ class FrameMessagesTest {
     }
 
     @Test fun originsSpellOutTheDefaultPort() {
-        assertEquals("https://frames.test", FrameBridge.Origin.of("https://Frames.Test/x")!!.rule)
-        assertEquals("http://frames.test", FrameBridge.Origin.of("http://frames.test:80/")!!.rule)
-        assertEquals("https://frames.test:8443", FrameBridge.Origin.of("https://frames.test:8443/")!!.rule)
-        assertEquals(-1, FrameBridge.Origin.of("ws://frames.test/")!!.port)
-        assertNull("no scheme", FrameBridge.Origin.of("frames.test/x"))
-        assertNull("no host", FrameBridge.Origin.of("mailto:someone@test"))
-        assertNull("an empty host", FrameBridge.Origin.of("https:///path"))
+        assertEquals("https://frames.test", Origin.of("https://Frames.Test/x")!!.rule)
+        assertEquals("http://frames.test", Origin.of("http://frames.test:80/")!!.rule)
+        assertEquals("https://frames.test:8443", Origin.of("https://frames.test:8443/")!!.rule)
+        assertEquals(-1, Origin.of("ws://frames.test/")!!.port)
+        assertNull("no scheme", Origin.of("frames.test/x"))
+        assertNull("no host", Origin.of("mailto:someone@test"))
+        assertNull("an empty host", Origin.of("https:///path"))
     }
 
     @Test fun anInDocumentMoveStaysAndAnyOtherNavigationIsDecidedByOrigin() {

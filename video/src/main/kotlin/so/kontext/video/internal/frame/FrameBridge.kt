@@ -3,7 +3,6 @@ package so.kontext.video.internal.frame
 import android.content.Context
 import android.content.MutableContextWrapper
 import android.graphics.Bitmap
-import android.net.Uri
 import android.os.SystemClock
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
@@ -334,27 +333,6 @@ internal class FrameBridge(
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)
-    }
-
-    /** A scheme, host and port, the default port spelled out. */
-    data class Origin(val scheme: String, val host: String, val port: Int) {
-        val rule: String get() = if (port == defaultPort(scheme)) "$scheme://$host" else "$scheme://$host:$port"
-
-        companion object {
-            fun of(url: String): Origin? {
-                val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return null
-                val scheme = uri.scheme?.lowercase() ?: return null
-                val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
-                val port = if (uri.port == -1) defaultPort(scheme) else uri.port
-                return Origin(scheme, host, port)
-            }
-
-            private fun defaultPort(scheme: String) = when (scheme) {
-                "https" -> 443
-                "http" -> 80
-                else -> -1
-            }
-        }
     }
 
     companion object {

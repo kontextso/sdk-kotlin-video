@@ -16,6 +16,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
 
 /** What a hostile page, a refusing system or an app that keeps its ads must not break. */
@@ -27,9 +28,9 @@ class HardeningTest : SdkTest() {
         val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = false)
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
-        val page = FrameBridge.Origin.of("https://frames.test")
+        val page = Origin.of("https://frames.test")
         val binary = WebMessageCompat(byteArrayOf(1, 2, 3))
-        bridge.receive(binary, FrameBridge.Origin.of("https://elsewhere.test"), true)
+        bridge.receive(binary, Origin.of("https://elsewhere.test"), true)
         bridge.receive(binary, page, false)
         assertTrue("from another sender or frame: dropped, not reported", ErrorReporter.bufferedCodes.isEmpty())
         bridge.receive(binary, page, true) // loading

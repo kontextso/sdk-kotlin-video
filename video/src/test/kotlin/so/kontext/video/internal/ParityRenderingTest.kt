@@ -27,6 +27,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
@@ -40,7 +41,7 @@ import java.lang.ref.WeakReference
 @RunWith(RobolectricTestRunner::class)
 class ParityRenderingTest : SdkTest() {
     private val url = "https://frames.test/v2/frame/ad-1"
-    private val origin = FrameBridge.Origin.of(url)
+    private val origin = Origin.of(url)
     private val received = mutableListOf<FrameEvent>()
     private var now = 1_000_000L
 
@@ -59,7 +60,7 @@ class ParityRenderingTest : SdkTest() {
     private fun bridge(isVideo: Boolean = false, at: String = url) =
         FrameBridge(Environment.context!!, "ad-1", at, isVideo).also { it.onEvent = { event -> received += event } }
 
-    private fun FrameBridge.send(type: String, fields: String = "", from: FrameBridge.Origin? = origin) =
+    private fun FrameBridge.send(type: String, fields: String = "", from: Origin? = origin) =
         receive("""{"adId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", from, true)
 
     private fun FrameBridge.shown() = apply {
@@ -77,22 +78,22 @@ class ParityRenderingTest : SdkTest() {
 
     @Test fun anotherSchemeIsAnotherOrigin() {
         val bridge = bridge()
-        bridge.send("ad.loaded", from = FrameBridge.Origin.of("http://frames.test"))
+        bridge.send("ad.loaded", from = Origin.of("http://frames.test"))
         assertTrue(received.isEmpty())
         assertEquals(FramePhase.LOADING, bridge.state)
     }
 
     @Test fun theDefaultPortIsTheSameOriginAndAnyOtherIsNot() {
-        bridge().send("ad.loaded", from = FrameBridge.Origin.of("https://frames.test:8443"))
+        bridge().send("ad.loaded", from = Origin.of("https://frames.test:8443"))
         assertTrue("another port", received.isEmpty())
-        bridge().send("ad.loaded", from = FrameBridge.Origin.of("https://frames.test:443"))
+        bridge().send("ad.loaded", from = Origin.of("https://frames.test:443"))
         assertEquals("the default port spelled out", 1, received.size)
         val local = bridge(at = "http://localhost:5175/frame/ad-1")
-        local.send("ad.loaded", from = FrameBridge.Origin.of("http://localhost"))
+        local.send("ad.loaded", from = Origin.of("http://localhost"))
         assertEquals("localhost without its port is another origin", 1, received.size)
-        local.send("ad.loaded", from = FrameBridge.Origin.of("http://localhost:5175"))
+        local.send("ad.loaded", from = Origin.of("http://localhost:5175"))
         assertEquals(2, received.size)
-        bridge(at = "kontext-test://frames/frame/ad-1").send("ad.loaded", from = FrameBridge.Origin.of("kontext-test://frames"))
+        bridge(at = "kontext-test://frames/frame/ad-1").send("ad.loaded", from = Origin.of("kontext-test://frames"))
         assertEquals("a custom scheme without a port", 3, received.size)
     }
 

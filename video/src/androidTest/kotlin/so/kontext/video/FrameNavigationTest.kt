@@ -13,6 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FramePhase
+import so.kontext.video.internal.frame.Origin
 import java.io.ByteArrayInputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -71,7 +72,7 @@ class FrameNavigationTest {
 
                 override fun onPageFinished(view: WebView, url: String?) {
                     if (pages.incrementAndGet() == 1) {
-                        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of(url!!), true)
+                        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of(url!!), true)
                         bridge.show()
                         shown.countDown()
                     }

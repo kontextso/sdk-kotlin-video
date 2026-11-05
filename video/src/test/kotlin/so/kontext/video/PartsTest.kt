@@ -22,6 +22,7 @@ import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
+import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
@@ -81,7 +82,7 @@ class PartsTest : SdkTest() {
         bridge.onSend = { type, _ -> sent += type }
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
-        val page = FrameBridge.Origin.of("https://frames.test")
+        val page = Origin.of("https://frames.test")
         bridge.show() // before loaded: ignored
         assertTrue(sent.isEmpty())
         bridge.receive("not json", page, true)
@@ -110,7 +111,7 @@ class PartsTest : SdkTest() {
         val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = true)
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
-        val page = FrameBridge.Origin.of("https://frames.test")
+        val page = Origin.of("https://frames.test")
         fun send(type: String, fields: String = "") = bridge.receive("""{"adId":"ad-1","type":"$type"$fields}""", page, true)
         send("ad.loaded")
         bridge.show()
@@ -138,7 +139,7 @@ class PartsTest : SdkTest() {
     }
 
     @Test fun aLinearAdsPlayheadAndProgressStopAtItsDurationAndASecond() {
-        val page = FrameBridge.Origin.of("https://frames.test")
+        val page = Origin.of("https://frames.test")
         fun shownBridge(duration: Long?): Pair<FrameBridge, MutableList<FrameEvent>> {
             val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", true, duration)
             val events = mutableListOf<FrameEvent>()
@@ -162,7 +163,7 @@ class PartsTest : SdkTest() {
     }
 
     @Test fun aPageErrorAfterShowDefaultsTo405AndBeforeToTheLoadCode() {
-        val page = FrameBridge.Origin.of("https://frames.test")
+        val page = Origin.of("https://frames.test")
         val video = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/a", isVideo = true)
         var code = 0
         video.onEvent = { if (it is FrameEvent.Error) code = it.code }
@@ -177,9 +178,9 @@ class PartsTest : SdkTest() {
     }
 
     @Test fun anOriginIsItsSchemeHostAndPort() {
-        assertEquals(FrameBridge.Origin("https", "frames.test", 443), FrameBridge.Origin.of("HTTPS://Frames.Test/path"))
-        assertEquals("https://frames.test:8443", FrameBridge.Origin.of("https://frames.test:8443/x")!!.rule)
-        assertNull(FrameBridge.Origin.of("file:///x"))
+        assertEquals(Origin("https", "frames.test", 443), Origin.of("HTTPS://Frames.Test/path"))
+        assertEquals("https://frames.test:8443", Origin.of("https://frames.test:8443/x")!!.rule)
+        assertNull(Origin.of("file:///x"))
     }
 
     @Test fun aBeaconIsOneGetToItsUrl() {
