@@ -4,7 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.diagnostics.Logger
-import so.kontext.video.internal.measurement.Tracker
+import so.kontext.video.internal.measurement.TrackingMacros
 
 /**
  * The content player of one `VideoAds`: its playhead for requests and beacons, and its playing state for an
@@ -94,7 +94,7 @@ internal class ContentPlayback {
 
     /** Content time in milliseconds, read now, or 0. Clamped to ten years. */
     val playheadMillis: Long
-        get() = player?.let { runCatching { it.currentPositionMillis }.getOrNull() }?.coerceIn(0, Tracker.MAX_PLAYHEAD_MILLIS) ?: 0
+        get() = player?.let { runCatching { it.currentPositionMillis }.getOrNull() }?.coerceIn(0, TrackingMacros.MAX_PLAYHEAD_MILLIS) ?: 0
 
     /** Ticks run while an overlay or pause ad of this `VideoAds` is on screen with a player tracked, and only then. */
     var isTicking = false

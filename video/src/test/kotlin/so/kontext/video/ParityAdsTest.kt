@@ -45,7 +45,7 @@ import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.PageState
-import so.kontext.video.internal.measurement.Tracker
+import so.kontext.video.internal.measurement.TrackingMacros
 import so.kontext.video.internal.platform.Environment
 import java.net.URLDecoder
 import java.util.UUID
@@ -776,7 +776,7 @@ class ParityAdsTest {
         player.position = -3_000
         assertEquals("never negative", 0, ads.playheadMillis)
         player.position = Long.MAX_VALUE
-        assertEquals("a huge value is clamped", Tracker.MAX_PLAYHEAD_MILLIS, ads.playheadMillis)
+        assertEquals("a huge value is clamped", TrackingMacros.MAX_PLAYHEAD_MILLIS, ads.playheadMillis)
         ads.track(object : ContentPlayer {
             override val currentPositionMillis: Long get() = error("released")
             override val isPlaying = false

@@ -3,22 +3,11 @@ package so.kontext.video.internal.measurement
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
-import java.math.BigDecimal
-import java.math.MathContext
-import java.math.RoundingMode
-import java.net.URLEncoder
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.UUID
-import kotlin.math.abs
-import kotlin.random.Random
 
 /**
  * Fires an ad's tracking entries when their moment happens, once each except the events that repeat, with
- * the macros substituted: the IAB's (`[CACHEBUSTING]`, `[TIMESTAMP]`, `[MEDIAPLAYHEAD]` and its deprecated
- * twin `[CONTENTPLAYHEAD]`, `[ADPLAYHEAD]`, `[ERRORCODE]`) and our own, prefixed `KONTEXT_`. A macro the SDK
- * does not know stays in place. The page never fires a beacon; the SDK fires every one. No retries.
+ * the macros substituted ([TrackingMacros]). The page never fires a beacon; the SDK fires every one. No retries.
  */
 internal class Tracker(private val adId: String, private val entries: List<AdPayload.TrackingEvent>) {
     /** Milliseconds into the ad video, as the page last reported it; `[ADPLAYHEAD]`. */
@@ -28,13 +17,13 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
     var contentPlayhead: () -> Long = { 0 }
 
     /** The content playhead read before the operation now running; every beacon of it uses this value. */
-    var frozenContentPlayhead: Long? = null
+    private var frozenContentPlayhead: Long? = null
 
     /** The last value the app's player gave. */
-    var lastContentPlayhead = 0L
+    private var lastContentPlayhead = 0L
 
     /** Whether any URL asks for the content playhead; when none does, nobody reads it. */
-    val readsContentPlayhead: Boolean = entries.any { asksForContentPlayhead(it.url) }
+    val readsContentPlayhead: Boolean = entries.any { TrackingMacros.asksForContentPlayhead(it.url) }
 
     private val fired = mutableSetOf<Int>()
 
@@ -89,7 +78,7 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
      * or [alsoFor], a click's URLs); a nested call keeps the outer reading.
      */
     fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T {
-        val isAsked = readsContentPlayhead || alsoFor.any(::asksForContentPlayhead)
+        val isAsked = readsContentPlayhead || alsoFor.any(TrackingMacros::asksForContentPlayhead)
         if (frozenContentPlayhead != null || !isAsked) return work()
         frozenContentPlayhead = lastContentPlayhead
         try {
@@ -107,88 +96,19 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         Environment.sendBeacon(url, "ad ${adId.take(8)}: $label")
     }
 
-    private fun substitute(template: String, errorCode: Int?, fireId: String, viewDurationMillis: Long?, notUsed: NotUsed?): String {
-        // A macro may arrive with its brackets encoded: normalized first, re-encoded at the end.
-        val normalized = template.replace("%5B", "[", ignoreCase = true).replace("%5D", "]", ignoreCase = true)
-        val content = if (asksForContentPlayhead(normalized)) encode(playhead(frozenContentPlayhead ?: contentPlayhead())) else ""
-        return normalized
-            .replace("[CACHEBUSTING]", "%08d".format(Locale.US, Random.nextInt(100_000_000)))
-            .replace("[TIMESTAMP]", encode(timestamp()))
-            .replace("[MEDIAPLAYHEAD]", content)
-            .replace("[CONTENTPLAYHEAD]", content)
-            .replace("[ADPLAYHEAD]", encode(playhead(adPlayheadMillis)))
-            .replace("[ERRORCODE]", errorCode?.toString() ?: "")
-            .replace("[KONTEXT_FIREID]", fireId)
-            .replace("[KONTEXT_VIEWDURATION]", viewDurationMillis?.toString() ?: "")
-            .replace("[KONTEXT_REASON]", notUsed?.reason ?: "")
-            .replace("[KONTEXT_WINNINGPRICE]", encode(notUsed?.winningPrice?.let(::number) ?: ""))
-            .replace("[KONTEXT_WINNER]", encode(notUsed?.winner ?: ""))
-            .replace("[", "%5B")
-            .replace("]", "%5D")
-    }
+    private fun substitute(template: String, errorCode: Int?, fireId: String, viewDurationMillis: Long?, notUsed: NotUsed?): String =
+        TrackingMacros.substitute(
+            template,
+            contentPlayhead = { frozenContentPlayhead ?: contentPlayhead() },
+            adPlayheadMillis = adPlayheadMillis,
+            errorCode = errorCode,
+            fireId = fireId,
+            viewDurationMillis = viewDurationMillis,
+            notUsed = notUsed,
+        )
 
     companion object {
         /** Events that fire every time they happen; everything else fires once per entry. */
         val REPEATABLE = setOf("click", "pause", "resume", "mute", "unmute")
-
-        /** Playheads beyond ten years are nonsense and clamped. */
-        const val MAX_PLAYHEAD_MILLIS = 315_360_000_000L
-
-        /** Seventeen significant digits always identify a Double. */
-        private const val MAX_DIGITS = 17
-
-        fun asksForContentPlayhead(template: String): Boolean {
-            val normalized = template.replace("%5B", "[", ignoreCase = true).replace("%5D", "]", ignoreCase = true)
-            return "[MEDIAPLAYHEAD]" in normalized || "[CONTENTPLAYHEAD]" in normalized
-        }
-
-        /** `[MEDIAPLAYHEAD]`, `[ADPLAYHEAD]`: `HH:MM:SS.mmm`. */
-        fun playhead(millis: Long): String {
-            val total = millis.coerceIn(0, MAX_PLAYHEAD_MILLIS)
-            return "%02d:%02d:%02d.%03d".format(Locale.US, total / 3_600_000, total / 60_000 % 60, total / 1000 % 60, total % 1000)
-        }
-
-        /** `[TIMESTAMP]`: `YYYY-MM-DDTHH:MM:SS.mmm±HH:MM` in the device's zone. */
-        fun timestamp(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date())
-
-        /** A value inside one query parameter: only RFC 3986's unreserved characters stay. */
-        /**
-         * A number as the Swift SDK writes it, so both send the same macro: decimals from 1e-4 to 2^53 (`3.0`,
-         * `0.0005`), the shortest exponent form beyond (`1e-05`, `1e+20`), and `nan`, `inf`.
-         */
-        fun number(value: Double): String {
-            if (value.isNaN()) return "nan"
-            if (value.isInfinite()) return if (value > 0) "inf" else "-inf"
-            if (value == 0.0) return if (1 / value < 0) "-0.0" else "0.0"
-            val digits = shortestDigits(value)
-            if (abs(value) in 1e-4..9_007_199_254_740_992.0) {
-                val plain = digits.toPlainString()
-                return if ('.' in plain) plain else "$plain.0"
-            }
-            val exponent = digits.precision() - digits.scale() - 1
-            val sign = if (exponent < 0) "-" else "+"
-            return "${digits.movePointLeft(exponent).toPlainString()}e$sign${abs(exponent).toString().padStart(2, '0')}"
-        }
-
-        /**
-         * The fewest significant digits that read back as [value], the closest such to its exact value: what
-         * Swift prints. At each precision the exact value rounded half-even, or, where that misses (the narrower
-         * gap below a power of two), its neighbour one last digit up or down. Not `Double.toString` (not always
-         * the shortest, `1e23`) nor `String.format`, which rounds differently in some cases.
-         */
-        private fun shortestDigits(value: Double): BigDecimal {
-            val exact = BigDecimal(value)
-            for (precision in 1..MAX_DIGITS) {
-                val rounded = exact.round(MathContext(precision, RoundingMode.HALF_EVEN))
-                val step = BigDecimal.ONE.scaleByPowerOfTen(rounded.precision() - rounded.scale() - precision)
-                val match = listOf(rounded, rounded.subtract(step), rounded.add(step))
-                    .filter { it.toDouble() == value }
-                    .minByOrNull { it.subtract(exact).abs() }
-                if (match != null) return match.stripTrailingZeros()
-            }
-            return exact.stripTrailingZeros()
-        }
-
-        fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
     }
 }

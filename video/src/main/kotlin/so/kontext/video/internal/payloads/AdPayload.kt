@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.measurement.TrackingMacros
 import so.kontext.video.internal.network.ApiException
 import java.net.URI
 import java.net.URISyntaxException
@@ -52,7 +53,7 @@ internal class AdPayload(
         private const val MAX_PORT = 65_535
 
         /** The largest count of milliseconds taken: ten years, as the playheads are clamped. Beyond it a value is nonsense. */
-        private const val MAX_MILLIS = 315_360_000_000.0
+        private const val MAX_MILLIS = TrackingMacros.MAX_PLAYHEAD_MILLIS.toDouble()
 
         /** ISO 4217: three capital letters. */
         private val CURRENCY = Regex("[A-Z]{3}")
