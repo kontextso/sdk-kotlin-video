@@ -11,6 +11,7 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAdException.NoFillReason
+import so.kontext.video.internal.payloads.emptyFields
 
 /** The public models and value types: builders from Kotlin and Java, equality, and what their strings show. */
 class ModelsTest {

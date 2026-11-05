@@ -83,7 +83,7 @@ adb logcat -s KontextVideo
     `ViewabilityMeter`, `ActiveTimeClock`.
   - `playback/`: `ContentPlayback` (the tracked player), `ContentProgress` (an overlay's video time), `ContentRule` (how
     an ad follows the content, one class per format: `OverlayRule`, `PauseRule`, `NoContentRule`).
-  - `payloads/`: `AdPayload`, `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.
+  - `payloads/`: `AdPayload`, `AppInputs` (the request rules of the app's Content and User), `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.
   - `device/`: `DeviceInfo`, `Consent` (through KontextKit).

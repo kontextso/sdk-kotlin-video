@@ -16,6 +16,7 @@ import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
+import so.kontext.video.internal.payloads.emptyFields
 import so.kontext.video.internal.screen.ShownAd
 import so.kontext.video.internal.state.SdkState
 import so.kontext.video.internal.support.DebugReporter
@@ -225,3 +226,13 @@ internal object Sdk {
         Logger.level = Configuration.LogLevel.WARNING
     }
 }
+
+/** An absolute http(s) URL with a host. */
+private val AD_SERVER_URL = Regex("^https?://[^/?#\\s]+.*$")
+
+/** What is wrong with the options, one phrase each; empty when they are usable. Checked by `initialize`. */
+internal val Configuration.problems: List<String>
+    get() = listOfNotNull(
+        if (publisherToken.isEmpty()) "publisherToken is empty" else null,
+        if (!AD_SERVER_URL.matches(adServerUrl)) "adServerUrl $adServerUrl is not absolute" else null,
+    )

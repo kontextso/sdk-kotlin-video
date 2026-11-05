@@ -205,13 +205,6 @@ public object KontextVideo {
             public fun build(): Configuration = Configuration(this)
         }
 
-        /** What is wrong with the options, one phrase each; empty when they are usable. */
-        internal val problems: List<String>
-            get() = listOfNotNull(
-                if (publisherToken.isEmpty()) "publisherToken is empty" else null,
-                if (!AD_SERVER_URL.matches(adServerUrl)) "adServerUrl $adServerUrl is not absolute" else null,
-            )
-
         override fun equals(other: Any?): Boolean = other is Configuration && publisherToken == other.publisherToken &&
             logLevel == other.logLevel && adServerUrl == other.adServerUrl
 
@@ -409,19 +402,6 @@ public object KontextVideo {
             }
         }
 
-        /** Required fields left empty: every request would fail at the server. */
-        internal val missingRequired: List<String>
-            get() = listOfNotNull(if (id.isEmpty()) "id is empty" else null, if (language.isEmpty()) "language is empty" else null)
-
-        /** Optional metadata the request leaves out because the server would refuse it, one phrase each. */
-        internal val leftOut: List<String>
-            get() = listOfNotNull(
-                durationMillis?.takeIf { it < 1 }?.let { "durationMillis $it left out" },
-                episodeNumber?.takeIf { it < 1 }?.let { "episodeNumber $it left out" },
-                series?.takeIf { it.id.isEmpty() }?.let { "series left out, its id is empty" },
-                series?.episodeCount?.takeIf { it < 1 }?.let { "series.episodeCount $it left out" },
-            )
-
         private val fields: List<Any?>
             get() = listOf(id, language, mediaRating, url, title, categories, description, durationMillis, episodeNumber, keywords, genre, series)
 
@@ -489,14 +469,6 @@ public object KontextVideo {
             /** The [User], from the values set. */
             public fun build(): User = User(this)
         }
-
-        /** The user without what identifies the viewer (id, email, email hash), for a COPPA request; `null` when nothing else is left. */
-        internal val withoutIdentity: User?
-            get() = keywords?.let { kept -> User { keywords = kept } }
-
-        /** Fields set to an empty string, which the request leaves out. */
-        internal val emptyFields: List<String>
-            get() = listOf("id" to id, "email" to email, "emailHash" to emailHash).filter { it.second?.isEmpty() == true }.map { it.first }
 
         override fun equals(other: Any?): Boolean =
             other is User && id == other.id && email == other.email && emailHash == other.emailHash && keywords == other.keywords
@@ -603,8 +575,6 @@ public object KontextVideo {
         }
     }
 }
-
-private val AD_SERVER_URL = Regex("^https?://[^/?#\\s]+.*$")
 
 /** A personal value as `toString()` may show it: only whether it is set. */
 private fun said(value: String?): String? = if (value == null) null else "set"

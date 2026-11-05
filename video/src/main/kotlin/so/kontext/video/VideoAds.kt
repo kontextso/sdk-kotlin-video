@@ -22,6 +22,8 @@ import so.kontext.video.internal.network.toRequestFailure
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
+import so.kontext.video.internal.payloads.leftOut
+import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
@@ -291,8 +293,8 @@ public class VideoAds @JvmOverloads constructor(
                     AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", built.body)).also(::checkIdsAgainstHeld)
                 } catch (error: CancellationException) {
                     throw error
-                    // Not swallowed: the app hears it as the failure it maps to (toRequestFailure), the report carries it.
                 } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+                    // Not swallowed: the report carries it, and the app hears the failure it maps to (toRequestFailure).
                     checkStillUsable()
                     Logger.error { "${content.id}: request ${built.requestId} failed, ${error.message}" }
                     @Suppress("InstanceOfCheckForException") // the code, not the handling, depends on it
