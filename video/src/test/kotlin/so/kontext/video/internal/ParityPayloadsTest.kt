@@ -55,6 +55,7 @@ import so.kontext.video.internal.payloads.emptyFields
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.payloads.noFillReasonFrom
+import so.kontext.video.internal.payloads.toJson
 import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.junit.Assert as JUnit4
@@ -401,27 +402,23 @@ class ParityPayloadsTest {
              "categories": ["640"], "description": "d", "duration": 92400, "episodeNumber": 6, "keywords": ["love"], "genre": "romance",
              "series": {"id": "100001", "title": "S", "description": "sd", "episodeCount": 40}}
         """
-        assertEquals(Json.parseToJsonElement(expected), AdsRequest.content(content))
+        assertEquals(Json.parseToJsonElement(expected), content.toJson())
     }
 
     @Test fun numbersBelowOneAndASeriesWithoutAnIdAreLeftOut() {
         for (number in listOf(0, -3)) {
-            val json = AdsRequest.content(
-                Content("v", "en") {
-                    episodeNumber = number
-                    durationMillis = number.toLong()
-                    series = Content.Series("s") { episodeCount = number }
-                },
-            )
+            val json = Content("v", "en") {
+                episodeNumber = number
+                durationMillis = number.toLong()
+                series = Content.Series("s") { episodeCount = number }
+            }.toJson()
             assertEquals(Json.parseToJsonElement("""{"id": "v", "language": "en", "series": {"id": "s"}}"""), json, "$number")
         }
-        assertNull(AdsRequest.content(Content("v", "en") { series = Content.Series("") { title = "T" } })["series"])
-        val valid = AdsRequest.content(
-            Content("v", "en") {
-                episodeNumber = 1
-                series = Content.Series("s") { episodeCount = 1 }
-            },
-        )
+        assertNull(Content("v", "en") { series = Content.Series("") { title = "T" } }.toJson()["series"])
+        val valid = Content("v", "en") {
+            episodeNumber = 1
+            series = Content.Series("s") { episodeCount = 1 }
+        }.toJson()
         assertEquals("1", valid["episodeNumber"]!!.jsonPrimitive.content)
         assertEquals("1", valid["series"]!!.jsonObject["episodeCount"]!!.jsonPrimitive.content)
     }
@@ -455,26 +452,24 @@ class ParityPayloadsTest {
         }
         assertEquals(
             Json.parseToJsonElement("""{"id": "U-42", "email": "  Viewer.Name@Example.COM ", "emailHash": "AbC123==", "keywords": ["Romance", " CEO "]}"""),
-            AdsRequest.user(user),
+            user.toJson(),
         )
         assertEquals(
             Json.parseToJsonElement("""{"id": "u1", "keywords": []}"""),
-            AdsRequest.user(
-                User {
-                    id = "u1"
-                    keywords = emptyList()
-                },
-            ),
+            User {
+                id = "u1"
+                keywords = emptyList()
+            }.toJson(),
         )
-        assertEquals(setOf("emailHash"), AdsRequest.user(User { emailHash = "abc" }).keys)
+        assertEquals(setOf("emailHash"), User { emailHash = "abc" }.toJson().keys)
         val empty = User {
             id = ""
             email = ""
             emailHash = ""
         }
-        assertTrue(AdsRequest.user(empty).isEmpty())
+        assertTrue(empty.toJson().isEmpty())
         assertEquals(listOf("id", "email", "emailHash"), empty.emptyFields)
-        assertTrue(AdsRequest.user(User {}).isEmpty())
+        assertTrue(User {}.toJson().isEmpty())
         assertNotEquals(User { id = "u1" }, User { id = "u2" })
     }
 
@@ -489,9 +484,9 @@ class ParityPayloadsTest {
         }
         assertEquals(
             Json.parseToJsonElement("""{"gdpr": true, "gdprConsent": "TC", "coppa": false, "gpp": "GPP", "gppSid": [2, 7], "usPrivacy": "1YNN"}"""),
-            AdsRequest.regulatory(full),
+            full.toJson(),
         )
-        assertEquals(Json.parseToJsonElement("""{"coppa": true}"""), AdsRequest.regulatory(Regulatory { coppa = true }))
+        assertEquals(Json.parseToJsonElement("""{"coppa": true}"""), Regulatory { coppa = true }.toJson())
     }
 
     @Test fun theDefaultServerIsProductionAndTheLogLevelsAreOrdered() {

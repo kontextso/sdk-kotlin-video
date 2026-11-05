@@ -13,10 +13,10 @@ import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.content.ContentTimeClock
 import so.kontext.video.internal.core.problems
 import so.kontext.video.internal.diagnostics.ReportFormat
-import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.payloads.noFillReasonFrom
+import so.kontext.video.internal.payloads.toJson
 import so.kontext.video.internal.platform.Environment
 
 /** The pure rules: the overlay's video-time count, the models and the request body. */
@@ -64,7 +64,7 @@ class LogicTest {
             episodeNumber = 0
             series = Content.Series("") { episodeCount = 3 }
         }
-        val json = AdsRequest.content(content).toString()
+        val json = content.toJson().toString()
         assertEquals("""{"id":"ep","language":"en"}""", json)
         assertEquals(3, content.leftOut.size)
         assertEquals(listOf("id is empty", "language is empty"), Content("", "").missingRequired)
@@ -75,7 +75,7 @@ class LogicTest {
         }
         assertEquals(
             """{"id":"ep","language":"en","mediaRating":"safe","duration":92000,"series":{"id":"s","episodeCount":40}}""",
-            AdsRequest.content(full).toString(),
+            full.toJson().toString(),
         )
     }
 
@@ -84,7 +84,7 @@ class LogicTest {
             id = ""
             email = "a@b.test"
         }
-        assertEquals("""{"email":"a@b.test"}""", AdsRequest.user(user).toString())
+        assertEquals("""{"email":"a@b.test"}""", user.toJson().toString())
         assertFalse("a@b.test" in user.toString())
     }
 
