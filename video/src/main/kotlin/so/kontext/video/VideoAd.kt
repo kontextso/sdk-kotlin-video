@@ -20,6 +20,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import so.kontext.video.internal.core.AdLifecycle
+import so.kontext.video.internal.core.AdLifecycle.Phase
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
@@ -88,13 +90,13 @@ public class VideoAd internal constructor(
     public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired && Sdk.disabledReason == null
 
     /** Why the ad ended before it was shown, once it did. */
-    public val invalidationReason: InvalidationReason? get() = (phase as? Phase.Invalidated)?.reason
+    public val invalidationReason: InvalidationReason? get() = lifecycle.invalidationReason
 
     /** `show` was accepted once. */
-    public val wasShown: Boolean get() = phase !is Phase.Offered && phase !is Phase.Invalidated
+    public val wasShown: Boolean get() = lifecycle.wasShown
 
     /** The ad began to end; `onAdEnded` follows at once for an overlay or pause ad, once its screen is gone for a linear ad. */
-    public val hasEnded: Boolean get() = phase is Phase.Ending || phase is Phase.Ended
+    public val hasEnded: Boolean get() = lifecycle.hasEnded
 
     /** The creative ran to its end: an overlay's duration elapsed, a linear video played through. */
     public var isCompleted: Boolean = false
@@ -122,16 +124,8 @@ public class VideoAd internal constructor(
     internal var chosenSize: AdPayload.Size? = null
     internal val linearCallbacks: LinearAdActivity.Callbacks? get() = presentation?.linearCallbacks
 
-    /** Where the ad is in its life. Every public flag above derives from it; it moves only through [transition]. */
-    internal var phase: Phase = Phase.Offered
-        private set
-
-    /**
-     * The creative reached the screen (the phase was [Phase.OnScreen]): `show` attached it and nothing ended it
-     * during the attach. Stays true after the end: an ad that was on screen fires its end beacons.
-     */
-    internal var isPresented = false
-        private set
+    /** Where the ad is in its life (see [AdLifecycle]). Every public flag above derives from it, read live. */
+    internal val lifecycle = AdLifecycle()
     private var failure: VideoAdException? = null
     internal val meter: ViewabilityMeter? get() = presentation?.meter
     internal var videoPlaying = false
@@ -155,44 +149,6 @@ public class VideoAd internal constructor(
     private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
 
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
-
-    /** Where an ad is in its life. */
-    internal sealed class Phase {
-        /** Returned by `format()`; [isLoaded] says whether the creative is ready. */
-        object Offered : Phase()
-
-        /** Ended before `show`: nothing was delivered. */
-        data class Invalidated(val reason: InvalidationReason) : Phase()
-
-        /** `show` committed and took the app's one slot; a linear ad waits for its screen. */
-        object Reserved : Phase()
-
-        /** The creative is presented: the page was told to show, the meter and the clock run. */
-        object OnScreen : Phase()
-
-        /** The ad is ending; a linear ad's screen is closing, and `onAdEnded` follows once it is gone. */
-        data class Ending(val reason: EndReason) : Phase()
-
-        /** `onAdEnded` was delivered. */
-        data class Ended(val reason: EndReason) : Phase()
-    }
-
-    /**
-     * Moves to [next] when that is a legal step, and says whether it did: offered → invalidated or reserved;
-     * reserved → on screen, ending, or back to offered (the container refused the host, nothing was shown);
-     * on screen → ending; ending → ended. Anything else (a late event, a second end) changes nothing.
-     */
-    private fun transition(next: Phase): Boolean {
-        val legal = when (phase) {
-            Phase.Offered -> next is Phase.Invalidated || next == Phase.Reserved
-            Phase.Reserved -> next == Phase.OnScreen || next is Phase.Ending || next == Phase.Offered
-            Phase.OnScreen -> next is Phase.Ending
-            is Phase.Ending -> next is Phase.Ended
-            is Phase.Invalidated, is Phase.Ended -> false
-        }
-        if (legal) phase = next
-        return legal
-    }
 
     // region Loading and rejecting
 
@@ -575,7 +531,7 @@ public class VideoAd internal constructor(
             if (started) delay(presentationTimeoutMillis) else yield()
             // Presented, not merely created: a screen that attached but never came to the front (started, never
             // resumed) would otherwise hold the slot for good.
-            if (hasEnded || isPresented) return@launch
+            if (hasEnded || lifecycle.isPresented) return@launch
             val what = if (screen.activity == null) "did not start" else "never came to the front"
             Logger.error { "ad ${id.take(8)}: the linear ad's screen $what; ended as failed" }
             LinearAdActivity.forget(screen)
@@ -656,7 +612,7 @@ public class VideoAd internal constructor(
     }
 
     private fun reserve(screen: AdScreen) {
-        transition(Phase.Reserved)
+        lifecycle.transition(Phase.Reserved)
         presentation = Presentation.begin(this, owner.get(), screen)
     }
 
@@ -673,7 +629,7 @@ public class VideoAd internal constructor(
         }
         loadedBridge?.webView?.let { webView -> runCatching { (webView.parent as? ViewGroup)?.removeView(webView) } }
         Environment.context?.let { contextWrapper.baseContext = it }
-        if (!transition(Phase.Offered)) return
+        if (!lifecycle.transition(Phase.Offered)) return
         presentation?.cancel(wasHeld)
         presentation = null
     }
@@ -683,8 +639,7 @@ public class VideoAd internal constructor(
     }
 
     private fun presentNow() {
-        if (!transition(Phase.OnScreen)) return
-        isPresented = true
+        if (!lifecycle.transition(Phase.OnScreen)) return
         loadedBridge?.show()
         Logger.info { "ad ${id.take(8)}: shown" }
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
@@ -797,7 +752,7 @@ public class VideoAd internal constructor(
     //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (Presentation.release);
     // 10. listener: dropped just before onAdEnded, the last call (finish).
     private fun endNow(reason: EndReason) {
-        if (!transition(Phase.Ending(reason))) return
+        if (!lifecycle.transition(Phase.Ending(reason))) return
         activityListener?.let(ActivityTracker::removeListener)
         activityListener = null
         contentRule.cancel()
@@ -819,7 +774,7 @@ public class VideoAd internal constructor(
 
     /** The beacons of an end, for an ad that was on screen: one that ended inside show, before it was presented, had no view. */
     private fun fireEndBeacons(reason: EndReason, activeTimeMillis: Long, inline: Boolean) {
-        if (!isPresented) return
+        if (!lifecycle.isPresented) return
         // Shown, not billed: a video on screen that never reached its first frame (`video.start`) still gives the
         // server its outcome. Ended by the viewer, the app or an interruption: `close`. A failure has fired its
         // `error`; the page's own close or skip has fired its beacon.
@@ -828,7 +783,7 @@ public class VideoAd internal constructor(
     }
 
     private fun finish(reason: EndReason) {
-        if (!transition(Phase.Ended(reason))) return
+        if (!lifecycle.transition(Phase.Ended(reason))) return
         // An ended ad keeps its facts, not its presentation: an app that holds it holds no Activity or WebView.
         Environment.context?.let { contextWrapper.baseContext = it }
         presentation?.release()
@@ -844,7 +799,7 @@ public class VideoAd internal constructor(
     // region Ending before show
 
     internal fun invalidate(reason: InvalidationReason) {
-        if (!transition(Phase.Invalidated(reason))) return
+        if (!lifecycle.transition(Phase.Invalidated(reason))) return
         Logger.debug { "$format ad ${id.take(8)} ended before show: $reason" }
         // Wire names, as iOS sends them; a failed creative's code as its own key.
         val state = mapOf("reason" to reason.wireName) + ((reason as? InvalidationReason.CreativeFailed)?.let { mapOf("code" to it.code) } ?: emptyMap())
