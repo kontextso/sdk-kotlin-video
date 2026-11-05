@@ -51,7 +51,7 @@ internal class AdState {
     var failure: VideoAdException? = null
         private set
 
-    /** `show` was accepted once. */
+    /** `show` was accepted and not taken back (a container that refuses the ad returns it to offered). */
     val wasShown: Boolean get() = phase !is Phase.Offered && phase !is Phase.Invalidated
 
     /** The ad began to end, or has ended. */

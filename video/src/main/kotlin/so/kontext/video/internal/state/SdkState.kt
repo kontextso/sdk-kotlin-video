@@ -1,5 +1,6 @@
 package so.kontext.video.internal.state
 
+import androidx.annotation.VisibleForTesting
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.State
 
@@ -60,6 +61,7 @@ internal class SdkState {
     }
 
     /** As if `/config` had enabled the SDK with [configuration], without it. Tests only. */
+    @VisibleForTesting
     fun enableForTesting(configuration: Configuration) {
         this.configuration = configuration
         phase = State.Enabled
