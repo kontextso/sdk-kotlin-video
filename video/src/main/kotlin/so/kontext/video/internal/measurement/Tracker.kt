@@ -1,6 +1,7 @@
 package so.kontext.video.internal.measurement
 
 import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import java.util.UUID
@@ -67,6 +68,52 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
             if (entry.event == "progress" && index !in fired && entry.offsetMillis != null && entry.offsetMillis <= upToMillis) entry.offsetMillis else null
         }.toSortedSet()
         due.forEach { fire("progress", offsetMillis = it) }
+    }
+
+    /**
+     * Fires the beacons of a page event, after the page's playhead is recorded for `[ADPLAYHEAD]`. Each video
+     * moment also catches up the `progress` entries its playhead passed, so a checkpoint the page never reported
+     * still fires. A click and a close fire nothing here: the ad fires them, a click's fire id going into its
+     * click-through and a close's beacon depending on what the ad already saw (`closeOutcome`).
+     *
+     * ```
+     *   loaded     loaded
+     *   error      error, with the code
+     *   open       iconClick, for an AdChoices open
+     *   skip       progress caught up, then skip
+     *   video      the moment's own (start, firstQuartile, ...), then progress caught up
+     *   progress   progress up to the greater of the offset and the playhead
+     *   complete   progress caught up, complete, then creativeView of the end card (visible now)
+     * ```
+     */
+    fun record(event: FrameEvent) {
+        when (event) {
+            FrameEvent.Loaded -> fire("loaded")
+            is FrameEvent.Error -> fire("error", errorCode = event.code)
+            is FrameEvent.Open -> if (event.purpose == "adChoices") fire("iconClick")
+            is FrameEvent.Skip -> {
+                adPlayheadMillis = event.playheadMillis
+                fireProgress(event.playheadMillis)
+                fire("skip")
+            }
+            is FrameEvent.Video -> {
+                adPlayheadMillis = event.playheadMillis
+                fire(event.event.wire)
+                fireProgress(event.playheadMillis)
+            }
+            is FrameEvent.Progress -> {
+                adPlayheadMillis = event.playheadMillis
+                fireProgress(maxOf(event.offsetMillis, event.playheadMillis))
+            }
+            is FrameEvent.Complete -> {
+                adPlayheadMillis = event.playheadMillis
+                fireProgress(event.playheadMillis)
+                fire("complete")
+                // The end card, when there is one, becomes visible now.
+                fire("creativeView", part = "endCard")
+            }
+            is FrameEvent.Click, is FrameEvent.Close -> Unit
+        }
     }
 
     /** The click-through with the beacon macros substituted, `[KONTEXT_FIREID]` with the click's own fire id. */

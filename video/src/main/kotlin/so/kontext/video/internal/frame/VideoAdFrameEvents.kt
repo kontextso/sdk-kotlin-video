@@ -35,12 +35,12 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
     when (event) {
         FrameEvent.Loaded -> {
             state.markLoaded()
-            tracker.fire("loaded")
+            tracker.record(event)
             loadSignal?.complete(Unit)
             loadSignal = null
         }
         is FrameEvent.Error -> {
-            tracker.fire("error", errorCode = event.code)
+            tracker.record(event)
             reportCreativeError(event.code)
             val signal = loadSignal
             when {
@@ -60,44 +60,33 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         is FrameEvent.Click -> click(event.url, event.fallbackUrl, event.area)
         is FrameEvent.Open -> {
             Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${event.url}" }
-            if (event.purpose == "adChoices") tracker.fire("iconClick")
+            tracker.record(event)
             Environment.context?.let { context ->
                 if (!LinkOpener.open(context, event.url, null)) Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${event.url}" }
             }
         }
         is FrameEvent.Close -> closeByPage(event.reason)
         is FrameEvent.Skip -> {
-            tracker.adPlayheadMillis = event.playheadMillis
-            tracker.fireProgress(event.playheadMillis)
-            tracker.fire("skip")
+            tracker.record(event)
             end(EndReason.SKIPPED)
         }
         is FrameEvent.Video -> {
-            tracker.adPlayheadMillis = event.playheadMillis
             when (event.event) {
                 FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> isVideoPlaying = true
                 FrameEvent.VideoEvent.PAUSE -> isVideoPlaying = false
                 else -> Unit
             }
             meter?.countsTime = isVideoPlaying
-            tracker.fire(event.event.wire)
-            tracker.fireProgress(event.playheadMillis)
+            tracker.record(event)
             // The listener last: it may end the ad on the spot.
             if (event.event == FrameEvent.VideoEvent.START) recordImpression()
         }
-        is FrameEvent.Progress -> {
-            tracker.adPlayheadMillis = event.playheadMillis
-            tracker.fireProgress(maxOf(event.offsetMillis, event.playheadMillis))
-        }
+        is FrameEvent.Progress -> tracker.record(event)
         is FrameEvent.Complete -> {
-            tracker.adPlayheadMillis = event.playheadMillis
             state.markCompleted()
             isVideoPlaying = false
             meter?.countsTime = false
-            tracker.fireProgress(event.playheadMillis)
-            tracker.fire("complete")
-            // The end card, when there is one, becomes visible now.
-            tracker.fire("creativeView", part = "endCard")
+            tracker.record(event)
             Logger.info { "ad ${id.take(8)}: complete" }
         }
     }
