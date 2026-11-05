@@ -89,7 +89,8 @@ adb logcat -s KontextVideo
   - `content/`: `ContentPlayback` (the tracked player), `PlayerOwnership` (a player belongs to one `VideoAds` at a
     time), `ContentTimeClock` (an overlay's video time), `ContentRule` (how an ad follows the content, one class
     per format: `OverlayRule`, `PauseRule` in their own files, `NoContentRule`).
-  - `payloads/`: `AdPayload`, `AppInputs` (the request rules of the app's Content and User), `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`, `JsonParser` (the depth-guarded parse), `JsonFields` (the lenient readers).
+  - `payloads/`, the ad server's API: `/config`, `/ads`, its error body, and the app's inputs as sent (the
+    error-report and debug bodies stay in `diagnostics/`): `AdPayload`, `AppInputs` (the request rules of the app's Content and User), `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`, `JsonParser` (the depth-guarded parse), `JsonFields` (the lenient readers).
   - `network/`, everything that goes to our server and back: `HttpTransport` (connections, redirects, at most
     10), `ApiClient` (our server), `BeaconClient` (tracking GETs), `AdsFetcher` (one `VideoAds`'s ads request:
     the waits, the body, the answer, its failures, the kill switch), `ApiException`.

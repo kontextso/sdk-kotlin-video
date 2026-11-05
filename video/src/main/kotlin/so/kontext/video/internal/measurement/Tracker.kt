@@ -74,7 +74,9 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
      * Fires the beacons of a page event, after the page's playhead is recorded for `[ADPLAYHEAD]`. Each video
      * moment also catches up the `progress` entries its playhead passed, so a checkpoint the page never reported
      * still fires. A click and a close fire nothing here: the ad fires them, a click's fire id going into its
-     * click-through and a close's beacon depending on what the ad already saw (`closeOutcome`).
+     * click-through and a close's beacon depending on what the ad already saw (`closeOutcome`). It takes a
+     * [FrameEvent] because the beacons are named after the page's events (VAST names): which beacons an event
+     * causes is tracking knowledge.
      *
      * ```
      *   loaded     loaded
