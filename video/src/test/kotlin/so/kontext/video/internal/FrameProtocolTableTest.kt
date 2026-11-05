@@ -146,6 +146,37 @@ class FrameProtocolTableTest {
         assertEquals("drop!progress.offset", progress("86400001"))
     }
 
+    @Test fun aFractionalPlayheadOrOffsetIsRoundedToTheNearestMillisecond() {
+        val protocol = protocol().apply {
+            send("ad.loaded")
+            show()
+        }
+        val start = (protocol.send("video.start", "\"playhead\": 1500.5") as Step.Deliver).event as FrameEvent.Video
+        assertEquals(1_501, start.playheadMillis)
+        val progress = (protocol.send("video.progress", "\"offset\": 2999.6, \"playhead\": 1500.4") as Step.Deliver).event as FrameEvent.Progress
+        assertEquals(3_000, progress.offsetMillis)
+        assertEquals(1_500, progress.playheadMillis)
+        val small = (protocol.send("video.progress", "\"offset\": 0.4") as Step.Deliver).event as FrameEvent.Progress
+        assertEquals(0, small.offsetMillis)
+        val top = (protocol.send("video.progress", "\"offset\": 86399999.7") as Step.Deliver).event as FrameEvent.Progress
+        assertEquals(86_400_000, top.offsetMillis, "within a day before rounding")
+    }
+
+    @Test fun aMessageOverOneMegabyteIsABrokenEnvelope() {
+        fun message(bytes: Int): String {
+            val head = """{"adId":"ad-1","type":"ad.loaded","pad":""""
+            val tail = "\"}"
+            return head + "x".repeat(bytes - head.length - tail.length) + tail
+        }
+        assertEquals(FrameProtocol.MAX_MESSAGE_BYTES, message(FrameProtocol.MAX_MESSAGE_BYTES).toByteArray().size)
+        assertEquals("loaded", describe(protocol().accept(message(FrameProtocol.MAX_MESSAGE_BYTES), page, true, now)), "at the limit")
+        assertEquals("loaded", describe(protocol().accept(message(FrameProtocol.MAX_MESSAGE_BYTES - 1), page, true, now)), "just under")
+        assertEquals("drop!envelope", describe(protocol().accept(message(FrameProtocol.MAX_MESSAGE_BYTES + 1), page, true, now)), "just over")
+        // Counted in UTF-8 bytes, not characters: two-byte characters reach the limit at half the length.
+        val wide = """{"adId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(FrameProtocol.MAX_MESSAGE_BYTES / 2)}"}"""
+        assertEquals("drop!envelope", describe(protocol().accept(wide, page, true, now)))
+    }
+
     @Test fun videoStartOpensTheVideo() {
         val protocol = protocol().apply {
             send("ad.loaded")

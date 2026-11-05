@@ -151,11 +151,14 @@ class FrameMessagesTest {
         assertEquals("unknown", (events.last() as FrameEvent.Open).purpose)
     }
 
-    @Test fun progressTakesOnlyAWholeNumberOfMillisecondsWithinADay() {
+    @Test fun progressTakesMillisecondsWithinADayAFractionRounded() {
         started()
-        for (bad in listOf("\"1000\"", "1.5", "-1", "86400001", "null", "{}")) send("video.progress", "\"offset\": $bad")
+        for (bad in listOf("\"1000\"", "-1", "86400001", "null", "{}")) send("video.progress", "\"offset\": $bad")
         send("video.progress")
         assertTrue(events.isEmpty())
+        send("video.progress", "\"offset\": 1.5")
+        assertEquals("a fraction rounded to the nearest, as on iOS", 2, (events.single() as FrameEvent.Progress).offsetMillis)
+        events.clear()
         send("video.progress", "\"offset\": 2000, \"playhead\": -5")
         val progress = events.single() as FrameEvent.Progress
         assertEquals(2_000, progress.offsetMillis)

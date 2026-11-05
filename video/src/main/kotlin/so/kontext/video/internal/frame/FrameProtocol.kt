@@ -33,6 +33,7 @@ import so.kontext.video.internal.support.Logger
  *                        (400 video, 500 display; 405 on screen; the page's own code wins)
  *   unknown type         drop            drop            drop                        ignore
  *   broken envelope      drop, reported once as a protocol violation                 ignore
+ *                        (not an object, another ad's id, no type, over MAX_MESSAGE_BYTES)
  * ```
  */
 internal class FrameProtocol(
@@ -99,13 +100,15 @@ internal class FrameProtocol(
     fun accept(raw: String?, sender: FrameBridge.Origin?, isMainFrame: Boolean, now: Long): Step {
         if (state == State.ENDED) return Step.Ignore
         if (!isFromPage(sender, isMainFrame)) return Step.Drop("message from another frame dropped")
-        val body = raw?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }?.obj()
+        // A message over the limit is never parsed: a broken envelope, as on iOS.
+        val body = raw?.takeIf(::fitsLimit)?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }?.obj()
         val type = body?.str("type")
         if (body == null || body.str("adId") != adId || type == null) return drop("malformed message dropped", "envelope")
         Logger.debug { "frame ${adId.take(8)}: ← $type" }
-        // Milliseconds into the ad video, clamped to the video's duration (a day without one): a playhead past
-        // the end would fire every checkpoint at once.
-        val playhead = (body.double("playhead") ?: 0.0).coerceIn(0.0, playheadLimitMillis.toDouble()).toLong()
+        // Milliseconds into the ad video, a fraction rounded to the nearest (a page reads `currentTime * 1000`),
+        // clamped to the video's duration (a day without one): a playhead past the end would fire every checkpoint
+        // at once.
+        val playhead = Math.round((body.double("playhead") ?: 0.0).coerceIn(0.0, playheadLimitMillis.toDouble()))
         return when (type) {
             "ad.loaded" -> {
                 if (state != State.LOADING) return Step.Ignore
@@ -204,15 +207,18 @@ internal class FrameProtocol(
         return Step.EndThenDeliver(event)
     }
 
-    /** A checkpoint of the video, in milliseconds within a day, after `video.start`. */
+    /**
+     * A checkpoint of the video, in milliseconds within a day, a fraction rounded to the nearest, after
+     * `video.start`; anything else would fire every checkpoint early.
+     */
     private fun progress(type: String, body: JsonObject, playhead: Long): Step {
         if (state != State.SHOWN) return Step.Ignore
         if (!videoStarted) return beforeStart(type)
         val offset = (body["offset"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
-        if (offset == null || offset % 1.0 != 0.0 || offset !in 0.0..DAY_MILLIS.toDouble()) {
+        if (offset == null || offset !in 0.0..DAY_MILLIS.toDouble()) {
             return drop("video.progress with a malformed offset dropped", "progress.offset")
         }
-        return Step.Deliver(FrameEvent.Progress(minOf(offset.toLong(), playheadLimitMillis), playhead))
+        return Step.Deliver(FrameEvent.Progress(minOf(Math.round(offset), playheadLimitMillis), playhead))
     }
 
     /**
@@ -241,6 +247,9 @@ internal class FrameProtocol(
         return Step.Drop(log, violation.takeIf { first })
     }
 
+    /** Whether a message is within [MAX_MESSAGE_BYTES] in UTF-8; never fewer bytes than UTF-16 units, so a long one is out at once. */
+    private fun fitsLimit(raw: String): Boolean = raw.length <= MAX_MESSAGE_BYTES && raw.toByteArray(Charsets.UTF_8).size <= MAX_MESSAGE_BYTES
+
     /** One tap opens one URL: the first click, open or navigation it authorized spends it. */
     private fun consumeTouch(now: Long): Boolean {
         if (now - lastTouchAt > TOUCH_WINDOW_MILLIS) return false
@@ -250,6 +259,9 @@ internal class FrameProtocol(
 
     companion object {
         const val TOUCH_WINDOW_MILLIS = 1_000L
+
+        /** The largest page message parsed, in UTF-8 bytes; every message of the protocol is far smaller. */
+        const val MAX_MESSAGE_BYTES = 1024 * 1024
         private const val DAY_MILLIS = 86_400_000L
 
         /** How far past the video's duration a page playhead may go: the page's rounding, not more. */
