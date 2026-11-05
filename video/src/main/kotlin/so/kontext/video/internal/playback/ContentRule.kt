@@ -140,8 +140,13 @@ internal sealed class ContentRule {
             return true
         }
 
-        /** Its duration counts from the playhead now, and again from it whenever its window comes back. */
+        /**
+         * Its duration counts from the playhead now, and again from it whenever its window comes back. Shown with
+         * no player tracked, it says so: its duration then is time on screen, which an app that calls `track`
+         * after `show` may not expect.
+         */
         override fun started(clock: ActiveTimeClock?) {
+            if (!isTracking) Logger.warning { "overlay ${ad.id.take(8)} shown before track(): its duration counts on-screen time, not video time" }
             val duration = ad.durationMillis ?: return
             val playback = ad.owner.get()?.playback ?: return
             if (!isTracking) return

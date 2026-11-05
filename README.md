@@ -31,7 +31,7 @@ class EpisodeViewModel : ViewModel() {
 // The episode's screen, in onCreate: the player and the screen are new after a recreation, so track the
 // new player and set the listeners again; a listener left from the old screen would keep it alive
 val ads = viewModel.ads
-ads.track(player) // your Media3 player, or your own VideoAdsPlayer
+ads.track(player) // your Media3 player, or your own ContentPlayer
 
 // Prepare a pause ad early: format() gets the offer (its price, before anything renders),
 // load() renders the creative so show() is instant

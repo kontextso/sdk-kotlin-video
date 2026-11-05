@@ -165,16 +165,16 @@ public class VideoAd internal constructor(
 
     /** [load] for callers without coroutines: [callback] gets this ad, or the exception, on the main thread. */
     @MainThread
-    public fun load(callback: VideoAdsCallback<VideoAd>) {
+    public fun load(callback: VideoAdCallback) {
         Environment.scope.launch {
-            // The app's own onSuccess may throw (a show that fails): that is not a failed load.
+            // The app's own onAd may throw (a show that fails): that is not a failed load.
             try {
                 load()
             } catch (error: VideoAdException) {
                 callback.onError(error)
                 return@launch
             }
-            callback.onSuccess(this@VideoAd)
+            callback.onAd(this@VideoAd)
         }
     }
 
@@ -312,11 +312,11 @@ public class VideoAd internal constructor(
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
      * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
-     * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `PresenterUnavailable` (the container is not attached, not shown,
+     * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `CannotShowNow` (the container is not attached, not shown,
      * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or
      * the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
-     * `WrongPresentation` (a linear ad). The container must lay the ad over the content, as a `FrameLayout` does: in
+     * `WrongShowMethod` (a linear ad). The container must lay the ad over the content, as a `FrameLayout` does: in
      * a `LinearLayout` the ad goes after the player, gets no room and ends `INTERRUPTED` with no impression.
      */
     @MainThread
@@ -331,16 +331,16 @@ public class VideoAd internal constructor(
         // The public guard: a fact of the linear format, not of its screen.
         if (format == AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.show(container) on a linear ad; show(activity) shows it")
-            throw VideoAdException.WrongPresentation()
+            throw VideoAdException.WrongShowMethod()
         }
         checkShowable()
         if (!ViewabilityMeter.canBeSeen(container)) {
             Logger.warning { "ad ${id.take(8)}: cannot show, the container is not on screen or is hidden" }
-            throw VideoAdException.PresenterUnavailable()
+            throw VideoAdException.CannotShowNow()
         }
         // Attached and laid out is not on screen: a pager's neighbour page, a view scrolled away, a screen behind
         // another or an app in the background. The impression would count for nobody: refused, the ad ready.
-        if (!isOnScreen(container)) throw VideoAdException.PresenterUnavailable()
+        if (!isOnScreen(container)) throw VideoAdException.CannotShowNow()
         warnIfNotOverlaying(container)
         val screen = AdScreen.InlineScreen(this, Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom)))
         val density = container.resources.displayMetrics.density
@@ -377,7 +377,7 @@ public class VideoAd internal constructor(
             // An ad its owner ended meanwhile (a destroy in the container's hook) has had its onAdEnded: show
             // was accepted and is over. Otherwise nothing was shown and nothing spent.
             if (hasEnded) return
-            throw VideoAdException.PresenterUnavailable()
+            throw VideoAdException.CannotShowNow()
         }
         // A destroy in the container's hook ended the ad and took its host.
         val host = hostView ?: return
@@ -429,7 +429,7 @@ public class VideoAd internal constructor(
     /**
      * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Either it throws, and
      * nothing happened, or it was accepted and `onAdEnded` follows, at the latest once the screen is gone.
-     * Throws as `show(container)` does; `PresenterUnavailable` for an Activity that is finishing, destroyed, stopped (not
+     * Throws as `show(container)` does; `CannotShowNow` for an Activity that is finishing, destroyed, stopped (not
      * visible) or in picture-in-picture (the ad stays ready; try again once it is visible). A started Activity
      * that is not resumed yet is fine: `onStart`, a result or permission callback, `onNewIntent`.
      */
@@ -444,18 +444,18 @@ public class VideoAd internal constructor(
         // The public guard: a fact of the linear format, not of its screen.
         if (format != AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.show(activity) on an overlay or pause ad; show(container) shows it")
-            throw VideoAdException.WrongPresentation()
+            throw VideoAdException.WrongShowMethod()
         }
         checkShowable()
         if (activity.isFinishing || activity.isDestroyed) {
             Logger.warning { "ad ${id.take(8)}: cannot show, the Activity is finishing" }
-            throw VideoAdException.PresenterUnavailable()
+            throw VideoAdException.CannotShowNow()
         }
         // The system would not start the screen from there (or not where the viewer sees it), and the bid
         // would be spent on a screen that never comes: refused while the ad is still usable.
         if (!isVisibleToViewer(activity)) {
             Logger.warning { "ad ${id.take(8)}: cannot show, the Activity is not visible (stopped, or in picture-in-picture)" }
-            throw VideoAdException.PresenterUnavailable()
+            throw VideoAdException.CannotShowNow()
         }
         val bridge = shownBridge()
         val screen = AdScreen.LinearScreen(this, bridge)
@@ -490,7 +490,7 @@ public class VideoAd internal constructor(
                 adId = id,
                 recovery = ErrorReporter.Recovery.AD_ENDED_FAILED,
             )
-            fail(VideoAdException.PresenterUnavailable())
+            fail(VideoAdException.CannotShowNow())
         }
     }
 

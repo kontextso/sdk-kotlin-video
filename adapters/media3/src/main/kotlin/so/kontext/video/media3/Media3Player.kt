@@ -8,8 +8,8 @@ import androidx.annotation.MainThread
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import so.kontext.video.ContentPlayer
 import so.kontext.video.VideoAds
-import so.kontext.video.VideoAdsPlayer
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
@@ -46,11 +46,11 @@ private val adapters = WeakHashMap<Player, Media3Player>()
  * position is the ad's. Every move into or out of such an ad is a position discontinuity whose new position
  * names its ad group.
  */
-internal class Media3Player(player: Player) : VideoAdsPlayer {
+internal class Media3Player(player: Player) : ContentPlayer {
     // A player on another looper is never read: the SDK reads on the main thread, which would be a crash in
     // the player's own checks, or a race. Not thrown either: a release build carries on, without the player.
     private val player = WeakReference(player.takeIf { it.applicationLooper == Looper.getMainLooper() })
-    private val listeners = mutableListOf<VideoAdsPlayer.Listener>()
+    private val listeners = mutableListOf<ContentPlayer.Listener>()
     private var playWhenReady = this.player.get()?.playWhenReady ?: false
     private var playbackState = this.player.get()?.playbackState ?: Player.STATE_IDLE
     private var suppression = this.player.get()?.playbackSuppressionReason ?: Player.PLAYBACK_SUPPRESSION_REASON_NONE
@@ -118,7 +118,7 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         override fun hashCode(): Int = item.hashCode() * 31 + count
     }
 
-    override fun addListener(listener: VideoAdsPlayer.Listener) {
+    override fun addListener(listener: ContentPlayer.Listener) {
         if (listeners.isEmpty()) {
             player.get()?.let {
                 playWhenReady = it.playWhenReady
@@ -132,7 +132,7 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         listeners += listener
     }
 
-    override fun removeListener(listener: VideoAdsPlayer.Listener) {
+    override fun removeListener(listener: ContentPlayer.Listener) {
         listeners -= listener
         if (listeners.isEmpty()) player.get()?.removeListener(playerListener)
     }

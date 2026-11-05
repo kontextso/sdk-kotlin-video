@@ -23,7 +23,7 @@ import java.time.Duration
 /** The lifecycle details the first review parked for the rewrite (S-LIFE-3, 7–11, the load timeout). */
 @RunWith(RobolectricTestRunner::class)
 class DeferredLifecycleTest : SdkTest() {
-    private fun playing(playing: Boolean = true) = object : VideoAdsPlayer {
+    private fun playing(playing: Boolean = true) = object : ContentPlayer {
         override val currentPositionMillis = 0L
         override val isPlaying = playing
     }

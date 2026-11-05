@@ -13,7 +13,7 @@ import java.net.SocketTimeoutException
  * - Thrown by a call (`format`, `load`, `show`, `reject`): that call did not happen. Nothing is
  *   shown. Whether the ad stays usable is said per case.
  * - Delivered through [VideoAdListener.onAdFailed], after a `show` that was accepted: the ad broke on
- *   screen ([CreativeFailed]), or the linear ad's screen never started ([PresenterUnavailable]).
+ *   screen ([CreativeFailed]), or the linear ad's screen never started ([CannotShowNow]).
  *   `onAdEnded(FAILED)` follows and the ad is over.
  */
 public sealed class VideoAdException(message: String, cause: Throwable? = null) : Exception(message, cause) {
@@ -90,10 +90,10 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
      * the Activity is finishing, destroyed, stopped or in picture-in-picture. The ad stays ready. Delivered through
      * `onAdFailed` when `show` was accepted but the linear ad's screen never started; the ad is over then.
      */
-    public class PresenterUnavailable : VideoAdException("nothing on screen can hold the ad now")
+    public class CannotShowNow : VideoAdException("nothing on screen can hold the ad now")
 
     /** The call does not fit the format: `show(activity)` on an overlay or pause ad, `show(container)` on a linear ad. */
-    public class WrongPresentation : VideoAdException(
+    public class WrongShowMethod : VideoAdException(
         "this call does not fit the ad's format (show(container) for overlay and pause, show(activity) for linear)",
     )
 

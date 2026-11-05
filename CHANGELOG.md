@@ -12,12 +12,12 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
 
 * `KontextVideo.initialize(context, KontextVideo.Configuration(token))` once at launch; `user`, `regulatory`, `variantId`.
 * `VideoAds(content, labels)` per episode; `format(AdFormat)` returns a `VideoAd` (suspend, or a callback for Java);
-  `track(player)` follows the content player (`VideoAdsPlayer`, or a Media3 `Player` with `so.kontext:video-media3`);
+  `track(player)` follows the content player (`ContentPlayer`, or a Media3 `Player` with `so.kontext:video-media3`);
   `destroy()`.
 * `VideoAd`: `price` and `durationMillis` before anything renders, `load()`, `reject(reason)`, `show(container, insets)`
   for overlay and pause, `show(activity)` for linear, `dismiss()`; `VideoAdListener` with `onAdImpression`,
   `onAdClicked`, `onAdFailed`, `onAdEnded` (exactly once per show).
-* An overlay lives only while the tracked content plays; its duration counts milliseconds of video. `VideoAdsPlayer.Listener` tells the SDK each play-state change, seek and item change as it happens, and `playbackSpeed` tells fast playback from a seek; the Media3 adapter forwards all of them.
+* An overlay lives only while the tracked content plays; its duration counts milliseconds of video. `ContentPlayer.Listener` tells the SDK each play-state change, seek and item change as it happens, and `playbackSpeed` tells fast playback from a seek; the Media3 adapter forwards all of them.
 * A pause ad lives only while the tracked content is paused: the content playing again from anywhere (the media
   notification, a headset, picture-in-picture) after a pause seen while the ad is on screen ends it as
   `INTERRUPTED`.
@@ -25,7 +25,7 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   one lets go of it in the first (an overlay of it on screen ends `INTERRUPTED`), whose overlay and pause ads then
   throw `Invalidated(ContentChanged)` at `show`, with no beacon. So do they once the player plays another item
   than at `track`: a Media3 player's current media item (a repeat's next play included), or the optional
-  `VideoAdsPlayer.currentItem`. Linear ads are not checked.
+  `ContentPlayer.currentItem`. Linear ads are not checked.
 * `VideoAdException.Request` says why the request failed: its `failure`, a `VideoAdException.RequestFailure`, is
   `Offline` (no connection, the connection lost, the host unreachable; ask again once online), `TimedOut` (ask again
   later), `Server(status)` (an error status; ask again later, quote `lastRequestId` if it repeats) or `BadResponse`

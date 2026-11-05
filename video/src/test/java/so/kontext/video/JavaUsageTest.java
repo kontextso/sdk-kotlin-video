@@ -91,9 +91,9 @@ public class JavaUsageTest {
         listener.onAdEnded(null, VideoAd.EndReason.CLOSED);
         assertEquals("CLOSED", heard[0]);
 
-        VideoAdsCallback<VideoAd> callback = new VideoAdsCallback<VideoAd>() {
+        VideoAdCallback callback = new VideoAdCallback() {
             @Override
-            public void onSuccess(VideoAd result) {
+            public void onAd(VideoAd ad) {
                 heard[0] = "success";
             }
 
@@ -125,7 +125,7 @@ public class JavaUsageTest {
             overlay.show(container, Insets.of(0, 0, 0, 120));
             linear.show(activity);
             return "shown";
-        } catch (VideoAdException.PresenterUnavailable error) {
+        } catch (VideoAdException.CannotShowNow error) {
             return "later";
         } catch (VideoAdException error) {
             return error.getMessage();
@@ -154,7 +154,7 @@ public class JavaUsageTest {
 
     @Test
     public void aPlayerAdapterNeedsTwoMembers() {
-        VideoAdsPlayer player = new VideoAdsPlayer() {
+        ContentPlayer player = new ContentPlayer() {
             @Override
             public long getCurrentPositionMillis() {
                 return 1_000L;
@@ -166,7 +166,7 @@ public class JavaUsageTest {
             }
         };
         assertNull(player.getPlaybackSpeed());
-        VideoAdsPlayer.Listener listener = isPlaying -> { };
+        ContentPlayer.Listener listener = isPlaying -> { };
         player.addListener(listener);
         player.removeListener(listener);
         assertEquals(1_000L, player.getCurrentPositionMillis());

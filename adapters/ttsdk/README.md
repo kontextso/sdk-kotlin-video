@@ -1,7 +1,7 @@
 # TTSDK adapter (`so.kontext:video-ttsdk`)
 
 Follows a TTSDK `TTVideoEngine` (BytePlus / Volcengine VOD player, 1.40 or later), so an app on TTSDK tracks its
-player in one line instead of implementing `VideoAdsPlayer`.
+player in one line instead of implementing `ContentPlayer`.
 
 ```kotlin
 implementation("so.kontext:video:0.1.0")

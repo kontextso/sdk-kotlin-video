@@ -35,7 +35,7 @@ public interface VideoAdListener {
 
     /**
      * The ad broke after `show` returned: the creative failed or stalled, or the linear ad's screen never
-     * started ([VideoAdException.PresenterUnavailable]). [onAdEnded] with [VideoAd.EndReason.FAILED] follows.
+     * started ([VideoAdException.CannotShowNow]). [onAdEnded] with [VideoAd.EndReason.FAILED] follows.
      */
     public fun onAdFailed(ad: VideoAd, error: VideoAdException) {}
 

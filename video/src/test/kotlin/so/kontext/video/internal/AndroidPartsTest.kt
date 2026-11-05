@@ -12,7 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import so.kontext.video.VideoAdsPlayer
+import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
@@ -28,16 +28,16 @@ class AndroidPartsTest {
     @After fun restore() = Environment.reset()
 
     /** A player whose listener calls run the app's code. */
-    class HookPlayer(override var currentPositionMillis: Long = 0) : VideoAdsPlayer {
+    class HookPlayer(override var currentPositionMillis: Long = 0) : ContentPlayer {
         override var isPlaying = true
-        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
+        val listeners = mutableListOf<ContentPlayer.Listener>()
         var onRemove: (() -> Unit)? = null
 
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        override fun addListener(listener: ContentPlayer.Listener) {
             listeners += listener
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             listeners -= listener
             onRemove?.invoke()
         }

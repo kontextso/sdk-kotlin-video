@@ -19,16 +19,16 @@ import so.kontext.video.internal.support.Environment
  */
 @RunWith(RobolectricTestRunner::class)
 class ReentryTest : SdkTest() {
-    private class Player(var playing: Boolean = true, var position: Long = 0) : VideoAdsPlayer {
+    private class Player(var playing: Boolean = true, var position: Long = 0) : ContentPlayer {
         var onRead: (() -> Unit)? = null
         override val currentPositionMillis: Long get() = position.also { onRead?.invoke() }
         override val isPlaying get() = playing
-        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        val listeners = mutableListOf<ContentPlayer.Listener>()
+        override fun addListener(listener: ContentPlayer.Listener) {
             listeners += listener
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             listeners -= listener
         }
     }

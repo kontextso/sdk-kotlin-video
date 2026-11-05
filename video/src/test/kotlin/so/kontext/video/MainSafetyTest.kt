@@ -16,7 +16,7 @@ import kotlin.concurrent.thread
 /** The calls that must run on the main thread say so when they do not; a callback hears one outcome. */
 @RunWith(RobolectricTestRunner::class)
 class MainSafetyTest : SdkTest() {
-    private class Player : VideoAdsPlayer {
+    private class Player : ContentPlayer {
         override val currentPositionMillis: Long = 0
         override val isPlaying: Boolean = true
     }
@@ -52,13 +52,13 @@ class MainSafetyTest : SdkTest() {
         assertEquals(calls.size, assertions.size)
     }
 
-    @Test fun loadsCallbackHearsNoErrorWhenItsOwnOnSuccessThrows() {
+    @Test fun loadsCallbackHearsNoErrorWhenItsOwnOnAdThrows() {
         val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
         val heard = mutableListOf<String>()
-        ad.load(object : VideoAdsCallback<VideoAd> {
-            override fun onSuccess(result: VideoAd) {
+        ad.load(object : VideoAdCallback {
+            override fun onAd(ad: VideoAd) {
                 heard += "success"
-                throw VideoAdException.ContentPaused() // the app's show() in onSuccess failing
+                throw VideoAdException.ContentPaused() // the app's show() in onAd failing
             }
 
             override fun onError(error: VideoAdException) {

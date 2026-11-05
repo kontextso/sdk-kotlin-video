@@ -628,7 +628,7 @@ class BoundaryTest {
 
     private fun endedOverlayOfADestroyedOwner(): Pair<VideoAd, java.lang.ref.WeakReference<VideoAds>> {
         val owner = VideoAds(Content("ep", "en"))
-        owner.track(object : VideoAdsPlayer {
+        owner.track(object : ContentPlayer {
             override val isPlaying = true
             override val currentPositionMillis = 0L
         })

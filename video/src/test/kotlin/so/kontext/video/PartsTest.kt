@@ -345,8 +345,8 @@ class PartsTest : SdkTest() {
         var error: VideoAdException? = null
         owner().format(
             AdFormat.PAUSE,
-            object : VideoAdsCallback<VideoAd> {
-                override fun onSuccess(result: VideoAd) = org.junit.Assert.fail("disabled")
+            object : VideoAdCallback {
+                override fun onAd(ad: VideoAd) = org.junit.Assert.fail("disabled")
 
                 override fun onError(error: VideoAdException) {
                     this@PartsTest.callbackError = error
@@ -366,7 +366,7 @@ class PartsTest : SdkTest() {
         assertTrue("ep" !in ads.toString())
         ads.destroy()
         assertTrue(ads.isDestroyed)
-        ads.track(object : VideoAdsPlayer {
+        ads.track(object : ContentPlayer {
             override val currentPositionMillis = 0L
             override val isPlaying = true
         })

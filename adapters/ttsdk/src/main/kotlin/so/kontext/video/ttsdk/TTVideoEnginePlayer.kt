@@ -7,8 +7,8 @@ import android.os.Looper
 import androidx.annotation.MainThread
 import com.ss.ttvideoengine.TTVideoEngine
 import com.ss.ttvideoengine.VideoEngineCallback
+import so.kontext.video.ContentPlayer
 import so.kontext.video.VideoAds
-import so.kontext.video.VideoAdsPlayer
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
@@ -100,8 +100,8 @@ internal class TTEngine(engine: TTVideoEngine) : Engine {
  * A new vid on the engine, or the end of the video, is another play. Seeks are not reported by TTSDK; the SDK
  * infers them from the position.
  */
-internal class EnginePlayer(private val engine: Engine) : VideoAdsPlayer {
-    private val listeners = mutableListOf<VideoAdsPlayer.Listener>()
+internal class EnginePlayer(private val engine: Engine) : ContentPlayer {
+    private val listeners = mutableListOf<ContentPlayer.Listener>()
     private var wasPlaying = false
     private var videoId: String? = null
 
@@ -134,7 +134,7 @@ internal class EnginePlayer(private val engine: Engine) : VideoAdsPlayer {
     /** One play of a video. */
     private data class Play(val videoId: String, val count: Int)
 
-    override fun addListener(listener: VideoAdsPlayer.Listener) {
+    override fun addListener(listener: ContentPlayer.Listener) {
         if (listeners.isEmpty() && !engine.isGone) {
             wasPlaying = isPlaying
             videoId = engine.videoId
@@ -143,7 +143,7 @@ internal class EnginePlayer(private val engine: Engine) : VideoAdsPlayer {
         listeners += listener
     }
 
-    override fun removeListener(listener: VideoAdsPlayer.Listener) {
+    override fun removeListener(listener: ContentPlayer.Listener) {
         listeners -= listener
         if (listeners.isEmpty()) engine.stopListening()
     }

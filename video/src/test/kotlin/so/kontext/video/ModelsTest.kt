@@ -108,8 +108,8 @@ class ModelsTest {
             VideoAdException.Disabled("paused"), VideoAdException.NoFill(NoFillReason.FrequencyCap),
             VideoAdException.Request(VideoAdException.RequestFailure.Offline), VideoAdException.CreativeFailed(405), VideoAdException.AlreadyShown(),
             VideoAdException.AnotherAdShowing(), VideoAdException.Invalidated(VideoAd.InvalidationReason.Expired), VideoAdException.NotLoaded(),
-            VideoAdException.ContentPaused(), VideoAdException.ContainerTooSmall(480, 120), VideoAdException.PresenterUnavailable(),
-            VideoAdException.WrongPresentation(),
+            VideoAdException.ContentPaused(), VideoAdException.ContainerTooSmall(480, 120), VideoAdException.CannotShowNow(),
+            VideoAdException.WrongShowMethod(),
         ).map { it.message!! }
         assertTrue(messages.all { it.isNotBlank() })
         assertEquals(messages.size, messages.toSet().size)
@@ -157,12 +157,12 @@ class ModelsTest {
     }
 
     @Test fun aPlayerNeedsOnlyItsPositionAndPlayingState() {
-        val player = object : VideoAdsPlayer {
+        val player = object : ContentPlayer {
             override val currentPositionMillis = 1L
             override val isPlaying = true
         }
         assertNull(player.playbackSpeed)
-        val listener = VideoAdsPlayer.Listener { }
+        val listener = ContentPlayer.Listener { }
         player.addListener(listener) // no-ops by default
         player.removeListener(listener)
         listener.onSeek()

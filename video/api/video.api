@@ -7,6 +7,21 @@ public final class so/kontext/video/AdFormat : java/lang/Enum {
 	public static fun values ()[Lso/kontext/video/AdFormat;
 }
 
+public abstract interface class so/kontext/video/ContentPlayer {
+	public fun addListener (Lso/kontext/video/ContentPlayer$Listener;)V
+	public fun getCurrentItem ()Ljava/lang/Object;
+	public abstract fun getCurrentPositionMillis ()J
+	public fun getPlaybackSpeed ()Ljava/lang/Float;
+	public abstract fun isPlaying ()Z
+	public fun removeListener (Lso/kontext/video/ContentPlayer$Listener;)V
+}
+
+public abstract interface class so/kontext/video/ContentPlayer$Listener {
+	public fun onContentChanged ()V
+	public abstract fun onIsPlayingChanged (Z)V
+	public fun onSeek ()V
+}
+
 public final class so/kontext/video/KontextVideo {
 	public static final field INSTANCE Lso/kontext/video/KontextVideo;
 	public static final field VERSION Ljava/lang/String;
@@ -292,7 +307,7 @@ public final class so/kontext/video/VideoAd {
 	public final fun isLoaded ()Z
 	public final fun isReady ()Z
 	public final fun load (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public final fun load (Lso/kontext/video/VideoAdsCallback;)V
+	public final fun load (Lso/kontext/video/VideoAdCallback;)V
 	public final fun reject ()V
 	public final fun reject (Lso/kontext/video/VideoAd$RejectReason;)V
 	public static synthetic fun reject$default (Lso/kontext/video/VideoAd;Lso/kontext/video/VideoAd$RejectReason;ILjava/lang/Object;)V
@@ -414,6 +429,11 @@ public final class so/kontext/video/VideoAd$RejectReason$Outbid : so/kontext/vid
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class so/kontext/video/VideoAdCallback {
+	public abstract fun onAd (Lso/kontext/video/VideoAd;)V
+	public abstract fun onError (Lso/kontext/video/VideoAdException;)V
+}
+
 public abstract class so/kontext/video/VideoAdException : java/lang/Exception {
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -424,6 +444,10 @@ public final class so/kontext/video/VideoAdException$AlreadyShown : so/kontext/v
 }
 
 public final class so/kontext/video/VideoAdException$AnotherAdShowing : so/kontext/video/VideoAdException {
+	public fun <init> ()V
+}
+
+public final class so/kontext/video/VideoAdException$CannotShowNow : so/kontext/video/VideoAdException {
 	public fun <init> ()V
 }
 
@@ -517,10 +541,6 @@ public final class so/kontext/video/VideoAdException$NotLoaded : so/kontext/vide
 	public fun <init> ()V
 }
 
-public final class so/kontext/video/VideoAdException$PresenterUnavailable : so/kontext/video/VideoAdException {
-	public fun <init> ()V
-}
-
 public final class so/kontext/video/VideoAdException$Request : so/kontext/video/VideoAdException {
 	public fun <init> (Lso/kontext/video/VideoAdException$RequestFailure;)V
 	public final fun getFailure ()Lso/kontext/video/VideoAdException$RequestFailure;
@@ -550,7 +570,7 @@ public final class so/kontext/video/VideoAdException$RequestFailure$TimedOut : s
 	public static final field INSTANCE Lso/kontext/video/VideoAdException$RequestFailure$TimedOut;
 }
 
-public final class so/kontext/video/VideoAdException$WrongPresentation : so/kontext/video/VideoAdException {
+public final class so/kontext/video/VideoAdException$WrongShowMethod : so/kontext/video/VideoAdException {
 	public fun <init> ()V
 }
 
@@ -567,31 +587,11 @@ public final class so/kontext/video/VideoAds {
 	public synthetic fun <init> (Lso/kontext/video/KontextVideo$Content;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun destroy ()V
 	public final fun format (Lso/kontext/video/AdFormat;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public final fun format (Lso/kontext/video/AdFormat;Lso/kontext/video/VideoAdsCallback;)V
+	public final fun format (Lso/kontext/video/AdFormat;Lso/kontext/video/VideoAdCallback;)V
 	public final fun getContent ()Lso/kontext/video/KontextVideo$Content;
 	public final fun getLastRequestId ()Ljava/lang/String;
 	public final fun isDestroyed ()Z
 	public fun toString ()Ljava/lang/String;
-	public final fun track (Lso/kontext/video/VideoAdsPlayer;)V
-}
-
-public abstract interface class so/kontext/video/VideoAdsCallback {
-	public abstract fun onError (Lso/kontext/video/VideoAdException;)V
-	public abstract fun onSuccess (Ljava/lang/Object;)V
-}
-
-public abstract interface class so/kontext/video/VideoAdsPlayer {
-	public fun addListener (Lso/kontext/video/VideoAdsPlayer$Listener;)V
-	public fun getCurrentItem ()Ljava/lang/Object;
-	public abstract fun getCurrentPositionMillis ()J
-	public fun getPlaybackSpeed ()Ljava/lang/Float;
-	public abstract fun isPlaying ()Z
-	public fun removeListener (Lso/kontext/video/VideoAdsPlayer$Listener;)V
-}
-
-public abstract interface class so/kontext/video/VideoAdsPlayer$Listener {
-	public fun onContentChanged ()V
-	public abstract fun onIsPlayingChanged (Z)V
-	public fun onSeek ()V
+	public final fun track (Lso/kontext/video/ContentPlayer;)V
 }
 

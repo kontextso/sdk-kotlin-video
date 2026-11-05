@@ -328,12 +328,12 @@ class VideoAdLifecycleTest : SdkTest() {
 
     // region What show refuses
 
-    @Test fun theWrongPresentationStopsADebugBuildAndThrowsInRelease() {
+    @Test fun theWrongShowMethodStopsADebugBuildAndThrowsInRelease() {
         val asserted = mutableListOf<String>()
         Environment.assertionFailure = { asserted += it }
         val linear = linear()
-        assertThrows<VideoAdException.WrongPresentation> { linear.show(container()) }
-        assertThrows<VideoAdException.WrongPresentation> { overlay().show(activity()) }
+        assertThrows<VideoAdException.WrongShowMethod> { linear.show(container()) }
+        assertThrows<VideoAdException.WrongShowMethod> { overlay().show(activity()) }
         assertEquals("each a programmer error at the call", 2, asserted.size)
     }
 
@@ -385,9 +385,9 @@ class VideoAdLifecycleTest : SdkTest() {
 
     @Test fun showRefusesAContainerNotOnScreen() {
         val detached = FrameLayout(ApplicationProvider.getApplicationContext())
-        assertThrows<VideoAdException.PresenterUnavailable> { overlay().show(detached) }
+        assertThrows<VideoAdException.CannotShowNow> { overlay().show(detached) }
         val hidden = container().apply { visibility = android.view.View.INVISIBLE }
-        assertThrows<VideoAdException.PresenterUnavailable> { overlay().show(hidden) }
+        assertThrows<VideoAdException.CannotShowNow> { overlay().show(hidden) }
     }
 
     @Test fun showRefusesAContainerTooSmallAndSaysTheMinimum() {
@@ -406,7 +406,7 @@ class VideoAdLifecycleTest : SdkTest() {
 
     @Test fun showRefusesAnOverlayOverPausedContent() {
         val owner = owner()
-        owner.track(object : VideoAdsPlayer {
+        owner.track(object : ContentPlayer {
             override val currentPositionMillis = 0L
             override val isPlaying = false
         })
@@ -483,8 +483,8 @@ class VideoAdLifecycleTest : SdkTest() {
         assertEquals(listOf("error"), events)
         // The callback form hears it too, rather than the app's process hearing an uncaught exception.
         var heard: VideoAdException? = null
-        ad.load(object : VideoAdsCallback<VideoAd> {
-            override fun onSuccess(result: VideoAd) = fail("no WebView")
+        ad.load(object : VideoAdCallback {
+            override fun onAd(ad: VideoAd) = fail("no WebView")
 
             override fun onError(error: VideoAdException) {
                 heard = error
@@ -497,9 +497,9 @@ class VideoAdLifecycleTest : SdkTest() {
     @Test fun loadWithACallbackDeliversTheAdOrTheError() {
         val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
         var loadedAd: VideoAd? = null
-        ad.load(object : VideoAdsCallback<VideoAd> {
-            override fun onSuccess(result: VideoAd) {
-                loadedAd = result
+        ad.load(object : VideoAdCallback {
+            override fun onAd(ad: VideoAd) {
+                loadedAd = ad
             }
 
             override fun onError(error: VideoAdException) = fail(error.message)
@@ -510,8 +510,8 @@ class VideoAdLifecycleTest : SdkTest() {
         assertSame(ad, loadedAd)
         ad.reject()
         var error: VideoAdException? = null
-        ad.load(object : VideoAdsCallback<VideoAd> {
-            override fun onSuccess(result: VideoAd) = fail("rejected")
+        ad.load(object : VideoAdCallback {
+            override fun onAd(ad: VideoAd) = fail("rejected")
 
             override fun onError(error: VideoAdException) {
                 error.also { e -> this@VideoAdLifecycleTest.lastError = e }
@@ -663,7 +663,7 @@ class VideoAdLifecycleTest : SdkTest() {
 
     @Test fun aLinearShowFromAFinishingActivityIsRefused() {
         val host = activity().apply { finish() }
-        assertThrows<VideoAdException.PresenterUnavailable> { linear().show(host) }
+        assertThrows<VideoAdException.CannotShowNow> { linear().show(host) }
     }
 
     @Test fun backDoesNothingOnTheLinearScreen() {

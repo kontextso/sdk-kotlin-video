@@ -84,15 +84,15 @@ class GapsTest : SdkTest() {
         assertEquals("a timed answer is still an ad", "ad-1", window.id)
     }
 
-    private class Player(var playing: Boolean = true, var position: Long = 0) : VideoAdsPlayer {
+    private class Player(var playing: Boolean = true, var position: Long = 0) : ContentPlayer {
         override val currentPositionMillis get() = position
         override val isPlaying get() = playing
-        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        val listeners = mutableListOf<ContentPlayer.Listener>()
+        override fun addListener(listener: ContentPlayer.Listener) {
             listeners += listener
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             listeners -= listener
         }
     }
@@ -234,7 +234,7 @@ class GapsTest : SdkTest() {
             ad.show(refusing)
             org.junit.Assert.fail("shown")
         } catch (error: VideoAdException) {
-            assertTrue("$error", error is VideoAdException.PresenterUnavailable)
+            assertTrue("$error", error is VideoAdException.CannotShowNow)
         }
         assertNull("the slot is free", Sdk.adOnScreen)
         assertTrue("the ad stays ready", ad.isReady && !ad.wasShown)

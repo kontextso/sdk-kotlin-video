@@ -7,7 +7,7 @@ import androidx.annotation.MainThread
  * Give it to `VideoAds.track(player)`. The SDK reads it on the main thread and holds it until
  * `VideoAds.destroy()` or the next `track`; an adapter should hold your player weakly.
  */
-public interface VideoAdsPlayer {
+public interface ContentPlayer {
     /** Where the content is, in milliseconds of the episode. */
     @get:MainThread
     public val currentPositionMillis: Long

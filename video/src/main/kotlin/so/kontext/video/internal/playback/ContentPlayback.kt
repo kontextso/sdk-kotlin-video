@@ -2,7 +2,7 @@ package so.kontext.video.internal.playback
 
 import android.os.Handler
 import android.os.Looper
-import so.kontext.video.VideoAdsPlayer
+import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.support.Logger
 import java.lang.ref.WeakReference
@@ -10,7 +10,7 @@ import java.lang.ref.WeakReference
 /**
  * The content player of one `VideoAds`: its playhead for requests and beacons, and its playing state for an
  * overlay, which lives only while the content plays, and a pause ad, which lives only while it is paused. Fed
- * by a [VideoAdsPlayer]: its listener, or a read every [tickIntervalMillis] while an overlay or pause ad is on
+ * by a [ContentPlayer]: its listener, or a read every [tickIntervalMillis] while an overlay or pause ad is on
  * screen. [stop] drops the listener, the ticks and the player.
  * Every callback carries the binding it came from: one from a player tracked before is dropped. A player
  * belongs to one playback at a time: tracked by another, it is let go of here ([playsAnotherEpisode]).
@@ -42,7 +42,7 @@ internal class ContentPlayback {
     private var hasTracked = false
         private set
 
-    private var player: VideoAdsPlayer? = null
+    private var player: ContentPlayer? = null
 
     /**
      * The player's item at `track`, or the first it reported after: this episode. Held, not weak: a player may
@@ -69,7 +69,7 @@ internal class ContentPlayback {
             if (!hasEpisodeItem) return false
             return runCatching { player.currentItem != episodeItem }.getOrDefault(false)
         }
-    private var listener: VideoAdsPlayer.Listener? = null
+    private var listener: ContentPlayer.Listener? = null
     private var generation = 0
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
@@ -107,7 +107,7 @@ internal class ContentPlayback {
      * Replaces whatever was tracked. An overlay on screen followed the old player: once bound, it hears
      * `ContentChanged`. One shown with no player tracked followed nothing, and goes on.
      */
-    fun track(player: VideoAdsPlayer) {
+    fun track(player: ContentPlayer) {
         val expected = generation + 1
         // Read before `stop()`, and set before it: a `track` nested in the old listener's removal is a change of
         // player too.
@@ -123,7 +123,7 @@ internal class ContentPlayback {
         isTicking = inlineAdWasShown
         this.player = player
         val generation = generation
-        val listener = object : VideoAdsPlayer.Listener {
+        val listener = object : ContentPlayer.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) = deliver(Change.Playback(isPlaying), generation)
             override fun onSeek() = deliver(Change.Jumped, generation)
             override fun onContentChanged() = deliver(Change.ContentChanged, generation)
@@ -160,7 +160,7 @@ internal class ContentPlayback {
     }
 
     /** Which playback tracks which player: a player belongs to one `VideoAds` at a time. */
-    private class Owner(playback: ContentPlayback, player: VideoAdsPlayer) {
+    private class Owner(playback: ContentPlayback, player: ContentPlayer) {
         val playback = WeakReference(playback)
         val player = WeakReference(player)
     }
@@ -169,7 +169,7 @@ internal class ContentPlayback {
      * The player is this playback's now: another one that tracks it lets go, as if it had never tracked one,
      * except that its overlay and pause ads can no longer be shown ([playsAnotherEpisode]).
      */
-    private fun claim(player: VideoAdsPlayer) {
+    private fun claim(player: ContentPlayer) {
         owners.removeAll { it.playback.get().let { playback -> playback == null || playback === this } || it.player.get() == null }
         val others = owners.filter { it.player.get() === player }.mapNotNull { it.playback.get() }
         owners.removeAll { it.player.get() === player }

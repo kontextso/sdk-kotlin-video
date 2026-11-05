@@ -69,7 +69,7 @@ public class VideoAdSlot(private val container: ViewGroup) {
     private fun show(ad: VideoAd) {
         try {
             if (ad.format == AdFormat.LINEAR) {
-                val activity = container.context.activity() ?: throw VideoAdException.PresenterUnavailable()
+                val activity = container.context.activity() ?: throw VideoAdException.CannotShowNow()
                 ad.show(activity)
             } else {
                 ad.show(container, insets)

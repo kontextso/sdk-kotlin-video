@@ -131,11 +131,11 @@ class AdStateTest {
     }
 
     @Test fun theFailureIsReadBackAndTheFirstStays() {
-        val error = VideoAdException.PresenterUnavailable()
+        val error = VideoAdException.CannotShowNow()
         val state = at(Phase.OnScreen)
         assertNull(state.failure)
         state.markFailed(error)
-        state.markFailed(VideoAdException.PresenterUnavailable())
+        state.markFailed(VideoAdException.CannotShowNow())
         assertSame(error, state.failure, "the first failure stays")
         assertEquals(Phase.OnScreen, state.phase, "a milestone does not move the phase")
         assertTrue(state.moveTo(Phase.Ending(EndReason.FAILED)))

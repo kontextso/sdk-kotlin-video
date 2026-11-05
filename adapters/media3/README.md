@@ -2,7 +2,7 @@
 
 Optional add-on for apps that play content with Media3 (ExoPlayer). It adds one call, `ads.track(player)`, so the
 SDK can follow the content player (playhead, play and pause, the current item) without the app writing its own
-`VideoAdsPlayer`. Apps on TTSDK use `adapters/ttsdk`; apps with another player implement `VideoAdsPlayer` themselves (see `adapters/README.md`).
+`ContentPlayer`. Apps on TTSDK use `adapters/ttsdk`; apps with another player implement `ContentPlayer` themselves (see `adapters/README.md`).
 
 ```kotlin
 implementation("so.kontext:video:0.1.0")

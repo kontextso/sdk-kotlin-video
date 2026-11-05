@@ -116,7 +116,7 @@ class InFrontTest : SdkTest() {
             ad.show(from)
             org.junit.Assert.fail("shown")
         } catch (error: VideoAdException) {
-            assertTrue("$error", error is VideoAdException.PresenterUnavailable)
+            assertTrue("$error", error is VideoAdException.CannotShowNow)
         }
         assertTrue("the ad stays ready", ad.isReady)
         assertFalse("nothing spent", ad.wasShown)

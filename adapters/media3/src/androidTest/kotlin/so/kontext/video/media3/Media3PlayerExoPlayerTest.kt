@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import so.kontext.video.VideoAdsPlayer
+import so.kontext.video.ContentPlayer
 import java.util.Collections
 
 /** The adapter over a real ExoPlayer playing a short local clip: what the SDK reads while content plays and pauses. */
@@ -53,7 +53,7 @@ class Media3PlayerExoPlayerTest {
             player.setMediaItem(MediaItem.fromUri("asset:///clip-6s.mp4"))
             player.prepare()
             adapter = Media3Player(player)
-            adapter.addListener(VideoAdsPlayer.Listener { playing -> heard += playing })
+            adapter.addListener(ContentPlayer.Listener { playing -> heard += playing })
         }
     }
 

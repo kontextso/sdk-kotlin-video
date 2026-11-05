@@ -84,7 +84,7 @@ class HardeningTest : SdkTest() {
                 ad.show(refusing)
                 org.junit.Assert.fail("$what: shown")
             } catch (error: VideoAdException) {
-                assertTrue("$what: $error", error is VideoAdException.PresenterUnavailable)
+                assertTrue("$what: $error", error is VideoAdException.CannotShowNow)
             }
             assertTrue("$what: the ad stays ready", ad.isReady && !ad.wasShown)
             assertNull("$what: the slot is free", Sdk.adOnScreen)
@@ -130,7 +130,7 @@ class HardeningTest : SdkTest() {
             idle()
             assertEquals(failure.javaClass.simpleName, listOf("failed", "ended"), recorder.heard)
             assertEquals(listOf(VideoAd.EndReason.FAILED), recorder.reasons)
-            assertTrue(recorder.errors.single() is VideoAdException.PresenterUnavailable)
+            assertTrue(recorder.errors.single() is VideoAdException.CannotShowNow)
             assertTrue("no impression", "impression" !in events)
             assertNull("the slot is free", Sdk.adOnScreen)
             idle(VideoAd.showTimeoutMillis + 1_000)

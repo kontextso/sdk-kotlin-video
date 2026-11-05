@@ -149,7 +149,7 @@ public class VideoAds @JvmOverloads constructor(
 
     /** [format] for callers without coroutines: [callback] gets the ad, or the exception, on the main thread. */
     @MainThread
-    public fun format(format: AdFormat, callback: VideoAdsCallback<VideoAd>) {
+    public fun format(format: AdFormat, callback: VideoAdCallback) {
         Environment.scope.launch {
             val ad = try {
                 format(format)
@@ -157,7 +157,7 @@ public class VideoAds @JvmOverloads constructor(
                 callback.onError(error)
                 return@launch
             }
-            callback.onSuccess(ad)
+            callback.onAd(ad)
         }
     }
 
@@ -179,12 +179,12 @@ public class VideoAds @JvmOverloads constructor(
      * a player (an overlay of it on screen ends `INTERRUPTED`), and from then on its overlay and pause ads throw
      * `Invalidated(ContentChanged)` at `show`, until this one tracks a player again. So do they once the player
      * reports another item than the one at `track` (or, with none then, the first it reported): another episode,
-     * or a loop's next play. A Media3 player reports its current media item; a [VideoAdsPlayer] its
+     * or a loop's next play. A Media3 player reports its current media item; a [ContentPlayer] its
      * `currentItem`, when it implements it. Linear ads are not checked: they cover the content. Without a tracked
      * player nothing can be checked.
      */
     @MainThread
-    public fun track(player: VideoAdsPlayer) {
+    public fun track(player: ContentPlayer) {
         Sdk.checkMainThread("VideoAds.track()")
         if (isDestroyed) return
         playback.track(player)

@@ -215,16 +215,16 @@ class ParityAdsTest {
         return view
     }
 
-    private class Player(var position: Long = 0) : VideoAdsPlayer {
-        var listener: VideoAdsPlayer.Listener? = null
+    private class Player(var position: Long = 0) : ContentPlayer {
+        var listener: ContentPlayer.Listener? = null
         override val currentPositionMillis get() = position
         override val isPlaying = true
 
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        override fun addListener(listener: ContentPlayer.Listener) {
             this.listener = listener
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             if (this.listener === listener) this.listener = null
         }
     }
@@ -776,7 +776,7 @@ class ParityAdsTest {
         assertEquals("never negative", 0, ads.playheadMillis)
         player.position = Long.MAX_VALUE
         assertEquals("a huge value is clamped", Tracker.MAX_PLAYHEAD_MILLIS, ads.playheadMillis)
-        ads.track(object : VideoAdsPlayer {
+        ads.track(object : ContentPlayer {
             override val currentPositionMillis: Long get() = error("released")
             override val isPlaying = false
         })

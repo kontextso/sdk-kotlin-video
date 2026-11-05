@@ -99,8 +99,8 @@ class FrameProtocolTest {
             ad.listener = object : VideoAdListener {
                 override fun onAdImpression(ad: VideoAd) = impression.countDown()
             }
-            ad.load(object : VideoAdsCallback<VideoAd> {
-                override fun onSuccess(result: VideoAd) = loaded.countDown()
+            ad.load(object : VideoAdCallback {
+                override fun onAd(ad: VideoAd) = loaded.countDown()
 
                 override fun onError(error: VideoAdException) {
                     loadError = error

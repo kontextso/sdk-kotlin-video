@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import so.kontext.video.VideoAdsPlayer
+import so.kontext.video.ContentPlayer
 
 /** The adapter's rules, over an engine the test drives (TTSDK's own needs its native media stack). */
 class TTVideoEnginePlayerTest {
@@ -33,7 +33,7 @@ class TTVideoEnginePlayerTest {
     private val engine = FakeEngine()
     private val player = EnginePlayer(engine)
     private val heard = mutableListOf<String>()
-    private val listener = object : VideoAdsPlayer.Listener {
+    private val listener = object : ContentPlayer.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             heard += "playing=$isPlaying"
         }
@@ -67,7 +67,7 @@ class TTVideoEnginePlayerTest {
     }
 
     @Test fun itListensOnceForAllListenersAndStopsWithTheLast() {
-        val other = object : VideoAdsPlayer.Listener {
+        val other = object : ContentPlayer.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) = Unit
         }
         player.addListener(listener)

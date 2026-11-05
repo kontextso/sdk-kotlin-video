@@ -109,7 +109,7 @@ class ParityLifecycleTest : SdkTest() {
     private fun query(beacon: String, name: String) = Regex("[?&]$name=([^&]*)").find(beacon)?.groupValues?.get(1)
 
     /** A player whose position read is the app's code, counted. */
-    private class Player(var playing: Boolean = true) : VideoAdsPlayer {
+    private class Player(var playing: Boolean = true) : ContentPlayer {
         var reads = 0
         var onRead: (() -> Unit)? = null
         var position: () -> Long = { 0 }
@@ -265,11 +265,11 @@ class ParityLifecycleTest : SdkTest() {
         val root = container()
         // The next page of a pager: attached, laid out, shown, three widths to the right.
         val neighbour = pagerPage(root, 320f * 3)
-        assertThrows<VideoAdException.PresenterUnavailable> { fullscreen.show(neighbour) }
-        assertThrows<VideoAdException.PresenterUnavailable> { strip.show(neighbour) } // not ContainerTooSmall: the size is fine
+        assertThrows<VideoAdException.CannotShowNow> { fullscreen.show(neighbour) }
+        assertThrows<VideoAdException.CannotShowNow> { strip.show(neighbour) } // not ContainerTooSmall: the size is fine
         // Scrolled out below the window.
         val below = pagerPage(container(), 0f).apply { translationY = 2_000f }
-        assertThrows<VideoAdException.PresenterUnavailable> { strip.show(below) }
+        assertThrows<VideoAdException.CannotShowNow> { strip.show(below) }
         assertTrue(fullscreen.isReady && strip.isReady && !fullscreen.wasShown && !strip.wasShown)
         assertNull(Sdk.adOnScreen)
         assertTrue("nothing heard, nothing fired", recorder.heard.isEmpty() && events.isEmpty())
@@ -291,9 +291,9 @@ class ParityLifecycleTest : SdkTest() {
         // A window that still says visible: the Activity's own state decides.
         ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(view, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
         val ad = pause()
-        assertThrows<VideoAdException.PresenterUnavailable> { ad.show(view) }
+        assertThrows<VideoAdException.CannotShowNow> { ad.show(view) }
         Environment.isAppInForeground = { false }
-        assertThrows<VideoAdException.PresenterUnavailable> { ad.show(container()) }
+        assertThrows<VideoAdException.CannotShowNow> { ad.show(container()) }
         assertTrue(ad.isReady && !ad.wasShown)
         Environment.isAppInForeground = { true }
         ad.show(container())
@@ -309,14 +309,14 @@ class ParityLifecycleTest : SdkTest() {
         transparent.addView(child)
         child.layout(0, 0, 320, 400)
         transparent.alpha = 0f
-        assertThrows<VideoAdException.PresenterUnavailable> { ad.show(child) }
+        assertThrows<VideoAdException.CannotShowNow> { ad.show(child) }
         val hiddenWindow = container()
         ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(hiddenWindow, "mAttachInfo"), "mWindowVisibility", View.GONE)
-        assertThrows<VideoAdException.PresenterUnavailable> { ad.show(hiddenWindow) }
+        assertThrows<VideoAdException.CannotShowNow> { ad.show(hiddenWindow) }
         assertTrue(ad.isReady && !ad.wasShown)
         val fullscreen = pause(position = "fullscreen")
         val empty = container(0, 0)
-        assertThrows<VideoAdException.PresenterUnavailable> { fullscreen.show(empty) }
+        assertThrows<VideoAdException.CannotShowNow> { fullscreen.show(empty) }
         assertTrue(fullscreen.isReady)
         assertTrue("no impression", recorder.heard.isEmpty())
     }
@@ -1042,7 +1042,7 @@ class ParityLifecycleTest : SdkTest() {
         page(ad, "video.start", """"playhead": 0""") // a page that started anyway: dropped, it was never shown
         idle(700)
         assertEquals("no impression for an ad nobody saw", listOf("failed", "ended"), recorder.heard)
-        assertTrue(recorder.errors.single() is VideoAdException.PresenterUnavailable)
+        assertTrue(recorder.errors.single() is VideoAdException.CannotShowNow)
         assertTrue("nothing billable", events.isEmpty())
         assertNull("the screen is free again", Sdk.adOnScreen)
     }

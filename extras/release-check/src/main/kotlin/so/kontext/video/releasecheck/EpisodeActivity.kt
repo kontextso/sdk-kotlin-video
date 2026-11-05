@@ -14,7 +14,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdListener
 import so.kontext.video.VideoAds
-import so.kontext.video.VideoAdsCallback
+import so.kontext.video.VideoAdCallback
 import so.kontext.video.media3.track
 
 /**
@@ -41,16 +41,16 @@ class EpisodeActivity : Activity(), VideoAdListener {
 
         ads = VideoAds(Content("release-check-episode-1", "en") { title = "Episode 1" })
         ads.track(player)
-        ads.format(AdFormat.OVERLAY, object : VideoAdsCallback<VideoAd> {
-            override fun onSuccess(result: VideoAd) {
-                Log.i(TAG, "format: ${result.format} at ${result.price.value} ${result.price.currency}")
-                result.listener = this@EpisodeActivity
-                result.load(object : VideoAdsCallback<VideoAd> {
-                    override fun onSuccess(result: VideoAd) {
+        ads.format(AdFormat.OVERLAY, object : VideoAdCallback {
+            override fun onAd(ad: VideoAd) {
+                Log.i(TAG, "format: ${ad.format} at ${ad.price.value} ${ad.price.currency}")
+                ad.listener = this@EpisodeActivity
+                ad.load(object : VideoAdCallback {
+                    override fun onAd(ad: VideoAd) {
                         Log.i(TAG, "load: ready")
                         // show throws for routine outcomes (expired, another ad showing): never uncaught.
                         try {
-                            result.show(adArea)
+                            ad.show(adArea)
                         } catch (error: VideoAdException) {
                             Log.w(TAG, "show: $error")
                         }

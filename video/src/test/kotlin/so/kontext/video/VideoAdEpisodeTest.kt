@@ -27,17 +27,17 @@ import androidx.media3.common.Player as Media3Player
 @RunWith(RobolectricTestRunner::class)
 class VideoAdEpisodeTest : SdkTest() {
     /** A custom player, with an item report when [item] is set. */
-    private class Player(var item: Any? = null, var reportsItem: Boolean = false) : VideoAdsPlayer {
+    private class Player(var item: Any? = null, var reportsItem: Boolean = false) : ContentPlayer {
         override val currentPositionMillis: Long = 0
         override val isPlaying: Boolean = true
         override val currentItem: Any? get() = if (reportsItem) item else null
-        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
+        val listeners = mutableListOf<ContentPlayer.Listener>()
 
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        override fun addListener(listener: ContentPlayer.Listener) {
             listeners += listener
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             listeners -= listener
         }
     }

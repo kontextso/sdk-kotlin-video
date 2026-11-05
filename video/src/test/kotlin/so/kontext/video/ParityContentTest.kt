@@ -48,7 +48,7 @@ class ParityContentTest : SdkTest() {
     }
 
     /** A custom player whose reads and listener calls may run the app's code. */
-    private class Player(var playing: Boolean = true, var position: Long = 0) : VideoAdsPlayer {
+    private class Player(var playing: Boolean = true, var position: Long = 0) : ContentPlayer {
         override val currentPositionMillis: Long get() = position
         override val isPlaying: Boolean
             get() {
@@ -56,10 +56,10 @@ class ParityContentTest : SdkTest() {
                 return playing
             }
         override var playbackSpeed: Float? = null
-        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
+        val listeners = mutableListOf<ContentPlayer.Listener>()
 
         /** Every listener ever given, removed or not. */
-        val given = mutableListOf<VideoAdsPlayer.Listener>()
+        val given = mutableListOf<ContentPlayer.Listener>()
         var onPlayingRead: (() -> Unit)? = null
 
         /** Runs inside `addListener`, before the listener is kept. */
@@ -69,21 +69,21 @@ class ParityContentTest : SdkTest() {
         var afterAdding: (() -> Unit)? = null
         var onRemove: (() -> Unit)? = null
 
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        override fun addListener(listener: ContentPlayer.Listener) {
             beforeAdding?.invoke()
             listeners += listener
             given += listener
             afterAdding?.invoke()
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             listeners -= listener
             onRemove?.invoke()
         }
     }
 
     /** An adapter that holds its player weakly, as the SDK asks: once the player is gone, nothing plays. */
-    private class WeakPlayer(target: Any) : VideoAdsPlayer {
+    private class WeakPlayer(target: Any) : ContentPlayer {
         val target = WeakReference(target)
         override val currentPositionMillis = 0L
         override val isPlaying: Boolean get() = target.get() != null
@@ -602,7 +602,7 @@ class ParityContentTest : SdkTest() {
     }
 
     @Test fun aPauseAdOverAPlayerWithoutAListenerEndsOnTheTickThatSeesItPlay() {
-        val player = object : VideoAdsPlayer {
+        val player = object : ContentPlayer {
             var playing = false
             override val currentPositionMillis = 0L
             override val isPlaying: Boolean get() = playing
@@ -689,7 +689,7 @@ class ParityContentTest : SdkTest() {
     }
 
     @Test fun anOverlayShownAsAPolledPlayerPlaysAgainEndsThePauseAdAndShows() {
-        val player = object : VideoAdsPlayer {
+        val player = object : ContentPlayer {
             var playing = false
             override val currentPositionMillis = 0L
             override val isPlaying: Boolean get() = playing
@@ -743,7 +743,7 @@ class ParityContentTest : SdkTest() {
         var now = 0L
         Environment.now = { now }
         var reads = 0
-        val player = object : VideoAdsPlayer {
+        val player = object : ContentPlayer {
             override val currentPositionMillis: Long get() = now
             override val isPlaying: Boolean get() = true.also { reads += 1 }
         }

@@ -26,17 +26,17 @@ import so.kontext.video.internal.playback.ContentPlayback
 @RunWith(RobolectricTestRunner::class)
 class ContentInBackgroundTest : SdkTest() {
     /** A player whose state the test sets and reports to the SDK's listener. */
-    private class Player : VideoAdsPlayer {
+    private class Player : ContentPlayer {
         var playing = true
         override val currentPositionMillis = 0L
         override val isPlaying: Boolean get() = playing
-        val listeners = mutableListOf<VideoAdsPlayer.Listener>()
+        val listeners = mutableListOf<ContentPlayer.Listener>()
 
-        override fun addListener(listener: VideoAdsPlayer.Listener) {
+        override fun addListener(listener: ContentPlayer.Listener) {
             listeners += listener
         }
 
-        override fun removeListener(listener: VideoAdsPlayer.Listener) {
+        override fun removeListener(listener: ContentPlayer.Listener) {
             listeners -= listener
         }
     }

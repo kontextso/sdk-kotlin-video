@@ -57,7 +57,7 @@ class InlineShowTest {
     private fun refused(ad: VideoAd, container: ViewGroup): Boolean = try {
         ad.show(container)
         false
-    } catch (_: VideoAdException.PresenterUnavailable) {
+    } catch (_: VideoAdException.CannotShowNow) {
         true
     }
 
