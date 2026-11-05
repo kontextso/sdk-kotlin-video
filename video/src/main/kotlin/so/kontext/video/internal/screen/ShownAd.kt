@@ -14,7 +14,7 @@ import java.lang.ref.WeakReference
  * `show` commits, released when `onAdEnded` is delivered; the slot is taken and freed here and nowhere else,
  * and `Sdk.adOnScreen` and the owner's showing ad follow it.
  */
-internal class Presentation private constructor(
+internal class ShownAd private constructor(
     /** Retained from `show` to `onAdEnded`, whatever the app does with its own reference. */
     val ad: VideoAd,
     owner: VideoAds?,
@@ -44,23 +44,23 @@ internal class Presentation private constructor(
 
     /** `onAdEnded` is next: the slot is free and the owner stops following the ad. */
     fun release() {
-        if (Sdk.presentation === this) Sdk.presentation = null
+        if (Sdk.shownAd === this) Sdk.shownAd = null
         owner.get()?.adDidEnd(ad)
     }
 
     /** `show` could not put the ad on screen after it committed: the slot is free, the owner holds the ad again. */
     fun cancel(wasHeld: Boolean) {
-        if (Sdk.presentation === this) Sdk.presentation = null
+        if (Sdk.shownAd === this) Sdk.shownAd = null
         owner.get()?.adDidNotShow(ad, wasHeld)
     }
 
     companion object {
         /** `show` committed: the ad takes the app's one slot and its owner hears it is showing, before any app code runs. */
-        fun begin(ad: VideoAd, owner: VideoAds?, screen: AdScreen): Presentation {
-            val presentation = Presentation(ad, owner, screen)
-            Sdk.presentation = presentation
+        fun begin(ad: VideoAd, owner: VideoAds?, screen: AdScreen): ShownAd {
+            val shownAd = ShownAd(ad, owner, screen)
+            Sdk.shownAd = shownAd
             owner?.adDidBeginShowing(ad)
-            return presentation
+            return shownAd
         }
     }
 }

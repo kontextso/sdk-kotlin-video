@@ -5,7 +5,7 @@ package so.kontext.video
  * implement the ones you need (from Java too).
  *
  * Nothing is delivered before `show`: an ad that can no longer be shown says so when `load()` or `show`
- * throws. `show` either throws, and nothing happened, or the presentation is accepted: an overlay or pause
+ * throws. `show` either throws, and nothing happened, or the show is accepted: an overlay or pause
  * ad is on screen when it returns; a linear ad has started its screen. After that: the impression (at most
  * once, maybe never) and any clicks; then exactly one [onAdEnded], whoever ended it (the viewer, the
  * creative, the system, or the app with `dismiss()` or `destroy()`). There is no "shown" callback: `show`
@@ -39,6 +39,6 @@ public interface VideoAdListener {
      */
     public fun onAdFailed(ad: VideoAd, error: VideoAdException) {}
 
-    /** Presentation is over. Exactly once per successful `show`. */
+    /** The ad's time on screen is over. Exactly once per successful `show`. */
     public fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {}
 }

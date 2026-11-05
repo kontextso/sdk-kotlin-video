@@ -133,7 +133,7 @@ class HardeningTest : SdkTest() {
             assertTrue(recorder.errors.single() is VideoAdException.PresenterUnavailable)
             assertTrue("no impression", "impression" !in events)
             assertNull("the slot is free", Sdk.adOnScreen)
-            idle(VideoAd.presentationTimeoutMillis + 1_000)
+            idle(VideoAd.showTimeoutMillis + 1_000)
             assertEquals("exactly one outcome", 1, recorder.reasons.size)
             ErrorReporter.resetForTesting()
         }

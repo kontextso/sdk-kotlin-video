@@ -16,7 +16,7 @@ import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
-import so.kontext.video.internal.screen.Presentation
+import so.kontext.video.internal.screen.ShownAd
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
@@ -29,7 +29,7 @@ import so.kontext.video.internal.support.Logger
  *
  * Why not in `KontextVideo` itself: a JVM quirk. Kotlin's `internal` means "visible only inside this module", but
  * the JVM has no such level: an `internal` member of a public class compiles as public, with a slightly mangled
- * name, so a Java app could see and call it. Were the SDK's state (`configuration`, `presentation`, `initJob`,
+ * name, so a Java app could see and call it. Were the SDK's state (`configuration`, `shownAd`, `initJob`,
  * `disable()`) internal members of the public `KontextVideo`, Java code could reach into it. An `internal object`
  * of its own keeps all of it out of reach. Swift needs no such split: its `internal` is truly invisible outside
  * the module, and the same state lives in `KontextVideo.swift`.
@@ -57,8 +57,8 @@ internal object Sdk {
      * The one ad on screen in the whole app, from any `VideoAds`: taken at `show`, released at the end; it
      * retains the ad until then, whatever the app does with its reference.
      */
-    var presentation: Presentation? = null
-    val adOnScreen: VideoAd? get() = presentation?.ad
+    var shownAd: ShownAd? = null
+    val adOnScreen: VideoAd? get() = shownAd?.ad
 
     private var initJob: Deferred<Unit>? = null
 
@@ -208,7 +208,7 @@ internal object Sdk {
         user = null
         regulatory = null
         variantId = null
-        presentation = null
+        shownAd = null
         DebugReporter.resetForTesting()
         ErrorReporter.resetForTesting()
         DeviceInfo.resetForTesting()

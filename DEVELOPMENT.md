@@ -21,6 +21,7 @@ sdk-kotlin-video/
 │                                             #   frame/: the ad's web page and its messages
 │                                             #   frame/FrameProtocol.kt: the frame protocol's rules, no WebView
 │                                             #   screen/: putting the ad on screen
+│                                             #   screen/ShownAd.kt: one ad on screen, from show to onAdEnded (the slot)
 │                                             #   measurement/: measuring and reporting
 │                                             #   format differences: playback/ContentRule.kt, screen/AdScreen.kt
 ├── video/src/test/                           # JUnit 5 and Robolectric tests

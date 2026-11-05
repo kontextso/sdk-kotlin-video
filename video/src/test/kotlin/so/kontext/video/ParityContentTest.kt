@@ -285,7 +285,7 @@ class ParityContentTest : SdkTest() {
             endedInThePause = ad.hasEnded
         }
         ad.show(container)
-        assertTrue("the pause ended the overlay, reserved but not yet presented", endedInThePause)
+        assertTrue("the pause ended the overlay, reserved but not yet on screen", endedInThePause)
         assertEquals(listOf("ended"), recorder.heard)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertTrue("no impression over paused content", events.isEmpty())

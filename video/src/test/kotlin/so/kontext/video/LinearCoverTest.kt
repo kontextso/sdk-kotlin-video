@@ -33,7 +33,7 @@ class LinearCoverTest : SdkTest() {
     }
 
     /** Shows a playing linear ad and brings its screen to the front; returns the screen and the exposures the page hears. */
-    private fun presented(): Triple<VideoAd, ActivityController<LinearAdActivity>, MutableList<Double>> {
+    private fun onScreen(): Triple<VideoAd, ActivityController<LinearAdActivity>, MutableList<Double>> {
         ViewabilityMeter.intervalMillis = 1_000_000 // the test ticks the meter itself
         Environment.now = { now }
         val ad = linear(tracking = tracking("viewable"))
@@ -68,7 +68,7 @@ class LinearCoverTest : SdkTest() {
     }
 
     @Test fun anotherActivityOverTheLinearAdReadsAsExposure0AndTheAdGoesOnOnceItGoes() {
-        val (ad, screen, exposures) = presented()
+        val (ad, screen, exposures) = onScreen()
         drawn(ad)
         ad.meter!!.tick()
         assertTrue("on screen: $exposures", (exposures.lastOrNull() ?: 0.0) > 50.0)
@@ -93,7 +93,7 @@ class LinearCoverTest : SdkTest() {
     }
 
     @Test fun aDialogOverTheLinearAdIsMeasuredAsUsual() {
-        val (ad, screen, exposures) = presented()
+        val (ad, screen, exposures) = onScreen()
         val dialog = AlertDialog.Builder(screen.get()).setMessage("a question").show()
         idle()
         assertTrue(dialog.isShowing)

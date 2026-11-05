@@ -538,7 +538,7 @@ class VideoAdLifecycleTest : SdkTest() {
     // region Linear
 
     /** Shows [ad] from a host Activity and brings its screen up to [resumed]. */
-    private fun present(ad: VideoAd, resumed: Boolean = true): org.robolectric.android.controller.ActivityController<LinearAdActivity> {
+    private fun openScreen(ad: VideoAd, resumed: Boolean = true): org.robolectric.android.controller.ActivityController<LinearAdActivity> {
         val host = activity()
         ad.show(host)
         val controller = Robolectric.buildActivity(LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).create().start()
@@ -574,7 +574,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear()
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         val first = screen.get()
         val changes = listOf<(android.content.res.Configuration) -> Unit>(
             { it.fontScale = 1.3f },
@@ -602,7 +602,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking("creativeView", "start", "firstQuartile", "midpoint", "thirdQuartile", "complete", "creativeView|endCard", "close", "impression"))
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         assertEquals(listOf("creativeView"), events)
         page(ad, "video.start", """"playhead": 0""")
         assertEquals(listOf("impression"), recorder.heard)
@@ -627,7 +627,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking("skip"))
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         page(ad, "ad.close")
         screen.pause().stop().destroy()
@@ -643,7 +643,7 @@ class VideoAdLifecycleTest : SdkTest() {
             {"event": "skip", "url": "https://t.test/b?e=skip"}]"""
         val ad = linear(tracking = progress)
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "video.progress", """"offset": 5000, "playhead": 5000""")
         page(ad, "video.skip", """"playhead": 12000""")
         screen.pause().stop().destroy()
@@ -655,7 +655,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear()
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         screen.pause().stop().destroy() // not the ad's doing
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertNull(Sdk.adOnScreen)
@@ -668,7 +668,7 @@ class VideoAdLifecycleTest : SdkTest() {
 
     @Test fun backDoesNothingOnTheLinearScreen() {
         val ad = linear()
-        val screen = present(ad)
+        val screen = openScreen(ad)
         screen.get().onBackPressedDispatcher.onBackPressed()
         assertFalse(ad.hasEnded)
         assertFalse(screen.get().isFinishing)

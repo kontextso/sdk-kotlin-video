@@ -81,7 +81,7 @@ class BoundaryTest {
     }
 
     @After fun teardown() {
-        VideoAd.presentationTimeoutMillis = 5_000
+        VideoAd.showTimeoutMillis = 5_000
         VideoAd.dismissalTimeoutMillis = 10_000
         owners.forEach { it.destroy() }
         Sdk.resetForTesting()
@@ -226,7 +226,7 @@ class BoundaryTest {
         assertSame(Environment.context, ad.contextWrapper.baseContext)
     }
 
-    @Test fun anEndedLinearAdDropsItsPresentation() {
+    @Test fun anEndedLinearAdDropsItsShownAd() {
         val owner = owner()
         val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner)
         ad.show(container().context as Activity)
@@ -389,7 +389,7 @@ class BoundaryTest {
     }
 
     @Test fun aLinearScreenThatNeverComesToTheFrontEndsTheAd() {
-        VideoAd.presentationTimeoutMillis = 1_000
+        VideoAd.showTimeoutMillis = 1_000
         VideoAd.dismissalTimeoutMillis = 300 // the failed screen is finished; Robolectric never destroys it
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner())
@@ -427,7 +427,7 @@ class BoundaryTest {
             }
         }
         ad.show(host)
-        // Created and resumed, so presented; it never stops or is destroyed after finish().
+        // Created and resumed, so on screen; it never stops or is destroyed after finish().
         val screen = Robolectric.buildActivity(so.kontext.video.internal.screen.LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).setup()
         ad.end(VideoAd.EndReason.CLOSED)
         assertTrue(screen.get().isFinishing)

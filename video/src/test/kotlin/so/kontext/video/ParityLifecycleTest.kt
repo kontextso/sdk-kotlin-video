@@ -101,7 +101,7 @@ class ParityLifecycleTest : SdkTest() {
     private fun opened(): Intent? = shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>()).nextStartedActivity
 
     /** Shows [ad] from [host] and brings its screen to the front, attached to its window. */
-    private fun present(ad: VideoAd, host: Activity = activity()): ActivityController<LinearAdActivity> {
+    private fun openScreen(ad: VideoAd, host: Activity = activity()): ActivityController<LinearAdActivity> {
         ad.show(host)
         return Robolectric.buildActivity(LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).create().start().resume().visible()
     }
@@ -657,7 +657,7 @@ class ParityLifecycleTest : SdkTest() {
             beacons.clear()
             val owner = owner()
             val linear = linear(owner, tracking = tracking("creativeView", "impression", "close", "error"))
-            val screen = present(linear)
+            val screen = openScreen(linear)
             end(owner, screen)
             assertTrue(linear.hasEnded)
             assertEquals(listOf("creativeView", "close"), events)
@@ -668,7 +668,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = linear(tracking = tracking("creativeView", "impression", "close", "error"))
         val recorder = Recorder()
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "ad.error", """"code": 405""")
         screen.pause().stop().destroy()
         assertEquals(listOf("failed", "ended"), recorder.heard)
@@ -701,7 +701,7 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking("complete", "close", "skip"))
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         page(ad, "video.complete", """"playhead": 30000""")
         page(ad, "ad.close", """"reason": "complete"""")
@@ -750,7 +750,7 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking("creativeView", "impression", "start"))
         ad.listener = recorder
-        present(ad)
+        openScreen(ad)
         assertTrue("no impression at show for a video", recorder.heard.isEmpty())
         assertEquals(listOf("creativeView"), events)
         page(ad, "video.start", """"playhead": 0""")
@@ -761,7 +761,7 @@ class ParityLifecycleTest : SdkTest() {
 
     @Test fun aQuartileFiresTheCheckpointsItsPlayheadPassed() {
         val ad = linear(tracking = """[{"event": "progress", "url": "https://t.test/b?e=p5", "offset": 5000}]""")
-        present(ad)
+        openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         page(ad, "video.midpoint", """"playhead": 7000""")
         assertEquals("decided from the playhead of any video message", listOf("p5"), events)
@@ -777,7 +777,7 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking)
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         page(ad, "video.firstQuartile", """"playhead": 2500""")
         page(ad, "video.pause", """"playhead": 3000""")
@@ -804,7 +804,7 @@ class ParityLifecycleTest : SdkTest() {
 
     @Test fun anEndCardClickFiresTheEndCardsEntryOnly() {
         val ad = linear(tracking = tracking("click", "click|endCard"))
-        present(ad)
+        openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         page(ad, "video.complete", """"playhead": 30000""")
         ad.loadedBridge!!.noteTouch()
@@ -896,7 +896,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = linear()
         ad.listener = recorder
         val host = activity()
-        val screen = present(ad, host)
+        val screen = openScreen(ad, host)
         assertEquals("a fade in", android.R.anim.fade_in, shadowOf(host).pendingTransitionEnterAnimationResourceId)
         val root = screen.get().findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as FrameLayout
         assertEquals(Color.BLACK, (root.background as ColorDrawable).color)
@@ -960,7 +960,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = linear()
         ad.listener = recorder
         val host = Robolectric.buildActivity(Activity::class.java).setup()
-        val screen = present(ad, host.get())
+        val screen = openScreen(ad, host.get())
         page(ad, "video.start", """"playhead": 0""")
         host.pause().stop()
         host.get().finish()
@@ -975,7 +975,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = linear()
         ad.listener = recorder
         val host = Robolectric.buildActivity(Activity::class.java).setup()
-        val screen = present(ad, host.get())
+        val screen = openScreen(ad, host.get())
         host.pause().stop()
         host.destroy() // a recreation, or the system reclaiming a screen behind: the app comes back to it
         assertFalse(ad.hasEnded)
@@ -988,7 +988,7 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear()
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         screen.pause().stop() // another Activity came over it
         idle(2_000)
@@ -1005,7 +1005,7 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear(tracking = tracking("close", "skip"))
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         screen.pause().stop()
         idle(1_000)
         assertTrue(recorder.reasons.isEmpty())
@@ -1019,7 +1019,7 @@ class ParityLifecycleTest : SdkTest() {
         val recorder = Recorder()
         val ad = linear()
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         val webView = ad.loadedBridge!!.webView
         (webView.parent as ViewGroup).removeView(webView)
         idle(1_000) // the meter's detachment checks
@@ -1033,7 +1033,7 @@ class ParityLifecycleTest : SdkTest() {
     }
 
     @Test fun aLinearScreenThatNeverStartsEndsTheAdAsFailedWithNothingBillable() {
-        VideoAd.presentationTimeoutMillis = 500
+        VideoAd.showTimeoutMillis = 500
         val recorder = Recorder()
         val ad = linear(tracking = tracking("creativeView", "impression", "start"))
         ad.listener = recorder
@@ -1052,7 +1052,7 @@ class ParityLifecycleTest : SdkTest() {
         val owner = owner()
         val ad = linear(owner, tracking = tracking("close", "skip", "overlayViewDuration"))
         ad.listener = recorder
-        val screen = present(ad)
+        val screen = openScreen(ad)
         page(ad, "video.start", """"playhead": 0""")
         owner.destroy()
         assertTrue("the SDK closes its screen", screen.get().isFinishing && screen.get().isEndingByAd)

@@ -21,7 +21,7 @@ import kotlin.random.Random
 
 /**
  * Sends the SDK's faults to `POST /v2/error`: something Kontext should fix (a server or contract problem, a
- * creative or frame page that broke, a presentation the system refused, an integration mistake). Never an
+ * creative or frame page that broke, a show the system refused, an integration mistake). Never an
  * outcome the app handles (no fill, destroyed, cancelled, disabled).
  *
  * Off until `/config` says `reportErrors: true`. Before it answers, reports wait in memory and leave once it

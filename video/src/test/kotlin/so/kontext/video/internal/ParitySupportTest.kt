@@ -724,7 +724,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun aLinearScreenThatNeverStartsIsReported() {
         ErrorReporter.configure(true)
-        VideoAd.presentationTimeoutMillis = 300
+        VideoAd.showTimeoutMillis = 300
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val ad = linear()
         ad.show(host) // the screen is asked for and never created
