@@ -7,8 +7,6 @@ import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 
 /**
  * What an overlay or pause ad puts into the player's container: a transparent layer over the whole
@@ -59,7 +57,7 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
     /** Called by Android at every layout pass (first show, rotation, resize, bars shown or hidden): places the ad. */
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         // 1. Ask VideoAd: for this size and the system bars, where does the ad go?
-        val frame = place?.invoke(right - left, bottom - top, systemInsets(this))
+        val frame = place?.invoke(right - left, bottom - top, systemInsets)
         // 2. It no longer fits: tell VideoAd, once (it ends the ad). Posted, not called inside the layout pass:
         //    ending removes the view being laid out.
         if (frame == null) {
@@ -70,16 +68,16 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
             return
         }
         // 3. It fits: give the WebView exactly that size, and put it there.
-        content.measure(MeasureSpec.makeMeasureSpec(frame.width(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(frame.height(), MeasureSpec.EXACTLY))
+        measureContent(frame)
         content.layout(frame.left, frame.top, frame.right, frame.bottom)
-        // 4. The ad now has a place with a size: FirstLayout waits for this before the impression counts.
+        // 4. The ad now has a place with a size: awaitLayout waits for this before the impression counts.
         if (!frame.isEmpty) hasPlacedContent = true
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
-        val frame = place?.invoke(measuredWidth, measuredHeight, systemInsets(this)) ?: return
-        content.measure(MeasureSpec.makeMeasureSpec(frame.width(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(frame.height(), MeasureSpec.EXACTLY))
+        val frame = place?.invoke(measuredWidth, measuredHeight, systemInsets) ?: return
+        measureContent(frame)
     }
 
     override fun onWindowVisibilityChanged(visibility: Int) {
@@ -87,44 +85,8 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
         onWindowVisibility?.invoke(visibility == View.VISIBLE)
     }
 
-    companion object {
-        /**
-         * How much of [view] the phone's own UI covers (status bar, navigation bar, camera notch), from each
-         * edge, in the view's pixels: the Android counterpart of iOS's safe area, which iOS gives for free.
-         *
-         * Android reports the bars for the whole window, but the player may be smaller and sit anywhere in it.
-         * So only the part of each bar that reaches into [view] counts, never less than 0:
-         *
-         * ```
-         * screen ┌───────────────────────────┐
-         *        │▓▓▓▓▓ status bar 24 ▓▓▓▓▓▓▓│ ← overlaps a full-screen player: top = 24
-         *        │                           │
-         *        │  ┌── player in middle ──┐ │ ← no bar reaches it: all 0
-         *        │  └──────────────────────┘ │
-         *        │▓▓▓▓▓▓ nav bar 48 ▓▓▓▓▓▓▓▓▓│
-         *        └───────────────────────────┘
-         * ```
-         *
-         * A full-screen player: the status bar overlaps its top, so the ad stays below it. A player in the middle
-         * of the screen: nothing overlaps, and the ad may use all of it. Not attached yet: all 0. Like CSS
-         * `env(safe-area-inset-*)`, but for one view. `place` adds the app's own insets to these.
-         */
-        fun systemInsets(view: View): Rect {
-            // 1. How far the bars and the notch reach in from the window's edges.
-            val insets = ViewCompat.getRootWindowInsets(view)
-                ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()) ?: return Rect()
-            // 2. Where this view sits in the window.
-            val root = view.rootView
-            val location = IntArray(2).also(view::getLocationInWindow)
-            val x = location[0]
-            val y = location[1]
-            // 3. How far each of them reaches into this view.
-            return Rect(
-                maxOf(0, insets.left - x),
-                maxOf(0, insets.top - y),
-                maxOf(0, x + view.width - (root.width - insets.right)),
-                maxOf(0, y + view.height - (root.height - insets.bottom)),
-            )
-        }
+    /** The WebView gets exactly the size of its [frame]. */
+    private fun measureContent(frame: Rect) {
+        content.measure(MeasureSpec.makeMeasureSpec(frame.width(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(frame.height(), MeasureSpec.EXACTLY))
     }
 }

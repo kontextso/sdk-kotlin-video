@@ -6,7 +6,7 @@ import android.os.Looper
 import android.view.View
 import androidx.annotation.VisibleForTesting
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.screen.FirstLayout
+import so.kontext.video.internal.screen.isLaidOutInWindow
 import java.lang.ref.WeakReference
 
 /**
@@ -182,7 +182,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     private fun report(percentage: Double, visible: Rect) {
         if (!isMeasured) {
             val view = view.get() ?: return
-            if (!FirstLayout.isLaidOutInWindow(view)) return
+            if (!view.isLaidOutInWindow) return
             isMeasured = true
         }
         val isSeenNow = percentage > 0

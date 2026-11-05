@@ -39,14 +39,15 @@ import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.platform.LinkOpener
 import so.kontext.video.internal.screen.AdScreen
-import so.kontext.video.internal.screen.FirstLayout
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.screen.ShownAd
 import so.kontext.video.internal.screen.activity
+import so.kontext.video.internal.screen.awaitLayout
 import so.kontext.video.internal.screen.chooseSize
 import so.kontext.video.internal.screen.combinedInsets
 import so.kontext.video.internal.screen.refit
+import so.kontext.video.internal.screen.systemInsets
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
 import java.lang.ref.WeakReference
@@ -357,7 +358,7 @@ public class VideoAd internal constructor(
         // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
         // area, inside its padding, less the bars that reach into it and the app's insets. In the container's
         // pixels, so the minimum is a container size.
-        val system = InlineAdView.systemInsets(container)
+        val system = container.systemInsets
         val contentArea = Rect(
             maxOf(container.paddingLeft, system.left),
             maxOf(container.paddingTop, system.top),
@@ -600,7 +601,7 @@ public class VideoAd internal constructor(
         if (hasEnded) return@withContentPlayhead
         tracker.fire("creativeView")
         tracker.fire("iconView")
-        if (payload.creative != AdPayload.Creative.VIDEO) recordImpressionAtFirstLayout()
+        if (payload.creative != AdPayload.Creative.VIDEO) recordImpressionAtLayout()
     }
 
     /**
@@ -608,18 +609,18 @@ public class VideoAd internal constructor(
      * gives the ad no room ends it (`INTERRUPTED`) with no impression. So does a page laid out wholly off screen
      * where it was placed: a feed scrolled so the player's middle shows, not its top card.
      */
-    private fun recordImpressionAtFirstLayout() {
+    private fun recordImpressionAtLayout() {
         // Inline, the host: it has an area only where the container gives the ad room, and places the page.
         val screen = shownAd?.screen
         val view = screen?.impressionTarget ?: loadedBridge?.webView ?: return
         val isInline = screen?.isInline == true
-        val wait = FirstLayout.await(view, isReady = { screen?.isPlaced ?: true }) {
+        val wait = view.awaitLayout(isReady = { screen?.isPlaced ?: true }) {
             screen?.impressionWait = null
             val page = loadedBridge?.webView
             if (isInline && page != null && page.width > 0 && page.height > 0 && ViewExposure.measure(page).share <= 0.0) {
                 Logger.warning { "ad ${id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
                 end(EndReason.INTERRUPTED)
-                return@await
+                return@awaitLayout
             }
             withContentPlayhead { recordImpression() }
         }
