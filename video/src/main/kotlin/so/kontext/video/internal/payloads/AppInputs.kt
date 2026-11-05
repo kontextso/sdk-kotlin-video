@@ -24,6 +24,19 @@ internal val Content.leftOut: List<String>
         series?.episodeCount?.takeIf { it < 1 }?.let { "series.episodeCount $it left out" },
     )
 
+// COPPA: a child's request carries no identifier for advertising, no advertising id, user id or email. The
+// rule is here, in one place; the request sends what these return.
+
+/** Whether the request is for a child: the publisher said COPPA applies (`regulatory.coppa`). */
+internal val Regulatory?.isChild: Boolean
+    get() = this?.coppa == true
+
+/** The user the request sends: for a child only what does not identify them ([withoutIdentity]). */
+internal fun Regulatory?.userToSend(user: User?): User? = if (isChild) user?.withoutIdentity else user
+
+/** The advertising id the request sends: none for a child. */
+internal fun Regulatory?.advertisingIdToSend(advertisingId: String?): String? = advertisingId?.takeUnless { isChild }
+
 /** The user without what identifies the viewer (id, email, email hash), for a COPPA request; `null` when nothing else is left. */
 internal val User.withoutIdentity: User?
     get() = keywords?.let { kept -> User { keywords = kept } }

@@ -43,18 +43,16 @@ internal class AdsRequest private constructor(
             val ifa = Environment.advertisingId()
             // A usable CMP value wins per field; the publisher fills in the rest. COPPA comes only from the publisher.
             val regulatory = Consent.read(context, Sdk.regulatory)
-            // A child's request carries no identifier for advertising: no advertising id, no user id or email.
-            val isChild = regulatory?.coppa == true
             // The ads held now, after the waits: one shown, rejected or expired meanwhile is not listed.
             val heldIds = held()
             val body = buildJsonObject {
                 put("requestId", requestId)
                 put("publisherToken", publisherToken)
                 put("installId", DeviceInfo.installId(context))
-                (if (isChild) Sdk.user?.withoutIdentity else Sdk.user)?.let { put("user", it.toJson()) }
+                regulatory.userToSend(Sdk.user)?.let { put("user", it.toJson()) }
                 putIfNotNull("variantId", Sdk.variantId)
                 // Only an id the viewer allows: one with limited ad tracking is not read at all.
-                ifa?.takeUnless { isChild }?.let {
+                regulatory.advertisingIdToSend(ifa)?.let {
                     put(
                         "ifa",
                         buildJsonObject {
