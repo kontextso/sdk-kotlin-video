@@ -25,7 +25,6 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.Tracker
-import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
@@ -36,7 +35,6 @@ import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.internal.screen.activity
-import so.kontext.video.internal.screen.awaitLayout
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
 import so.kontext.video.internal.state.SdkState
@@ -482,30 +480,7 @@ public class VideoAd internal constructor(
         if (hasEnded) return@withContentPlayhead
         tracker.fire("creativeView")
         tracker.fire("iconView")
-        if (payload.creative != AdPayload.Creative.VIDEO) recordImpressionAtLayout()
-    }
-
-    /**
-     * Until Android has laid the page out in a window with an area, nothing of it was drawn: a container that
-     * gives the ad no room ends it (`INTERRUPTED`) with no impression. So does a page laid out wholly off screen
-     * where it was placed: a feed scrolled so the player's middle shows, not its top card.
-     */
-    private fun recordImpressionAtLayout() {
-        // Inline, the host: it has an area only where the container gives the ad room, and places the page.
-        val screen = this.screen
-        val view = screen?.impressionTarget ?: loadedBridge?.webView ?: return
-        val isInline = screen is InlineScreen
-        val wait = view.awaitLayout(isReady = { screen?.isPlaced ?: true }) {
-            screen?.impressionWait = null
-            val page = loadedBridge?.webView
-            if (isInline && page != null && page.width > 0 && page.height > 0 && ViewExposure.measure(page).share <= 0.0) {
-                Logger.warning { "ad ${id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
-                end(EndReason.INTERRUPTED)
-                return@awaitLayout
-            }
-            withContentPlayhead { recordImpression() }
-        }
-        screen?.impressionWait = wait
+        if (payload.creative != AdPayload.Creative.VIDEO) screen?.awaitImpression { withContentPlayhead { recordImpression() } }
     }
 
     // endregion

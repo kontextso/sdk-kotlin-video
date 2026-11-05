@@ -3,6 +3,8 @@ package so.kontext.video.internal.screen
 import android.app.Activity
 import android.view.View
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.AppActivities
 import java.lang.ref.WeakReference
@@ -83,6 +85,28 @@ internal sealed class AdScreen(
     fun stopFollowing() {
         activityListener?.let(AppActivities::removeListener)
         activityListener = null
+    }
+
+    /**
+     * An image or HTML creative's impression: [onImpression] runs at the page's first layout with an area.
+     * Until Android has laid the page out in a window with an area, nothing of it was drawn: a container that
+     * gives the ad no room ends it (`INTERRUPTED`) with no impression. So does an inline page laid out wholly off
+     * screen where it was placed: a feed scrolled so the player's middle shows, not its top card.
+     */
+    fun awaitImpression(onImpression: () -> Unit) {
+        // Inline, the host: it has an area only where the container gives the ad room, and places the page.
+        val view = impressionTarget ?: ad.loadedBridge?.webView ?: return
+        val isInline = this is InlineScreen
+        impressionWait = view.awaitLayout(isReady = { isPlaced }) {
+            impressionWait = null
+            val page = ad.loadedBridge?.webView
+            if (isInline && page != null && page.width > 0 && page.height > 0 && ViewExposure.measure(page).share <= 0.0) {
+                Logger.warning { "ad ${ad.id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
+                ad.end(VideoAd.EndReason.INTERRUPTED)
+                return@awaitLayout
+            }
+            onImpression()
+        }
     }
 
     /** The ad is ending: the first-layout wait stops, its impression never counted. */
