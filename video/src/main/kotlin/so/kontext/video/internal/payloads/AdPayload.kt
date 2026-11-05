@@ -78,18 +78,32 @@ internal class AdPayload(
 
         private fun invalidAt(path: String, reason: String): Nothing = throw ApiException.Decoding(MalformedField(path, reason))
 
-        // One check per field of the contract.
-        @Suppress("CyclomaticComplexMethod")
+        /** [element] as an ad, or [ApiException.Decoding] with a [MalformedField]: one reader per group of fields, in the contract's order. */
         fun parse(element: JsonElement): AdPayload {
             val ad = element.obj() ?: invalidAt("ad", "an ad is not an object")
             val id = ad.str("id")?.takeIf { it.isNotEmpty() } ?: invalidAt("id", "the ad id is missing or empty")
             val format = AdFormat.fromWire(ad.str("format")) ?: invalidAt("format", "ad $id: unknown format")
-            val creative = when (ad.str("creative")) {
-                "image" -> Creative.IMAGE
-                "video" -> Creative.VIDEO
-                "html" -> Creative.HTML
-                else -> invalidAt("creative", "ad $id: unknown creative")
-            }
+            val creative = creative(ad, id)
+            val price = price(ad, id)
+            val expires = expires(ad, id)
+            val tracking = tracking(ad, id)
+            checkTrigger(ad, id)
+            val frameUrl = frameUrl(ad, id)
+            val shape = shape(ad, id, format)
+            return AdPayload(id, format, creative, price, expires, frameUrl, tracking, shape.position, shape.sizes, shape.durationMillis, shape.skipOffsetMillis)
+        }
+
+        /** The fields that differ by format: where it shows, its sizes, its duration and skip offset. */
+        private class Shape(val position: Position?, val sizes: List<Size>, val durationMillis: Long?, val skipOffsetMillis: Long?)
+
+        private fun creative(ad: JsonObject, id: String): Creative = when (ad.str("creative")) {
+            "image" -> Creative.IMAGE
+            "video" -> Creative.VIDEO
+            "html" -> Creative.HTML
+            else -> invalidAt("creative", "ad $id: unknown creative")
+        }
+
+        private fun price(ad: JsonObject, id: String): VideoAd.Price {
             val price = ad["price"]?.obj()?.let { price ->
                 VideoAd.Price(
                     value = price.double("value") ?: invalidAt("price.value", "ad $id: price.value"),
@@ -104,19 +118,28 @@ internal class AdPayload(
             // A CPM: a number, not infinity (`1e400`), and never negative. ISO 4217: three capital letters.
             if (!price.value.isFinite() || price.value < 0) invalidAt("price.value", "ad $id: price.value must be finite and not negative")
             if (!CURRENCY.matches(price.currency)) invalidAt("price.currency", "ad $id: price.currency must be an ISO 4217 code")
+            return price
+        }
+
+        private fun expires(ad: JsonObject, id: String): Long {
             val expires = millis(ad, "expires") ?: invalidAt("expires", "ad $id: expires")
             // An ad that is expired on arrival is not an ad the server meant to give.
             if (expires <= 0) invalidAt("expires", "ad $id: expires must be positive")
-            val tracking = ad["tracking"]?.arr()?.mapNotNull { entry ->
-                val event = entry.obj() ?: invalidAt("tracking", "ad $id: a tracking entry is not an object")
-                val name = event.str("event") ?: invalidAt("tracking.event", "ad $id: tracking.event")
-                val url = event.str("url") ?: invalidAt("tracking.url", "ad $id: tracking.url")
-                // An offset that is no count of milliseconds loses its entry, never the ad.
-                val offset = if (event.has("offset")) offsetMillis(event) ?: return@mapNotNull null else null
-                // A part of the wrong type is broken data, not "the main creative": absent and null only are.
-                val part = if (event.has("part")) event.str("part") ?: invalidAt("tracking.part", "ad $id: tracking.part") else null
-                TrackingEvent(event = name, url = url, offsetMillis = offset, part = part)
-            } ?: invalidAt("tracking", "ad $id: tracking")
+            return expires
+        }
+
+        private fun tracking(ad: JsonObject, id: String): List<TrackingEvent> = ad["tracking"]?.arr()?.mapNotNull { entry ->
+            val event = entry.obj() ?: invalidAt("tracking", "ad $id: a tracking entry is not an object")
+            val name = event.str("event") ?: invalidAt("tracking.event", "ad $id: tracking.event")
+            val url = event.str("url") ?: invalidAt("tracking.url", "ad $id: tracking.url")
+            // An offset that is no count of milliseconds loses its entry, never the ad.
+            val offset = if (event.has("offset")) offsetMillis(event) ?: return@mapNotNull null else null
+            // A part of the wrong type is broken data, not "the main creative": absent and null only are.
+            val part = if (event.has("part")) event.str("part") ?: invalidAt("tracking.part", "ad $id: tracking.part") else null
+            TrackingEvent(event = name, url = url, offsetMillis = offset, part = part)
+        } ?: invalidAt("tracking", "ad $id: tracking")
+
+        private fun checkTrigger(ad: JsonObject, id: String) {
             val trigger = ad["trigger"]?.obj() ?: invalidAt("trigger", "ad $id: trigger")
             when (trigger.str("kind")) {
                 "manual" -> Unit
@@ -126,42 +149,40 @@ internal class AdPayload(
                 }
                 else -> invalidAt("trigger.kind", "ad $id: unknown trigger kind")
             }
+        }
+
+        private fun frameUrl(ad: JsonObject, id: String): String {
             val rendering = ad["rendering"]?.obj() ?: invalidAt("rendering", "ad $id: rendering")
             if (rendering.str("kind") != "frame") invalidAt("rendering.kind", "ad $id: unknown rendering kind")
             val frameUrl = rendering.str("url") ?: invalidAt("rendering.url", "ad $id: rendering.url")
             frameUrlProblem(frameUrl)?.let { invalidAt("rendering.url", "ad $id: $it") }
+            return frameUrl
+        }
 
-            var position: Position? = null
-            var sizes = emptyList<Size>()
-            var duration: Long? = null
-            var skipOffset: Long? = null
-            when (format) {
-                AdFormat.OVERLAY -> {
-                    position = when (ad.str("position")) {
-                        "top" -> Position.TOP
-                        "bottom" -> Position.BOTTOM
-                        else -> invalidAt("position", "ad $id: overlay position")
-                    }
-                    sizes = sizes(ad, id)
-                    duration = nonNegative(ad, "duration", id)
+        private fun shape(ad: JsonObject, id: String, format: AdFormat): Shape = when (format) {
+            AdFormat.OVERLAY -> {
+                val position = when (ad.str("position")) {
+                    "top" -> Position.TOP
+                    "bottom" -> Position.BOTTOM
+                    else -> invalidAt("position", "ad $id: overlay position")
                 }
-                AdFormat.PAUSE -> {
-                    position = when (ad.str("position")) {
-                        "top" -> Position.TOP
-                        "bottom" -> Position.BOTTOM
-                        "fullscreen" -> Position.FULLSCREEN
-                        else -> invalidAt("position", "ad $id: pause position")
-                    }
-                    if (position != Position.FULLSCREEN) sizes = sizes(ad, id)
-                }
-                AdFormat.LINEAR -> {
-                    duration = millis(ad, "duration") ?: invalidAt("duration", "ad $id: duration")
-                    // A video of no length has nothing to play, and its progress beacons no moment to fire at.
-                    if (duration <= 0) invalidAt("duration", "ad $id: duration must be positive")
-                    skipOffset = nonNegative(ad, "skipOffset", id)
-                }
+                Shape(position, sizes(ad, id), nonNegative(ad, "duration", id), null)
             }
-            return AdPayload(id, format, creative, price, expires, frameUrl, tracking, position, sizes, duration, skipOffset)
+            AdFormat.PAUSE -> {
+                val position = when (ad.str("position")) {
+                    "top" -> Position.TOP
+                    "bottom" -> Position.BOTTOM
+                    "fullscreen" -> Position.FULLSCREEN
+                    else -> invalidAt("position", "ad $id: pause position")
+                }
+                Shape(position, if (position == Position.FULLSCREEN) emptyList() else sizes(ad, id), null, null)
+            }
+            AdFormat.LINEAR -> {
+                val duration = millis(ad, "duration") ?: invalidAt("duration", "ad $id: duration")
+                // A video of no length has nothing to play, and its progress beacons no moment to fire at.
+                if (duration <= 0) invalidAt("duration", "ad $id: duration must be positive")
+                Shape(null, emptyList(), duration, nonNegative(ad, "skipOffset", id))
+            }
         }
 
         private fun sizes(ad: JsonObject, id: String): List<Size> {
