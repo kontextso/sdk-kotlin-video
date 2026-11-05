@@ -1,15 +1,17 @@
-package so.kontext.video.internal.playback
+package so.kontext.video.internal.content
 
 import so.kontext.video.internal.platform.Environment
 import kotlin.math.abs
 
 /**
+ * The twin of `ActiveTimeClock`: that one counts an ad's time on screen, this one an overlay's time of video.
+ *
  * An overlay's duration in milliseconds of video: the playhead's progress while the overlay is on screen and
  * its window visible ([resync] when it comes back, so time hidden counts nothing). A step backwards, or one
  * faster than [MAX_RATE] times the real time since the playhead last moved, is a seek or a loop: it counts
  * nothing, and counting goes on from the new position.
  */
-internal class ContentProgress(val durationMillis: Long, playheadMillis: Long) {
+internal class ContentTimeClock(val durationMillis: Long, playheadMillis: Long) {
     var elapsedMillis = 0L
         private set
     private var last = playheadMillis
@@ -20,7 +22,7 @@ internal class ContentProgress(val durationMillis: Long, playheadMillis: Long) {
         lastMovedAt = Environment.now()
     }
 
-    /** Takes the playhead now; counts the step when [counting] and it looks like playback. `true` once the duration is reached. */
+    /** Takes the playhead now; counts the step when [isCounting] and it looks like playback. `true` once the duration is reached. */
     fun advance(playheadMillis: Long, isCounting: Boolean, speed: Float? = null): Boolean {
         val step = playheadMillis - last
         if (step != 0L) {

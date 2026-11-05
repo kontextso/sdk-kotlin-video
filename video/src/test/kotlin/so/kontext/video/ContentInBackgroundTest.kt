@@ -14,8 +14,8 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
+import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.playback.ContentPlayback
 
 /**
  * An overlay over a tracked player whose content pauses as the app goes to the background (an app pausing its
@@ -74,7 +74,7 @@ class ContentInBackgroundTest : SdkTest() {
         ad.listener = recorder
         val (screen, container) = playerScreen()
         ad.show(container)
-        val progress = ad.contentProgress
+        val progress = ad.contentClock
         // Home: the app pauses its player in onStop (at the lifecycle's ON_STOP), before the SDK hears the stop.
         screen.pause()
         player.pauses()
@@ -87,7 +87,7 @@ class ContentInBackgroundTest : SdkTest() {
         screen.resume()
         idle(VideoAd.returnGraceMillis + tick * 2)
         assertTrue("it goes on, where it stopped", recorder.reasons.isEmpty())
-        assertSame("its count of video time goes on", progress, ad.contentProgress)
+        assertSame("its count of video time goes on", progress, ad.contentClock)
         assertEquals(1, container.childCount)
         // Paused again in front: it ends at once, as before.
         player.pauses()

@@ -7,11 +7,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.playback.ContentPlayback
 
 /**
  * The app's code runs inside the SDK's: a listener or a player read may end the ad on the spot, and whatever
@@ -125,12 +125,12 @@ class ReentryTest : SdkTest() {
         // Away: the content plays on, picture-in-picture, without the overlay on screen.
         player.position = 60_000
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
-        assertEquals("nothing counts while the window is hidden", 1_000, ad.contentProgress!!.elapsedMillis)
+        assertEquals("nothing counts while the window is hidden", 1_000, ad.contentClock!!.elapsedMillis)
         clock.windowVisibilityChanged(isVisible = true)
         now = 2_000
         player.position = 61_000
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
-        assertEquals("counting resumes from where the content is", 2_000, ad.contentProgress!!.elapsedMillis)
+        assertEquals("counting resumes from where the content is", 2_000, ad.contentClock!!.elapsedMillis)
         assertTrue(recorder.reasons.isEmpty())
         now = 3_000
         player.position = 62_000

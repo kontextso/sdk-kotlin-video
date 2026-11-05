@@ -10,6 +10,7 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
+import so.kontext.video.internal.content.ContentTimeClock
 import so.kontext.video.internal.core.problems
 import so.kontext.video.internal.diagnostics.ReportFormat
 import so.kontext.video.internal.payloads.AdsRequest
@@ -17,7 +18,6 @@ import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.payloads.noFillReasonFrom
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.playback.ContentProgress
 
 /** The pure rules: the overlay's video-time count, the models and the request body. */
 class LogicTest {
@@ -27,7 +27,7 @@ class LogicTest {
 
     @Test fun anOverlayCountsVideoTimeAndNotSeeks() {
         Environment.now = { now }
-        val progress = ContentProgress(durationMillis = 3_000, playheadMillis = 0)
+        val progress = ContentTimeClock(durationMillis = 3_000, playheadMillis = 0)
         now += 1_000
         assertFalse(progress.advance(1_000, isCounting = true))
         now += 250
@@ -44,7 +44,7 @@ class LogicTest {
 
     @Test fun fastPlaybackCountsAndABackwardStepDoesNot() {
         Environment.now = { now }
-        val progress = ContentProgress(durationMillis = 100_000, playheadMillis = 10_000)
+        val progress = ContentTimeClock(durationMillis = 100_000, playheadMillis = 10_000)
         now += 1_000
         progress.advance(14_000, isCounting = true) // 4×
         now += 1_000

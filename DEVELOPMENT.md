@@ -15,7 +15,7 @@ Gradle 8.11 is downloaded by the wrapper on first build.
 ```
 sdk-kotlin-video/
 ├── video/src/main/kotlin/so/kontext/video/   # the public API only (KontextVideo, VideoAds, VideoAd, …)
-│   └── internal/                             #   state/, core/ (Sdk), then frame/ screen/ measurement/ playback/ payloads/ network/ device/ diagnostics/ platform/
+│   └── internal/                             #   state/, core/ (Sdk), then frame/ screen/ measurement/ content/ payloads/ network/ device/ diagnostics/ platform/
 │                                             #   state/: the state of the SDK and of each ad, and their legal moves; no Android
 │                                             #   state/SdkState.kt, state/AdState.kt: every fact (one source of truth)
 │                                             #   state/SdkLifecycle.kt, state/AdLifecycle.kt: the legal moves, stateless
@@ -26,7 +26,7 @@ sdk-kotlin-video/
 │                                             #   screen/: putting the ad on screen
 │                                             #   screen/ShownAd.kt: one ad on screen, from show to onAdEnded (the slot)
 │                                             #   measurement/: measuring and reporting
-│                                             #   format differences: playback/ContentRule.kt, screen/AdScreen.kt
+│                                             #   format differences: content/ContentRule.kt, screen/AdScreen.kt
 ├── video/src/test/                           # JUnit 5 and Robolectric tests
 ├── video/api/video.api                       # the public API, checked by apiCheck
 ├── adapters/                                 # player adapters, one module each (see adapters/README.md)

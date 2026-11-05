@@ -209,7 +209,7 @@ internal sealed class AdScreen(
          * Another Activity of the app covers the one holding the container (it stopped while the app stays in
          * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
          * its window. The app going to the background only freezes the ad's clock (and an overlay's content
-         * pausing there, see `ContentRule.OverlayRule`); a stop for a configuration change recreates the Activity, and the
+         * pausing there, see `OverlayRule`); a stop for a configuration change recreates the Activity, and the
          * container leaving the window ends the ad there.
          */
         private fun followHoldingActivity(holder: Activity) {

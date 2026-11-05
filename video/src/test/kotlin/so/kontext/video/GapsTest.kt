@@ -21,12 +21,12 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.playback.ContentPlayback
 
 /** What the other suites leave: the full request body, the payload's last refusals, the content rules' paths. */
 @RunWith(RobolectricTestRunner::class)
@@ -110,13 +110,13 @@ class GapsTest : SdkTest() {
         now = 1_000
         player.position = 1_000
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
-        assertEquals(1_000, ad.contentProgress!!.elapsedMillis)
+        assertEquals(1_000, ad.contentClock!!.elapsedMillis)
         player.position = 900_000
         player.listeners.single().onSeek()
         now = 2_000
         player.position = 900_500
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
-        assertEquals("counting goes on from the seek", 1_500, ad.contentProgress!!.elapsedMillis)
+        assertEquals("counting goes on from the seek", 1_500, ad.contentClock!!.elapsedMillis)
         player.listeners.single().onContentChanged()
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
     }
@@ -184,7 +184,7 @@ class GapsTest : SdkTest() {
 
     @Test fun anOverlayShownBeforeTrackKeepsItsWallClockDurationAndEndsOnAPause() {
         // Shown with no player: its duration runs on the clock. A player tracked later does not move it to video
-        // time (no ContentProgress), but a pause of that player ends it.
+        // time (no ContentTimeClock), but a pause of that player ends it.
         val owner = owner()
         val recorder = Recorder()
         val ad = overlay(owner, duration = "2000")
@@ -195,7 +195,7 @@ class GapsTest : SdkTest() {
         owner.track(player)
         assertTrue("the ticks start for the overlay on screen", owner.playback.isTicking)
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
-        assertNull("no video time for an overlay shown before track", ad.contentProgress)
+        assertNull("no video time for an overlay shown before track", ad.contentClock)
         assertFalse(ad.hasEnded)
         idle(1_600)
         assertEquals("its wall-clock duration elapsed", listOf(VideoAd.EndReason.COMPLETED), recorder.reasons)
@@ -208,7 +208,7 @@ class GapsTest : SdkTest() {
         second.show(container())
         val secondPlayer = Player()
         other.track(secondPlayer)
-        assertNull(second.contentProgress)
+        assertNull(second.contentClock)
         secondPlayer.listeners.single().onIsPlayingChanged(false)
         assertEquals("a pause of the tracked player ends it", listOf(VideoAd.EndReason.INTERRUPTED), secondRecorder.reasons)
     }

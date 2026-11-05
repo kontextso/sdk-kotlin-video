@@ -19,6 +19,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import so.kontext.video.internal.content.ContentRule
+import so.kontext.video.internal.content.ContentTimeClock
+import so.kontext.video.internal.content.OverlayRule
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
@@ -33,8 +36,6 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.platform.LinkOpener
-import so.kontext.video.internal.playback.ContentProgress
-import so.kontext.video.internal.playback.ContentRule
 import so.kontext.video.internal.screen.AdScreen
 import so.kontext.video.internal.screen.FirstLayout
 import so.kontext.video.internal.screen.InlineAdView
@@ -137,7 +138,7 @@ public class VideoAd internal constructor(
     internal val contentRule: ContentRule = ContentRule.of(this)
 
     /** An overlay's duration in milliseconds of video, once shown over a tracked player (tests read it). */
-    internal val contentProgress: ContentProgress? get() = (contentRule as? ContentRule.OverlayRule)?.contentProgress
+    internal val contentClock: ContentTimeClock? get() = (contentRule as? OverlayRule)?.contentClock
 
     internal val isExpired: Boolean get() = Environment.now() - receivedAt >= payload.expiresMillis
 

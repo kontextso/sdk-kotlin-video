@@ -48,6 +48,7 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.frame.FrameBridge
@@ -57,7 +58,6 @@ import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
@@ -175,7 +175,7 @@ class BoundaryTest {
         listener().onPositionDiscontinuity(position(0), position(900), Player.DISCONTINUITY_REASON_SEEK)
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
         assertFalse(ad.hasEnded)
-        assertEquals(0L, ad.contentProgress!!.elapsedMillis)
+        assertEquals(0L, ad.contentClock!!.elapsedMillis)
     }
 
     @Test fun thePlayersOwnAdIsNotContentTheOverlayEndsAndThePlayheadIsTheContents() {

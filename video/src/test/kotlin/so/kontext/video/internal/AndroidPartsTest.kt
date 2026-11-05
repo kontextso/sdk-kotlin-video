@@ -13,13 +13,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.ContentPlayer
+import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.screen.AdGeometry
 
 /** The parts that need Android classes: player tracking, placement arithmetic, the frame bridge's checks. */
@@ -80,7 +80,7 @@ class AndroidPartsTest {
         val player = HookPlayer()
         playback.track(player)
         player.listeners.single().onIsPlayingChanged(false)
-        assertEquals(listOf(ContentPlayback.Change.Playback(false)), changes)
+        assertEquals(listOf(ContentPlayback.Change.PlayingChanged(false)), changes)
         playback.isTicking = true
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(600))
         assertEquals(2, changes.count { it == ContentPlayback.Change.Tick })

@@ -17,11 +17,11 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.content.ContentPlayback
+import so.kontext.video.internal.content.ContentTimeClock
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.media3.track
 import java.lang.ref.WeakReference
@@ -179,7 +179,7 @@ class ParityContentTest : SdkTest() {
         val ad = overlay(owner, duration = "1000")
         ad.listener = recorder
         ad.show(container())
-        val elapsed = { ad.contentProgress!!.elapsedMillis }
+        val elapsed = { ad.contentClock!!.elapsedMillis }
         // Playing but not moving (a stall) for longer than the duration, in the looper's time and the SDK's.
         now += 5_000
         idle(5_000)
@@ -349,14 +349,14 @@ class ParityContentTest : SdkTest() {
     @Test fun aShortSeekCountsNothingAndALateSampleOfRealPlaybackCounts() {
         var now = 0L
         Environment.now = { now }
-        val seek = ContentProgress(durationMillis = 1_000, playheadMillis = 10_000)
+        val seek = ContentTimeClock(durationMillis = 1_000, playheadMillis = 10_000)
         assertFalse(seek.advance(11_500, isCounting = true))
         assertEquals("1.5 s at once, before any time passed: a seek", 0L, seek.elapsedMillis)
-        val late = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
+        val late = ContentTimeClock(durationMillis = 10_000, playheadMillis = 0)
         now += 3_000
         assertFalse(late.advance(3_000, isCounting = true))
         assertEquals("3 s of video after 3 s: playback, sampled late", 3_000L, late.elapsedMillis)
-        val jumped = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
+        val jumped = ContentTimeClock(durationMillis = 10_000, playheadMillis = 0)
         now += 1_000
         jumped.resync(800) // a seek the player told
         assertFalse(jumped.advance(800, isCounting = true))
@@ -366,8 +366,8 @@ class ParityContentTest : SdkTest() {
     @Test fun fasterPlaybackCountsItsVideoMilliseconds() {
         var now = 0L
         Environment.now = { now }
-        val unknown = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
-        val known = ContentProgress(durationMillis = 100_000, playheadMillis = 0)
+        val unknown = ContentTimeClock(durationMillis = 10_000, playheadMillis = 0)
+        val known = ContentTimeClock(durationMillis = 100_000, playheadMillis = 0)
         for (second in 1..4) {
             now += 250
             unknown.advance(second * 1_000L, isCounting = true) // 4×, the speed not told
@@ -375,7 +375,7 @@ class ParityContentTest : SdkTest() {
         }
         assertEquals(4_000L, unknown.elapsedMillis)
         assertEquals(8_000L, known.elapsedMillis)
-        val seek = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
+        val seek = ContentTimeClock(durationMillis = 10_000, playheadMillis = 0)
         now += 250
         assertFalse(seek.advance(2_000, isCounting = true, speed = 1f))
         assertEquals("2 s in a quarter second at 1×: a seek", 0L, seek.elapsedMillis)
