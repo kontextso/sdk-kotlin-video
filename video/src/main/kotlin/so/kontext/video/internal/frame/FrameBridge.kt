@@ -79,7 +79,7 @@ internal class FrameBridge(
     private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, ::isAllowed)
 
     /** Where the page is, as the protocol says. */
-    val state: FrameProtocol.State get() = protocol.state
+    val state: PageState get() = protocol.state
     var failureCause: FailureCause? = null
         private set
     var failureUnderlying: ErrorReporter.Underlying? = null
@@ -123,7 +123,7 @@ internal class FrameBridge(
                 webView,
                 object : WebViewRenderProcessClient() {
                     override fun onRenderProcessUnresponsive(view: WebView, renderer: WebViewRenderProcess?) {
-                        if (state == FrameProtocol.State.ENDED) return
+                        if (state == PageState.ENDED) return
                         Logger.warning { "frame ${adId.take(8)}: the page stopped responding; the ad ends" }
                         fail(FrameEvent.Error(protocol.failureCode), FailureCause.UNRESPONSIVE)
                     }
@@ -163,7 +163,7 @@ internal class FrameBridge(
                 if (Environment.isAppInForeground()) waited += now - last
                 last = now
             }
-            if (state != FrameProtocol.State.LOADING) return@launch
+            if (state != PageState.LOADING) return@launch
             Logger.warning { "frame ${adId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }
             fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_TIMEOUT)
         }
@@ -187,7 +187,7 @@ internal class FrameBridge(
      * MRAID's `exposureChange`, which the page relays it to. The rectangle in the page's CSS pixels.
      */
     fun exposure(share: Double, x: Double, y: Double, width: Double, height: Double) {
-        if (state != FrameProtocol.State.SHOWN) return
+        if (state != PageState.SHOWN) return
         val percentage = Math.round(share * 10_000) / 100.0
         send("ad.exposure", mapOf("exposedPercentage" to percentage, "visibleRectangle" to mapOf("x" to x, "y" to y, "width" to width, "height" to height)))
     }
@@ -204,8 +204,8 @@ internal class FrameBridge(
 
     /** The SDK is removing the page: terminal. */
     fun hide() {
-        if (state == FrameProtocol.State.ENDED) return
-        if (state == FrameProtocol.State.SHOWN) send("ad.hide")
+        if (state == PageState.ENDED) return
+        if (state == PageState.SHOWN) send("ad.hide")
         end()
     }
 
@@ -280,7 +280,7 @@ internal class FrameBridge(
     private fun reportProtocolViolation(detail: String) {
         ErrorReporter.report(
             ErrorReporter.Code.PROTOCOL_VIOLATION,
-            if (state == FrameProtocol.State.SHOWN) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
+            if (state == PageState.SHOWN) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
             adId = adId,
             detail = detail,
         )
@@ -329,7 +329,7 @@ internal class FrameBridge(
          * `pushState`) starts no page.
          */
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-            if (state == FrameProtocol.State.LOADING || state == FrameProtocol.State.ENDED) return
+            if (state == PageState.LOADING || state == PageState.ENDED) return
             Logger.warning { "frame ${adId.take(8)}: the page replaced itself after it was ready; the ad ends" }
             view.stopLoading()
             fail(FrameEvent.Error(protocol.failureCode), FailureCause.PAGE)
@@ -354,7 +354,7 @@ internal class FrameBridge(
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
     private fun loadFailed(underlying: ErrorReporter.Underlying) {
-        if (state != FrameProtocol.State.LOADING) return
+        if (state != PageState.LOADING) return
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)

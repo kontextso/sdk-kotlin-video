@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.support.Environment
 
 /** What only a WebView calls on the bridge: navigation decisions, load errors, a dead renderer, dialogs. */
@@ -99,7 +99,7 @@ class FrameBridgeClientTest {
         loaded()
         client.onPageStarted(bridge.webView, "https://frames.test/replaced", null)
         assertEquals(500, (events.last() as FrameEvent.Error).code)
-        assertEquals(FrameProtocol.State.ENDED, bridge.state)
+        assertEquals(PageState.ENDED, bridge.state)
     }
 
     @Test fun dialogsAreAnsweredAsDismissedAndPermissionsDenied() {

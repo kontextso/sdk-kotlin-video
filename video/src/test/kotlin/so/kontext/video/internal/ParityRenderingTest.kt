@@ -26,6 +26,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.screen.InlineAdView
@@ -78,7 +79,7 @@ class ParityRenderingTest : SdkTest() {
         val bridge = bridge()
         bridge.send("ad.loaded", from = FrameBridge.Origin.of("http://frames.test"))
         assertTrue(received.isEmpty())
-        assertEquals(FrameProtocol.State.LOADING, bridge.state)
+        assertEquals(PageState.LOADING, bridge.state)
     }
 
     @Test fun theDefaultPortIsTheSameOriginAndAnyOtherIsNot() {
@@ -112,7 +113,7 @@ class ParityRenderingTest : SdkTest() {
         val bridge = bridge().shown()
         bridge.send("ad.close")
         assertEquals(FrameEvent.CloseReason.CLOSE, (received.single() as FrameEvent.Close).reason)
-        assertEquals(FrameProtocol.State.ENDED, bridge.state)
+        assertEquals(PageState.ENDED, bridge.state)
         bridge.send("ad.close")
         assertEquals("nothing after ended", 1, received.size)
         bridge().shown().send("ad.close", "\"reason\": \"swipe\"")
@@ -131,7 +132,7 @@ class ParityRenderingTest : SdkTest() {
         bridge.load()
         idle(1_000)
         assertEquals(400, (received.single() as FrameEvent.Error).code)
-        assertEquals(FrameProtocol.State.ENDED, bridge.state)
+        assertEquals(PageState.ENDED, bridge.state)
     }
 
     @Test fun aClickKeepsItsFallbackAndDefaultsTheArea() {
@@ -218,7 +219,7 @@ class ParityRenderingTest : SdkTest() {
         bridge.send("ad.loaded")
         bridge.hide()
         assertTrue(sent.isEmpty())
-        assertEquals(FrameProtocol.State.ENDED, bridge.state)
+        assertEquals(PageState.ENDED, bridge.state)
     }
 
     @Test fun exposureIsSentOnlyWhileShownInTheProtocolsEnvelope() {

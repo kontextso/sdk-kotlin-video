@@ -14,6 +14,13 @@ import so.kontext.video.internal.state.AdLifecycle.Phase
  *
  * Beside the phase, the milestones ([isLoaded], [isCompleted], [hasImpression], [wasOnScreen], [failure]): each
  * recorded once and never undone, and none of them moves the phase.
+ *
+ * The ad's state is not its page's (`PageState`, moved by `FrameProtocol`), and both are needed: the page's rules
+ * are checked before the ad hears a message; the page can end itself before the ad knows; a page can be loaded
+ * for an ad only offered; an ad can be reserved while its page is not shown yet. They move together at fixed
+ * points: the page's `ad.loaded` marks the ad loaded; the ad reaching the screen ([Phase.OnScreen]) shows the
+ * page; a page that ends itself hands the ad its event and the ad ends; the ad's end or invalidation hides the
+ * page.
  */
 internal class AdState {
     /** Where the ad is now. It moves only through [moveTo]. */

@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.PageState
 import java.io.ByteArrayInputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -85,10 +85,10 @@ class FrameNavigationTest {
             main { bridge.webView.evaluateJavascript(script, null) }
             assertTrue("the navigation happened or was refused", navigated.await(15, TimeUnit.SECONDS))
             instrumentation.waitForIdleSync()
-            var state: FrameProtocol.State? = null
+            var state: PageState? = null
             main { state = bridge.state }
-            val marker = if (state == FrameProtocol.State.ENDED) "\"kept\"" else evaluate(bridge.webView, "window.marker")
-            assertTrue("the shown page was replaced silently: marker=$marker, state=$state", marker == "\"kept\"" || state == FrameProtocol.State.ENDED)
+            val marker = if (state == PageState.ENDED) "\"kept\"" else evaluate(bridge.webView, "window.marker")
+            assertTrue("the shown page was replaced silently: marker=$marker, state=$state", marker == "\"kept\"" || state == PageState.ENDED)
         } finally {
             main { bridge.hide() }
         }

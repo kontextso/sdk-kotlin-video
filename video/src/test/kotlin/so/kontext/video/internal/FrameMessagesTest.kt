@@ -16,6 +16,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.support.Environment
 import java.time.Duration
 
@@ -82,7 +83,7 @@ class FrameMessagesTest {
         send("video.start")
         send("ad.loaded")
         assertTrue("nothing before ad.show: ${events.map { it::class.simpleName }}", events.isEmpty())
-        assertEquals(FrameProtocol.State.LOADED, bridge.state)
+        assertEquals(PageState.LOADED, bridge.state)
         send("ad.error")
         assertEquals("a display page that fails to load: 500", 500, (events.single() as FrameEvent.Error).code)
     }
@@ -125,7 +126,7 @@ class FrameMessagesTest {
         send("ad.unknown")
         send("video.rewind")
         assertTrue(events.isEmpty())
-        assertEquals(FrameProtocol.State.LOADING, bridge.state)
+        assertEquals(PageState.LOADING, bridge.state)
     }
 
     @Test fun aClickNeedsAnAllowedUrlAndOneTouchEach() {
@@ -173,7 +174,7 @@ class FrameMessagesTest {
         assertEquals(FrameEvent.VideoEvent.START, (events.single() as FrameEvent.Video).event)
         send("video.skip", "\"playhead\": 5000")
         assertEquals(5_000, (events.last() as FrameEvent.Skip).playheadMillis)
-        assertEquals(FrameProtocol.State.ENDED, bridge.state)
+        assertEquals(PageState.ENDED, bridge.state)
         val count = events.size
         send("ad.close")
         send("ad.error")
@@ -205,7 +206,7 @@ class FrameMessagesTest {
         events.clear()
         loaded.webView.webViewClient.onRenderProcessGone(loaded.webView, io.mockk.mockk(relaxed = true))
         assertEquals("loaded, never shown: still the load error code, not 405", 400, (events.single() as FrameEvent.Error).code)
-        assertEquals(FrameProtocol.State.ENDED, loaded.state)
+        assertEquals(PageState.ENDED, loaded.state)
     }
 
     @Test fun theLoadTimeoutCountsOnlyTimeInFrontAndSparesALoadedPage() {
@@ -228,10 +229,10 @@ class FrameMessagesTest {
 
     @Test fun showIsIgnoredUnlessThePageIsLoaded() {
         bridge.show()
-        assertEquals(FrameProtocol.State.LOADING, bridge.state)
+        assertEquals(PageState.LOADING, bridge.state)
         shown()
         bridge.show()
-        assertEquals(FrameProtocol.State.SHOWN, bridge.state)
+        assertEquals(PageState.SHOWN, bridge.state)
     }
 
     @Test fun originsSpellOutTheDefaultPort() {

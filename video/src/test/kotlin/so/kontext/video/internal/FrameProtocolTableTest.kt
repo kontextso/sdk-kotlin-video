@@ -5,10 +5,11 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import so.kontext.video.internal.frame.FrameBridge.Origin
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameMessage
 import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.FrameProtocol.NavigationDecision
-import so.kontext.video.internal.frame.FrameProtocol.State
 import so.kontext.video.internal.frame.FrameProtocol.Step
+import so.kontext.video.internal.frame.PageState
 import java.net.URI
 
 /** The frame protocol as tables, with no WebView: message × state → step, the envelope, the order, the bounds. */
@@ -81,11 +82,11 @@ class FrameProtocolTableTest {
         val protocol = protocol()
         assertEquals(false, protocol.show(), "not before ad.loaded")
         protocol.send("ad.loaded")
-        assertEquals(State.LOADED, protocol.state)
+        assertEquals(PageState.LOADED, protocol.state)
         assertEquals(true, protocol.show())
         assertEquals(false, protocol.show(), "once")
         protocol.send("ad.close")
-        assertEquals(State.ENDED, protocol.state)
+        assertEquals(PageState.ENDED, protocol.state)
         assertEquals(false, protocol.end(), "the teardown runs once")
     }
 
@@ -168,12 +169,12 @@ class FrameProtocolTableTest {
             val tail = "\"}"
             return head + "x".repeat(bytes - head.length - tail.length) + tail
         }
-        assertEquals(FrameProtocol.MAX_MESSAGE_BYTES, message(FrameProtocol.MAX_MESSAGE_BYTES).toByteArray().size)
-        assertEquals("loaded", describe(protocol().accept(message(FrameProtocol.MAX_MESSAGE_BYTES), page, true, now)), "at the limit")
-        assertEquals("loaded", describe(protocol().accept(message(FrameProtocol.MAX_MESSAGE_BYTES - 1), page, true, now)), "just under")
-        assertEquals("drop!envelope", describe(protocol().accept(message(FrameProtocol.MAX_MESSAGE_BYTES + 1), page, true, now)), "just over")
+        assertEquals(FrameMessage.MAX_MESSAGE_BYTES, message(FrameMessage.MAX_MESSAGE_BYTES).toByteArray().size)
+        assertEquals("loaded", describe(protocol().accept(message(FrameMessage.MAX_MESSAGE_BYTES), page, true, now)), "at the limit")
+        assertEquals("loaded", describe(protocol().accept(message(FrameMessage.MAX_MESSAGE_BYTES - 1), page, true, now)), "just under")
+        assertEquals("drop!envelope", describe(protocol().accept(message(FrameMessage.MAX_MESSAGE_BYTES + 1), page, true, now)), "just over")
         // Counted in UTF-8 bytes, not characters: two-byte characters reach the limit at half the length.
-        val wide = """{"adId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(FrameProtocol.MAX_MESSAGE_BYTES / 2)}"}"""
+        val wide = """{"adId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(FrameMessage.MAX_MESSAGE_BYTES / 2)}"}"""
         assertEquals("drop!envelope", describe(protocol().accept(wide, page, true, now)))
     }
 

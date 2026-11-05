@@ -22,6 +22,7 @@ sdk-kotlin-video/
 │                                             #   core/Sdk.kt: the SDK's shell (initialize, /config, the kill switch)
 │                                             #   frame/: the ad's web page and its messages
 │                                             #   frame/FrameProtocol.kt: the frame protocol's rules, no WebView
+│                                             #   frame/FrameMessage.kt: one page message read (the envelope, the fields)
 │                                             #   screen/: putting the ad on screen
 │                                             #   screen/ShownAd.kt: one ad on screen, from show to onAdEnded (the slot)
 │                                             #   measurement/: measuring and reporting

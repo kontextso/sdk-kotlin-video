@@ -12,7 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.FrameProtocol
+import so.kontext.video.internal.frame.PageState
 
 /**
  * A page whose renderer stops answering ends the ad: a linear ad would have no other way out. When Chromium
@@ -48,7 +48,7 @@ class FrameRendererTest {
                 unresponsive(bridge)
                 assertEquals("shown=$shown video=$isVideo", code, (events.single() as FrameEvent.Error).code)
                 assertEquals(FrameBridge.FailureCause.UNRESPONSIVE, bridge.failureCause)
-                assertEquals(FrameProtocol.State.ENDED, bridge.state)
+                assertEquals(PageState.ENDED, bridge.state)
                 unresponsive(bridge)
                 assertTrue("an ended page is not failed twice", events.size == 1)
                 bridge.webView.destroy()

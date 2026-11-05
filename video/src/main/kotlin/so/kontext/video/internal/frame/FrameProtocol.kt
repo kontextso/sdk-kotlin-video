@@ -1,13 +1,6 @@
 package so.kontext.video.internal.frame
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
 import so.kontext.video.VideoAd
-import so.kontext.video.internal.network.double
-import so.kontext.video.internal.network.obj
-import so.kontext.video.internal.network.str
 import so.kontext.video.internal.support.Logger
 
 /**
@@ -15,11 +8,19 @@ import so.kontext.video.internal.support.Logger
  * and what the bridge must do about it. The functional core of the page bridge; `FrameBridge` is its shell (the
  * WebView, its clients, the load timeout, the teardown) and does what [accept] returns.
  *
- * Why apart: every rule here (the envelope, the sender, the order of the states, the video's ordering, the
- * playhead's bounds, the touch a click needs) is tested as a table, with no WebView or main thread.
+ * Why apart: every rule here (the sender, the order of the states, the video's ordering, the touch a click
+ * needs, a navigation, a violation reported once) is tested as a table, with no WebView or main thread. Reading
+ * the message itself (the JSON, the envelope, the limit, the fields, the playhead's bounds) is [FrameMessage]'s.
  *
  * How: the bridge passes each page message to [accept] and executes the [Step] it gets back. The clock comes in
  * as `now`; the page's origin and the link check come in from the bridge (they parse URLs with Android's `Uri`).
+ *
+ * The page's state ([PageState]) is not the ad's (`AdState`), and both are needed: the page's rules are checked
+ * before the ad hears a message at all; the page can end itself (close, skip, error) before the ad knows; a page
+ * can be loaded for an ad only offered, never shown; and an ad can be reserved (`show` accepted) while its page
+ * is not shown yet. They move together at fixed points: the page's `ad.loaded` makes the ad loaded; the ad
+ * reaching the screen shows the page (LOADED → SHOWN); a page that ends itself hands the ad its event, and the ad
+ * ends; the ad's end, or its invalidation, hides the page (→ ENDED).
  *
  * ```
  *   message              loading         loaded          shown                       ended
@@ -33,7 +34,7 @@ import so.kontext.video.internal.support.Logger
  *                        (400 video, 500 display; 405 on screen; the page's own code wins)
  *   unknown type         drop            drop            drop                        ignore
  *   broken envelope      drop, reported once as a protocol violation                 ignore
- *                        (not an object, another ad's id, no type, over MAX_MESSAGE_BYTES)
+ *                        (FrameMessage.parse: not an object, another ad's id, no type, over 1 MB)
  * ```
  */
 internal class FrameProtocol(
@@ -49,9 +50,6 @@ internal class FrameProtocol(
     /** Whether a link may open (see `FrameBridge.isAllowed`). */
     private val isAllowed: (String) -> Boolean,
 ) {
-    /** Where the page is: loading, ready off screen, on screen, or gone (terminal). */
-    enum class State { LOADING, LOADED, SHOWN, ENDED }
-
     /** What a top-level navigation of the page may do. */
     enum class NavigationDecision { ALLOW, CANCEL, EXTERNAL }
 
@@ -73,14 +71,14 @@ internal class FrameProtocol(
         class EndThenDeliver(val event: FrameEvent) : Step()
     }
 
-    var state: State = State.LOADING
+    var state: PageState = PageState.LOADING
         private set
 
     /** The VAST error of a page that fails before it was shown: 400 for a video, 500 for a display creative. */
     val loadErrorCode: Int = if (isVideo) 400 else 500
 
     /** The VAST error of a failure now: 405 on screen, else the load error. */
-    val failureCode: Int get() = if (state == State.SHOWN) 405 else loadErrorCode
+    val failureCode: Int get() = if (state == PageState.SHOWN) 405 else loadErrorCode
 
     private var lastTouchAt = Long.MIN_VALUE / 2
     private var hasReportedViolation = false
@@ -92,49 +90,53 @@ internal class FrameProtocol(
     private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
 
     /**
-     * Checks the envelope, the sender and the order of one text message from the page, and says what to do. It
-     * changes the state for `ad.loaded` and for the messages that end the page.
+     * Checks the sender of one text message from the page, reads it ([FrameMessage.parse]: a broken envelope is
+     * a violation), and says what to do with it.
+     */
+    fun accept(raw: String?, sender: FrameBridge.Origin?, isMainFrame: Boolean, now: Long): Step {
+        if (state == PageState.ENDED) return Step.Ignore
+        if (!isFromPage(sender, isMainFrame)) return Step.Drop("message from another frame dropped")
+        val message = FrameMessage.parse(raw, adId, playheadLimitMillis) ?: return drop("malformed message dropped", "envelope")
+        return accept(message, now)
+    }
+
+    /**
+     * The rules for one message of this page, read: its order in the page's state and the video's. It changes the
+     * state for `ad.loaded` and for the messages that end the page.
      */
     // One branch per message type of the frame protocol.
     @Suppress("CyclomaticComplexMethod")
-    fun accept(raw: String?, sender: FrameBridge.Origin?, isMainFrame: Boolean, now: Long): Step {
-        if (state == State.ENDED) return Step.Ignore
-        if (!isFromPage(sender, isMainFrame)) return Step.Drop("message from another frame dropped")
-        // A message over the limit is never parsed: a broken envelope, as on iOS.
-        val body = raw?.takeIf(::fitsLimit)?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }?.obj()
-        val type = body?.str("type")
-        if (body == null || body.str("adId") != adId || type == null) return drop("malformed message dropped", "envelope")
+    fun accept(message: FrameMessage, now: Long): Step {
+        if (state == PageState.ENDED) return Step.Ignore
+        val type = message.type
+        val playhead = message.playheadMillis
         Logger.debug { "frame ${adId.take(8)}: ← $type" }
-        // Milliseconds into the ad video, a fraction rounded to the nearest (a page reads `currentTime * 1000`),
-        // clamped to the video's duration (a day without one): a playhead past the end would fire every checkpoint
-        // at once.
-        val playhead = Math.round((body.double("playhead") ?: 0.0).coerceIn(0.0, playheadLimitMillis.toDouble()))
         return when (type) {
             "ad.loaded" -> {
-                if (state != State.LOADING) return Step.Ignore
-                state = State.LOADED
+                if (state != PageState.LOADING) return Step.Ignore
+                state = PageState.LOADED
                 Step.Loaded
             }
-            "ad.click", "ad.open" -> click(type, body, now)
-            "ad.close" -> endIfShown(FrameEvent.Close(FrameEvent.CloseReason.from(body.str("reason"))))
+            "ad.click", "ad.open" -> click(message, now)
+            "ad.close" -> endIfShown(FrameEvent.Close(FrameEvent.CloseReason.from(message.reason)))
             "video.skip" -> endIfShown(FrameEvent.Skip(playhead))
             "video.complete" -> when {
-                state != State.SHOWN -> Step.Ignore
+                state != PageState.SHOWN -> Step.Ignore
                 !isVideoStarted -> beforeStart(type)
                 else -> Step.Deliver(FrameEvent.Complete(playhead))
             }
-            "video.progress" -> progress(type, body, playhead)
+            "video.progress" -> progress(message)
             "ad.error" -> {
                 // A VAST error code has three digits; any other code from the page goes as 900, undefined error.
-                val given = body.double("code")
+                val given = message.code
                 val code = given?.let { if (it in 100.0..999.0) it.toInt() else UNDEFINED_ERROR } ?: failureCode
-                state = State.ENDED
+                state = PageState.ENDED
                 Step.EndThenDeliver(FrameEvent.Error(code))
             }
             else -> {
                 val event = type.takeIf { it.startsWith("video.") }?.let { FrameEvent.VideoEvent.from(it.removePrefix("video.")) }
                     ?: return Step.Drop("unknown message $type dropped")
-                if (state != State.SHOWN) return Step.Ignore
+                if (state != PageState.SHOWN) return Step.Ignore
                 video(event, type, playhead)
             }
         }
@@ -145,21 +147,21 @@ internal class FrameProtocol(
      * it is a broken envelope.
      */
     fun acceptNonText(sender: FrameBridge.Origin?, isMainFrame: Boolean): Step {
-        if (state == State.ENDED || !isFromPage(sender, isMainFrame)) return Step.Ignore
+        if (state == PageState.ENDED || !isFromPage(sender, isMainFrame)) return Step.Ignore
         return drop("a message that is not text dropped", "envelope")
     }
 
-    /** The SDK shows the page: only a loaded page can be, once. Says whether it moved to [State.SHOWN]. */
+    /** The SDK shows the page: only a loaded page can be, once. Says whether it moved to [PageState.SHOWN]. */
     fun show(): Boolean {
-        if (state != State.LOADED) return false
-        state = State.SHOWN
+        if (state != PageState.LOADED) return false
+        state = PageState.SHOWN
         return true
     }
 
     /** The page ends: terminal. Says whether it was not ended already, so its teardown runs once. */
     fun end(): Boolean {
-        if (state == State.ENDED) return false
-        state = State.ENDED
+        if (state == PageState.ENDED) return false
+        state = PageState.ENDED
         return true
     }
 
@@ -172,38 +174,39 @@ internal class FrameProtocol(
     fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): NavigationDecision {
         if (!isMainFrame) return NavigationDecision.ALLOW
         val isOurs = originOf(target) == origin || target == "about:blank"
-        if (state == State.LOADING) return if (isOurs) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
+        if (state == PageState.LOADING) return if (isOurs) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
         if (current != null && '#' in target && target.substringBefore('#') == current.substringBefore('#')) return NavigationDecision.ALLOW
         return if (isOurs) NavigationDecision.CANCEL else NavigationDecision.EXTERNAL
     }
 
     /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
     fun externalNavigation(target: String, now: Long): Step {
-        if (state != State.SHOWN || !isAllowed(target) || !consumeTouch(now)) return Step.Drop("navigation to $target cancelled", isWarning = true)
+        if (state != PageState.SHOWN || !isAllowed(target) || !consumeTouch(now)) return Step.Drop("navigation to $target cancelled", isWarning = true)
         return Step.Deliver(FrameEvent.Click(target, null, VideoAd.Click.Area.Creative))
     }
 
     private fun isFromPage(sender: FrameBridge.Origin?, isMainFrame: Boolean) = isMainFrame && sender != null && sender == origin
 
     /** A click or an open: on screen, to a link that may open, right after a touch. */
-    private fun click(type: String, body: JsonObject, now: Long): Step {
-        if (state != State.SHOWN) return Step.Ignore
-        val primary = body.str("url")?.takeIf(isAllowed)
-        val fallback = if (type == "ad.click") body.str("fallbackUrl")?.takeIf(isAllowed) else null
+    private fun click(message: FrameMessage, now: Long): Step {
+        if (state != PageState.SHOWN) return Step.Ignore
+        val type = message.type
+        val primary = message.url?.takeIf(isAllowed)
+        val fallback = if (type == "ad.click") message.fallbackUrl?.takeIf(isAllowed) else null
         // A click whose link may not open still has its fallback, which then is the click-through.
         val target = primary ?: fallback ?: return Step.Ignore
         if (!consumeTouch(now)) return Step.Drop("$type to $target dropped, no touch before it", isWarning = true)
         return if (type == "ad.click") {
-            Step.Deliver(FrameEvent.Click(target, fallback.takeIf { primary != null }, VideoAd.Click.Area.from(body.str("area"))))
+            Step.Deliver(FrameEvent.Click(target, fallback.takeIf { primary != null }, VideoAd.Click.Area.from(message.area)))
         } else {
-            Step.Deliver(FrameEvent.Open(target, body.str("purpose") ?: "unknown"))
+            Step.Deliver(FrameEvent.Open(target, message.purpose ?: "unknown"))
         }
     }
 
     /** The page's own end (close, skip): only on screen. */
     private fun endIfShown(event: FrameEvent): Step {
-        if (state != State.SHOWN) return Step.Ignore
-        state = State.ENDED
+        if (state != PageState.SHOWN) return Step.Ignore
+        state = PageState.ENDED
         return Step.EndThenDeliver(event)
     }
 
@@ -211,14 +214,14 @@ internal class FrameProtocol(
      * A checkpoint of the video, in milliseconds within a day, a fraction rounded to the nearest, after
      * `video.start`; anything else would fire every checkpoint early.
      */
-    private fun progress(type: String, body: JsonObject, playhead: Long): Step {
-        if (state != State.SHOWN) return Step.Ignore
-        if (!isVideoStarted) return beforeStart(type)
-        val offset = (body["offset"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
+    private fun progress(message: FrameMessage): Step {
+        if (state != PageState.SHOWN) return Step.Ignore
+        if (!isVideoStarted) return beforeStart(message.type)
+        val offset = message.offset
         if (offset == null || offset !in 0.0..DAY_MILLIS.toDouble()) {
             return drop("video.progress with a malformed offset dropped", "progress.offset")
         }
-        return Step.Deliver(FrameEvent.Progress(minOf(Math.round(offset), playheadLimitMillis), playhead))
+        return Step.Deliver(FrameEvent.Progress(minOf(Math.round(offset), playheadLimitMillis), message.playheadMillis))
     }
 
     /**
@@ -247,9 +250,6 @@ internal class FrameProtocol(
         return Step.Drop(log, violation.takeIf { first })
     }
 
-    /** Whether a message is within [MAX_MESSAGE_BYTES] in UTF-8; never fewer bytes than UTF-16 units, so a long one is out at once. */
-    private fun fitsLimit(raw: String): Boolean = raw.length <= MAX_MESSAGE_BYTES && raw.toByteArray(Charsets.UTF_8).size <= MAX_MESSAGE_BYTES
-
     /** One tap opens one URL: the first click, open or navigation it authorized spends it. */
     private fun consumeTouch(now: Long): Boolean {
         if (now - lastTouchAt > TOUCH_WINDOW_MILLIS) return false
@@ -259,9 +259,6 @@ internal class FrameProtocol(
 
     companion object {
         const val TOUCH_WINDOW_MILLIS = 1_000L
-
-        /** The largest page message parsed, in UTF-8 bytes; every message of the protocol is far smaller. */
-        const val MAX_MESSAGE_BYTES = 1024 * 1024
         private const val DAY_MILLIS = 86_400_000L
 
         /** How far past the video's duration a page playhead may go: the page's rounding, not more. */
