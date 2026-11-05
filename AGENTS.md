@@ -51,7 +51,7 @@ adb logcat -s KontextVideo
   app's insets, the chosen size and the holding Activity; `LinearScreen`, its own Activity, the Activity that
   started it and its closing). `VideoAd` asks them rather than branching on the format.
 - Functional core, imperative shell: the rules with no Android in them (`SdkLifecycle`, `SdkState`, `AdLifecycle`,
-  `AdState`, `FrameProtocol`, `FrameEvent.CloseReason.outcome`) decide, and `Sdk`, `VideoAd` and `FrameBridge` act
+  `AdState`, `FrameProtocol`, `closeOutcome`) decide, and `Sdk`, `VideoAd` and `FrameBridge` act
   on the answer; the rules are tested as plain JUnit tables. Swift has `SdkLifecycle`, `SdkState`, `AdLifecycle`,
   `AdState` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:

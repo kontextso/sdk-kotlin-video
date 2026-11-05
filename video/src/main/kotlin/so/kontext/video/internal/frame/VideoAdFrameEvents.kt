@@ -5,6 +5,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
+import so.kontext.video.closeOutcome
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
@@ -120,7 +121,7 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
  */
 internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
     // Whether the ad is linear is a fact of the format, not of its screen.
-    val outcome = reason.outcome(isLinear = format == AdFormat.LINEAR, isCompleted = isCompleted)
+    val outcome = closeOutcome(reason, isLinear = format == AdFormat.LINEAR, isCompleted = isCompleted)
     // The page ended itself because its creative ran to its end.
     if (outcome.completesAd) state.markCompleted()
     outcome.beacon?.let { tracker.fire(it) }
