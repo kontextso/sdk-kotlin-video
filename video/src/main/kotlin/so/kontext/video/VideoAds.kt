@@ -284,32 +284,32 @@ public class VideoAds @JvmOverloads constructor(
                 }
                 val configuration = Sdk.configuration ?: throw VideoAdException.NotInitialized()
                 val context = Environment.context ?: throw VideoAdException.NotInitialized()
-                val built = AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis, sessionId, held)
+                val adsRequest = AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis, sessionId, held)
                 // Another video's response may have switched the SDK off meanwhile: nothing leaves.
                 checkStillUsable()
-                lastRequestId = built.requestId
-                Logger.debug { "${content.id}: requesting at playhead ${built.playheadMillis} ms, holding ${built.held.size}" }
-                DebugReporter.event("ads.request", state = mapOf("held" to built.held.size, "playhead" to built.playheadMillis))
+                lastRequestId = adsRequest.requestId
+                Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms, holding ${adsRequest.held.size}" }
+                DebugReporter.event("ads.request", state = mapOf("held" to adsRequest.held.size, "playhead" to adsRequest.playheadMillis))
                 val response = try {
-                    AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", built.body)).also(::checkIdsAgainstHeld)
+                    AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)).also(::checkIdsAgainstHeld)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
                     // Not swallowed: the report carries it, and the app hears the failure it maps to (toRequestFailure).
                     checkStillUsable()
-                    Logger.error { "${content.id}: request ${built.requestId} failed, ${error.message}" }
+                    Logger.error { "${content.id}: request ${adsRequest.requestId} failed, ${error.message}" }
                     @Suppress("InstanceOfCheckForException") // the code, not the handling, depends on it
                     ErrorReporter.report(
                         if (error is ApiException.Decoding) ErrorReport.Code.ADS_DECODE_FAILED else ErrorReport.Code.ADS_REQUEST_FAILED,
                         ErrorReport.Stage.REQUEST,
-                        requestId = built.requestId,
+                        requestId = adsRequest.requestId,
                         sessionId = sessionId,
                         failure = ErrorReport.FailedRequest(error),
                         recovery = if (holdsAds) ErrorReport.Recovery.HELD_ADS_KEPT else ErrorReport.Recovery.NO_AD,
                     )
                     throw VideoAdException.Request(error.toRequestFailure())
                 }
-                receive(response, built.requestId)
+                receive(response, adsRequest.requestId)
             }
         }
         request = task
