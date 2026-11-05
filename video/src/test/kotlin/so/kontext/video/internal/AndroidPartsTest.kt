@@ -15,6 +15,7 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAdsPlayer
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.screen.AdGeometry
@@ -123,7 +124,7 @@ class AndroidPartsTest {
         assertTrue("another origin, a subframe, another ad, a video event before show", events.isEmpty())
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, isMainFrame = true)
         assertEquals(listOf<FrameEvent>(FrameEvent.Loaded), events)
-        assertEquals(FrameBridge.State.LOADED, bridge.state)
+        assertEquals(FrameProtocol.State.LOADED, bridge.state)
     }
 
     @Test fun aClickNeedsATouchAndAnAllowedScheme() {
@@ -147,13 +148,13 @@ class AndroidPartsTest {
 
     @Test fun onceReadyThePageMayNotReplaceItself() {
         val bridge = bridge()
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
-        assertEquals(FrameBridge.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test", true, null))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
+        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test", true, null))
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", FrameBridge.Origin.of("https://frames.test"), true)
         val current = "https://frames.test/v2/frame/ad-1"
-        assertEquals(FrameBridge.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision("$current#card", true, current))
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision("https://cdn.test/x", false, current))
+        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("$current#card", true, current))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://cdn.test/x", false, current))
     }
 
     @Test fun aPageErrorBeforeShowFailsWithItsCode() {
@@ -163,6 +164,6 @@ class AndroidPartsTest {
         bridge.receive("""{"adId":"ad-1","type":"ad.error","code":403}""", FrameBridge.Origin.of("https://frames.test"), true)
         assertEquals(403, (events.single() as FrameEvent.Error).code)
         assertEquals(FrameBridge.FailureCause.PAGE, bridge.failureCause)
-        assertEquals(FrameBridge.State.ENDED, bridge.state)
+        assertEquals(FrameProtocol.State.ENDED, bridge.state)
     }
 }

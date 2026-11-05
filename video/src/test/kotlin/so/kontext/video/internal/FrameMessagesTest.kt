@@ -15,6 +15,7 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.support.Environment
 import java.time.Duration
 
@@ -81,7 +82,7 @@ class FrameMessagesTest {
         send("video.start")
         send("ad.loaded")
         assertTrue("nothing before ad.show: ${events.map { it::class.simpleName }}", events.isEmpty())
-        assertEquals(FrameBridge.State.LOADED, bridge.state)
+        assertEquals(FrameProtocol.State.LOADED, bridge.state)
         send("ad.error")
         assertEquals("a display page that fails to load: 500", 500, (events.single() as FrameEvent.Error).code)
     }
@@ -124,7 +125,7 @@ class FrameMessagesTest {
         send("ad.unknown")
         send("video.rewind")
         assertTrue(events.isEmpty())
-        assertEquals(FrameBridge.State.LOADING, bridge.state)
+        assertEquals(FrameProtocol.State.LOADING, bridge.state)
     }
 
     @Test fun aClickNeedsAnAllowedUrlAndOneTouchEach() {
@@ -142,7 +143,7 @@ class FrameMessagesTest {
         send("ad.click", "\"url\": \"https://brand.test\"")
         assertEquals("the touch was spent", 1, events.size)
         bridge.noteTouch()
-        now += FrameBridge.TOUCH_WINDOW_MILLIS + 1
+        now += FrameProtocol.TOUCH_WINDOW_MILLIS + 1
         send("ad.open", "\"url\": \"https://brand.test/why\"")
         assertEquals("a touch too long ago", 1, events.size)
         bridge.noteTouch()
@@ -169,7 +170,7 @@ class FrameMessagesTest {
         assertEquals(FrameEvent.VideoEvent.START, (events.single() as FrameEvent.Video).event)
         send("video.skip", "\"playhead\": 5000")
         assertEquals(5_000, (events.last() as FrameEvent.Skip).playheadMillis)
-        assertEquals(FrameBridge.State.ENDED, bridge.state)
+        assertEquals(FrameProtocol.State.ENDED, bridge.state)
         val count = events.size
         send("ad.close")
         send("ad.error")
@@ -201,7 +202,7 @@ class FrameMessagesTest {
         events.clear()
         loaded.webView.webViewClient.onRenderProcessGone(loaded.webView, io.mockk.mockk(relaxed = true))
         assertEquals("loaded, never shown: still the load error code, not 405", 400, (events.single() as FrameEvent.Error).code)
-        assertEquals(FrameBridge.State.ENDED, loaded.state)
+        assertEquals(FrameProtocol.State.ENDED, loaded.state)
     }
 
     @Test fun theLoadTimeoutCountsOnlyTimeInFrontAndSparesALoadedPage() {
@@ -224,10 +225,10 @@ class FrameMessagesTest {
 
     @Test fun showIsIgnoredUnlessThePageIsLoaded() {
         bridge.show()
-        assertEquals(FrameBridge.State.LOADING, bridge.state)
+        assertEquals(FrameProtocol.State.LOADING, bridge.state)
         shown()
         bridge.show()
-        assertEquals(FrameBridge.State.SHOWN, bridge.state)
+        assertEquals(FrameProtocol.State.SHOWN, bridge.state)
     }
 
     @Test fun originsSpellOutTheDefaultPort() {
@@ -255,9 +256,9 @@ class FrameMessagesTest {
 
     @Test fun anInDocumentMoveStaysAndAnyOtherNavigationIsDecidedByOrigin() {
         shown()
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision("$url#step2", true, url))
-        assertEquals(FrameBridge.NavigationDecision.CANCEL, bridge.navigationDecision("https://frames.test/other#a", true, url))
-        assertEquals(FrameBridge.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, null))
-        assertEquals(FrameBridge.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test/#a", true, url))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("$url#step2", true, url))
+        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision("https://frames.test/other#a", true, url))
+        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, null))
+        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test/#a", true, url))
     }
 }

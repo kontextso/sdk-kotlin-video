@@ -25,6 +25,7 @@ import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.screen.AdHostView
@@ -77,7 +78,7 @@ class ParityRenderingTest : SdkTest() {
         val bridge = bridge()
         bridge.send("ad.loaded", from = FrameBridge.Origin.of("http://frames.test"))
         assertTrue(received.isEmpty())
-        assertEquals(FrameBridge.State.LOADING, bridge.state)
+        assertEquals(FrameProtocol.State.LOADING, bridge.state)
     }
 
     @Test fun theDefaultPortIsTheSameOriginAndAnyOtherIsNot() {
@@ -111,7 +112,7 @@ class ParityRenderingTest : SdkTest() {
         val bridge = bridge().shown()
         bridge.send("ad.close")
         assertEquals(FrameEvent.CloseReason.CLOSE, (received.single() as FrameEvent.Close).reason)
-        assertEquals(FrameBridge.State.ENDED, bridge.state)
+        assertEquals(FrameProtocol.State.ENDED, bridge.state)
         bridge.send("ad.close")
         assertEquals("nothing after ended", 1, received.size)
         bridge().shown().send("ad.close", "\"reason\": \"swipe\"")
@@ -130,7 +131,7 @@ class ParityRenderingTest : SdkTest() {
         bridge.load()
         idle(1_000)
         assertEquals(400, (received.single() as FrameEvent.Error).code)
-        assertEquals(FrameBridge.State.ENDED, bridge.state)
+        assertEquals(FrameProtocol.State.ENDED, bridge.state)
     }
 
     @Test fun aClickKeepsItsFallbackAndDefaultsTheArea() {
@@ -159,38 +160,38 @@ class ParityRenderingTest : SdkTest() {
     @Test fun aRedirectWithTheExplicitDefaultPortIsTheSameOrigin() {
         val bridge = bridge()
         val decide = { target: String -> bridge.navigationDecision(target, true, null) }
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, decide("https://frames.test:443/v2/frame/ad-1/next"))
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, decide("https://frames.test/other"))
-        assertEquals(FrameBridge.NavigationDecision.EXTERNAL, decide("https://frames.test:8443/v2/frame/ad-1"))
-        assertEquals(FrameBridge.NavigationDecision.EXTERNAL, decide("http://frames.test/v2/frame/ad-1"))
-        assertEquals(FrameBridge.NavigationDecision.EXTERNAL, decide("https://evil.test/v2/frame/ad-1"))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, decide("https://frames.test:443/v2/frame/ad-1/next"))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, decide("https://frames.test/other"))
+        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, decide("https://frames.test:8443/v2/frame/ad-1"))
+        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, decide("http://frames.test/v2/frame/ad-1"))
+        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, decide("https://evil.test/v2/frame/ad-1"))
         val local = bridge(at = "http://localhost:5175/frame/ad-1")
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, local.navigationDecision("http://localhost:5175/x", true, null))
-        assertEquals(FrameBridge.NavigationDecision.EXTERNAL, local.navigationDecision("http://localhost/x", true, null))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, local.navigationDecision("http://localhost:5175/x", true, null))
+        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, local.navigationDecision("http://localhost/x", true, null))
     }
 
     @Test fun aTouchTooLongAgoAuthorizesNothing() {
         val bridge = bridge().shown()
         bridge.noteTouch()
-        now += FrameBridge.TOUCH_WINDOW_MILLIS + 500
+        now += FrameProtocol.TOUCH_WINDOW_MILLIS + 500
         bridge.send("ad.click", "\"url\": \"https://brand.test\"")
         bridge.navigate("https://brand.test")
         assertTrue("an expired touch opens nothing", received.isEmpty())
         bridge.noteTouch()
-        now += FrameBridge.TOUCH_WINDOW_MILLIS - 100
+        now += FrameProtocol.TOUCH_WINDOW_MILLIS - 100
         bridge.send("ad.click", "\"url\": \"https://brand.test\"")
         assertEquals("a touch within the window still does", 1, received.size)
     }
 
     @Test fun whileLoadingABlankPageGoesThroughAndOnceReadyTheSameFragmentStays() {
         val bridge = bridge()
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision("about:blank", true, url))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("about:blank", true, url))
         bridge.shown()
         val anchored = "$url#endcard"
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision(anchored, true, anchored))
-        assertEquals(FrameBridge.NavigationDecision.CANCEL, bridge.navigationDecision(url, true, url))
-        assertEquals(FrameBridge.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, url))
-        assertEquals(FrameBridge.NavigationDecision.ALLOW, bridge.navigationDecision("https://anything.test/creative", false, url))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision(anchored, true, anchored))
+        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision(url, true, url))
+        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, url))
+        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://anything.test/creative", false, url))
     }
 
     @Test fun anOpenCarriesAnUnfamiliarPurposeUnchanged() {
@@ -217,7 +218,7 @@ class ParityRenderingTest : SdkTest() {
         bridge.send("ad.loaded")
         bridge.hide()
         assertTrue(sent.isEmpty())
-        assertEquals(FrameBridge.State.ENDED, bridge.state)
+        assertEquals(FrameProtocol.State.ENDED, bridge.state)
     }
 
     @Test fun exposureIsSentOnlyWhileShownInTheProtocolsEnvelope() {

@@ -49,11 +49,17 @@ adb logcat -s KontextVideo
 - Format differences live in two places: `ContentRule` (how an ad follows the content: `OverlayRule`,
   `PauseRule`, `NoContentRule`) and `AdScreen` (where it is shown: `InlineScreen`, the host view and the clock;
   `LinearScreen`, its own Activity and its closing). `VideoAd` asks them rather than branching on the format.
+- Functional core, imperative shell: the rules with no Android in them (`AdLifecycle`, `FrameProtocol`,
+  `FrameEvent.CloseReason.outcome`) decide, and `VideoAd` and `FrameBridge` act on the answer; the rules are
+  tested as plain JUnit tables. Swift has `AdLifecycle` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:
   - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
-  - `frame/`, the ad's web page and its messages: `FrameBridge` (the WebView and the frame protocol; the page's
-    messages come through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame
-    only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
+    `core/AdLifecycle.kt`: an ad's phases (offered, invalidated, reserved, on screen, ending, ended) and their legal
+    moves, no Android; `VideoAd` holds one and its public flags read from it.
+  - `frame/`, the ad's web page and its messages: `FrameProtocol` (the frame protocol's rules, no WebView: the
+    envelope, the sender, the states, the video's order, the playhead's bounds, the touch a click needs; `accept`
+    returns a `Step`), `FrameBridge` (its shell: the WebView, which does each `Step`; the page's messages come
+    through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
     message of its frame page), `VideoAdClick` (a click: beacon, click-through, listener).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
     `Presentation` (one ad on screen: the slot, its screen, the meter), `AdHostView`, `AdGeometry` (the placement

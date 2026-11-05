@@ -27,25 +27,31 @@ import androidx.webkit.WebViewRenderProcessClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
-import so.kontext.video.VideoAd
-import so.kontext.video.internal.network.double
-import so.kontext.video.internal.network.obj
-import so.kontext.video.internal.network.str
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
 
 /**
- * Owns the WebView of one ad and speaks the Kontext Frame Protocol v2 with its page. The page posts to
- * `window.KontextAndroid.postMessage(json)`, injected by `addWebMessageListener` for the page's own origin
- * only; the bridge answers with `window.postMessage` into the page. One bridge, one ad: it accepts messages
- * only from the main frame of the page it loaded, carrying its own ad id, and only in an order that makes sense.
+ * Owns the WebView of one ad and speaks the Kontext Frame Protocol v2 with its page: the imperative shell around
+ * [FrameProtocol], which decides what each message means. The page posts to `window.KontextAndroid.postMessage(json)`,
+ * injected by `addWebMessageListener` for the page's own origin only; the bridge answers with `window.postMessage`
+ * into the page. One bridge, one ad.
+ *
+ * ```
+ *   page message ──► receive ──► FrameProtocol.accept ──► Step ──► execute
+ *                                                                   ignore: nothing
+ *                                                                   drop: a log line, a violation reported once
+ *                                                                   loaded: the load timeout stops, the page pauses
+ *                                                                   deliver: onEvent
+ *                                                                   endThenDeliver: the page torn down, then onEvent
+ * ```
+ *
+ * Here: the WebView, its settings and clients, the load and its timeout, pausing and resuming the page, what the
+ * SDK sends the page, and the teardown.
  */
 @SuppressLint("SetJavaScriptEnabled")
 internal class FrameBridge(
@@ -56,14 +62,16 @@ internal class FrameBridge(
     /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
     videoDurationMillis: Long? = null,
 ) {
-    enum class State { LOADING, LOADED, SHOWN, ENDED }
-
     /** Why the bridge failed: several causes fire the same VAST code, and the error report keeps them apart. */
     enum class FailureCause { PAGE, LOAD_TIMEOUT, LOAD_FAILED, PROCESS_TERMINATED, UNRESPONSIVE }
 
     val webView: WebView = TouchNotingWebView(context)
-    var state = State.LOADING
-        private set
+
+    /** The frame protocol's rules and state for this page. */
+    private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, ::isAllowed)
+
+    /** Where the page is, as the protocol says. */
+    val state: FrameProtocol.State get() = protocol.state
     var failureCause: FailureCause? = null
         private set
     var failureUnderlying: ErrorReporter.Underlying? = null
@@ -76,17 +84,8 @@ internal class FrameBridge(
     /** The variant the SDK chose from the ad's sizes for the real box (dp); the page lays it out. */
     var chosenSize: AdPayload.Size? = null
 
-    private val origin = Origin.of(url)
-    private val loadErrorCode = if (isVideo) 400 else 500
+    private val origin = protocol.origin
     private var loadTimeoutJob: Job? = null
-    private var lastTouchAt = Long.MIN_VALUE / 2
-    private var reportedProtocolViolation = false
-
-    /** `video.start` arrived: the video's progress, quartiles, pause, resume and complete count only after it. */
-    private var videoStarted = false
-
-    /** The highest playhead a page may report, in milliseconds: the video's duration and the grace, or a day. */
-    private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
 
     /** The SDK's own client of the WebView; tests wrap it (WebView.getWebViewClient() exists only from Android 8). */
     internal lateinit var client: WebViewClient
@@ -119,9 +118,9 @@ internal class FrameBridge(
                 webView,
                 object : WebViewRenderProcessClient() {
                     override fun onRenderProcessUnresponsive(view: WebView, renderer: WebViewRenderProcess?) {
-                        if (state == State.ENDED) return
+                        if (state == FrameProtocol.State.ENDED) return
                         Logger.warning { "frame ${adId.take(8)}: the page stopped responding; the ad ends" }
-                        fail(FrameEvent.Error(if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.UNRESPONSIVE)
+                        fail(FrameEvent.Error(protocol.failureCode), FailureCause.UNRESPONSIVE)
                     }
 
                     override fun onRenderProcessResponsive(view: WebView, renderer: WebViewRenderProcess?) = Unit
@@ -159,19 +158,18 @@ internal class FrameBridge(
                 if (Environment.isAppInForeground()) waited += now - last
                 last = now
             }
-            if (state != State.LOADING) return@launch
+            if (state != FrameProtocol.State.LOADING) return@launch
             Logger.warning { "frame ${adId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }
-            fail(FrameEvent.Error(loadErrorCode), FailureCause.LOAD_TIMEOUT)
+            fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_TIMEOUT)
         }
     }
 
     /** The page is on screen: it starts whatever the creative does when visible, in the chosen size. */
     fun show() {
-        if (state != State.LOADED) {
+        if (!protocol.show()) {
             Logger.warning { "frame ${adId.take(8)}: show() in state $state, ignored" }
             return
         }
-        state = State.SHOWN
         webView.onResume()
         val size = chosenSize
         send("ad.show", if (size != null) mapOf("size" to mapOf("width" to size.width, "height" to size.height)) else emptyMap())
@@ -182,15 +180,15 @@ internal class FrameBridge(
      * MRAID's `exposureChange`, which the page relays it to. The rectangle in the page's CSS pixels.
      */
     fun exposure(share: Double, x: Double, y: Double, width: Double, height: Double) {
-        if (state != State.SHOWN) return
+        if (state != FrameProtocol.State.SHOWN) return
         val percentage = Math.round(share * 10_000) / 100.0
         send("ad.exposure", mapOf("exposedPercentage" to percentage, "visibleRectangle" to mapOf("x" to x, "y" to y, "width" to width, "height" to height)))
     }
 
     /** The SDK is removing the page: terminal. */
     fun hide() {
-        if (state == State.ENDED) return
-        if (state == State.SHOWN) send("ad.hide")
+        if (state == FrameProtocol.State.ENDED) return
+        if (state == FrameProtocol.State.SHOWN) send("ad.hide")
         end()
     }
 
@@ -200,45 +198,39 @@ internal class FrameBridge(
         webView.evaluateJavascript("window.postMessage($message, window.location.origin)", null)
     }
 
-    /**
-     * Checks the envelope, the sender and the order; drops anything else without an error. A message that is
-     * not text (an ArrayBuffer) is never read: its `data` accessor throws. From the page itself it is a broken
-     * envelope.
-     */
+    /** A message of the page: text goes to [FrameProtocol.accept], anything else is a broken envelope from the page. */
     fun receive(message: WebMessageCompat, sender: Origin?, isMainFrame: Boolean) {
         if (message.type == WebMessageCompat.TYPE_STRING) {
             receive(message.data, sender, isMainFrame)
             return
         }
-        if (state == State.ENDED || !isMainFrame || sender == null || sender != origin) return
-        Logger.debug { "frame ${adId.take(8)}: a message that is not text dropped" }
-        reportProtocolViolation("envelope")
+        execute(protocol.acceptNonText(sender, isMainFrame))
     }
 
-    // One branch per message type of the frame protocol.
-    @Suppress("CyclomaticComplexMethod")
+    /** A text message of the page, as the protocol rules it. */
     fun receive(raw: String?, sender: Origin?, isMainFrame: Boolean) {
-        if (state == State.ENDED) return
-        if (!isMainFrame || sender == null || sender != origin) {
-            Logger.debug { "frame ${adId.take(8)}: message from another frame dropped" }
-            return
-        }
-        val body = raw?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }?.obj()
-        val type = body?.str("type")
-        if (body == null || body.str("adId") != adId || type == null) {
-            Logger.debug { "frame ${adId.take(8)}: malformed message dropped" }
-            reportProtocolViolation("envelope")
-            return
-        }
-        Logger.debug { "frame ${adId.take(8)}: ← $type" }
-        // Milliseconds into the ad video, clamped to the video's duration (a day without one): a playhead past
-        // the end would fire every checkpoint at once.
-        val playhead = (body.double("playhead") ?: 0.0).coerceIn(0.0, playheadLimitMillis.toDouble()).toLong()
-        when (type) {
-            "ad.loaded" -> {
-                if (state != State.LOADING) return
+        execute(protocol.accept(raw, sender, isMainFrame, Environment.now()))
+    }
+
+    /** The viewer touched the WebView; a URL may be opened for [FrameProtocol.TOUCH_WINDOW_MILLIS]. */
+    fun noteTouch() {
+        protocol.noteTouch(Environment.now())
+    }
+
+    /** What a top-level navigation may do (see [FrameProtocol.navigationDecision]). */
+    fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): FrameProtocol.NavigationDecision =
+        protocol.navigationDecision(target, isMainFrame, current)
+
+    /** Does what the protocol said to a message of the page. */
+    private fun execute(step: FrameProtocol.Step) {
+        when (step) {
+            FrameProtocol.Step.Ignore -> Unit
+            is FrameProtocol.Step.Drop -> {
+                if (step.isWarning) Logger.warning { "frame ${adId.take(8)}: ${step.log}" } else Logger.debug { "frame ${adId.take(8)}: ${step.log}" }
+                step.violation?.let(::reportProtocolViolation)
+            }
+            FrameProtocol.Step.Loaded -> {
                 loadTimeoutJob?.cancel()
-                state = State.LOADED
                 // A WebView out of any window runs as visible: a preloaded page would draw its animation
                 // frames at about 60 fps for as long as the ad is held. Paused until show: animations and
                 // rendering stop, JavaScript does not. Only now, after the page said it is ready: a video
@@ -246,130 +238,32 @@ internal class FrameBridge(
                 webView.onPause()
                 onEvent?.invoke(FrameEvent.Loaded)
             }
-            "ad.click", "ad.open" -> {
-                if (state != State.SHOWN) return
-                val primary = body.str("url")?.takeIf(::isAllowed)
-                val fallback = if (type == "ad.click") body.str("fallbackUrl")?.takeIf(::isAllowed) else null
-                // A click whose link may not open still has its fallback, which then is the click-through.
-                val target = primary ?: fallback ?: return
-                if (!consumeTouch()) {
-                    Logger.warning { "frame ${adId.take(8)}: $type to $target dropped, no touch before it" }
-                    return
-                }
-                if (type == "ad.click") {
-                    onEvent?.invoke(FrameEvent.Click(target, fallback.takeIf { primary != null }, VideoAd.Click.Area.from(body.str("area"))))
-                } else {
-                    onEvent?.invoke(FrameEvent.Open(target, body.str("purpose") ?: "unknown"))
-                }
-            }
-            "ad.close" -> {
-                if (state != State.SHOWN) return
-                end()
-                onEvent?.invoke(FrameEvent.Close(FrameEvent.CloseReason.from(body.str("reason"))))
-            }
-            "video.skip" -> {
-                if (state != State.SHOWN) return
-                end()
-                onEvent?.invoke(FrameEvent.Skip(playhead))
-            }
-            "video.complete" -> if (state == State.SHOWN && startedBefore(type)) onEvent?.invoke(FrameEvent.Complete(playhead))
-            "video.progress" -> {
-                if (state != State.SHOWN || !startedBefore(type)) return
-                val offset = (body["offset"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
-                if (offset == null || offset % 1.0 != 0.0 || offset !in 0.0..DAY_MILLIS.toDouble()) {
-                    Logger.debug { "frame ${adId.take(8)}: video.progress with a malformed offset dropped" }
-                    reportProtocolViolation("progress.offset")
-                    return
-                }
-                onEvent?.invoke(FrameEvent.Progress(minOf(offset.toLong(), playheadLimitMillis), playhead))
-            }
-            "ad.error" -> {
-                if (state == State.ENDED) return
-                // A VAST error code has three digits; any other code from the page goes as 900, undefined error.
-                val given = body.double("code")
-                val code = given?.let { if (it in 100.0..999.0) it.toInt() else UNDEFINED_ERROR } ?: if (state == State.SHOWN) 405 else loadErrorCode
-                fail(FrameEvent.Error(code), FailureCause.PAGE)
-            }
-            else -> {
-                val event = type.takeIf { it.startsWith("video.") }?.let { FrameEvent.VideoEvent.from(it.removePrefix("video.")) }
-                if (event == null) {
-                    Logger.debug { "frame ${adId.take(8)}: unknown message $type dropped" }
-                    return
-                }
-                if (state == State.SHOWN && accepts(event, type)) onEvent?.invoke(FrameEvent.Video(event, playhead))
+            is FrameProtocol.Step.Deliver -> onEvent?.invoke(step.event)
+            is FrameProtocol.Step.EndThenDeliver -> {
+                // The page's own ad.error: the page is the cause.
+                if (step.event is FrameEvent.Error) failureCause = FailureCause.PAGE
+                tearDown()
+                onEvent?.invoke(step.event)
             }
         }
     }
-
-    /** The viewer touched the WebView; a URL may be opened for [TOUCH_WINDOW_MILLIS]. */
-    fun noteTouch() {
-        lastTouchAt = Environment.now()
-    }
-
-    /** One tap opens one URL: the first click, open or navigation it authorized spends it. */
-    private fun consumeTouch(): Boolean {
-        if (Environment.now() - lastTouchAt > TOUCH_WINDOW_MILLIS) return false
-        lastTouchAt = Long.MIN_VALUE / 2
-        return true
-    }
-
-    /** What a top-level navigation may do: while loading, its own origin and `about:blank`; once ready only an in-document (fragment) move. */
-    fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): NavigationDecision {
-        if (!isMainFrame) return NavigationDecision.ALLOW
-        val ours = Origin.of(target) == origin || target == "about:blank"
-        if (state == State.LOADING) return if (ours) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
-        if (current != null && '#' in target && target.substringBefore('#') == current.substringBefore('#')) return NavigationDecision.ALLOW
-        return if (ours) NavigationDecision.CANCEL else NavigationDecision.EXTERNAL
-    }
-
-    enum class NavigationDecision { ALLOW, CANCEL, EXTERNAL }
 
     /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
     private fun externalNavigation(target: String) {
-        if (state != State.SHOWN || !isAllowed(target) || !consumeTouch()) {
-            Logger.warning { "frame ${adId.take(8)}: navigation to $target cancelled" }
-            return
-        }
-        onEvent?.invoke(FrameEvent.Click(target, null, VideoAd.Click.Area.Creative))
+        execute(protocol.externalNavigation(target, Environment.now()))
     }
 
     private fun fail(event: FrameEvent, cause: FailureCause) {
-        if (state == State.ENDED) return
+        if (!protocol.end()) return
         failureCause = cause
-        end()
+        tearDown()
         onEvent?.invoke(event)
     }
 
-    /**
-     * `video.start` opens the video; mute and unmute are the viewer's and may come while it still loads; the
-     * rest need the start before them.
-     */
-    private fun accepts(event: FrameEvent.VideoEvent, type: String): Boolean = when (event) {
-        FrameEvent.VideoEvent.START -> {
-            videoStarted = true
-            true
-        }
-        FrameEvent.VideoEvent.MUTE, FrameEvent.VideoEvent.UNMUTE -> true
-        else -> startedBefore(type)
-    }
-
-    /**
-     * Whether `video.start` came before this video message; one that did not is dropped: progress, quartiles
-     * or a complete for a video that never started would be billed with no impression.
-     */
-    private fun startedBefore(type: String): Boolean {
-        if (videoStarted) return true
-        Logger.debug { "frame ${adId.take(8)}: $type before video.start dropped" }
-        reportProtocolViolation("video.beforeStart")
-        return false
-    }
-
     private fun reportProtocolViolation(detail: String) {
-        if (reportedProtocolViolation) return
-        reportedProtocolViolation = true
         ErrorReporter.report(
             ErrorReporter.Code.PROTOCOL_VIOLATION,
-            if (state == State.SHOWN) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
+            if (state == FrameProtocol.State.SHOWN) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
             adId = adId,
             detail = detail,
         )
@@ -377,8 +271,11 @@ internal class FrameBridge(
 
     /** Terminal: the page is stopped and nothing is accepted or sent any more. */
     private fun end() {
-        if (state == State.ENDED) return
-        state = State.ENDED
+        if (protocol.end()) tearDown()
+    }
+
+    /** The page goes: stopped, unhooked, blanked, and destroyed after the callback that ended it returns. */
+    private fun tearDown() {
         loadTimeoutJob?.cancel()
         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
         webView.stopLoading()
@@ -396,12 +293,12 @@ internal class FrameBridge(
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             val target = request.url.toString()
             return when (navigationDecision(target, request.isForMainFrame, view.url)) {
-                NavigationDecision.ALLOW -> false
-                NavigationDecision.CANCEL -> {
+                FrameProtocol.NavigationDecision.ALLOW -> false
+                FrameProtocol.NavigationDecision.CANCEL -> {
                     Logger.warning { "frame ${adId.take(8)}: the page tried to replace itself after it was ready; refused" }
                     true
                 }
-                NavigationDecision.EXTERNAL -> {
+                FrameProtocol.NavigationDecision.EXTERNAL -> {
                     externalNavigation(target)
                     true
                 }
@@ -415,10 +312,10 @@ internal class FrameBridge(
          * `pushState`) starts no page.
          */
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-            if (state == State.LOADING || state == State.ENDED) return
+            if (state == FrameProtocol.State.LOADING || state == FrameProtocol.State.ENDED) return
             Logger.warning { "frame ${adId.take(8)}: the page replaced itself after it was ready; the ad ends" }
             view.stopLoading()
-            fail(FrameEvent.Error(if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.PAGE)
+            fail(FrameEvent.Error(protocol.failureCode), FailureCause.PAGE)
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -432,7 +329,7 @@ internal class FrameBridge(
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
             Logger.warning { "frame ${adId.take(8)}: web content process ended" }
             // 405 is a failure while playing; an ad loaded but never shown gets the load error, like any other.
-            fail(FrameEvent.Error(if (state == State.SHOWN) 405 else loadErrorCode), FailureCause.PROCESS_TERMINATED)
+            fail(FrameEvent.Error(protocol.failureCode), FailureCause.PROCESS_TERMINATED)
             // The WebView is dead; returning true keeps the app alive.
             return true
         }
@@ -440,10 +337,10 @@ internal class FrameBridge(
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
     private fun loadFailed(underlying: ErrorReporter.Underlying) {
-        if (state != State.LOADING) return
+        if (state != FrameProtocol.State.LOADING) return
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
-        fail(FrameEvent.Error(loadErrorCode), FailureCause.LOAD_FAILED)
+        fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)
     }
 
     private inner class Chrome : WebChromeClient() {
@@ -497,14 +394,6 @@ internal class FrameBridge(
     companion object {
         /** `ad.loaded` must arrive within this. A constant in spirit; a variable so the tests can set it. */
         var loadTimeoutMillis = 10_000L
-        const val TOUCH_WINDOW_MILLIS = 1_000L
-        private const val DAY_MILLIS = 86_400_000L
-
-        /** How far past the video's duration a page playhead may go: the page's rounding, not more. */
-        private const val PLAYHEAD_GRACE_MILLIS = 1_000L
-
-        /** VAST's undefined error: what a page's code outside 100-999 becomes. */
-        private const val UNDEFINED_ERROR = 900
 
         /**
          * Web, store and the advertiser's app links open. Refused: `intent:`, which could start any Android
