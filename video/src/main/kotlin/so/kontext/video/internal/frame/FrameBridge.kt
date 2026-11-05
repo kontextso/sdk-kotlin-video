@@ -81,7 +81,7 @@ internal class FrameBridge(
     private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, LinkOpener::isAllowed)
 
     /** Where the page is, as the protocol says. */
-    val state: PageState get() = protocol.state
+    val state: FramePhase get() = protocol.state
     var failureCause: FailureCause? = null
         private set
     var failureUnderlying: ErrorReport.Underlying? = null
@@ -125,7 +125,7 @@ internal class FrameBridge(
                 webView,
                 object : WebViewRenderProcessClient() {
                     override fun onRenderProcessUnresponsive(view: WebView, renderer: WebViewRenderProcess?) {
-                        if (state == PageState.ENDED) return
+                        if (state == FramePhase.ENDED) return
                         Logger.warning { "frame ${adId.take(8)}: the page stopped responding; the ad ends" }
                         fail(FrameEvent.Error(protocol.failureCode), FailureCause.UNRESPONSIVE)
                     }
@@ -165,7 +165,7 @@ internal class FrameBridge(
                 if (Environment.isAppInForeground()) waited += now - last
                 last = now
             }
-            if (state != PageState.LOADING) return@launch
+            if (state != FramePhase.LOADING) return@launch
             Logger.warning { "frame ${adId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }
             fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_TIMEOUT)
         }
@@ -189,7 +189,7 @@ internal class FrameBridge(
      * MRAID's `exposureChange`, which the page relays it to. The rectangle in the page's CSS pixels.
      */
     fun exposure(share: Double, x: Double, y: Double, width: Double, height: Double) {
-        if (state != PageState.SHOWN) return
+        if (state != FramePhase.SHOWN) return
         val percentage = Math.round(share * 10_000) / 100.0
         send("ad.exposure", mapOf("exposedPercentage" to percentage, "visibleRectangle" to mapOf("x" to x, "y" to y, "width" to width, "height" to height)))
     }
@@ -206,8 +206,8 @@ internal class FrameBridge(
 
     /** The SDK is removing the page: terminal. */
     fun hide() {
-        if (state == PageState.ENDED) return
-        if (state == PageState.SHOWN) send("ad.hide")
+        if (state == FramePhase.ENDED) return
+        if (state == FramePhase.SHOWN) send("ad.hide")
         end()
     }
 
@@ -282,7 +282,7 @@ internal class FrameBridge(
     private fun reportProtocolViolation(detail: String) {
         ErrorReporter.report(
             ErrorReport.Code.PROTOCOL_VIOLATION,
-            if (state == PageState.SHOWN) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
+            if (state == FramePhase.SHOWN) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
             adId = adId,
             detail = detail,
         )
@@ -331,7 +331,7 @@ internal class FrameBridge(
          * `pushState`) starts no page.
          */
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-            if (state == PageState.LOADING || state == PageState.ENDED) return
+            if (state == FramePhase.LOADING || state == FramePhase.ENDED) return
             Logger.warning { "frame ${adId.take(8)}: the page replaced itself after it was ready; the ad ends" }
             view.stopLoading()
             fail(FrameEvent.Error(protocol.failureCode), FailureCause.PAGE)
@@ -356,7 +356,7 @@ internal class FrameBridge(
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
     private fun loadFailed(underlying: ErrorReport.Underlying) {
-        if (state != PageState.LOADING) return
+        if (state != FramePhase.LOADING) return
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)

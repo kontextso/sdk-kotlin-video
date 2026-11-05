@@ -1,7 +1,5 @@
 package so.kontext.video.internal.frame
 
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
 import so.kontext.video.internal.payloads.JsonParser
 import so.kontext.video.internal.payloads.double
 import so.kontext.video.internal.payloads.obj
@@ -61,7 +59,7 @@ internal class FrameMessage(
                 type = type,
                 // Clamped: a playhead past the end would fire every checkpoint at once.
                 playheadMillis = Math.round((body.double("playhead") ?: 0.0).coerceIn(0.0, playheadLimitMillis.toDouble())),
-                offset = (body["offset"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull,
+                offset = body.double("offset"),
                 url = body.str("url"),
                 fallbackUrl = body.str("fallbackUrl"),
                 code = body.double("code"),

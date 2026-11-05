@@ -71,7 +71,7 @@ adb logcat -s KontextVideo
     screen (`shownAd`).
   - `frame/`, the ad's web page and its messages: `FrameMessage` (one page message read: the
     envelope, the 1 MB limit, the fields, the playhead's bounds; `parse` is `null` for a broken envelope),
-    `FrameProtocol` (the frame protocol's rules, no WebView: the sender, the page's state (`PageState`, not the
+    `FrameProtocol` (the frame protocol's rules, no WebView: the sender, the frame's phase (`FramePhase`, not the
     ad's), the video's order, the touch a click needs, a navigation; `accept` returns a `Step`), `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
     through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
     message of its frame page).

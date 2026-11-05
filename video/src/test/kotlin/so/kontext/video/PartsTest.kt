@@ -21,7 +21,7 @@ import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.PageState
+import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
@@ -101,7 +101,7 @@ class PartsTest : SdkTest() {
         assertEquals(1234, (events[1] as FrameEvent.Video).playheadMillis)
         bridge.hide()
         assertEquals("ad.hide", sent.last())
-        assertEquals(PageState.ENDED, bridge.state)
+        assertEquals(FramePhase.ENDED, bridge.state)
         bridge.receive("""{"adId":"ad-1","type":"video.start"}""", page, true) // ended: nothing
         assertEquals(4, events.size)
     }

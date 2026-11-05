@@ -25,7 +25,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.EventHistory
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.frame.PageState
+import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
@@ -63,7 +63,7 @@ class VideoAdLifecycleTest : SdkTest() {
         laidOut()
         assertEquals(listOf("creativeView", "iconView", "impression"), events)
         assertEquals(listOf("impression"), recorder.heard)
-        assertEquals(PageState.SHOWN, ad.loadedBridge?.state)
+        assertEquals(FramePhase.SHOWN, ad.loadedBridge?.state)
     }
 
     @Test fun aContainerThatGivesTheAdNoRoomEndsItWithoutAnImpression() {

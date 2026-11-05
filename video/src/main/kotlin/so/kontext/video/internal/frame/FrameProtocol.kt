@@ -15,7 +15,7 @@ import so.kontext.video.internal.diagnostics.Logger
  * How: the bridge passes each page message to [accept] and executes the [Step] it gets back. The clock comes in
  * as `now`; the page's origin and the link check come in from the bridge (they parse URLs with Android's `Uri`).
  *
- * The page's state ([PageState]) is not the ad's (`AdState`), and both are needed: the page's rules are checked
+ * The frame's phase ([FramePhase], where the ad's frame, its web page, is) is not the ad's state (`AdState`), and both are needed: the page's rules are checked
  * before the ad hears a message at all; the page can end itself (close, skip, error) before the ad knows; a page
  * can be loaded for an ad only offered, never shown; and an ad can be reserved (`show` accepted) while its page
  * is not shown yet. They move together at fixed points: the page's `ad.loaded` makes the ad loaded; the ad
@@ -71,14 +71,14 @@ internal class FrameProtocol(
         class EndThenDeliver(val event: FrameEvent) : Step()
     }
 
-    var state: PageState = PageState.LOADING
+    var state: FramePhase = FramePhase.LOADING
         private set
 
     /** The VAST error of a page that fails before it was shown: 400 for a video, 500 for a display creative. */
     val loadErrorCode: Int = if (isVideo) 400 else 500
 
     /** The VAST error of a failure now: 405 on screen, else the load error. */
-    val failureCode: Int get() = if (state == PageState.SHOWN) 405 else loadErrorCode
+    val failureCode: Int get() = if (state == FramePhase.SHOWN) 405 else loadErrorCode
 
     private var lastTouchAt = Long.MIN_VALUE / 2
     private var hasReportedViolation = false
@@ -94,7 +94,7 @@ internal class FrameProtocol(
      * a violation), and says what to do with it.
      */
     fun accept(raw: String?, sender: FrameBridge.Origin?, isMainFrame: Boolean, now: Long): Step {
-        if (state == PageState.ENDED) return Step.Ignore
+        if (state == FramePhase.ENDED) return Step.Ignore
         if (!isFromPage(sender, isMainFrame)) return Step.Drop("message from another frame dropped")
         val message = FrameMessage.parse(raw, adId, playheadLimitMillis) ?: return drop("malformed message dropped", "envelope")
         return accept(message, now)
@@ -107,21 +107,21 @@ internal class FrameProtocol(
     // One branch per message type of the frame protocol.
     @Suppress("CyclomaticComplexMethod")
     fun accept(message: FrameMessage, now: Long): Step {
-        if (state == PageState.ENDED) return Step.Ignore
+        if (state == FramePhase.ENDED) return Step.Ignore
         val type = message.type
         val playhead = message.playheadMillis
         Logger.debug { "frame ${adId.take(8)}: ← $type" }
         return when (type) {
             "ad.loaded" -> {
-                if (state != PageState.LOADING) return Step.Ignore
-                state = PageState.LOADED
+                if (state != FramePhase.LOADING) return Step.Ignore
+                state = FramePhase.LOADED
                 Step.Loaded
             }
             "ad.click", "ad.open" -> click(message, now)
             "ad.close" -> endIfShown(FrameEvent.Close(FrameEvent.CloseReason.from(message.reason)))
             "video.skip" -> endIfShown(FrameEvent.Skip(playhead))
             "video.complete" -> when {
-                state != PageState.SHOWN -> Step.Ignore
+                state != FramePhase.SHOWN -> Step.Ignore
                 !isVideoStarted -> beforeStart(type)
                 else -> Step.Deliver(FrameEvent.Complete(playhead))
             }
@@ -130,13 +130,13 @@ internal class FrameProtocol(
                 // A VAST error code has three digits; any other code from the page goes as 900, undefined error.
                 val given = message.code
                 val code = given?.let { if (it in 100.0..999.0) it.toInt() else UNDEFINED_ERROR } ?: failureCode
-                state = PageState.ENDED
+                state = FramePhase.ENDED
                 Step.EndThenDeliver(FrameEvent.Error(code))
             }
             else -> {
                 val event = type.takeIf { it.startsWith("video.") }?.let { FrameEvent.VideoEvent.from(it.removePrefix("video.")) }
                     ?: return Step.Drop("unknown message $type dropped")
-                if (state != PageState.SHOWN) return Step.Ignore
+                if (state != FramePhase.SHOWN) return Step.Ignore
                 video(event, type, playhead)
             }
         }
@@ -147,21 +147,21 @@ internal class FrameProtocol(
      * it is a broken envelope.
      */
     fun acceptNonText(sender: FrameBridge.Origin?, isMainFrame: Boolean): Step {
-        if (state == PageState.ENDED || !isFromPage(sender, isMainFrame)) return Step.Ignore
+        if (state == FramePhase.ENDED || !isFromPage(sender, isMainFrame)) return Step.Ignore
         return drop("a message that is not text dropped", "envelope")
     }
 
-    /** The SDK shows the page: only a loaded page can be, once. Says whether it moved to [PageState.SHOWN]. */
+    /** The SDK shows the page: only a loaded page can be, once. Says whether it moved to [FramePhase.SHOWN]. */
     fun show(): Boolean {
-        if (state != PageState.LOADED) return false
-        state = PageState.SHOWN
+        if (state != FramePhase.LOADED) return false
+        state = FramePhase.SHOWN
         return true
     }
 
     /** The page ends: terminal. Says whether it was not ended already, so its teardown runs once. */
     fun end(): Boolean {
-        if (state == PageState.ENDED) return false
-        state = PageState.ENDED
+        if (state == FramePhase.ENDED) return false
+        state = FramePhase.ENDED
         return true
     }
 
@@ -174,14 +174,14 @@ internal class FrameProtocol(
     fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): NavigationDecision {
         if (!isMainFrame) return NavigationDecision.ALLOW
         val isOurs = originOf(target) == origin || target == "about:blank"
-        if (state == PageState.LOADING) return if (isOurs) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
+        if (state == FramePhase.LOADING) return if (isOurs) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
         if (current != null && '#' in target && target.substringBefore('#') == current.substringBefore('#')) return NavigationDecision.ALLOW
         return if (isOurs) NavigationDecision.CANCEL else NavigationDecision.EXTERNAL
     }
 
     /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
     fun externalNavigation(target: String, now: Long): Step {
-        if (state != PageState.SHOWN || !isAllowed(target) || !consumeTouch(now)) return Step.Drop("navigation to $target cancelled", isWarning = true)
+        if (state != FramePhase.SHOWN || !isAllowed(target) || !consumeTouch(now)) return Step.Drop("navigation to $target cancelled", isWarning = true)
         return Step.Deliver(FrameEvent.Click(target, null, VideoAd.Click.Area.Creative))
     }
 
@@ -189,7 +189,7 @@ internal class FrameProtocol(
 
     /** A click or an open: on screen, to a link that may open, right after a touch. */
     private fun click(message: FrameMessage, now: Long): Step {
-        if (state != PageState.SHOWN) return Step.Ignore
+        if (state != FramePhase.SHOWN) return Step.Ignore
         val type = message.type
         val primary = message.url?.takeIf(isAllowed)
         val fallback = if (type == "ad.click") message.fallbackUrl?.takeIf(isAllowed) else null
@@ -205,8 +205,8 @@ internal class FrameProtocol(
 
     /** The page's own end (close, skip): only on screen. */
     private fun endIfShown(event: FrameEvent): Step {
-        if (state != PageState.SHOWN) return Step.Ignore
-        state = PageState.ENDED
+        if (state != FramePhase.SHOWN) return Step.Ignore
+        state = FramePhase.ENDED
         return Step.EndThenDeliver(event)
     }
 
@@ -215,7 +215,7 @@ internal class FrameProtocol(
      * `video.start`; anything else would fire every checkpoint early.
      */
     private fun progress(message: FrameMessage): Step {
-        if (state != PageState.SHOWN) return Step.Ignore
+        if (state != FramePhase.SHOWN) return Step.Ignore
         if (!isVideoStarted) return beforeStart(message.type)
         val offset = message.offset
         if (offset == null || offset !in 0.0..DAY_MILLIS.toDouble()) {

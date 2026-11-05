@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.PageState
+import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.platform.Environment
 
 /**
@@ -59,7 +59,7 @@ class FrameStateTableTest {
         bridge.noteTouch()
         send(bridge, type, fields)
         val delivered = events.singleOrNull()?.let { it::class.simpleName } ?: "-"
-        val ended = before != PageState.ENDED && bridge.state == PageState.ENDED
+        val ended = before != FramePhase.ENDED && bridge.state == FramePhase.ENDED
         return delivered + if (ended) "+end" else ""
     }
 

@@ -16,8 +16,8 @@ import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.FrameProtocol
-import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.AdGeometry
@@ -125,7 +125,7 @@ class AndroidPartsTest {
         assertTrue("another origin, a subframe, another ad, a video event before show", events.isEmpty())
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, isMainFrame = true)
         assertEquals(listOf<FrameEvent>(FrameEvent.Loaded), events)
-        assertEquals(PageState.LOADED, bridge.state)
+        assertEquals(FramePhase.LOADED, bridge.state)
     }
 
     @Test fun aClickNeedsATouchAndAnAllowedScheme() {
@@ -165,6 +165,6 @@ class AndroidPartsTest {
         bridge.receive("""{"adId":"ad-1","type":"ad.error","code":403}""", FrameBridge.Origin.of("https://frames.test"), true)
         assertEquals(403, (events.single() as FrameEvent.Error).code)
         assertEquals(FrameBridge.FailureCause.PAGE, bridge.failureCause)
-        assertEquals(PageState.ENDED, bridge.state)
+        assertEquals(FramePhase.ENDED, bridge.state)
     }
 }

@@ -44,7 +44,7 @@ import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.frame.PageState
+import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.measurement.TrackingMacros
 import so.kontext.video.internal.platform.Environment
 import java.net.URLDecoder
@@ -933,7 +933,7 @@ class ParityAdsTest {
         ad.reject()
         assertEquals(VideoAd.InvalidationReason.Rejected, loading.settled().failure<VideoAdException.Invalidated>().reason)
         assertNull(ad.loadedBridge)
-        assertEquals(PageState.ENDED, bridge.state)
+        assertEquals(FramePhase.ENDED, bridge.state)
         assertEquals(1, fired("notUsed").size)
     }
 
@@ -981,7 +981,7 @@ class ParityAdsTest {
         assertNotNull("not using the ad is not a rejection: the held ad keeps its page", bridge)
         ad.reject()
         assertNull("rejecting releases its WebView", ad.loadedBridge)
-        assertEquals(PageState.ENDED, bridge!!.state)
+        assertEquals(FramePhase.ENDED, bridge!!.state)
     }
 
     // endregion
