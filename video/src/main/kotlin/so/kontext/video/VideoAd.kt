@@ -20,8 +20,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import so.kontext.video.internal.core.AdLifecycle.Phase
-import so.kontext.video.internal.core.AdState
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
@@ -39,6 +37,8 @@ import so.kontext.video.internal.screen.ShownAd
 import so.kontext.video.internal.screen.chooseSize
 import so.kontext.video.internal.screen.combinedInsets
 import so.kontext.video.internal.screen.refit
+import so.kontext.video.internal.state.AdLifecycle.Phase
+import so.kontext.video.internal.state.AdState
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
@@ -72,8 +72,8 @@ public class VideoAd internal constructor(
     //   with each message of its page);
     // - internal/frame/VideoAdClick.kt: click, open (a click: beacon, click-through, listener);
     // - internal/screen/VideoAdPlacement.kt: combinedInsets, chooseSize, refit (where the page goes in its host);
-    // - internal/core/AdState.kt: every fact of the ad's life (read through [state]);
-    // - internal/core/AdLifecycle.kt: its phases and their legal moves.
+    // - internal/state/AdState.kt: every fact of the ad's life (read through [state]);
+    // - internal/state/AdLifecycle.kt: its phases and their legal moves.
 
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id

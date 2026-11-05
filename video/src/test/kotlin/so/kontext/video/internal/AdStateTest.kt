@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.core.AdLifecycle
-import so.kontext.video.internal.core.AdLifecycle.Phase
-import so.kontext.video.internal.core.AdState
+import so.kontext.video.internal.state.AdLifecycle
+import so.kontext.video.internal.state.AdLifecycle.Phase
+import so.kontext.video.internal.state.AdState
 
 /**
  * The ad's state: every move from every phase, applied or refused and changing nothing, the flags each phase gives,

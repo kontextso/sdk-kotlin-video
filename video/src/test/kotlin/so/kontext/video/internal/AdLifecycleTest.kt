@@ -4,8 +4,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
-import so.kontext.video.internal.core.AdLifecycle
-import so.kontext.video.internal.core.AdLifecycle.Phase
+import so.kontext.video.internal.state.AdLifecycle
+import so.kontext.video.internal.state.AdLifecycle.Phase
 
 /** The lifecycle's rules as a pure table: every move from every phase, legal or refused. */
 class AdLifecycleTest {

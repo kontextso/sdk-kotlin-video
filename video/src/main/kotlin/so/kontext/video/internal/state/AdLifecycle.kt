@@ -1,4 +1,4 @@
-package so.kontext.video.internal.core
+package so.kontext.video.internal.state
 
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason

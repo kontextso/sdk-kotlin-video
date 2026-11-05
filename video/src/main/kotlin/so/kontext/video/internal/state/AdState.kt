@@ -1,8 +1,8 @@
-package so.kontext.video.internal.core
+package so.kontext.video.internal.state
 
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.core.AdLifecycle.Phase
+import so.kontext.video.internal.state.AdLifecycle.Phase
 
 /**
  * One source of truth: the one place every fact of an ad's life lives (where it is, and what has happened to it),
