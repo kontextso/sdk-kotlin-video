@@ -96,9 +96,3 @@ internal sealed class ContentRule {
         }
     }
 }
-
-/** The playback of the ad's `VideoAds`, while it has one: what the rules read the content from. */
-internal val VideoAd.contentPlayback: ContentPlayback? get() = owner.get()?.playback
-
-/** The ad's `VideoAds` tracks a player, now. */
-internal val VideoAd.isTrackingContent: Boolean get() = contentPlayback?.isTracking == true

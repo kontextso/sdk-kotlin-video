@@ -19,6 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.content.ContentRule
 import so.kontext.video.internal.content.ContentTimeClock
 import so.kontext.video.internal.content.OverlayRule
@@ -70,10 +71,13 @@ public class VideoAd internal constructor(
     // and a close before `complete` being a skip (closeByPage). A full-screen pause ad is a placement of the
     // inline screen (its host covers the container), not a format of its own.
     //
-    // The rest of VideoAd lives in:
-    // - internal/screen/VideoAdPlacement.kt: combinedInsets, chooseSize, refit (where the page goes in its host);
+    // Everything of the ad is in this class: no extension of VideoAd lives elsewhere. Its parts are:
     // - internal/state/AdState.kt: every fact of the ad's life (read through [state]);
-    // - internal/state/AdLifecycle.kt: its phases and their legal moves.
+    // - internal/state/AdLifecycle.kt: its phases and their legal moves;
+    // - internal/frame/FrameBridge.kt: its page; the page's events come back to [handle];
+    // - internal/measurement/Tracker.kt: its beacons ([tracker]);
+    // - internal/content/ContentRule.kt: how it follows the content ([contentRule]);
+    // - internal/screen/AdScreen.kt and VideoAdPlacement.kt: where it is shown and where the page goes in its host.
 
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id
@@ -134,6 +138,12 @@ public class VideoAd internal constructor(
 
     /** How the ad follows the content under it, by format: see [ContentRule]. */
     internal val contentRule: ContentRule = ContentRule.of(this)
+
+    /** The playback of the ad's `VideoAds`, while it has one: what the content rules read the content from. */
+    internal val contentPlayback: ContentPlayback? get() = owner.get()?.playback
+
+    /** The ad's `VideoAds` tracks a player, now. */
+    internal val isTrackingContent: Boolean get() = contentPlayback?.isTracking == true
 
     /** An overlay's duration in milliseconds of video, once shown over a tracked player (tests read it). */
     internal val contentClock: ContentTimeClock? get() = (contentRule as? OverlayRule)?.contentClock
