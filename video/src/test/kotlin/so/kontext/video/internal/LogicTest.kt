@@ -25,16 +25,16 @@ class LogicTest {
         Environment.now = { now }
         val progress = ContentProgress(durationMillis = 3_000, playheadMillis = 0)
         now += 1_000
-        assertFalse(progress.advance(1_000, counting = true))
+        assertFalse(progress.advance(1_000, isCounting = true))
         now += 250
-        assertFalse(progress.advance(60_000, counting = true), "a jump of a minute in a quarter second is a seek")
+        assertFalse(progress.advance(60_000, isCounting = true), "a jump of a minute in a quarter second is a seek")
         assertEquals(1_000, progress.elapsedMillis)
         now += 1_000
-        assertFalse(progress.advance(61_000, counting = false), "not while hidden")
+        assertFalse(progress.advance(61_000, isCounting = false), "not while hidden")
         now += 1_000
-        assertFalse(progress.advance(62_000, counting = true))
+        assertFalse(progress.advance(62_000, isCounting = true))
         now += 1_000
-        assertTrue(progress.advance(63_000, counting = true))
+        assertTrue(progress.advance(63_000, isCounting = true))
         assertEquals(3_000, progress.elapsedMillis)
     }
 
@@ -42,9 +42,9 @@ class LogicTest {
         Environment.now = { now }
         val progress = ContentProgress(durationMillis = 100_000, playheadMillis = 10_000)
         now += 1_000
-        progress.advance(14_000, counting = true) // 4×
+        progress.advance(14_000, isCounting = true) // 4×
         now += 1_000
-        progress.advance(2_000, counting = true) // a loop back
+        progress.advance(2_000, isCounting = true) // a loop back
         assertEquals(4_000, progress.elapsedMillis)
     }
 

@@ -350,16 +350,16 @@ class ParityContentTest : SdkTest() {
         var now = 0L
         Environment.now = { now }
         val seek = ContentProgress(durationMillis = 1_000, playheadMillis = 10_000)
-        assertFalse(seek.advance(11_500, counting = true))
+        assertFalse(seek.advance(11_500, isCounting = true))
         assertEquals("1.5 s at once, before any time passed: a seek", 0L, seek.elapsedMillis)
         val late = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
         now += 3_000
-        assertFalse(late.advance(3_000, counting = true))
+        assertFalse(late.advance(3_000, isCounting = true))
         assertEquals("3 s of video after 3 s: playback, sampled late", 3_000L, late.elapsedMillis)
         val jumped = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
         now += 1_000
         jumped.resync(800) // a seek the player told
-        assertFalse(jumped.advance(800, counting = true))
+        assertFalse(jumped.advance(800, isCounting = true))
         assertEquals(0L, jumped.elapsedMillis)
     }
 
@@ -370,14 +370,14 @@ class ParityContentTest : SdkTest() {
         val known = ContentProgress(durationMillis = 100_000, playheadMillis = 0)
         for (second in 1..4) {
             now += 250
-            unknown.advance(second * 1_000L, counting = true) // 4×, the speed not told
-            known.advance(second * 2_000L, counting = true, speed = 8f) // 8×, as the player says
+            unknown.advance(second * 1_000L, isCounting = true) // 4×, the speed not told
+            known.advance(second * 2_000L, isCounting = true, speed = 8f) // 8×, as the player says
         }
         assertEquals(4_000L, unknown.elapsedMillis)
         assertEquals(8_000L, known.elapsedMillis)
         val seek = ContentProgress(durationMillis = 10_000, playheadMillis = 0)
         now += 250
-        assertFalse(seek.advance(2_000, counting = true, speed = 1f))
+        assertFalse(seek.advance(2_000, isCounting = true, speed = 1f))
         assertEquals("2 s in a quarter second at 1×: a seek", 0L, seek.elapsedMillis)
     }
 

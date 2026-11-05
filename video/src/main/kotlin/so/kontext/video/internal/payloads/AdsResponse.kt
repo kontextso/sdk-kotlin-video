@@ -42,8 +42,8 @@ internal sealed class AdsResponse {
     companion object {
         fun parse(json: JsonElement?): AdsResponse {
             val body = json?.obj() ?: invalid("not an object")
-            val enabled = body.bool("enabled") ?: invalid("enabled is missing")
-            if (!enabled) return Disabled(body.str("disabledReason") ?: UNKNOWN_REASON)
+            val isEnabled = body.bool("enabled") ?: invalid("enabled is missing")
+            if (!isEnabled) return Disabled(body.str("disabledReason") ?: UNKNOWN_REASON)
             val results = body["formats"]?.arr()?.mapNotNull(::entry) ?: invalid("formats is missing")
             // One entry per format: with two, which one counts would depend on their order.
             if (results.map { it.format }.toSet().size != results.size) invalid("a format is listed twice")

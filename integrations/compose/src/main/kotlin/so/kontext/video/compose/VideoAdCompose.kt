@@ -79,8 +79,8 @@ public fun VideoAdHost(
     val pixels = with(density) {
         val start = insets.calculateStartPadding(direction).roundToPx()
         val end = insets.calculateEndPadding(direction).roundToPx()
-        val ltr = direction == LayoutDirection.Ltr
-        Insets.of(if (ltr) start else end, insets.calculateTopPadding().roundToPx(), if (ltr) end else start, insets.calculateBottomPadding().roundToPx())
+        val isLtr = direction == LayoutDirection.Ltr
+        Insets.of(if (isLtr) start else end, insets.calculateTopPadding().roundToPx(), if (isLtr) end else start, insets.calculateBottomPadding().roundToPx())
     }
 
     DisposableEffect(slot) {

@@ -42,7 +42,7 @@ import kotlin.math.floor
  * when the share drops, the video pauses, or the loop stalled (a frozen app cannot prove the time was
  * continuous).
  *
- * Safety: nothing is reported before the first layout ([measured]), where every measurement is 0 only for want
+ * Safety: nothing is reported before the first layout ([isMeasured]), where every measurement is 0 only for want
  * of a size and a page would pause its video for nothing; one tick of grace before [onDetached], since a view
  * moved to another parent in the same moment is not gone; the verdict is decided once.
  *
@@ -100,11 +100,11 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     private val tickRunnable = object : Runnable {
         override fun run() {
             tick()
-            if (running) handler.postDelayed(this, intervalMillis)
+            if (isRunning) handler.postDelayed(this, intervalMillis)
         }
     }
-    private var running = false
-    private var stopped = false
+    private var isRunning = false
+    private var isStopped = false
     private var exposedSince: Long? = null
     private var lastTick: Long? = null
     private var lastPercentage = -1.0
@@ -116,19 +116,19 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
      * of a layout, not because the viewer cannot see the ad, and a page that pauses its video on exposure 0
      * would pause and resume at once: nothing is reported until then.
      */
-    private var measured = false
+    private var isMeasured = false
 
     fun start() {
-        if (running || stopped) return
-        running = true
+        if (isRunning || isStopped) return
+        isRunning = true
         handler.postDelayed(tickRunnable, intervalMillis)
         tick()
     }
 
     /** The ad ended: a verdict is still owed when none was reached. */
     fun stop() {
-        stopped = true
-        running = false
+        isStopped = true
+        isRunning = false
         handler.removeCallbacks(tickRunnable)
         if (verdict == null) decide(if (view.get() == null) Verdict.VIEW_UNDETERMINED else Verdict.NOT_VIEWABLE)
     }
@@ -138,7 +138,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         // 1. Did the loop stall (more than two ticks, and at least 500 ms, since the last: the app froze or slept)?
         //    Then the 50 % stretch cannot be called continuous, and countDwell starts it again.
         val now = Environment.now()
-        val stalled = lastTick?.let { now - it > maxOf(intervalMillis * 2, SHORTEST_STALL_MILLIS) } ?: false
+        val isStalled = lastTick?.let { now - it > maxOf(intervalMillis * 2, SHORTEST_STALL_MILLIS) } ?: false
         lastTick = now
         // 2. Is the view still there, in a window? Held weakly: the meter never keeps a view alive.
         val view = view.get()
@@ -157,17 +157,17 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         //    clock are current before the rules below may end the ad.
         report(percentage, visible)
         // A listener may have ended the ad just now (each check below can too).
-        if (stopped) return
+        if (isStopped) return
         // 5. Nothing seen for a second while the app is in front: onOffScreen, the ad ends.
         checkOffScreen(now)
         // 6. The 50 % rule: the continuous time at 50 % or more; long enough, the verdict VIEWABLE, once.
-        if (!stopped) countDwell(percentage, now, stalled)
+        if (!isStopped) countDwell(percentage, now, isStalled)
     }
 
     /** The MRC rule's continuous seconds at 50 % or more; a gap between ticks starts them again. */
-    private fun countDwell(percentage: Double, now: Long, stalled: Boolean) {
+    private fun countDwell(percentage: Double, now: Long, isStalled: Boolean) {
         if (percentage >= THRESHOLD && countsTime) {
-            if (exposedSince == null || stalled) exposedSince = now
+            if (exposedSince == null || isStalled) exposedSince = now
             exposedSince?.let { if (now - it >= requiredMillis) decide(Verdict.VIEWABLE) }
         } else {
             exposedSince = null
@@ -178,7 +178,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     private fun seen(view: View): Pair<Double, Rect> = if (isCovered?.invoke() == true) 0.0 to Rect() else exposure(view)
 
     private fun checkOffScreen(now: Long) {
-        if (!measured || isSeen || !isActive()) {
+        if (!isMeasured || isSeen || !isActive()) {
             unseenSince = null
             return
         }
@@ -187,15 +187,15 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     }
 
     private fun report(percentage: Double, visible: Rect) {
-        if (!measured) {
+        if (!isMeasured) {
             val view = view.get() ?: return
             if (!FirstLayout.isLaidOutInWindow(view)) return
-            measured = true
+            isMeasured = true
         }
-        val seen = percentage > 0
-        if (seen != isSeen) {
-            isSeen = seen
-            onSeen?.invoke(seen)
+        val isSeenNow = percentage > 0
+        if (isSeenNow != isSeen) {
+            isSeen = isSeenNow
+            onSeen?.invoke(isSeenNow)
         }
         val rounded = Math.round(percentage * 100) / 100.0
         if (rounded == lastPercentage && visible == lastVisible) return

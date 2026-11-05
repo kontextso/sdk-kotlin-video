@@ -59,13 +59,13 @@ internal sealed class FrameEvent {
          */
         fun outcome(isLinear: Boolean, isCompleted: Boolean): Outcome = when {
             isLinear && !isCompleted -> Outcome("skip", VideoAd.EndReason.SKIPPED)
-            this == COMPLETE -> Outcome(null, VideoAd.EndReason.COMPLETED, completes = true)
+            this == COMPLETE -> Outcome(null, VideoAd.EndReason.COMPLETED, completesAd = true)
             this == RESUME -> Outcome("close", VideoAd.EndReason.RESUMED)
             else -> Outcome("close", VideoAd.EndReason.CLOSED)
         }
 
         /** A page's close as the ad carries it out: [beacon] fired, then the end with [endReason]. */
-        data class Outcome(val beacon: String?, val endReason: VideoAd.EndReason, val completes: Boolean = false)
+        data class Outcome(val beacon: String?, val endReason: VideoAd.EndReason, val completesAd: Boolean = false)
 
         companion object {
             fun from(raw: String?): CloseReason = when (raw) {

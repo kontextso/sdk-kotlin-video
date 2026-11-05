@@ -602,7 +602,7 @@ class ParityRenderingTest : SdkTest() {
         Environment.reset() // the real clock: the duration runs on the looper
         var elapsed = 0
         val clock = ActiveTimeClock(100, "clock-1") { elapsed += 1 }
-        clock.start(visible = true)
+        clock.start(isVisible = true)
         idle(200)
         assertEquals(1, elapsed)
         // The window hides and comes back after the duration ran out: the rest of the duration is zero.

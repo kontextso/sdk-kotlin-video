@@ -72,8 +72,8 @@ internal object Environment {
     }
 
     private fun failInDebuggableApp(message: String) {
-        val debuggable = context?.applicationInfo?.let { it.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 } ?: false
-        check(!debuggable) { message }
+        val isDebuggable = context?.applicationInfo?.let { it.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 } ?: false
+        check(!isDebuggable) { message }
     }
 
     private fun currentProcessName(context: Context): String? = runCatching {

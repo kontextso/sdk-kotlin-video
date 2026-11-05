@@ -21,8 +21,8 @@ internal object Consent {
             .gppSid(stored?.gppSid ?: explicit?.gppSid)
             .usPrivacy(stored?.usPrivacy ?: explicit?.usPrivacy)
             .build()
-        val empty = merged.gdpr == null && merged.gdprConsent == null && merged.coppa == null && merged.gpp == null &&
+        val isEmpty = merged.gdpr == null && merged.gdprConsent == null && merged.coppa == null && merged.gpp == null &&
             merged.gppSid == null && merged.usPrivacy == null
-        return if (empty) null else merged
+        return if (isEmpty) null else merged
     }
 }

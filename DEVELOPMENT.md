@@ -67,6 +67,14 @@ Once a version is on Maven Central, the same app builds against it instead of ma
 ./gradlew -p extras/release-check assembleRelease -PsdkFromMavenCentral -PsdkVersion=0.1.0
 ```
 
+## Naming
+
+A boolean that names a state reads as an assertion: `is`, `has` or `was` before the adjective or participle
+(`isLoaded`, `isCompleted`, `hasImpression`, `wasOnScreen`, `isStopped`, `wasPlaying`). A boolean named by a
+third-person verb keeps it (`countsTime`, `checksEpisode`, `holdsAds`, `completesAd`). A field that mirrors a wire
+format or a standard keeps that name (`Regulatory.gdpr`, `coppa`, the config's `reportErrors`, JSON keys). Where
+Swift has the same field, the name is the same.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on pushes to `main` and on pull requests:

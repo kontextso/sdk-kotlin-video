@@ -108,7 +108,7 @@ internal sealed class ContentRule {
          * The content paused while the overlay was away (the app in the background, or on its way there): it
          * stays, frozen, and [returnCheck] decides once the app is back.
          */
-        var contentPausedAway = false
+        var isContentPausedAway = false
             private set
 
         /** The check `returnGraceMillis` after the return, for an overlay whose content paused while away. */
@@ -167,7 +167,7 @@ internal sealed class ContentRule {
             if (!contentPlays(change, playback)) return
             val progress = contentProgress ?: return
             if (change != ContentPlayback.Change.Tick) return
-            if (progress.advance(playback.playheadMillis, counting = ad.clock?.isCounting == true, speed = playback.playbackSpeed)) {
+            if (progress.advance(playback.playheadMillis, isCounting = ad.clock?.isCounting == true, speed = playback.playbackSpeed)) {
                 Logger.debug { "ad ${ad.id.take(8)}: overlay duration of ${progress.durationMillis} ms of video elapsed" }
                 ad.state.markCompleted()
                 ad.end(EndReason.COMPLETED)
@@ -179,7 +179,7 @@ internal sealed class ContentRule {
             if (ad.owner.get()?.playback?.isPlaying != false) return
             // Away, the overlay only freezes; back in front, another ad's show needs the screen, the grace or not.
             if (isAway) {
-                contentPausedAway = true
+                isContentPausedAway = true
                 return
             }
             Logger.info { "ad ${ad.id.take(8)}: the content paused; the overlay ends" }
@@ -188,7 +188,7 @@ internal sealed class ContentRule {
 
         /** An overlay whose content paused while away checks it again after the grace. */
         override fun holdingActivityResumed() {
-            if (contentPausedAway) checkAfterReturn()
+            if (isContentPausedAway) checkAfterReturn()
         }
 
         override fun cancel() {
@@ -207,7 +207,7 @@ internal sealed class ContentRule {
                 ad.end(EndReason.INTERRUPTED)
                 return false
             }
-            contentPausedAway = false
+            isContentPausedAway = false
             returnCheck?.cancel()
             returnCheck = null
             return true
@@ -220,11 +220,11 @@ internal sealed class ContentRule {
          */
         private fun waitsOutPause(): Boolean {
             if (isAway) {
-                if (!contentPausedAway) Logger.info { "ad ${ad.id.take(8)}: the content paused in the background; the overlay waits for the return" }
-                contentPausedAway = true
+                if (!isContentPausedAway) Logger.info { "ad ${ad.id.take(8)}: the content paused in the background; the overlay waits for the return" }
+                isContentPausedAway = true
                 return true
             }
-            if (!contentPausedAway) return false
+            if (!isContentPausedAway) return false
             if (returnCheck == null) checkAfterReturn()
             return true
         }
@@ -238,8 +238,8 @@ internal sealed class ContentRule {
             returnCheck = Environment.scope.launch {
                 delay(VideoAd.returnGraceMillis)
                 returnCheck = null
-                if (ad.hasEnded || !contentPausedAway || isAway) return@launch
-                contentPausedAway = false
+                if (ad.hasEnded || !isContentPausedAway || isAway) return@launch
+                isContentPausedAway = false
                 if (!isTracking || ad.owner.get()?.playback?.isPlaying != false) return@launch
                 Logger.info { "ad ${ad.id.take(8)}: the content is still paused after the return; the overlay ends" }
                 ad.end(EndReason.INTERRUPTED)
@@ -258,7 +258,7 @@ internal sealed class ContentRule {
      */
     class PauseRule(private val ad: VideoAd) : ContentRule() {
         /** The pause ad saw the content paused while on screen: the content playing again ends it. */
-        var contentWasPaused = false
+        var wasContentPaused = false
             private set
 
         /** The ad's `VideoAds` tracks a player, now. */
@@ -267,7 +267,7 @@ internal sealed class ContentRule {
         /** It notes whether the content is paused now, so it ends once it plays after a pause. */
         override fun started(clock: ActiveTimeClock?) {
             if (!isTracking) return
-            contentWasPaused = ad.owner.get()?.playback?.isPlaying == false
+            wasContentPaused = ad.owner.get()?.playback?.isPlaying == false
         }
 
         /**
@@ -279,7 +279,7 @@ internal sealed class ContentRule {
         override fun contentDidChange(change: ContentPlayback.Change) {
             val playback = ad.owner.get()?.playback ?: return
             if (!isTracking || !ad.wasShown || ad.hasEnded) return
-            val playing = when (change) {
+            val isPlaying = when (change) {
                 ContentPlayback.Change.ContentChanged -> {
                     Logger.info { "ad ${ad.id.take(8)}: the content changed or another VideoAds took the player; the pause ad ends" }
                     return ad.end(EndReason.INTERRUPTED)
@@ -288,7 +288,7 @@ internal sealed class ContentRule {
                 ContentPlayback.Change.Tick -> playback.isPlaying
                 else -> return
             }
-            endIfContentResumed(playing)
+            endIfContentResumed(isPlaying)
         }
 
         override fun endIfContentStopped() {
@@ -303,12 +303,12 @@ internal sealed class ContentRule {
          * delivered once that overlay's `onAdEnded` showed this pause ad over playing content, is no resume of this
          * one.
          */
-        private fun endIfContentResumed(playing: Boolean) {
-            if (!playing) {
-                contentWasPaused = true
+        private fun endIfContentResumed(isPlaying: Boolean) {
+            if (!isPlaying) {
+                wasContentPaused = true
                 return
             }
-            if (!contentWasPaused) return
+            if (!wasContentPaused) return
             Logger.info { "ad ${ad.id.take(8)}: the content plays again; the pause ad ends" }
             ad.end(EndReason.INTERRUPTED)
         }

@@ -95,6 +95,9 @@ adb logcat -s KontextVideo
   escape where the server may send its own value. `apiCheck` must pass; a deliberate change runs `apiDump`.
 - Never name other companies' products in code, comments, tests or docs.
 - Comments say *why*, in prose; KDoc on every public declaration.
+- A boolean that names a state (an adjective or participle) is an assertion with `is`, `has` or `was`: `isLoaded`,
+  `hasImpression`, `wasOnScreen`; one named by a third-person verb stays (`countsTime`, `holdsAds`); a field that
+  mirrors a wire format or a standard keeps its name (`gdpr`, `coppa`, `reportErrors`, JSON keys). Same names as Swift.
 - A class reads top down: its constants and properties first, then its functions, then its companion object, whose
   own constants come first too. detekt's `ClassOrdering` checks it.
 - Facts about the device and consent come from KontextKit; what the SDK needs and KontextKit lacks goes into

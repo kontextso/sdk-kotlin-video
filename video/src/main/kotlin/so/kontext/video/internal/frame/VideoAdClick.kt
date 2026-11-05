@@ -17,8 +17,8 @@ internal fun VideoAd.click(url: String, fallback: String?, area: Click.Area) {
     // Every accepted click is counted: an end-card click on an ad without end-card entries (an overlay, a
     // pause ad) fires the main creative's.
     // One occurrence: the beacon and the click-through carry the same fire id.
-    val endCard = area == Click.Area.EndCard && tracker.has("click", "endCard")
-    val fireId = tracker.fire("click", part = if (endCard) "endCard" else null)
+    val isEndCard = area == Click.Area.EndCard && tracker.has("click", "endCard")
+    val fireId = tracker.fire("click", part = if (isEndCard) "endCard" else null)
     open(tracker.clickThrough(url, fireId), fallback?.let { tracker.clickThrough(it, fireId) })
     // The listener hears nothing after `onAdEnded`. Opening the click-through does not end the ad today; the check
     // keeps that rule if it ever does.

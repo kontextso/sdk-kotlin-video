@@ -17,10 +17,10 @@ class CloseOutcomeTest {
             Triple(CloseReason.COMPLETE, true, false) to skip,
             Triple(CloseReason.CLOSE, true, true) to Outcome("close", EndReason.CLOSED),
             Triple(CloseReason.RESUME, true, true) to Outcome("close", EndReason.RESUMED),
-            Triple(CloseReason.COMPLETE, true, true) to Outcome(null, EndReason.COMPLETED, completes = true),
+            Triple(CloseReason.COMPLETE, true, true) to Outcome(null, EndReason.COMPLETED, completesAd = true),
             Triple(CloseReason.CLOSE, false, false) to Outcome("close", EndReason.CLOSED),
             Triple(CloseReason.RESUME, false, false) to Outcome("close", EndReason.RESUMED),
-            Triple(CloseReason.COMPLETE, false, false) to Outcome(null, EndReason.COMPLETED, completes = true),
+            Triple(CloseReason.COMPLETE, false, false) to Outcome(null, EndReason.COMPLETED, completesAd = true),
             Triple(CloseReason.CLOSE, false, true) to Outcome("close", EndReason.CLOSED),
         )
         for ((given, expected) in table) {

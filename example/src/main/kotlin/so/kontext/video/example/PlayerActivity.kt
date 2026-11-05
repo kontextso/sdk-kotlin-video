@@ -40,7 +40,7 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
     private lateinit var titleBlock: TextView
     private var ad: VideoAd? = null
     private var isPaused = false
-    private var leaving = false
+    private var isLeaving = false
     private var startJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,13 +87,13 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
         startJob = lifecycleScope.launch {
             prepareAd()
             waitForPlaying(3_000)
-            if (!leaving) moment()
+            if (!isLeaving) moment()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        leaving = true
+        isLeaving = true
         startJob?.cancel()
         // The screen owns its ads: they go with it. configChanges keeps it, and them, across a rotation.
         ads.destroy()
@@ -181,7 +181,7 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
         status.text = "${ad.format} ad ended: $reason"
         if (ad === this.ad) this.ad = null
         // The screen decides playback, not the ad: after the viewer left (DESTROYED), nothing resumes.
-        if (leaving) return
+        if (isLeaving) return
         when (ad.format) {
             AdFormat.LINEAR -> player.play() // the content paused for the ad; every other way it ends lands here
             AdFormat.PAUSE -> if (reason == VideoAd.EndReason.RESUMED) resume() // the viewer tapped Resume on the ad

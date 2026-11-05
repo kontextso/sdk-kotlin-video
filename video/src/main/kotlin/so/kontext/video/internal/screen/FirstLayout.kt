@@ -21,22 +21,22 @@ internal object FirstLayout {
      * nothing after the call.
      */
     fun await(view: View, isReady: () -> Boolean = { true }, onLaidOut: () -> Unit): () -> Unit {
-        val laidOut = { isLaidOutInWindow(view) && isReady() }
-        if (laidOut()) {
+        val isLaidOut = { isLaidOutInWindow(view) && isReady() }
+        if (isLaidOut()) {
             onLaidOut()
             return {}
         }
         // The observer the listener went to: the window's, or the view's own until it is attached.
         val observer = view.viewTreeObserver
-        var waiting = true
+        var isWaiting = true
         lateinit var listener: ViewTreeObserver.OnGlobalLayoutListener
         val cancel: () -> Unit = {
-            waiting = false
+            isWaiting = false
             if (observer.isAlive) observer.removeOnGlobalLayoutListener(listener)
             view.viewTreeObserver.takeIf { it.isAlive }?.removeOnGlobalLayoutListener(listener)
         }
         listener = ViewTreeObserver.OnGlobalLayoutListener {
-            if (!waiting || !laidOut()) return@OnGlobalLayoutListener
+            if (!isWaiting || !isLaidOut()) return@OnGlobalLayoutListener
             cancel()
             onLaidOut()
         }

@@ -40,7 +40,7 @@ internal class AdPayload(
     enum class Position { TOP, BOTTOM, FULLSCREEN }
 
     /** The box a creative was built for, in dp; `scalable: false` means never shown smaller. */
-    data class Size(val width: Int, val height: Int, val scalable: Boolean = true)
+    data class Size(val width: Int, val height: Int, val isScalable: Boolean = true)
 
     /** One beacon. `offsetMillis` for `progress`; `part` is `endCard` for a linear ad's end card. */
     data class TrackingEvent(val event: String, val url: String, val offsetMillis: Long?, val part: String?)
@@ -179,8 +179,8 @@ internal class AdPayload(
                 // Positive, and no larger than any screen could be.
                 if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) invalidAt("sizes.width", "ad $id: a size must be positive and at most $MAX_SIDE")
                 // Absent is scalable; a flag of the wrong type is a malformed size, not a guess.
-                val scalable = if (size.has("scalable")) size.bool("scalable") ?: invalidAt("sizes.scalable", "ad $id: size.scalable") else true
-                Size(width.toInt(), height.toInt(), scalable)
+                val isScalable = if (size.has("scalable")) size.bool("scalable") ?: invalidAt("sizes.scalable", "ad $id: size.scalable") else true
+                Size(width.toInt(), height.toInt(), isScalable)
             } ?: invalidAt("sizes", "ad $id: sizes")
             if (sizes.isEmpty()) invalidAt("sizes", "ad $id: sizes must have at least one entry")
             return sizes

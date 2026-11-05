@@ -69,11 +69,11 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         is FrameEvent.Video -> {
             tracker.adPlayheadMillis = event.playheadMillis
             when (event.event) {
-                FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> videoPlaying = true
-                FrameEvent.VideoEvent.PAUSE -> videoPlaying = false
+                FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> isVideoPlaying = true
+                FrameEvent.VideoEvent.PAUSE -> isVideoPlaying = false
                 else -> Unit
             }
-            meter?.countsTime = videoPlaying
+            meter?.countsTime = isVideoPlaying
             tracker.fire(event.event.wire)
             tracker.fireProgress(event.playheadMillis)
             // The listener last: it may end the ad on the spot.
@@ -86,7 +86,7 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         is FrameEvent.Complete -> {
             tracker.adPlayheadMillis = event.playheadMillis
             state.markCompleted()
-            videoPlaying = false
+            isVideoPlaying = false
             meter?.countsTime = false
             tracker.fireProgress(event.playheadMillis)
             tracker.fire("complete")
@@ -117,7 +117,7 @@ internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
     // Whether the ad is linear is a fact of the format, not of its screen.
     val outcome = reason.outcome(isLinear = format == AdFormat.LINEAR, isCompleted = isCompleted)
     // The page ended itself because its creative ran to its end.
-    if (outcome.completes) state.markCompleted()
+    if (outcome.completesAd) state.markCompleted()
     outcome.beacon?.let { tracker.fire(it) }
     end(outcome.endReason)
 }

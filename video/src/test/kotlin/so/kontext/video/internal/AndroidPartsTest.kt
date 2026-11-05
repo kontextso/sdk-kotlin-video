@@ -105,7 +105,7 @@ class AndroidPartsTest {
         // 480 px of room for 960: half size, the smallest allowed.
         assertEquals(Rect(0, 0, 480, 120), AdGeometry.frame(size, AdPayload.Position.TOP, 480, 1920, Rect(), 3f))
         assertNull(AdGeometry.frame(size, AdPayload.Position.TOP, 470, 1920, Rect(), 3f))
-        assertNull("not scalable", AdGeometry.frame(size.copy(scalable = false), AdPayload.Position.TOP, 900, 1920, Rect(), 3f))
+        assertNull("not scalable", AdGeometry.frame(size.copy(isScalable = false), AdPayload.Position.TOP, 900, 1920, Rect(), 3f))
         assertNull("insets that leave no room", AdGeometry.room(1080, 1920, Rect(0, 0, 0, 2000)))
         assertEquals(Pair(480 + 10, 120 + 200), AdGeometry.minimum(size, Rect(0, 0, 10, 200), 3f))
     }

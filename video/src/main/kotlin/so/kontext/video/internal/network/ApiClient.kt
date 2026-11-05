@@ -101,6 +101,6 @@ internal class ApiClient(
          * Deliberate: the routes do not redirect today, so a redirect would be our own server moving, and refusing it
          * would be an outage of every installed SDK.
          */
-        private val REDIRECT_POLICY = HttpTransport.Redirects(allowDowngrade = false)
+        private val REDIRECT_POLICY = HttpTransport.Redirects(allowsDowngrade = false)
     }
 }

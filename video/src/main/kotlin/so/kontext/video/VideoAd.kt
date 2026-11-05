@@ -133,7 +133,7 @@ public class VideoAd internal constructor(
     /** Every fact of the ad's life (see [AdState]): every public flag above reads from it, live. */
     internal val state = AdState()
     internal val meter: ViewabilityMeter? get() = presentation?.meter
-    internal var videoPlaying = false
+    internal var isVideoPlaying = false
     internal val clock: ActiveTimeClock? get() = presentation?.clock
 
     /** How the ad follows the content under it, by format: see [ContentRule]. */
@@ -659,11 +659,11 @@ public class VideoAd internal constructor(
         // Inline, the host: it has an area only where the container gives the ad room, and places the page.
         val screen = presentation?.screen
         val view = screen?.impressionTarget ?: loadedBridge?.webView ?: return
-        val inline = screen?.isInline == true
+        val isInline = screen?.isInline == true
         impressionWait = FirstLayout.await(view, isReady = { screen?.isPlaced ?: true }) {
             impressionWait = null
             val page = loadedBridge?.webView
-            if (inline && page != null && page.width > 0 && page.height > 0 && ViewabilityMeter.exposure(page).first <= 0.0) {
+            if (isInline && page != null && page.width > 0 && page.height > 0 && ViewabilityMeter.exposure(page).first <= 0.0) {
                 Logger.warning { "ad ${id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
                 end(EndReason.INTERRUPTED)
                 return@await
@@ -689,7 +689,7 @@ public class VideoAd internal constructor(
         val webView = loadedBridge?.webView ?: return
         val meter = ViewabilityMeter(webView, if (payload.creative == AdPayload.Creative.VIDEO) 2_000 else 1_000)
         // MRC: two seconds of the video played. Exposure is measured from show, for the page.
-        meter.countsTime = payload.creative != AdPayload.Creative.VIDEO || videoPlaying
+        meter.countsTime = payload.creative != AdPayload.Creative.VIDEO || isVideoPlaying
         meter.onExposure = { percentage, visible ->
             val density = webView.resources.displayMetrics.density.toDouble()
             loadedBridge?.exposure(percentage, visible.left / density, visible.top / density, visible.width() / density, visible.height() / density)
@@ -750,27 +750,27 @@ public class VideoAd internal constructor(
         impressionWait?.invoke()
         impressionWait = null
         if (reason == EndReason.FAILED) state.failure?.let { listener?.onAdFailed(this, it) }
-        val inline = presentation?.screen?.isInline == true
+        val isInline = presentation?.screen?.isInline == true
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
         val activeTime = presentation?.tearDown() ?: 0
         loadedBridge?.hide()
         loadedBridge = null
         // A linear ad's screen still up closes, and `onAdEnded` waits for it to be gone (AdScreen.LinearScreen.close).
         val dismissing = presentation?.screen?.close { finish(reason) } ?: false
-        fireEndBeacons(reason, activeTime, inline)
+        fireEndBeacons(reason, activeTime, isInline)
         Logger.info { "ad ${id.take(8)}: ended ($reason)" }
         DebugReporter.event("ad.ended", adId = id, state = mapOf("reason" to reason.name.lowercase()))
         if (!dismissing) finish(reason)
     }
 
     /** The beacons of an end, for an ad that was on screen: one that ended inside show, before it was presented, had no view. */
-    private fun fireEndBeacons(reason: EndReason, activeTimeMillis: Long, inline: Boolean) {
+    private fun fireEndBeacons(reason: EndReason, activeTimeMillis: Long, isInline: Boolean) {
         if (!state.wasOnScreen) return
         // Shown, not billed: a video on screen that never reached its first frame (`video.start`) still gives the
         // server its outcome. Ended by the viewer, the app or an interruption: `close`. A failure has fired its
         // `error`; the page's own close or skip has fired its beacon.
         if (payload.creative == AdPayload.Creative.VIDEO && !state.hasImpression && reason in closedBeforeFirstFrame) tracker.fire("close")
-        if (inline) tracker.fire("overlayViewDuration", viewDurationMillis = activeTimeMillis)
+        if (isInline) tracker.fire("overlayViewDuration", viewDurationMillis = activeTimeMillis)
     }
 
     private fun finish(reason: EndReason) {

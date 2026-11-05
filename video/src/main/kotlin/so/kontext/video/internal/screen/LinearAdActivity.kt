@@ -35,7 +35,7 @@ internal class LinearAdActivity : ComponentActivity() {
     }
 
     private var callbacks: Callbacks? = null
-    private var shown = false
+    private var wasShown = false
 
     /** Set by the ad while it finishes the screen itself, so `onDestroy` is not an interruption. */
     var isEndingByAd = false
@@ -78,8 +78,8 @@ internal class LinearAdActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!shown) {
-            shown = true
+        if (!wasShown) {
+            wasShown = true
             callbacks?.onScreenShown()
         }
     }

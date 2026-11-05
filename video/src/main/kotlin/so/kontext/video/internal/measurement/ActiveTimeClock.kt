@@ -35,11 +35,11 @@ internal class ActiveTimeClock(
 ) {
     private var since: Long? = null
     private var accumulated = 0L
-    private var started = false
-    private var windowVisible = false
-    private var seen = true
-    private var stopped = false
-    private var expired = false
+    private var isStarted = false
+    private var isWindowVisible = false
+    private var isSeen = true
+    private var isStopped = false
+    private var isExpired = false
     private var timer: Job? = null
 
     /** An active stretch is running. */
@@ -51,40 +51,40 @@ internal class ActiveTimeClock(
     /** Milliseconds on screen while visible, the current stretch included. */
     val elapsedMillis: Long get() = accumulated + (since?.let { Environment.now() - it } ?: 0)
 
-    /** The ad is on screen; counts from now when its window is visible and the ad [seen]. */
-    fun start(visible: Boolean, seen: Boolean = true) {
-        if (stopped || started) return
-        started = true
-        windowVisible = visible
-        this.seen = seen
+    /** The ad is on screen; counts from now when its window is visible and the ad [isSeen]. */
+    fun start(isVisible: Boolean, isSeen: Boolean = true) {
+        if (isStopped || isStarted) return
+        isStarted = true
+        isWindowVisible = isVisible
+        this.isSeen = isSeen
         update()
     }
 
     /** The host's window was shown or hidden. */
-    fun windowVisibilityChanged(visible: Boolean) {
-        if (!started || stopped) return
-        val returned = visible && !windowVisible
-        windowVisible = visible
+    fun windowVisibilityChanged(isVisible: Boolean) {
+        if (!isStarted || isStopped) return
+        val hasReturned = isVisible && !isWindowVisible
+        isWindowVisible = isVisible
         update()
-        if (returned) onActivate?.invoke()
+        if (hasReturned) onActivate?.invoke()
     }
 
     /** The meter found the ad seen, or not seen at all. */
-    fun seenChanged(seen: Boolean) {
-        if (!started || stopped) return
-        this.seen = seen
+    fun seenChanged(isSeen: Boolean) {
+        if (!isStarted || isStopped) return
+        this.isSeen = isSeen
         update()
     }
 
     private fun update() {
-        if (windowVisible && seen) resume() else pause()
+        if (isWindowVisible && isSeen) resume() else pause()
     }
 
     /** The ad ended: the clock freezes for good and returns the active time it counted. */
     fun stop(): Long {
-        if (!stopped) {
+        if (!isStopped) {
             pause()
-            stopped = true
+            isStopped = true
         }
         return accumulated
     }
@@ -96,23 +96,23 @@ internal class ActiveTimeClock(
         }
         timer?.cancel()
         timer = null
-        if (!stopped) Logger.debug { "ad ${adId.take(8)}: clock frozen at $accumulated ms on screen" }
+        if (!isStopped) Logger.debug { "ad ${adId.take(8)}: clock frozen at $accumulated ms on screen" }
     }
 
     private fun resume() {
-        if (stopped || since != null) return
+        if (isStopped || since != null) return
         since = Environment.now()
         startTimer()
     }
 
     private fun startTimer() {
         val duration = durationMillis ?: return
-        if (timer != null || expired) return
+        if (timer != null || isExpired) return
         val remaining = (duration - elapsedMillis).coerceIn(0, 86_400_000)
         timer = Environment.scope.launch {
             delay(remaining)
-            if (stopped || expired) return@launch
-            expired = true
+            if (isStopped || isExpired) return@launch
+            isExpired = true
             onElapsed()
         }
     }

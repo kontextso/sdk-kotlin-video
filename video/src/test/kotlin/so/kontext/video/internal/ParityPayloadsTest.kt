@@ -211,7 +211,7 @@ class ParityPayloadsTest {
         assertEquals(VideoAd.Price(5.5, "EUR", VideoAd.Price.Precision.ESTIMATED), ad.price)
         assertEquals("https://frames.test/v2/frame/ad-2", ad.frameUrl)
         assertEquals(AdPayload.Position.TOP, ad.position)
-        assertEquals(listOf(AdPayload.Size(300, 250, scalable = false)), ad.sizes)
+        assertEquals(listOf(AdPayload.Size(300, 250, isScalable = false)), ad.sizes)
         assertNull(ad.durationMillis)
         assertNull(ad.skipOffsetMillis)
     }
@@ -288,7 +288,7 @@ class ParityPayloadsTest {
 
     @Test fun aScalableFlagOfTheWrongTypeIsAMalformedSize() {
         assertThrows<ApiException.Decoding> { parse(Fixtures.overlay(sizes = """[{"width": 300, "height": 250, "scalable": "no"}]""")) }
-        assertTrue(parse(Fixtures.overlay(sizes = """[{"width": 300, "height": 250, "scalable": null}]""")).sizes.single().scalable, "null is absent")
+        assertTrue(parse(Fixtures.overlay(sizes = """[{"width": 300, "height": 250, "scalable": null}]""")).sizes.single().isScalable, "null is absent")
     }
 
     @Test fun theFrameUrlMustBeAbsoluteWithAHostAndIsKeptAsGiven() {

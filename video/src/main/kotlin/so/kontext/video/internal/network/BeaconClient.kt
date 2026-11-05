@@ -18,7 +18,7 @@ internal object BeaconClient {
      * Redirects as iOS's `URLSession` follows them for a beacon: up to `HttpTransport.MAX_REDIRECTS`, `http` to `https` and back,
      * as tracking chains do; the app's network security config still decides whether cleartext http may go.
      */
-    private val REDIRECT_POLICY = HttpTransport.Redirects(allowDowngrade = true)
+    private val REDIRECT_POLICY = HttpTransport.Redirects(allowsDowngrade = true)
 
     /** GETs [url]; [label] names it in the log (`ad f1a2b3c4: impression`). */
     fun send(url: String, label: String) {

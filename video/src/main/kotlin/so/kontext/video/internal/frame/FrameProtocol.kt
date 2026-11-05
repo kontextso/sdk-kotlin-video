@@ -83,10 +83,10 @@ internal class FrameProtocol(
     val failureCode: Int get() = if (state == State.SHOWN) 405 else loadErrorCode
 
     private var lastTouchAt = Long.MIN_VALUE / 2
-    private var reportedProtocolViolation = false
+    private var hasReportedViolation = false
 
     /** `video.start` arrived: the video's progress, quartiles, pause, resume and complete count only after it. */
-    private var videoStarted = false
+    private var isVideoStarted = false
 
     /** The highest playhead a page may report, in milliseconds: the video's duration and the grace, or a day. */
     private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
@@ -120,7 +120,7 @@ internal class FrameProtocol(
             "video.skip" -> endIfShown(FrameEvent.Skip(playhead))
             "video.complete" -> when {
                 state != State.SHOWN -> Step.Ignore
-                !videoStarted -> beforeStart(type)
+                !isVideoStarted -> beforeStart(type)
                 else -> Step.Deliver(FrameEvent.Complete(playhead))
             }
             "video.progress" -> progress(type, body, playhead)
@@ -171,10 +171,10 @@ internal class FrameProtocol(
     /** What a top-level navigation may do: while loading, its own origin and `about:blank`; once ready only an in-document (fragment) move. */
     fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): NavigationDecision {
         if (!isMainFrame) return NavigationDecision.ALLOW
-        val ours = originOf(target) == origin || target == "about:blank"
-        if (state == State.LOADING) return if (ours) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
+        val isOurs = originOf(target) == origin || target == "about:blank"
+        if (state == State.LOADING) return if (isOurs) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
         if (current != null && '#' in target && target.substringBefore('#') == current.substringBefore('#')) return NavigationDecision.ALLOW
-        return if (ours) NavigationDecision.CANCEL else NavigationDecision.EXTERNAL
+        return if (isOurs) NavigationDecision.CANCEL else NavigationDecision.EXTERNAL
     }
 
     /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
@@ -213,7 +213,7 @@ internal class FrameProtocol(
      */
     private fun progress(type: String, body: JsonObject, playhead: Long): Step {
         if (state != State.SHOWN) return Step.Ignore
-        if (!videoStarted) return beforeStart(type)
+        if (!isVideoStarted) return beforeStart(type)
         val offset = (body["offset"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
         if (offset == null || offset !in 0.0..DAY_MILLIS.toDouble()) {
             return drop("video.progress with a malformed offset dropped", "progress.offset")
@@ -227,9 +227,9 @@ internal class FrameProtocol(
      */
     private fun video(event: FrameEvent.VideoEvent, type: String, playhead: Long): Step {
         when (event) {
-            FrameEvent.VideoEvent.START -> videoStarted = true
+            FrameEvent.VideoEvent.START -> isVideoStarted = true
             FrameEvent.VideoEvent.MUTE, FrameEvent.VideoEvent.UNMUTE -> Unit
-            else -> if (!videoStarted) return beforeStart(type)
+            else -> if (!isVideoStarted) return beforeStart(type)
         }
         return Step.Deliver(FrameEvent.Video(event, playhead))
     }
@@ -242,8 +242,8 @@ internal class FrameProtocol(
 
     /** A drop that is a protocol violation: reported for the first one only, so a broken page reports once. */
     private fun drop(log: String, violation: String): Step.Drop {
-        val first = !reportedProtocolViolation
-        reportedProtocolViolation = true
+        val first = !hasReportedViolation
+        hasReportedViolation = true
         return Step.Drop(log, violation.takeIf { first })
     }
 

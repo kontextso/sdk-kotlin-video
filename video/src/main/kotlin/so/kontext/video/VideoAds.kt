@@ -271,9 +271,9 @@ public class VideoAds @JvmOverloads constructor(
         }
         val task = scope.async {
             run {
-                val enabled = Sdk.waitUntilEnabled()
+                val isEnabled = Sdk.waitUntilEnabled()
                 checkStillUsable()
-                if (!enabled) {
+                if (!isEnabled) {
                     Logger.warning { "${content.id}: not requested, the SDK is ${Sdk.state}" }
                     Sdk.disabledReason?.let { throw VideoAdException.Disabled(it) }
                     throw VideoAdException.InitializationFailed()

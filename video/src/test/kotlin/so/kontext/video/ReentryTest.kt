@@ -117,16 +117,16 @@ class ReentryTest : SdkTest() {
         ad.listener = recorder
         ad.show(container())
         val clock = ad.clock!!
-        clock.windowVisibilityChanged(visible = true) // already counting: nothing changes
+        clock.windowVisibilityChanged(isVisible = true) // already counting: nothing changes
         now = 1_000
         player.position = 1_000
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
-        clock.windowVisibilityChanged(visible = false)
+        clock.windowVisibilityChanged(isVisible = false)
         // Away: the content plays on, picture-in-picture, without the overlay on screen.
         player.position = 60_000
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
         assertEquals("nothing counts while the window is hidden", 1_000, ad.contentProgress!!.elapsedMillis)
-        clock.windowVisibilityChanged(visible = true)
+        clock.windowVisibilityChanged(isVisible = true)
         now = 2_000
         player.position = 61_000
         owner.playback.onChange?.invoke(ContentPlayback.Change.Tick)
@@ -168,37 +168,37 @@ class ReentryTest : SdkTest() {
         Environment.now = { now }
         var elapsed = 0
         val clock = ActiveTimeClock(1_000, "ad-1") { elapsed += 1 }
-        clock.windowVisibilityChanged(visible = true) // before start: ignored
+        clock.windowVisibilityChanged(isVisible = true) // before start: ignored
         assertFalse(clock.isCounting)
-        clock.start(visible = false)
-        clock.start(visible = true) // a second start: ignored
+        clock.start(isVisible = false)
+        clock.start(isVisible = true) // a second start: ignored
         assertFalse(clock.isCounting)
         var activations = 0
         clock.onActivate = { activations += 1 }
-        clock.windowVisibilityChanged(visible = true)
+        clock.windowVisibilityChanged(isVisible = true)
         assertEquals(1, activations)
         now = 400
-        clock.windowVisibilityChanged(visible = false)
-        clock.windowVisibilityChanged(visible = false)
+        clock.windowVisibilityChanged(isVisible = false)
+        clock.windowVisibilityChanged(isVisible = false)
         now = 10_000
         assertEquals(400, clock.elapsedMillis)
-        clock.windowVisibilityChanged(visible = true)
+        clock.windowVisibilityChanged(isVisible = true)
         now = 10_600
         idle(600)
         assertEquals("the remaining 600 ms ran out once", 1, elapsed)
         assertEquals(1_000, clock.stop())
         assertEquals("a second stop returns the same", 1_000, clock.stop())
-        clock.windowVisibilityChanged(visible = true)
+        clock.windowVisibilityChanged(isVisible = true)
         assertFalse("stopped for good", clock.isCounting)
     }
 
     @Test fun aStoppedClockNeverElapses() {
         val clock = ActiveTimeClock(500, "ad-1") { throw AssertionError("elapsed after stop") }
-        clock.start(visible = true)
+        clock.start(isVisible = true)
         clock.stop()
         idle(1_000)
         val endless = ActiveTimeClock(null, "ad-2") { throw AssertionError("no duration, no end") }
-        endless.start(visible = true)
+        endless.start(isVisible = true)
         idle(100_000)
         assertTrue(endless.isCounting)
     }

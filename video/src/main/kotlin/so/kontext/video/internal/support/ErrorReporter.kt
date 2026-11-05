@@ -137,9 +137,9 @@ internal object ErrorReporter {
     }
 
     /** `/config` answered: `reportErrors` turns the reports on, anything else drops them for this launch. */
-    fun configure(enabled: Boolean) {
+    fun configure(isEnabled: Boolean) {
         if (mode == Mode.OFF) return
-        if (enabled) {
+        if (isEnabled) {
             mode = Mode.ON
             if (buffer.isNotEmpty()) scheduleFlush(intervalMillis)
         } else {

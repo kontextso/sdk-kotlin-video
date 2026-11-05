@@ -54,8 +54,8 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
     private var playWhenReady = this.player.get()?.playWhenReady ?: false
     private var playbackState = this.player.get()?.playbackState ?: Player.STATE_IDLE
     private var suppression = this.player.get()?.playbackSuppressionReason ?: Player.PLAYBACK_SUPPRESSION_REASON_NONE
-    private var playingAd = this.player.get()?.isPlayingAd ?: false
-    private var lastPlaying = playing()
+    private var isPlayingAd = this.player.get()?.isPlayingAd ?: false
+    private var wasPlaying = isPlayingNow()
 
     /** Media item transitions heard while followed: each is another play, of another item or the same one. */
     private var plays = 0
@@ -84,7 +84,7 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         }
 
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-            playingAd = newPosition.adGroupIndex != C.INDEX_UNSET
+            isPlayingAd = newPosition.adGroupIndex != C.INDEX_UNSET
             if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
                 listeners.toList().forEach { it.onSeek() }
             }
@@ -124,8 +124,8 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
                 playWhenReady = it.playWhenReady
                 playbackState = it.playbackState
                 suppression = it.playbackSuppressionReason
-                playingAd = it.isPlayingAd
-                lastPlaying = playing()
+                isPlayingAd = it.isPlayingAd
+                wasPlaying = isPlayingNow()
                 it.addListener(playerListener)
             }
         }
@@ -137,13 +137,13 @@ internal class Media3Player(player: Player) : VideoAdsPlayer {
         if (listeners.isEmpty()) player.get()?.removeListener(playerListener)
     }
 
-    private fun playing(): Boolean = playWhenReady && playbackState.isActive() && suppression == Player.PLAYBACK_SUPPRESSION_REASON_NONE && !playingAd
+    private fun isPlayingNow(): Boolean = playWhenReady && playbackState.isActive() && suppression == Player.PLAYBACK_SUPPRESSION_REASON_NONE && !isPlayingAd
 
     private fun playingMayHaveChanged() {
-        val playing = playing()
-        if (playing == lastPlaying) return
-        lastPlaying = playing
-        listeners.toList().forEach { it.onIsPlayingChanged(playing) }
+        val isPlayingNow = isPlayingNow()
+        if (isPlayingNow == wasPlaying) return
+        wasPlaying = isPlayingNow
+        listeners.toList().forEach { it.onIsPlayingChanged(isPlayingNow) }
     }
 
     private fun Int.isActive() = this == Player.STATE_READY || this == Player.STATE_BUFFERING

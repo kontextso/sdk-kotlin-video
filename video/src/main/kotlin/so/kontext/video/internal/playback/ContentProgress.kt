@@ -21,7 +21,7 @@ internal class ContentProgress(val durationMillis: Long, playheadMillis: Long) {
     }
 
     /** Takes the playhead now; counts the step when [counting] and it looks like playback. `true` once the duration is reached. */
-    fun advance(playheadMillis: Long, counting: Boolean, speed: Float? = null): Boolean {
+    fun advance(playheadMillis: Long, isCounting: Boolean, speed: Float? = null): Boolean {
         val step = playheadMillis - last
         if (step != 0L) {
             val now = Environment.now()
@@ -29,7 +29,7 @@ internal class ContentProgress(val durationMillis: Long, playheadMillis: Long) {
             last = playheadMillis
             lastMovedAt = now
             val allowed = speed?.let { maxOf(abs(it) * RATE_MARGIN, 1.0) } ?: MAX_RATE
-            if (counting && step > 0 && step <= abs(real) * allowed + SLACK_MILLIS) elapsedMillis += step
+            if (isCounting && step > 0 && step <= abs(real) * allowed + SLACK_MILLIS) elapsedMillis += step
         }
         return elapsedMillis >= durationMillis
     }

@@ -102,7 +102,7 @@ internal class TTEngine(engine: TTVideoEngine) : Engine {
  */
 internal class EnginePlayer(private val engine: Engine) : VideoAdsPlayer {
     private val listeners = mutableListOf<VideoAdsPlayer.Listener>()
-    private var lastPlaying = false
+    private var wasPlaying = false
     private var videoId: String? = null
 
     /** Ends of the video heard while followed: a replay after the end is another play. */
@@ -136,7 +136,7 @@ internal class EnginePlayer(private val engine: Engine) : VideoAdsPlayer {
 
     override fun addListener(listener: VideoAdsPlayer.Listener) {
         if (listeners.isEmpty() && !engine.isGone) {
-            lastPlaying = isPlaying
+            wasPlaying = isPlaying
             videoId = engine.videoId
             engine.listen(events)
         }
@@ -149,10 +149,10 @@ internal class EnginePlayer(private val engine: Engine) : VideoAdsPlayer {
     }
 
     private fun playingMayHaveChanged() {
-        val playing = isPlaying
-        if (playing == lastPlaying) return
-        lastPlaying = playing
-        listeners.toList().forEach { it.onIsPlayingChanged(playing) }
+        val isPlayingNow = isPlaying
+        if (isPlayingNow == wasPlaying) return
+        wasPlaying = isPlayingNow
+        listeners.toList().forEach { it.onIsPlayingChanged(isPlayingNow) }
     }
 
     // The app gave the engine another video: what was on screen was over the one before.

@@ -89,8 +89,8 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
      * or [alsoFor], a click's URLs); a nested call keeps the outer reading.
      */
     fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T {
-        val asked = readsContentPlayhead || alsoFor.any(::asksForContentPlayhead)
-        if (frozenContentPlayhead != null || !asked) return work()
+        val isAsked = readsContentPlayhead || alsoFor.any(::asksForContentPlayhead)
+        if (frozenContentPlayhead != null || !isAsked) return work()
         frozenContentPlayhead = lastContentPlayhead
         try {
             val playhead = contentPlayhead()

@@ -28,9 +28,9 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     private val listeners = mutableListOf<(Activity, Event) -> Unit>()
 
     /** Something of the app was on screen at registration, and no lifecycle event has come since. */
-    private var visibleAtRegistration = false
+    private var wasVisibleAtRegistration = false
 
-    val isAppInForeground: Boolean get() = started.isNotEmpty() || visibleAtRegistration
+    val isAppInForeground: Boolean get() = started.isNotEmpty() || wasVisibleAtRegistration
 
     /** Some Activity of the app is resumed, as far as the events since registration tell. */
     val hasResumedActivity: Boolean get() = resumed.containsValue(true)
@@ -62,7 +62,7 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         registeredWith = WeakReference(application)
         started.clear()
         resumed.clear()
-        visibleAtRegistration = isProcessVisible()
+        wasVisibleAtRegistration = isProcessVisible()
         application.registerActivityLifecycleCallbacks(this)
     }
 
@@ -82,21 +82,21 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
         registeredWith = WeakReference(null)
         started.clear()
         resumed.clear()
-        visibleAtRegistration = false
+        wasVisibleAtRegistration = false
         listeners.clear()
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-        visibleAtRegistration = false
+        wasVisibleAtRegistration = false
     }
 
     override fun onActivityStarted(activity: Activity) {
-        visibleAtRegistration = false
+        wasVisibleAtRegistration = false
         started[activity] = Unit
     }
 
     override fun onActivityResumed(activity: Activity) {
-        visibleAtRegistration = false
+        wasVisibleAtRegistration = false
         // Resumed is started: one started before registration is counted from here.
         started[activity] = Unit
         resumed[activity] = true
@@ -104,13 +104,13 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     }
 
     override fun onActivityPaused(activity: Activity) {
-        visibleAtRegistration = false
+        wasVisibleAtRegistration = false
         started[activity] = Unit
         resumed[activity] = false
     }
 
     override fun onActivityStopped(activity: Activity) {
-        visibleAtRegistration = false
+        wasVisibleAtRegistration = false
         started.remove(activity)
         resumed[activity] = false
         notify(activity, Event.STOPPED)

@@ -36,10 +36,10 @@ internal object HttpTransport {
 
     /**
      * How redirects are followed: at most [MAX_REDIRECTS]; only to http or https; from https down to http only
-     * when [allowDowngrade]. A 307 or 308 sends the request again as it was, body and all; a 301, 302 or 303
+     * when [allowsDowngrade]. A 307 or 308 sends the request again as it was, body and all; a 301, 302 or 303
      * continues as a GET.
      */
-    class Redirects(val allowDowngrade: Boolean)
+    class Redirects(val allowsDowngrade: Boolean)
 
     /** The final answer: its status, and its body when one was asked for (`null` otherwise). */
     class Answer(val status: Int, val body: String?)
@@ -106,7 +106,7 @@ internal object HttpTransport {
         connection.getHeaderField("Location")?.takeIf { status in REDIRECTS }
             ?.let { runCatching { URL(url, it) }.getOrNull() }
             ?.takeIf { it.protocol in FOLLOWED_SCHEMES }
-            ?.takeIf { redirects.allowDowngrade || url.protocol != "https" || it.protocol == "https" }
+            ?.takeIf { redirects.allowsDowngrade || url.protocol != "https" || it.protocol == "https" }
 
     /** The body as UTF-8, reading at most one byte past [maxBytes]: a longer one fails without being read whole. */
     private fun readCapped(stream: InputStream, maxBytes: Long): String {

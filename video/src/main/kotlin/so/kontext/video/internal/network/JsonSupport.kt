@@ -50,14 +50,14 @@ internal fun parseAnswer(text: String): JsonElement {
 private fun depth(text: String): Int {
     var depth = 0
     var deepest = 0
-    var inString = false
-    var escaped = false
+    var isInString = false
+    var isEscaped = false
     for (char in text) {
         when {
-            escaped -> escaped = false
-            inString && char == '\\' -> escaped = true
-            char == '"' -> inString = !inString
-            inString -> Unit
+            isEscaped -> isEscaped = false
+            isInString && char == '\\' -> isEscaped = true
+            char == '"' -> isInString = !isInString
+            isInString -> Unit
             char == '[' || char == '{' -> deepest = maxOf(deepest, ++depth)
             char == ']' || char == '}' -> depth--
         }

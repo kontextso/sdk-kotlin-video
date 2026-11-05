@@ -26,8 +26,8 @@ internal sealed class ConfigResponse {
     companion object {
         fun parse(json: JsonElement?): ConfigResponse {
             val body = json?.obj() ?: throw ApiException.Decoding(IllegalArgumentException("not an object"))
-            val enabled = body.bool("enabled") ?: throw ApiException.Decoding(IllegalArgumentException("enabled is missing"))
-            return if (enabled) {
+            val isEnabled = body.bool("enabled") ?: throw ApiException.Decoding(IllegalArgumentException("enabled is missing"))
+            return if (isEnabled) {
                 Enabled(body.bool("reportDebug") ?: false, body.bool("reportErrors") ?: false)
             } else {
                 Disabled(body.str("disabledReason") ?: UNKNOWN_REASON)

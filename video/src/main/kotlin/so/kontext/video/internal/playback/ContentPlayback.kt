@@ -52,7 +52,7 @@ internal class ContentPlayback {
     private var hasEpisodeItem = false
 
     /** Another `VideoAds` tracks this one's player now: this episode no longer plays in it, until `track` again. */
-    var lostPlayer = false
+    var hasLostPlayer = false
         private set
 
     /**
@@ -63,7 +63,7 @@ internal class ContentPlayback {
      */
     val playsAnotherEpisode: Boolean
         get() {
-            if (lostPlayer) return true
+            if (hasLostPlayer) return true
             val player = player ?: return false
             adoptEpisodeItem()
             if (!hasEpisodeItem) return false
@@ -151,7 +151,7 @@ internal class ContentPlayback {
         this.listener = null
         episodeItem = null
         hasEpisodeItem = false
-        lostPlayer = false
+        hasLostPlayer = false
         owners.removeAll { it.playback.get().let { playback -> playback == null || playback === this } }
         isTracking = false
         isTicking = false
@@ -187,7 +187,7 @@ internal class ContentPlayback {
         if (generation != this.generation) return
         Logger.info { "the player is tracked by another VideoAds now; this one no longer tracks it" }
         stop()
-        lostPlayer = true
+        hasLostPlayer = true
     }
 
     /** The first item seen from `track` on is this episode's: one there at `track`, or the first the player reported. */

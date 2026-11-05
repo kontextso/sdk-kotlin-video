@@ -61,7 +61,7 @@ class PartsTest : SdkTest() {
         var activations = 0
         val clock = ActiveTimeClock(durationMillis = 3_000, adId = "ad-1") { elapsed = true }
         clock.onActivate = { activations++ }
-        clock.start(visible = true)
+        clock.start(isVisible = true)
         now = 1_000
         clock.windowVisibilityChanged(false)
         assertFalse(clock.isCounting)

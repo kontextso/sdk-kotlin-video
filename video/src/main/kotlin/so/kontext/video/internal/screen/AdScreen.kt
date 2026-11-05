@@ -134,7 +134,7 @@ internal sealed class AdScreen {
                 ad.end(EndReason.COMPLETED)
             }
             this.clock = clock
-            clock.start(visible = hostView?.windowVisibility == View.VISIBLE, seen = ad.meter?.isSeen ?: true)
+            clock.start(isVisible = hostView?.windowVisibility == View.VISIBLE, isSeen = ad.meter?.isSeen ?: true)
             ad.contentRule.started(clock)
             hostView?.activity?.let(ad::followHoldingActivity)
         }

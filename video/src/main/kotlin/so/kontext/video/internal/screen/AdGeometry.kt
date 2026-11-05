@@ -46,7 +46,7 @@ internal object AdGeometry {
     fun scale(size: AdPayload.Size, room: Rect, density: Float): Double =
         min(1.0, min(room.width() / (size.width * density.toDouble()), room.height() / (size.height * density.toDouble())))
 
-    fun smallestScale(size: AdPayload.Size): Double = if (size.scalable) MINIMUM_SCALE else 1.0
+    fun smallestScale(size: AdPayload.Size): Double = if (size.isScalable) MINIMUM_SCALE else 1.0
 
     /** The smallest view, in pixels and with [insets], that holds [size]; at most `Int.MAX_VALUE` for insets that large. */
     fun minimum(size: AdPayload.Size, insets: Rect, density: Float): Pair<Int, Int> {
