@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import so.kontext.video.internal.device.DeviceInfo
+import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.network.BeaconClient
 
 /**
@@ -44,7 +45,7 @@ internal object Environment {
     var assertionFailure: (String) -> Unit = ::failInDebuggableApp
 
     /** The browser's user agent, `navigator.userAgent` of a WebView, as KontextKit reads and caches it. */
-    var userAgent: suspend () -> String? = { context?.let { DeviceInfo.userAgent(it) } }
+    var userAgent: suspend () -> String? = { context?.let { UserAgent.userAgent(it) } }
 
     /** How long an ads request waits for [userAgent] before it goes with a fallback. A constant in spirit; tests shorten it. */
     const val DEFAULT_USER_AGENT_WAIT_MILLIS = 2_000L
@@ -64,7 +65,7 @@ internal object Environment {
         scope = newScope()
         now = { SystemClock.elapsedRealtime() }
         assertionFailure = ::failInDebuggableApp
-        userAgent = { context?.let { DeviceInfo.userAgent(it) } }
+        userAgent = { context?.let { UserAgent.userAgent(it) } }
         userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
         advertisingId = { context?.let { DeviceInfo.advertisingId(it) } }
         isAppInForeground = { ActivityTracker.isAppInForeground }

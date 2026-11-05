@@ -12,7 +12,7 @@ import so.kontext.video.KontextVideo.State
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.SDK_VERSION
-import so.kontext.video.internal.device.DeviceInfo
+import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
@@ -222,7 +222,7 @@ internal object Sdk {
         shownAd = null
         DebugReporter.resetForTesting()
         ErrorReporter.resetForTesting()
-        DeviceInfo.resetForTesting()
+        UserAgent.resetForTesting()
         Logger.level = Configuration.LogLevel.WARNING
     }
 }

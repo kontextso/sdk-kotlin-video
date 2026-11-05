@@ -86,7 +86,7 @@ adb logcat -s KontextVideo
   - `payloads/`: `AdPayload`, `AppInputs` (the request rules of the app's Content and User), `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`.
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.
-  - `device/`: `DeviceInfo`, `Consent` (through KontextKit).
+  - `device/`: `DeviceInfo` (the device facts), `UserAgent` (the shared lookup, its wait and its fallback), `Consent` (through KontextKit).
   - `support/`: `Environment` (the seams the tests replace), `ActivityTracker`, `LinkOpener` (which links may
     open, and opening them), `Logger`,
     `ErrorReporter`, `DebugReporter`.
