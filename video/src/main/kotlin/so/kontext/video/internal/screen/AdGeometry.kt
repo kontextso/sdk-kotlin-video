@@ -11,9 +11,12 @@ import kotlin.math.roundToInt
  * only rectangles and scales. Where the ad goes: a variant scaled down to fit the view less its insets, never
  * enlarged and never below its smallest scale, centred, at the top or the bottom. Sizes come in dp and are turned
  * into pixels with the display density. The ad's own choices (which variant, which insets) are in
- * `VideoAdPlacement`; whether the viewer could see a view is in `ViewabilityMeter`.
+ * `VideoAdPlacement`; whether the viewer could see a view is in `ViewExposure`.
  */
 internal object AdGeometry {
+    /** A width and a height in pixels. */
+    data class PixelSize(val width: Int, val height: Int)
+
     /** Below this share of the nominal size a scalable ad is not shown. */
     const val MINIMUM_SCALE = 0.5
 
@@ -46,12 +49,13 @@ internal object AdGeometry {
     fun scale(size: AdPayload.Size, room: Rect, density: Float): Double =
         min(1.0, min(room.width() / (size.width * density.toDouble()), room.height() / (size.height * density.toDouble())))
 
+    /** How far [size] may shrink: to half for a scalable ad, not at all (full size) for a fixed one. */
     fun smallestScale(size: AdPayload.Size): Double = if (size.isScalable) MINIMUM_SCALE else 1.0
 
     /** The smallest view, in pixels and with [insets], that holds [size]; at most `Int.MAX_VALUE` for insets that large. */
-    fun minimum(size: AdPayload.Size, insets: Rect, density: Float): Pair<Int, Int> {
+    fun minimum(size: AdPayload.Size, insets: Rect, density: Float): PixelSize {
         val smallest = smallestScale(size)
         fun sum(ad: Double, before: Int, after: Int) = (ceil(ad).toLong() + before + after).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        return sum(size.width * density * smallest, insets.left, insets.right) to sum(size.height * density * smallest, insets.top, insets.bottom)
+        return PixelSize(sum(size.width * density * smallest, insets.left, insets.right), sum(size.height * density * smallest, insets.top, insets.bottom))
     }
 }

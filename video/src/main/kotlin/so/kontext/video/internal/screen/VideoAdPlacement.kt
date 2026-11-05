@@ -74,10 +74,10 @@ internal fun AdScreen.InlineScreen.chooseSize(width: Int, height: Int, insets: R
 }
 
 private fun AdScreen.InlineScreen.tooSmall(size: AdPayload.Size, insets: Rect, density: Float, what: String): VideoAdException {
-    val (minWidth, minHeight) = AdGeometry.minimum(size, insets, density)
+    val minimum = AdGeometry.minimum(size, insets, density)
     val limit = if (size.isScalable) " at 50 %" else ", which may not shrink"
     Logger.warning { "ad ${ad.id.take(8)}: $what the ad's ${size.width}×${size.height} dp$limit; the ad stays ready" }
-    return VideoAdException.ContainerTooSmall(minWidth, minHeight)
+    return VideoAdException.ContainerTooSmall(minimum.width, minimum.height)
 }
 
 internal fun AdScreen.InlineScreen.refit(width: Int, height: Int, system: Rect, density: Float): Rect? {

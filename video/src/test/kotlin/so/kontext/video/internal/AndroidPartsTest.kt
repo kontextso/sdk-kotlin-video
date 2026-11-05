@@ -109,7 +109,7 @@ class AndroidPartsTest {
         assertNull(AdGeometry.frame(size, AdPayload.Position.TOP, 470, 1920, Rect(), 3f))
         assertNull("not scalable", AdGeometry.frame(size.copy(isScalable = false), AdPayload.Position.TOP, 900, 1920, Rect(), 3f))
         assertNull("insets that leave no room", AdGeometry.room(1080, 1920, Rect(0, 0, 0, 2000)))
-        assertEquals(Pair(480 + 10, 120 + 200), AdGeometry.minimum(size, Rect(0, 0, 10, 200), 3f))
+        assertEquals(AdGeometry.PixelSize(480 + 10, 120 + 200), AdGeometry.minimum(size, Rect(0, 0, 10, 200), 3f))
     }
 
     private fun bridge() = FrameBridge(ApplicationProvider.getApplicationContext(), "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = false)
