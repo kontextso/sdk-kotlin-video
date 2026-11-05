@@ -468,14 +468,16 @@ public class VideoAd internal constructor(
     /** The creative reached the screen: the page shows, the meter starts, and the beacons of `ad.show` fire. */
     internal fun reachedScreen(): Unit = withContentPlayhead {
         if (!state.moveTo(Phase.OnScreen)) return@withContentPlayhead
+        // 1. The page is shown, in the variant chosen for an inline ad.
         loadedBridge?.show((screen as? InlineScreen)?.chosenSize)
         Logger.info { "ad ${id.take(8)}: shown" }
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
         val screen = this.screen
+        // 2. The meter starts; inline, the clock, the content rule and the holding Activity start too (see
+        //    InlineScreen.reachedScreen).
         startMeter()
-        // Inline: the clock, the content rule and the holding Activity start (see InlineScreen.reachedScreen).
         screen?.reachedScreen()
-        // At `ad.show`: creativeView and the AdChoices icon's view. The impression of an image or HTML creative
+        // 3. At `ad.show`: creativeView and the AdChoices icon's view. The impression of an image or HTML creative
         // waits for the page's first layout with an area, a video's for its first frame (`video.start`). The
         // beacons use the playhead read before this block and call no app code, so one check suffices: what ran
         // above (the meter, following the content, which reads the player again, and the Activity) may have

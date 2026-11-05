@@ -122,7 +122,9 @@ public class VideoAds @JvmOverloads constructor(
     private suspend fun formatOnMain(format: AdFormat): VideoAd {
         if (isDestroyed) throw VideoAdException.Destroyed()
         if (!IntegrationGuard.requireInitialized("ads.format()")) throw VideoAdException.NotInitialized()
+        // 1. One request at a time, shared by every caller.
         val task = request ?: startRequest()
+        // 2. Its answer; a failed request still returns the held ad while it is valid.
         val noFill = try {
             task.await()
         } catch (error: VideoAdException.Request) {
@@ -137,6 +139,7 @@ public class VideoAds @JvmOverloads constructor(
             if (isDestroyed && task.isCancelled) throw VideoAdException.Destroyed()
             throw error
         }
+        // 3. The format's held ad, or its no-fill reason.
         checkStillUsable()
         return store.ad(format) ?: throw VideoAdException.NoFill(noFill[format] ?: NoFillReason.Unknown)
     }

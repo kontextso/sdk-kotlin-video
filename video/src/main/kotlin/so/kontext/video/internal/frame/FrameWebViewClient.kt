@@ -11,9 +11,9 @@ import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.Logger
 
 /**
- * The SDK's client of the ad's WebView: what the WebView reports about the page's loads, turned into the bridge's
- * terms. It decides nothing itself: a navigation is decided by the rules (`FrameNavigation`, through [navigationDecision]), and each failure
- * goes back to `FrameBridge`, which ends the page.
+ * The SDK's client of the ad's WebView: what the WebView reports about the page's loads, turned into the
+ * bridge's terms. It decides nothing itself: a navigation is decided by the rules (`FrameNavigation`, through
+ * [navigationDecision]), and each failure goes back to `FrameBridge`, which ends the page.
  *
  * ```
  *   a navigation              ──► navigationDecision: allow, cancel, or onExternalLink (a click the page could not report)

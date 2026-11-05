@@ -94,6 +94,7 @@ internal class FrameBridge(
         private set
 
     init {
+        // 1. The WebView's touches and new windows, and what it reports of the page's loads, come here.
         webView.onTouch = ::noteTouch
         webView.onNewWindow = ::externalNavigation
         webView.webViewClient = FrameWebViewClient(
@@ -105,7 +106,7 @@ internal class FrameBridge(
             onLoadFailed = ::loadFailed,
             onProcessGone = { fail(FrameEvent.Error(protocol.failureCode), FailureCause.PROCESS_TERMINATED) },
         ).also { client = it }
-        // A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
+        // 2. A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
         // linear ad has no other way out: Back is consumed and dismiss() refuses it. The ad ends, failed.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE)) {
             WebViewCompat.setWebViewRenderProcessClient(
@@ -121,6 +122,7 @@ internal class FrameBridge(
                 },
             )
         }
+        // 3. The page's messages: `KontextAndroid`, injected for the page's own origin only.
         if (origin != null && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             try {
                 WebViewCompat.addWebMessageListener(webView, "KontextAndroid", setOf(origin.rule)) { _, message, sourceOrigin, isMainFrame, _: JavaScriptReplyProxy ->
