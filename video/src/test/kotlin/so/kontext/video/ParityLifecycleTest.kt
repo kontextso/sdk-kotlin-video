@@ -34,7 +34,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.screen.AdHostView
+import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.support.Environment
 
@@ -67,15 +67,15 @@ class ParityLifecycleTest : SdkTest() {
     private fun withPlayhead(vararg events: String) =
         events.joinToString(prefix = "[", postfix = "]") { """{"event": "$it", "url": "https://t.test/b?e=$it&cph=[CONTENTPLAYHEAD]"}""" }
 
-    private fun hosts(container: ViewGroup) = (0 until container.childCount).count { container.getChildAt(it) is AdHostView }
+    private fun hosts(container: ViewGroup) = (0 until container.childCount).count { container.getChildAt(it) is InlineAdView }
 
-    private fun host(container: ViewGroup) = (0 until container.childCount).map(container::getChildAt).filterIsInstance<AdHostView>().single()
+    private fun host(container: ViewGroup) = (0 until container.childCount).map(container::getChildAt).filterIsInstance<InlineAdView>().single()
 
     /**
      * Where the host puts the creative at the container's size, in its pixels; `null` when it no longer fits.
      * Asked of the host's own placement: Robolectric's WebView keeps no bounds from a layout pass.
      */
-    private fun adFrame(container: ViewGroup): Rect? = host(container).place!!(container.width, container.height, AdHostView.systemInsets(container))
+    private fun adFrame(container: ViewGroup): Rect? = host(container).place!!(container.width, container.height, InlineAdView.systemInsets(container))
 
     private fun resize(container: ViewGroup, width: Int, height: Int) {
         container.layout(0, 0, width, height)
@@ -340,7 +340,7 @@ class ParityLifecycleTest : SdkTest() {
         // navigation bar covers its bottom.
         val strip = overlay()
         val container = barsContainer(320, 414, top = 115, bottom = 34)
-        assertEquals(Rect(0, 59, 0, 34), AdHostView.systemInsets(container))
+        assertEquals(Rect(0, 59, 0, 34), InlineAdView.systemInsets(container))
         strip.show(container)
         assertEquals("the strip ends where the navigation bar begins", Rect(0, 300, 320, 380), adFrame(container))
         strip.dismiss()

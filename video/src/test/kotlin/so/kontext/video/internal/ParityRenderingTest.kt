@@ -28,7 +28,7 @@ import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
-import so.kontext.video.internal.screen.AdHostView
+import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.support.Environment
 import java.lang.ref.WeakReference
 
@@ -623,7 +623,7 @@ class ParityRenderingTest : SdkTest() {
         assertTrue(clock.isCounting)
         Environment.isAppInForeground = { false } // another Activity of the app is what stopped
         assertTrue("its window still shows", clock.isCounting)
-        val host = container.getChildAt(0) as AdHostView
+        val host = container.getChildAt(0) as InlineAdView
         host.dispatchWindowVisibilityChanged(View.GONE)
         assertFalse("frozen with its own window", clock.isCounting)
         val frozen = clock.elapsedMillis

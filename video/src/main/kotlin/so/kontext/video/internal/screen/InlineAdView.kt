@@ -17,7 +17,7 @@ import androidx.core.view.WindowInsetsCompat
  * `coversWhole`: a full-screen ad whose page sits inside the bars, the host opaque and taking touches around it).
  *
  * ```
- * ┌────────── AdHostView = the whole player, e.g. 800×400 ──────────┐
+ * ┌───────── InlineAdView = the whole player, e.g. 800×400 ─────────┐
  * │                                                                 │
  * │                (transparent, taps pass through)                 │
  * │                                                                 │
@@ -31,7 +31,7 @@ import androidx.core.view.WindowInsetsCompat
  * placed by [place] at every layout pass, so it follows a resize or a rotation.
  */
 @SuppressLint("ViewConstructor")
-internal class AdHostView(context: Context, val content: View, coversWhole: Boolean = false) : FrameLayout(context) {
+internal class InlineAdView(context: Context, val content: View, coversWhole: Boolean = false) : FrameLayout(context) {
     /** The creative's frame for the container's size and insets, in this view's pixels; `null` when it no longer fits. */
     var place: ((width: Int, height: Int, insets: Rect) -> Rect?)? = null
 

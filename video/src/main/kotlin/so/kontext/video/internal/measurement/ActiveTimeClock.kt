@@ -14,7 +14,7 @@ import so.kontext.video.internal.support.Logger
  * report time nobody watched.
  *
  * How: it runs while both are true, and pauses, keeping its time, as soon as one is not:
- * - the window is visible: the app is in front, its Activity started (AdHostView.onWindowVisibility tells it);
+ * - the window is visible: the app is in front, its Activity started (InlineAdView.onWindowVisibility tells it);
  * - the ad is seen: some of it is on screen, not scrolled away (ViewabilityMeter.onSeen tells it).
  * It adds up the stretches: `accumulated` holds the finished ones, `since` when the current one began.
  *

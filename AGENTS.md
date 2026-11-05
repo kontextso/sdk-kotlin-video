@@ -47,8 +47,9 @@ adb logcat -s KontextVideo
   overlay and pause, `show(activity)` for linear, `dismiss()`; the page's events mapped to beacons and the listener;
   `end()` is the only terminal path.
 - Format differences live in two places: `ContentRule` (how an ad follows the content: `OverlayRule`,
-  `PauseRule`, `NoContentRule`) and `AdScreen` (where it is shown: `InlineScreen`, the host view and the clock;
-  `LinearScreen`, its own Activity and its closing). `VideoAd` asks them rather than branching on the format.
+  `PauseRule`, `NoContentRule`) and `AdScreen` (where it is shown: `InlineScreen`, the host view, the clock, the
+  app's insets, the chosen size and the holding Activity; `LinearScreen`, its own Activity, the Activity that
+  started it and its closing). `VideoAd` asks them rather than branching on the format.
 - Functional core, imperative shell: the rules with no Android in them (`SdkLifecycle`, `SdkState`, `AdLifecycle`,
   `AdState`, `FrameProtocol`, `FrameEvent.CloseReason.outcome`) decide, and `Sdk`, `VideoAd` and `FrameBridge` act
   on the answer; the rules are tested as plain JUnit tables. Swift has `SdkLifecycle`, `SdkState`, `AdLifecycle`,
@@ -70,11 +71,11 @@ adb logcat -s KontextVideo
     screen (`shownAd`).
   - `frame/`, the ad's web page and its messages: `FrameProtocol` (the frame protocol's rules, no WebView: the
     envelope, the sender, the states, the video's order, the playhead's bounds, the touch a click needs; `accept`
-    returns a `Step`), `FrameBridge` (its shell: the WebView, which does each `Step`; the page's messages come
+    returns a `Step`), `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
     through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
     message of its frame page), `VideoAdClick` (a click: beacon, click-through, listener).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
-    `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `AdHostView`, `AdGeometry` (the placement
+    `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement
     arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
     behind Compose's `VideoAdHost`), `VideoAdPlacement`, `FirstLayout`.
   - `measurement/`, measuring and reporting: `Tracker` (which beacons fire, sent by `BeaconClient`),

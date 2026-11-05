@@ -2,6 +2,7 @@ package so.kontext.video.internal.frame
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.MutableContextWrapper
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
@@ -55,7 +56,8 @@ import so.kontext.video.internal.support.Logger
  */
 @SuppressLint("SetJavaScriptEnabled")
 internal class FrameBridge(
-    context: Context,
+    /** The application's context: the WebView's base while the ad is not on screen. */
+    private val applicationContext: Context,
     val adId: String,
     private val url: String,
     isVideo: Boolean,
@@ -65,7 +67,13 @@ internal class FrameBridge(
     /** Why the bridge failed: several causes fire the same VAST code, and the error report keeps them apart. */
     enum class FailureCause { PAGE, LOAD_TIMEOUT, LOAD_FAILED, PROCESS_TERMINATED, UNRESPONSIVE }
 
-    val webView: WebView = TouchNotingWebView(context)
+    /**
+     * The WebView's context: the application's while the page loads off screen and after the ad ends, the
+     * showing Activity's while it is on screen (dialogs, the page's own windows). An ended ad holds no Activity.
+     */
+    val contextWrapper = MutableContextWrapper(applicationContext)
+
+    val webView: WebView = TouchNotingWebView(contextWrapper)
 
     /** The frame protocol's rules and state for this page. */
     private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, ::isAllowed)
@@ -80,9 +88,6 @@ internal class FrameBridge(
 
     /** Every message sent to the page, for tests. */
     var onSend: ((String, JsonObject) -> Unit)? = null
-
-    /** The variant the SDK chose from the ad's sizes for the real box (dp); the page lays it out. */
-    var chosenSize: AdPayload.Size? = null
 
     private val origin = protocol.origin
     private var loadTimeoutJob: Job? = null
@@ -164,14 +169,16 @@ internal class FrameBridge(
         }
     }
 
-    /** The page is on screen: it starts whatever the creative does when visible, in the chosen size. */
-    fun show() {
+    /**
+     * The page is on screen: it starts whatever the creative does when visible, in [size], the variant the SDK
+     * chose from the ad's sizes for the real box (dp; `null`: the page fills its view).
+     */
+    fun show(size: AdPayload.Size? = null) {
         if (!protocol.show()) {
             Logger.warning { "frame ${adId.take(8)}: show() in state $state, ignored" }
             return
         }
         webView.onResume()
-        val size = chosenSize
         send("ad.show", if (size != null) mapOf("size" to mapOf("width" to size.width, "height" to size.height)) else emptyMap())
     }
 
@@ -183,6 +190,16 @@ internal class FrameBridge(
         if (state != FrameProtocol.State.SHOWN) return
         val percentage = Math.round(share * 10_000) / 100.0
         send("ad.exposure", mapOf("exposedPercentage" to percentage, "visibleRectangle" to mapOf("x" to x, "y" to y, "width" to width, "height" to height)))
+    }
+
+    /** The page goes on screen in [context] (the container's, or the linear ad's own Activity). */
+    fun useShowingContext(context: Context) {
+        contextWrapper.baseContext = context
+    }
+
+    /** The page is off screen again (a refused show, or the ad ended): the WebView holds no Activity. */
+    fun useApplicationContext() {
+        contextWrapper.baseContext = applicationContext
     }
 
     /** The SDK is removing the page: terminal. */

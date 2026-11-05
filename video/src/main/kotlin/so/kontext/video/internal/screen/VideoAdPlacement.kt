@@ -1,7 +1,6 @@
 package so.kontext.video.internal.screen
 
 import android.graphics.Rect
-import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Logger
@@ -9,7 +8,7 @@ import so.kontext.video.internal.support.Logger
 // Where an overlay or pause ad goes in the app's container. Two layers: this file decides, AdGeometry calculates.
 //
 //   VideoAd.show(container, insets)  ─┐
-//   AdHostView.onLayout (each pass)  ─┤
+//   InlineAdView.onLayout (each pass)  ─┤
 //                                     ▼
 //   ┌─ VideoAdPlacement (knows this ad) ────────────────────────────┐
 //   │  combinedInsets  system bars + the app's insets               │
@@ -32,10 +31,10 @@ import so.kontext.video.internal.support.Logger
 //    variant from the server AdGeometry.scale says how much it would shrink; the pick is the biggest variant that
 //    fits at full size, else the one that shrinks least within its limit, else the closest (which then fails).
 //    AdGeometry.frame checks it; null: tooSmall reports AdGeometry.minimum and show throws, the ad stays ready.
-//    The pick is kept as chosenSize.
-// 2. At every layout pass of AdHostView: refit. A full-screen pause ad takes the container less the bars, no
-//    variants. Otherwise AdGeometry.frame(chosenSize, …, combinedInsets(system)) gives where AdHostView puts the
-//    WebView; null: it no longer fits, AdHostView calls onUnfit and the ad ends INTERRUPTED.
+//    The pick is kept as the inline screen's chosenSize, next to the app's insets (extraInsets).
+// 2. At every layout pass of InlineAdView: refit. A full-screen pause ad takes the container less the bars, no
+//    variants. Otherwise AdGeometry.frame(chosenSize, …, combinedInsets(system)) gives where InlineAdView puts the
+//    WebView; null: it no longer fits, InlineAdView calls onUnfit and the ad ends INTERRUPTED.
 //
 // Example: variants 320×80 and 300×50 dp, density 3, a player of 800×600 px, nav bar 48 px, app controls 120 px.
 //   combinedInsets: bottom 168, so room is 800×432.
@@ -48,13 +47,14 @@ import so.kontext.video.internal.support.Logger
 // logs) here.
 
 /** The system's and the app's insets together; saturated, so a huge app inset cannot wrap around to a small one. */
-internal fun VideoAd.combinedInsets(system: Rect): Rect {
+internal fun AdScreen.InlineScreen.combinedInsets(system: Rect): Rect {
     fun add(a: Int, b: Int) = (a.toLong() + b).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     return Rect(add(system.left, extraInsets.left), add(system.top, extraInsets.top), add(system.right, extraInsets.right), add(system.bottom, extraInsets.bottom))
 }
 
 /** Picks the variant for the container: the biggest that fits unscaled, else the one shrunk least. Throws `ContainerTooSmall`. */
-internal fun VideoAd.chooseSize(width: Int, height: Int, insets: Rect, density: Float) {
+internal fun AdScreen.InlineScreen.chooseSize(width: Int, height: Int, insets: Rect, density: Float) {
+    val payload = ad.payload
     val defaultSize = payload.sizes.firstOrNull()
     if (payload.position == AdPayload.Position.FULLSCREEN || defaultSize == null) return
     val room = AdGeometry.room(width, height, insets) ?: run {
@@ -73,14 +73,15 @@ internal fun VideoAd.chooseSize(width: Int, height: Int, insets: Rect, density: 
     }
 }
 
-private fun VideoAd.tooSmall(size: AdPayload.Size, insets: Rect, density: Float, what: String): VideoAdException {
+private fun AdScreen.InlineScreen.tooSmall(size: AdPayload.Size, insets: Rect, density: Float, what: String): VideoAdException {
     val (minWidth, minHeight) = AdGeometry.minimum(size, insets, density)
     val limit = if (size.isScalable) " at 50 %" else ", which may not shrink"
-    Logger.warning { "ad ${id.take(8)}: $what the ad's ${size.width}×${size.height} dp$limit; the ad stays ready" }
+    Logger.warning { "ad ${ad.id.take(8)}: $what the ad's ${size.width}×${size.height} dp$limit; the ad stays ready" }
     return VideoAdException.ContainerTooSmall(minWidth, minHeight)
 }
 
-internal fun VideoAd.refit(width: Int, height: Int, system: Rect, density: Float): Rect? {
+internal fun AdScreen.InlineScreen.refit(width: Int, height: Int, system: Rect, density: Float): Rect? {
+    val payload = ad.payload
     // A full-screen pause ad clears the system bars and the cutout: Android's WebView gives the page no
     // safe-area insets, so a page laid out edge to edge would put its controls under the clock. The host
     // still covers the whole container behind the bars.

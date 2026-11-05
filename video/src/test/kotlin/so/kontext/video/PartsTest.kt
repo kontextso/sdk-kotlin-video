@@ -23,7 +23,7 @@ import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
-import so.kontext.video.internal.screen.AdHostView
+import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
@@ -41,7 +41,7 @@ class PartsTest : SdkTest() {
         // Inside Robolectric's window, whose system insets the host keeps the ad clear of.
         val container = container(width = 320, height = 400)
         ad.show(container)
-        val host = container.getChildAt(0) as AdHostView
+        val host = container.getChildAt(0) as InlineAdView
         // What the host lays the ad out at, for the container's size and insets (Robolectric's WebView keeps no bounds).
         val place = host.place!!
         assertEquals(android.graphics.Rect(0, 320, 320, 400), place(320, 400, android.graphics.Rect()))
@@ -88,8 +88,7 @@ class PartsTest : SdkTest() {
         bridge.receive("""{"type":"ad.loaded"}""", page, true)
         assertEquals("one report for a broken page", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
-        bridge.chosenSize = so.kontext.video.internal.payloads.AdPayload.Size(320, 80)
-        bridge.show()
+        bridge.show(so.kontext.video.internal.payloads.AdPayload.Size(320, 80))
         bridge.exposure(0.5, 0.0, 0.0, 10.0, 10.0)
         bridge.receive("""{"adId":"ad-1","type":"something.new"}""", page, true)
         bridge.receive("""{"adId":"ad-1","type":"video.progress","offset":"soon"}""", page, true)

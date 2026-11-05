@@ -57,7 +57,7 @@ import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.screen.AdHostView
+import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
@@ -220,10 +220,11 @@ class BoundaryTest {
         val ad = overlay(owner())
         val container = container()
         ad.show(container)
-        assertSame(container.context, ad.contextWrapper.baseContext)
+        val bridge = ad.loadedBridge!!
+        assertSame(container.context, bridge.contextWrapper.baseContext)
         ad.dismiss()
         assertNull(ad.loadedBridge)
-        assertSame(Environment.context, ad.contextWrapper.baseContext)
+        assertSame(Environment.context, bridge.contextWrapper.baseContext)
     }
 
     @Test fun anEndedLinearAdDropsItsShownAd() {
@@ -248,7 +249,7 @@ class BoundaryTest {
         val hooking = object : FrameLayout(root.context) {
             override fun onViewAdded(child: View) {
                 super.onViewAdded(child)
-                if (child is AdHostView) removeView(child)
+                if (child is InlineAdView) removeView(child)
             }
         }
         root.addView(hooking)
@@ -604,7 +605,7 @@ class BoundaryTest {
         val hooking = object : FrameLayout(root.context) {
             override fun onViewAdded(child: View) {
                 super.onViewAdded(child)
-                if (child is AdHostView) child.visibility = View.GONE
+                if (child is InlineAdView) child.visibility = View.GONE
             }
         }
         root.addView(hooking)

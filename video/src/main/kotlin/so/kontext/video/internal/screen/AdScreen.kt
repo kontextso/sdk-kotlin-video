@@ -1,5 +1,7 @@
 package so.kontext.video.internal.screen
 
+import android.app.Activity
+import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -10,12 +12,15 @@ import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.state.AdLifecycle
+import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.support.activity
+import java.lang.ref.WeakReference
 
 /**
  * Where an ad on screen is shown: the one place where the formats differ in how they are put on screen,
@@ -30,12 +35,15 @@ import so.kontext.video.internal.support.activity
  *
  * ```
  *                  InlineScreen                        LinearScreen
- * show             attach(host): AdHostView into the   LinearAdActivity started; its attach (these
- *                  container                           Callbacks) puts the page in it
+ * show             attach(host): InlineAdView into the LinearAdActivity started; its attach (these
+ *                  container                           Callbacks) puts the page in it; the
+ *                                                      Activity that started it followed
  * configure(meter) on-screen rule, seen → clock        covered by another Activity
  * reachedScreen()  the clock runs, the content rule    nothing: the screen's own onResume showed it
  *                  starts, the holding Activity
+ *                  followed
  * end:
+ *   stopFollowing() the Activity's listener removed    the same
  *   tearDown(meter) clock → meter → host view out;     meter stopped, the screen's registration
  *                  returns the active time             forgotten; returns 0
  *                  (overlayViewDuration)
@@ -45,7 +53,10 @@ import so.kontext.video.internal.support.activity
  * A screen never ends the ad's life itself: it calls `ad.end(...)`, and `onGone` (the ad's `finish`) is the
  * only way it reaches `onAdEnded`.
  */
-internal sealed class AdScreen {
+internal sealed class AdScreen(
+    /** The ad this screen shows. */
+    val ad: VideoAd,
+) {
     /** An overlay's or pause ad's view in the app's container, not a screen of its own. */
     abstract val isInline: Boolean
 
@@ -54,6 +65,16 @@ internal sealed class AdScreen {
 
     /** The creative was placed in a frame with an area: the impression may count. */
     abstract val isPlaced: Boolean
+
+    /**
+     * Stops waiting for the page's first layout, where an image or HTML creative's impression counts. Inline in
+     * practice (a linear ad's creative is a video, whose impression is its first frame); kept on every screen so
+     * a linear ad with another creative waits the same way.
+     */
+    var impressionWait: (() -> Unit)? = null
+
+    /** Follows the Activity the screen depends on while the ad is on screen; removed when the ad ends. */
+    private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
 
     /** The meter's inputs and outputs that depend on where the ad is. */
     abstract fun configure(meter: ViewabilityMeter)
@@ -73,13 +94,45 @@ internal sealed class AdScreen {
      */
     abstract fun close(onGone: () -> Unit): Boolean
 
+    /** The ad is ending: the Activity it followed is no longer heard. */
+    fun stopFollowing() {
+        activityListener?.let(ActivityTracker::removeListener)
+        activityListener = null
+    }
+
+    /** The ad is ending: the first-layout wait stops, its impression never counted. */
+    fun stopWaitingForImpression() {
+        impressionWait?.invoke()
+        impressionWait = null
+    }
+
+    /** Hears [activity]'s events until the ad ends. */
+    protected fun follow(activity: Activity, onEvent: (Activity, ActivityTracker.Event) -> Unit) {
+        val target = WeakReference(activity)
+        val listener: (Activity, ActivityTracker.Event) -> Unit = { which, event -> if (which === target.get() && !ad.hasEnded) onEvent(which, event) }
+        activityListener?.let(ActivityTracker::removeListener)
+        activityListener = listener
+        ActivityTracker.addListener(listener)
+    }
+
     /**
-     * An overlay or pause ad: the [AdHostView] in the app's container, and the [ActiveTimeClock] that counts its
+     * An overlay or pause ad: the [InlineAdView] in the app's container, and the [ActiveTimeClock] that counts its
      * time seen (and an overlay's wall-clock duration). It follows the Activity holding the container.
      */
-    class InlineScreen(private val ad: VideoAd) : AdScreen() {
+    class InlineScreen(
+        ad: VideoAd,
+        /** The app's own insets from `show(container, insets)`, in pixels, never negative; kept through resizes. */
+        val extraInsets: Rect,
+    ) : AdScreen(ad) {
         /** The view the SDK put into the app's container; gone once the ad ends, or the container refused it. */
-        var hostView: AdHostView? = null
+        var hostView: InlineAdView? = null
+
+        /** The variant `chooseSize` picked from the ad's sizes at show (dp); `null` for a full-screen pause ad. */
+        var chosenSize: AdPayload.Size? = null
+
+        /** The Activity holding the container, while the ad is on screen. */
+        var holdingActivity: WeakReference<Activity>? = null
+            private set
 
         /** Time seen on screen; it also ends an overlay whose wall-clock duration elapsed. From [reachedScreen] to [tearDown]. */
         var clock: ActiveTimeClock? = null
@@ -92,7 +145,7 @@ internal sealed class AdScreen {
         override val isPlaced: Boolean get() = hostView?.hasPlacedContent ?: true
 
         /** `show` made [host] for the container: the screen hears its fit and its window. */
-        fun attach(host: AdHostView) {
+        fun attach(host: InlineAdView) {
             hostView = host
             host.onUnfit = {
                 if (!ad.hasEnded) {
@@ -136,7 +189,7 @@ internal sealed class AdScreen {
             this.clock = clock
             clock.start(isVisible = hostView?.windowVisibility == View.VISIBLE, isSeen = ad.meter?.isSeen ?: true)
             ad.contentRule.started(clock)
-            hostView?.activity?.let(ad::followHoldingActivity)
+            hostView?.activity?.let(::followHoldingActivity)
         }
 
         override fun tearDown(meter: ViewabilityMeter?): Long {
@@ -151,13 +204,31 @@ internal sealed class AdScreen {
         }
 
         override fun close(onGone: () -> Unit): Boolean = false
+
+        /**
+         * Another Activity of the app covers the one holding the container (it stopped while the app stays in
+         * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
+         * its window. The app going to the background only freezes the ad's clock (and an overlay's content
+         * pausing there, see `ContentRule.OverlayRule`); a stop for a configuration change recreates the Activity, and the
+         * container leaving the window ends the ad there.
+         */
+        private fun followHoldingActivity(holder: Activity) {
+            holdingActivity = WeakReference(holder)
+            follow(holder) { activity, event ->
+                if (event == ActivityTracker.Event.RESUMED) ad.contentRule.holdingActivityResumed()
+                if (event == ActivityTracker.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
+                    Logger.warning { "ad ${ad.id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
+                    ad.end(EndReason.INTERRUPTED)
+                }
+            }
+        }
     }
 
     /**
      * A linear ad: the [LinearAdActivity] the SDK starts, which these [LinearAdActivity.Callbacks] fill with the
      * page, and its closing when the ad ends.
      */
-    class LinearScreen(private val ad: VideoAd, private val bridge: FrameBridge) : AdScreen(), LinearAdActivity.Callbacks {
+    class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdScreen(ad), LinearAdActivity.Callbacks {
         /** The screen once it attached, until it is gone or closing. */
         var activity: LinearAdActivity? = null
             private set
@@ -176,7 +247,7 @@ internal sealed class AdScreen {
                 return
             }
             this.activity = activity
-            ad.contextWrapper.baseContext = activity
+            bridge.useShowingContext(activity)
             (bridge.webView.parent as? ViewGroup)?.removeView(bridge.webView)
             root.addView(bridge.webView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
@@ -200,6 +271,19 @@ internal sealed class AdScreen {
         }
 
         override fun reachedScreen() = Unit
+
+        /**
+         * The Activity that started a linear ad finishes under it (the app closed that screen): the ad ends,
+         * interrupted, and its screen closes, as on iOS when the presenter is dismissed. Not a destroy without
+         * finishing (a configuration change, or the system reclaiming a screen behind): the app comes back to it
+         * when the ad ends.
+         */
+        fun followStartingActivity(starter: Activity) = follow(starter) { activity, event ->
+            if (event == ActivityTracker.Event.DESTROYED && activity.isFinishing) {
+                Logger.warning { "ad ${ad.id.take(8)}: the Activity that started the linear ad finished; ended as interrupted" }
+                ad.end(EndReason.INTERRUPTED)
+            }
+        }
 
         override fun tearDown(meter: ViewabilityMeter?): Long {
             meter?.stop()

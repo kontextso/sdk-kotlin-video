@@ -7,6 +7,7 @@ import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.screen.AdScreen
 import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.Logger
@@ -96,7 +97,7 @@ internal sealed class ContentRule {
      * its own time (the clock's duration). A pause while the app is in the background (apps pause their player in
      * `onStop`) only freezes it, as the background freezes its clock: back in front, it goes on if the content
      * plays again within `VideoAd.returnGraceMillis`, and ends as INTERRUPTED otherwise. Another screen of the
-     * app over it is not the background: it ends the overlay (see `VideoAd.followHoldingActivity`), and so does a
+     * app over it is not the background: it ends the overlay (see `AdScreen.InlineScreen.followHoldingActivity`), and so does a
      * pause there.
      */
     class OverlayRule(private val ad: VideoAd) : ContentRule() {
@@ -129,7 +130,7 @@ internal sealed class ContentRule {
         private val isAway: Boolean
             get() {
                 if (!Environment.isAppInForeground()) return true
-                val holder = ad.holdingActivity?.get() ?: return false
+                val holder = (ad.shownAd?.screen as? AdScreen.InlineScreen)?.holdingActivity?.get() ?: return false
                 return ActivityTracker.isResumed(holder) == false && !ActivityTracker.hasResumedActivity
             }
 
