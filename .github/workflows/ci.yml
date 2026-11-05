@@ -89,7 +89,7 @@ jobs:
         run: ./gradlew apiCheck
 
       - name: Run unit tests
-        run: ./gradlew :video:testDebug :video-media3:testDebug :video-ttsdk:testDebug
+        run: ./gradlew :video:testDebug :video-media3:testDebug :video-ttsdk:testDebug :video-compose:testDebug
 
       - name: Upload test reports
         if: always()

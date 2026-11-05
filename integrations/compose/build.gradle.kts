@@ -38,6 +38,25 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    testOptions {
+        // Robolectric runs on JUnit 4: the vintage engine runs those tests on the JUnit Platform.
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+        // Robolectric reads the merged manifest and resources.
+        unitTests.isIncludeAndroidResources = true
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+// The unit tests drive real ads without a server, as :video's own tests do: a loaded ad made from a payload,
+// its page's messages sent by hand. That needs :video's internals, so the test compilation is its friend.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    if (name.contains("UnitTest")) {
+        val videoBuild = project(":video").layout.buildDirectory.get().asFile
+        friendPaths.from(libraries.filter { it.startsWith(videoBuild) })
+    }
 }
 
 kotlin {
@@ -133,4 +152,11 @@ dependencies {
     // The lowest Compose the module compiles and works with. An app's own, newer Compose wins at resolution.
     api(libs.androidx.compose.ui.floor)
     api(libs.androidx.compose.foundation.layout.floor)
+
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.androidx.test.core)
+    // A payload parsed as the SDK parses the server's answer.
+    testImplementation(libs.kotlinx.serialization.json)
 }

@@ -80,8 +80,7 @@ adb logcat -s KontextVideo
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, which also places the page in its host, and `LinearScreen`, each in its own file),
     `ScreenSlot` (the app's one ad on screen, taken at `show`, freed before `onAdEnded`; the ad keeps its
     `AdScreen`, which holds the meter), `InlineAdView`, `AdGeometry` (the placement
-    arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
-    behind Compose's `VideoAdHost`), `Views` (what the SDK asks of a view: its Activity, its system insets, its first layout).
+    arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `Views` (what the SDK asks of a view: its Activity, its system insets, its first layout).
   - `measurement/`, what the viewer saw (visibility, time on screen) and the beacons that report it: `Tracker`
     (which beacons fire, sent by `BeaconClient`) with `TrackingMacros`, `ViewabilityMeter` with `ViewExposure`
     and `Polygon`, `OnScreenTimeClock`.
@@ -97,6 +96,9 @@ adb logcat -s KontextVideo
     `EventHistory` (the last events an error report carries); `ReportFormat` (capped, timestamp, json).
   - `platform/`: `Environment` (the seams the tests replace), `AppActivities` (the app's screens: in front,
     started, resumed), `LinkOpener` (which links may open, and opening them).
+- `integrations/compose` (`:video-compose`): `rememberVideoAds`, `VideoAdHost`, and `VideoAdHostController`, the
+  engine behind `VideoAdHost` (turns "this ad should be shown here" into show and dismiss), on `video`'s public
+  API only; its unit tests reach `video`'s internals as a friend module, to make loaded ads without a server.
 - One main type per file. The root package holds the public API only.
 
 ## Rules

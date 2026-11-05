@@ -24,7 +24,6 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdListener
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.screen.VideoAdSlot
 
 /**
  * The `VideoAds` of one episode, for as long as this composition shows it: created for [content] (a new one when
@@ -69,7 +68,7 @@ public fun VideoAdHost(
 ) {
     val context = LocalContext.current
     val host = remember { FrameLayout(context) }
-    val slot = remember { VideoAdSlot(host) }
+    val slot = remember { VideoAdHostController(host) }
     val currentOnShowFailed by rememberUpdatedState(onShowFailed)
     val currentOnImpression by rememberUpdatedState(onImpression)
     val currentOnClicked by rememberUpdatedState(onClicked)

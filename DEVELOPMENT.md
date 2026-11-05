@@ -49,7 +49,7 @@ sdk-kotlin-video/
 ./gradlew apiCheck                            # the public API against video/api and adapters/media3/api
 ./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
 ./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
-./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest   # what CI runs, with the two below
+./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-compose:testDebugUnitTest   # what CI runs, with the two below
 ```
 
 `internal/CorpusTest` runs the malformed-answer corpus the Swift SDK runs too: `video/src/test/resources/corpus/`
