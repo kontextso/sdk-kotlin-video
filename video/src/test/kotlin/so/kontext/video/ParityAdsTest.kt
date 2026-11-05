@@ -995,9 +995,12 @@ class ParityAdsTest {
     }
 
     @Test fun initializeSendsTheTokenAndTheInstallIdAndTellsTheListener() {
+        // The server holds /config: a fast answer could otherwise finish initialize before it returns.
+        configGate = CountDownLatch(1)
         var reported: KontextVideo.State? = null
         KontextVideo.initialize(ApplicationProvider.getApplicationContext(), configuration) { reported = it }
         assertEquals(KontextVideo.State.Initializing, KontextVideo.state)
+        configGate!!.countDown()
         await { reported != null }
         assertEquals(KontextVideo.State.Enabled, reported)
         assertEquals(configuration, Sdk.configuration)
