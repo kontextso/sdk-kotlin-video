@@ -9,6 +9,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import so.kontext.video.internal.payloads.ErrorResponse
+import so.kontext.video.internal.payloads.JsonParser
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
@@ -102,5 +103,12 @@ internal class ApiClient(
          * would be an outage of every installed SDK.
          */
         private val REDIRECT_POLICY = HttpTransport.Redirects(allowsDowngrade = false)
+
+        /** A server answer parsed ([JsonParser.parse]), or [ApiException.Decoding]: not JSON, or nested too deep. */
+        fun parseAnswer(text: String): JsonElement = try {
+            JsonParser.parse(text)
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+            throw ApiException.Decoding(error)
+        }
     }
 }

@@ -5,13 +5,6 @@ import kotlinx.serialization.json.JsonObject
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.arr
-import so.kontext.video.internal.network.bool
-import so.kontext.video.internal.network.double
-import so.kontext.video.internal.network.has
-import so.kontext.video.internal.network.long
-import so.kontext.video.internal.network.obj
-import so.kontext.video.internal.network.str
 import java.net.URI
 import java.net.URISyntaxException
 

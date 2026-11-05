@@ -1,6 +1,5 @@
-package so.kontext.video.internal.network
+package so.kontext.video.internal.payloads
 
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -12,58 +11,15 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
 /*
- * How the SDK reads JSON, and why.
+ * How the SDK reads JSON fields, and why.
  *
- * Answers are parsed into a JSON tree (`Json.parseToJsonElement`, kotlinx.serialization's equivalent of
- * `JSON.parse`) and read field by field with the lenient readers below, not decoded into `@Serializable` classes:
+ * Answers are parsed into a JSON tree ([JsonParser.parse]) and read field by field with the lenient readers
+ * below, not decoded into `@Serializable` classes:
  * - Leniency where it matters: a missing or wrongly typed field reads as `null`, so one malformed ad can be dropped
  *   while the rest of the answer is used (see `AdsResponse`), where typed decoding fails all or nothing.
  * - Nothing for the app's R8 to keep: no generated serializers, nothing reached by reflection, which is why
  *   `consumer-proguard-rules.pro` has no rules.
- * Answers are a few KB (at most 5 MB, see `ApiClient`) and parsed off the main thread: well under a millisecond.
- *
- * Before parsing, [parseAnswer] measures how deep the answer's arrays and objects nest. The parser is recursive,
- * one call per level: an answer like `[[[[…]]]]` nested 100 000 deep would exhaust the stack and throw
- * `StackOverflowError`, an `Error` that no `catch (Exception)` stops, crashing the app from an ad request. The
- * measure is one pass over the characters with no recursion; brackets inside strings (text such as
- * `"Watch [Episode 2]"`, escaped quotes included) are not counted, only the JSON's own structure is.
  */
-
-/**
- * The deepest an answer's arrays and objects may nest: the iOS JSON decoder's limit, so both SDKs refuse the same
- * answers (the shared corpus's `deep-nesting-*` cases). A real answer nests about 6 deep; one past 512 is not the
- * server's, and is a `BadResponse`, not a crash.
- */
-internal const val MAX_JSON_DEPTH = 512
-
-/** A server answer parsed, or [ApiException.Decoding]: not JSON, or nested deeper than [MAX_JSON_DEPTH]. */
-internal fun parseAnswer(text: String): JsonElement {
-    if (depth(text) > MAX_JSON_DEPTH) throw ApiException.Decoding(IllegalArgumentException("nested deeper than $MAX_JSON_DEPTH levels"))
-    return try {
-        Json.parseToJsonElement(text)
-    } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-        throw ApiException.Decoding(error)
-    }
-}
-
-/** How deep [text]'s arrays and objects nest, brackets inside strings not counted; read before parsing, so a deep answer costs no stack. */
-private fun depth(text: String): Int {
-    var depth = 0
-    var deepest = 0
-    var isInString = false
-    var isEscaped = false
-    for (char in text) {
-        when {
-            isEscaped -> isEscaped = false
-            isInString && char == '\\' -> isEscaped = true
-            char == '"' -> isInString = !isInString
-            isInString -> Unit
-            char == '[' || char == '{' -> deepest = maxOf(deepest, ++depth)
-            char == ']' || char == '}' -> depth--
-        }
-    }
-    return deepest
-}
 
 // Lenient readers over parsed JSON: a missing, null or wrongly typed value is `null`.
 

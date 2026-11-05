@@ -10,8 +10,8 @@ import kotlinx.serialization.json.put
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
-import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.payloads.SdkInfo
+import so.kontext.video.internal.payloads.putIfNotNull
 import so.kontext.video.internal.platform.Environment
 import kotlin.math.abs
 

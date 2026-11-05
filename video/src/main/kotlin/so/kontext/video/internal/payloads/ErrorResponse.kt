@@ -1,10 +1,5 @@
 package so.kontext.video.internal.payloads
 
-import kotlinx.serialization.json.Json
-import so.kontext.video.internal.network.arr
-import so.kontext.video.internal.network.obj
-import so.kontext.video.internal.network.str
-
 /**
  * The ad server's error body (JSON:API-shaped, see the API's Common page). Each item's fields are read leniently:
  * a missing, null or wrongly typed field is `null`, so an item with less than the contract still reaches the log.
@@ -24,7 +19,7 @@ internal object ErrorResponse {
 
     /** The items of an error body; empty when it is not one. */
     fun parse(text: String): List<Item> = runCatching {
-        Json.parseToJsonElement(text).obj()?.get("errors")?.arr()?.map { element ->
+        JsonParser.parse(text).obj()?.get("errors")?.arr()?.map { element ->
             val item = element.obj() ?: error("not an object")
             Item(item.str("status"), item.str("code"), item.str("title"), item.str("detail"))
         }

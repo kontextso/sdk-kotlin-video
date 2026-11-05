@@ -113,4 +113,10 @@ class PayloadsTest {
         assertTrue(ErrorResponse.parse("""{"errors": ["text"]}""").isEmpty())
         assertTrue(ErrorResponse.parse("not json").isEmpty())
     }
+
+    @Test fun anErrorBodyNestedTooDeepIsNoneAndNeverParsed() {
+        val deep = "{\"errors\": " + "[".repeat(100_000) + "]".repeat(100_000) + "}"
+        assertTrue(ErrorResponse.parse(deep).isEmpty(), "past JsonParser.MAX_DEPTH: no StackOverflowError, no items")
+        assertTrue(ErrorResponse.parse("[".repeat(100_000)).isEmpty())
+    }
 }

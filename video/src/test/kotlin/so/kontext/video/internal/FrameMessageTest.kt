@@ -43,6 +43,12 @@ class FrameMessageTest {
         assertNull(parse("""{"adId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(limit / 2)}"}"""), "two-byte characters count twice")
     }
 
+    @Test fun aMessageNestedTooDeepIsABrokenEnvelopeAndNeverParsed() {
+        assertNull(parse("[".repeat(100_000)), "past JsonParser.MAX_DEPTH: no StackOverflowError")
+        val deep = "{\"adId\":\"ad-1\",\"type\":\"ad.loaded\",\"pad\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}"
+        assertNull(parse(deep))
+    }
+
     @Test fun thePlayheadIsRoundedAndClamped() {
         val table = listOf(
             "" to 0L,

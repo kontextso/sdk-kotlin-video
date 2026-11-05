@@ -12,7 +12,7 @@ import so.kontext.kit.deviceinfo.HardwareInfoProvider
 import so.kontext.kit.deviceinfo.InstallIdProvider
 import so.kontext.kit.deviceinfo.OSInfoProvider
 import so.kontext.kit.deviceinfo.ScreenInfoProvider
-import so.kontext.video.internal.network.putIfNotNull
+import so.kontext.video.internal.payloads.putIfNotNull
 import kotlin.math.roundToInt
 
 /**

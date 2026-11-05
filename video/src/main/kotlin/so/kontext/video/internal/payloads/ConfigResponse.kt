@@ -2,9 +2,6 @@ package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.JsonElement
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.bool
-import so.kontext.video.internal.network.obj
-import so.kontext.video.internal.network.str
 
 /**
  * The answer to `POST /config`.

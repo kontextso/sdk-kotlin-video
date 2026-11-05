@@ -13,7 +13,6 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.device.UserAgent
-import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.platform.Environment
 import java.util.UUID
 import kotlin.math.roundToInt

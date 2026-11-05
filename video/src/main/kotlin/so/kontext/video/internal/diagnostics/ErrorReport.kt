@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.putIfNotNull
+import so.kontext.video.internal.payloads.putIfNotNull
 import java.util.UUID
 
 /** One error report: its vocabulary (what failed, where, what the SDK did) and its JSON. Sent by [ErrorReporter]. */

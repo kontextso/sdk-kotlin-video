@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.MAX_JSON_DEPTH
+import so.kontext.video.internal.payloads.JsonParser
 import java.net.SocketTimeoutException
 import java.util.Collections
 import java.util.concurrent.Executor
@@ -73,12 +73,12 @@ class ApiClientLimitsTest {
 
     @Test fun anAnswerNestedDeeperThanTheIosDecoderReadsIsMalformed() {
         fun nested(levels: Int) = "{\"a\":" + "[".repeat(levels - 1) + "]".repeat(levels - 1) + "}"
-        server.enqueue(MockResponse().setBody(nested(MAX_JSON_DEPTH)))
+        server.enqueue(MockResponse().setBody(nested(JsonParser.MAX_DEPTH)))
         assertTrue(post()!!.jsonObject.containsKey("a"), "512 levels, the iOS decoder's limit, are read")
-        server.enqueue(MockResponse().setBody(nested(MAX_JSON_DEPTH + 1)))
+        server.enqueue(MockResponse().setBody(nested(JsonParser.MAX_DEPTH + 1)))
         assertThrows<ApiException.Decoding> { post() }
         // Brackets inside strings, an escaped quote among them, are text, not nesting.
-        val text = "\"\\\"" + "[".repeat(MAX_JSON_DEPTH * 2) + "\""
+        val text = "\"\\\"" + "[".repeat(JsonParser.MAX_DEPTH * 2) + "\""
         server.enqueue(MockResponse().setBody("{\"a\": $text, \"b\": [1]}"))
         assertTrue(post()!!.jsonObject.containsKey("b"))
     }
@@ -86,7 +86,7 @@ class ApiClientLimitsTest {
     @Test fun theDepthCheckReadsEscapesAsTheParserDoes() {
         val bs = "\\"
         val q = "\""
-        val deep = "[".repeat(MAX_JSON_DEPTH * 2)
+        val deep = "[".repeat(JsonParser.MAX_DEPTH * 2)
         // Text: an escaped quote, an escaped backslash then an escaped quote, a bracket written as a code. The
         // string goes on, and its brackets are not nesting.
         for (text in listOf(q + "sfs" + bs + q + deep + q, q + "a" + bs + bs + bs + q + deep + q, q + bs + "u005B" + deep + q)) {
@@ -94,7 +94,7 @@ class ApiClientLimitsTest {
             assertTrue(post()!!.jsonObject.containsKey("b"), text.take(12))
         }
         // An escaped backslash then a quote: the string ends (`C:\`), and the brackets after it are nesting.
-        val nesting = "[".repeat(MAX_JSON_DEPTH) + "]".repeat(MAX_JSON_DEPTH)
+        val nesting = "[".repeat(JsonParser.MAX_DEPTH) + "]".repeat(JsonParser.MAX_DEPTH)
         server.enqueue(MockResponse().setBody("{\"p\": ${q}C:$bs$bs$q, \"x\": $nesting}"))
         assertThrows<ApiException.Decoding> { post() }
     }

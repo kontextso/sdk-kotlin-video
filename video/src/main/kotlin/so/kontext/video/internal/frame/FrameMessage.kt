@@ -1,11 +1,11 @@
 package so.kontext.video.internal.frame
 
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
-import so.kontext.video.internal.network.double
-import so.kontext.video.internal.network.obj
-import so.kontext.video.internal.network.str
+import so.kontext.video.internal.payloads.JsonParser
+import so.kontext.video.internal.payloads.double
+import so.kontext.video.internal.payloads.obj
+import so.kontext.video.internal.payloads.str
 
 /**
  * One text message of the ad's page, read: its envelope checked and its fields taken out, with no rule of the
@@ -54,7 +54,7 @@ internal class FrameMessage(
          * another ad's id, or no type.
          */
         fun parse(raw: String?, adId: String, playheadLimitMillis: Long): FrameMessage? {
-            val body = raw?.takeIf(::fitsLimit)?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }?.obj() ?: return null
+            val body = raw?.takeIf(::fitsLimit)?.let { runCatching { JsonParser.parse(it) }.getOrNull() }?.obj() ?: return null
             val type = body.str("type")
             if (body.str("adId") != adId || type == null) return null
             return FrameMessage(
