@@ -18,7 +18,6 @@ import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.Origin
-import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment

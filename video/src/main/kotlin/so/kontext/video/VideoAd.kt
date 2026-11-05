@@ -29,7 +29,6 @@ import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.ViewExposure
@@ -68,12 +67,10 @@ public class VideoAd internal constructor(
     // - where it is shown: its ShownAd's AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
     //   a linear ad), made by show.
     // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
-    // and a close before `complete` being a skip (VideoAdFrameEvents). A full-screen pause ad is a placement of the
+    // and a close before `complete` being a skip (closeByPage). A full-screen pause ad is a placement of the
     // inline screen (its host covers the container), not a format of its own.
     //
     // The rest of VideoAd lives in:
-    // - internal/frame/VideoAdFrameEvents.kt: handle, handleNow, closeByPage, reportCreativeError (what the ad does
-    //   with each message of its page);
     // - internal/screen/VideoAdPlacement.kt: combinedInsets, chooseSize, refit (where the page goes in its host);
     // - internal/state/AdState.kt: every fact of the ad's life (read through [state]);
     // - internal/state/AdLifecycle.kt: its phases and their legal moves.
@@ -122,7 +119,7 @@ public class VideoAd internal constructor(
     /** The ad's page, if any: made when loading starts, released when the ad ends. Reading it never makes one. */
     internal var loadedBridge: FrameBridge? = null
     private var loading: Deferred<Unit>? = null
-    internal var loadSignal: CompletableDeferred<Unit>? = null
+    private var loadSignal: CompletableDeferred<Unit>? = null
 
     /** The ad on screen, from `show` to `onAdEnded`: the slot, the screen (see [AdScreen]), the meter. */
     internal var shownAd: ShownAd? = null
@@ -617,6 +614,127 @@ public class VideoAd internal constructor(
             withContentPlayhead { recordImpression() }
         }
         screen?.impressionWait = wait
+    }
+
+    // endregion
+
+    // region The page's events
+
+    // What the frame page reports, as beacons, the ad's state and the listener: VideoAd's half of the frame
+    // protocol, the bridge (`FrameBridge`) being the other.
+
+    /**
+     * Every message of the page goes through here: [handleNow] with the content playhead read once first, when any URL
+     * of the moment asks for it (`[CONTENTPLAYHEAD]`), so every beacon of one event carries the same time and the app's
+     * player is asked once. The tracking URLs came from the ad server, and the tracker knows by itself whether one asks.
+     * A click is the one event that brings URLs of its own, the click-through and its fallback, which the SDK fills in
+     * too (`Tracker.clickThrough`): they are passed so a macro in them alone is found. `Open`'s URL is opened as it
+     * is, with no macros, so it needs nothing.
+     */
+    internal fun handle(event: FrameEvent) {
+        val urls = if (event is FrameEvent.Click) listOfNotNull(event.url, event.fallbackUrl) else emptyList()
+        withContentPlayhead(urls) { handleNow(event) }
+    }
+
+    // One branch per event of the frame protocol.
+    @Suppress("CyclomaticComplexMethod")
+    private fun handleNow(event: FrameEvent) {
+        if (hasEnded || invalidationReason != null) return
+        when (event) {
+            FrameEvent.Loaded -> {
+                state.markLoaded()
+                tracker.record(event)
+                loadSignal?.complete(Unit)
+                loadSignal = null
+            }
+            is FrameEvent.Error -> {
+                tracker.record(event)
+                reportCreativeError(event.code)
+                val signal = loadSignal
+                when {
+                    signal != null -> {
+                        loadSignal = null
+                        Logger.warning { "ad ${id.take(8)}: creative failed to load, VAST error ${event.code}" }
+                        signal.completeExceptionally(VideoAdException.CreativeFailed(event.code))
+                    }
+                    wasShown -> {
+                        Logger.warning { "ad ${id.take(8)}: creative failed after show, VAST error ${event.code}" }
+                        fail(VideoAdException.CreativeFailed(event.code))
+                    }
+                    // Died while waiting to be shown: the ad ends; `show` will throw.
+                    else -> invalidate(InvalidationReason.CreativeFailed(event.code))
+                }
+            }
+            is FrameEvent.Click -> click(event.url, event.fallbackUrl, event.area)
+            is FrameEvent.Open -> {
+                Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${event.url}" }
+                tracker.record(event)
+                Environment.context?.let { context ->
+                    if (!LinkOpener.open(context, event.url, null)) Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${event.url}" }
+                }
+            }
+            is FrameEvent.Close -> closeByPage(event.reason)
+            is FrameEvent.Skip -> {
+                tracker.record(event)
+                end(EndReason.SKIPPED)
+            }
+            is FrameEvent.Video -> {
+                when (event.event) {
+                    FrameEvent.VideoEvent.START, FrameEvent.VideoEvent.RESUME -> state.markVideoPlaying(true)
+                    FrameEvent.VideoEvent.PAUSE -> state.markVideoPlaying(false)
+                    else -> Unit
+                }
+                meter?.countsTime = state.isVideoPlaying
+                tracker.record(event)
+                // The listener last: it may end the ad on the spot.
+                if (event.event == FrameEvent.VideoEvent.START) recordImpression()
+            }
+            is FrameEvent.Progress -> tracker.record(event)
+            is FrameEvent.Complete -> {
+                state.markCompleted()
+                state.markVideoPlaying(false)
+                meter?.countsTime = state.isVideoPlaying
+                tracker.record(event)
+                Logger.info { "ad ${id.take(8)}: complete" }
+            }
+        }
+    }
+
+    /**
+     * The page's own close control: how a page's close and skip end an ad, and why a linear ad's close can be a skip.
+     *
+     * ```
+     *   what the viewer does (linear ad)        message        result
+     *   taps Skip, after the skip offset        ad.skip        `skip` beacon, SKIPPED
+     *   taps Close before the video finished    ad.close       `skip` beacon, SKIPPED
+     *   closes the end card after the video     ad.close       `close` beacon, CLOSED
+     *   nothing: the video ended, no end card   ad.close       COMPLETED, no `close` (nobody closed anything)
+     * ```
+     *
+     * For a video ad what counts is whether the viewer watched it to the end. Leaving early is a skip, through
+     * Skip or through Close alike, as video ad tracking counts it; `close` is for closing what already finished.
+     * `isCompleted` is set only by the page's `complete` event, never by a close. Overlay and pause ads have no
+     * "watch to the end": a close is CLOSED, or RESUMED when it resumed the content.
+     */
+    private fun closeByPage(reason: FrameEvent.CloseReason) {
+        // Whether the ad is linear is a fact of the format, not of its screen.
+        val outcome = closeOutcome(reason, isLinear = format == AdFormat.LINEAR, isCompleted = isCompleted)
+        // The page ended itself because its creative ran to its end.
+        if (outcome.completesAd) state.markCompleted()
+        outcome.beacon?.let { tracker.fire(it) }
+        end(outcome.endReason)
+    }
+
+    private fun reportCreativeError(vastCode: Int) {
+        ErrorReporter.report(
+            (loadedBridge?.failureCause ?: FrameBridge.FailureCause.PAGE).reportCode,
+            if (wasShown) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
+            sessionId = owner.get()?.sessionId,
+            adId = id,
+            vastCode = vastCode,
+            underlying = loadedBridge?.failureUnderlying,
+            recovery = if (wasShown) ErrorReport.Recovery.AD_ENDED_FAILED else ErrorReport.Recovery.AD_DROPPED_BEFORE_SHOW,
+        )
     }
 
     // endregion

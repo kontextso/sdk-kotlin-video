@@ -77,8 +77,7 @@ adb logcat -s KontextVideo
     `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
     through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only),
     `FrameWebView` (the WebView locked down), `FrameWebViewClient` (what the WebView reports of the page's loads),
-    `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
-    message of its frame page).
+    `FrameEvent` (what the page told the bridge; what the ad does with each is `VideoAd`'s, `handle`).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
     `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement
     arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot

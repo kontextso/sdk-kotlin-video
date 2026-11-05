@@ -12,7 +12,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.AdScreen
