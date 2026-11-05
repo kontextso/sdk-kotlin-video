@@ -1,7 +1,6 @@
 package so.kontext.video
 
 import android.content.Intent
-import android.graphics.Rect
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -10,7 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import so.kontext.video.internal.measurement.ViewabilityMeter
+import so.kontext.video.internal.measurement.Exposure
+import so.kontext.video.internal.measurement.ViewExposure
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -24,7 +24,7 @@ class ViewabilityTest {
             Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as TestHostActivity
         val laidOut = CountDownLatch(1)
-        var exposure: Pair<Double, Rect>? = null
+        var exposure: Exposure? = null
         try {
             instrumentation.runOnMainSync {
                 val root = FrameLayout(activity)
@@ -43,16 +43,16 @@ class ViewabilityTest {
                     override fun onGlobalLayout() {
                         if (creative.width == 0) return
                         root.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        exposure = ViewabilityMeter.exposure(creative)
+                        exposure = ViewExposure.measure(creative)
                         laidOut.countDown()
                     }
                 })
                 activity.setContentView(root)
             }
             assertTrue("laid out", laidOut.await(10, TimeUnit.SECONDS))
-            assertEquals(0.45, exposure!!.first, 0.015)
+            assertEquals(0.45, exposure!!.share, 0.015)
             // The visible part in the creative's own coordinates, give or take the pixel a rotated edge rounds to.
-            val visible = exposure!!.second
+            val visible = exposure!!.visibleBox
             assertTrue("visible part $visible", visible.left == 0 && visible.top == 0 && visible.right in 90..91 && visible.bottom == 200)
         } finally {
             instrumentation.runOnMainSync { activity.finish() }

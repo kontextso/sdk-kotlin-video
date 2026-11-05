@@ -31,6 +31,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.Tracker
+import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
@@ -336,7 +337,7 @@ public class VideoAd internal constructor(
             throw VideoAdException.WrongShowMethod()
         }
         checkShowable()
-        if (!ViewabilityMeter.canBeSeen(container)) {
+        if (!ViewExposure.canBeSeen(container)) {
             Logger.warning { "ad ${id.take(8)}: cannot show, the container is not on screen or is hidden" }
             throw VideoAdException.CannotShowNow()
         }
@@ -384,7 +385,7 @@ public class VideoAd internal constructor(
         // A destroy in the container's hook ended the ad and took its host.
         val host = hostView ?: return
         // The container's own hook may have removed the host, or taken the container off screen.
-        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !ViewabilityMeter.canBeSeen(container) || ViewabilityMeter.isTransparent(host))) {
+        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !ViewExposure.canBeSeen(container) || ViewExposure.isTransparent(host))) {
             Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
             end(EndReason.INTERRUPTED)
             return
@@ -405,7 +406,7 @@ public class VideoAd internal constructor(
     /** Some of [container] is inside its window, its Activity is started and the app is in front. Says why not. */
     private fun isOnScreen(container: ViewGroup): Boolean {
         val why = when {
-            ViewabilityMeter.exposure(container).first <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
+            ViewExposure.measure(container).share <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
             !Environment.isAppInForeground() -> "the app is not in front"
             container.activity?.let { it.isFinishing || it.isDestroyed || AppActivities.isStarted(it) == false } == true -> "its Activity is not visible"
             else -> return true
@@ -608,7 +609,7 @@ public class VideoAd internal constructor(
         val wait = FirstLayout.await(view, isReady = { screen?.isPlaced ?: true }) {
             screen?.impressionWait = null
             val page = loadedBridge?.webView
-            if (isInline && page != null && page.width > 0 && page.height > 0 && ViewabilityMeter.exposure(page).first <= 0.0) {
+            if (isInline && page != null && page.width > 0 && page.height > 0 && ViewExposure.measure(page).share <= 0.0) {
                 Logger.warning { "ad ${id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
                 end(EndReason.INTERRUPTED)
                 return@await

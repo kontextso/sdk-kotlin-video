@@ -1,18 +1,13 @@
 package so.kontext.video.internal.measurement
 
-import android.graphics.Matrix
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import android.view.ViewGroup
 import androidx.annotation.VisibleForTesting
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.FirstLayout
 import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
 
 /**
  * A measuring loop: every 250 ms ([intervalMillis]) it asks how much of the ad's view the viewer can see right
@@ -22,7 +17,7 @@ import kotlin.math.floor
  *
  * ```
  * every 250 ms: tick()
- *   ├─ measure:   exposure(view): share on screen (0–1) and the visible rectangle   (companion: geometry)
+ *   ├─ measure:   ViewExposure.measure(view): share on screen (0–1) and the visible rectangle
  *   ├─ report:    changed? onExposure(share, rect)       → the page, which tells the creative
  *   │             any of it seen? changed: onSeen(bool)  → ActiveTimeClock
  *   ├─ off-screen: nothing seen for 1 s while the app is in front: onOffScreen  → the ad ends
@@ -35,10 +30,8 @@ import kotlin.math.floor
  * such as another screen over a linear ad), [isActive] (the app is in front), [countsTime] (off while a video
  * creative is not playing: a paused video does not count towards its 2 s).
  *
- * The two hard parts. The geometry, `exposure` in the companion: the view's corners are carried through every
- * ancestor's transform (rotation, scale, scroll), and the shape is cut by every ancestor that clips its children
- * and by the window; visible area over full area is the share. Real shapes, not rectangles, so a rotated view
- * is not over-counted. The timing, [countDwell]: `exposedSince` marks when the ad reached 50 %, and starts again
+ * The two hard parts. The geometry is [ViewExposure]'s (and [Polygon]'s). The timing, [countDwell]:
+ * `exposedSince` marks when the ad reached 50 %, and starts again
  * when the share drops, the video pauses, or the loop stalled (a frozen app cannot prove the time was
  * continuous).
  *
@@ -175,7 +168,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     }
 
     /** The view's exposure, or none while something covers it. */
-    private fun seen(view: View): Pair<Double, Rect> = if (isCovered?.invoke() == true) 0.0 to Rect() else exposure(view)
+    private fun seen(view: View): Exposure = if (isCovered?.invoke() == true) Exposure.NONE else ViewExposure.measure(view)
 
     private fun checkOffScreen(now: Long) {
         if (!isMeasured || isSeen || !isActive()) {
@@ -230,175 +223,5 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
 
         /** The MRC rule's share: at least half of the ad on screen. */
         const val THRESHOLD = 0.5
-
-        /**
-         * At most this opacity (1 %) a view counts as invisible, though it is shown: its alpha times every
-         * ancestor's, as Android draws it. Not 0: three ancestors at 0.1 make 0.001, which nobody can see, yet no
-         * single view is transparent; an ad drawn like that (by accident, or to fake views) must not be shown, get
-         * an impression or count as seen. 1 % is invisible to the eye, and far below any fade a real UI rests at.
-         */
-        private const val TRANSPARENT = 0.01f
-
-        /** Whether the viewer could see [view]: attached, laid out with an area, shown, and not transparent (alpha times its ancestors'). */
-        fun canBeSeen(view: View): Boolean {
-            if (!view.isAttachedToWindow || view.width <= 0 || view.height <= 0 || !view.isShown) return false
-            if (view.windowVisibility != View.VISIBLE) return false
-            return !isTransparent(view)
-        }
-
-        /**
-         * Whether [view] draws at no visible opacity: its alpha times each ancestor's, as Android composes them, at most
-         * 1 %. Three ancestors at 0.1 make 0.001, transparent, though none of them is alone.
-         */
-        fun isTransparent(view: View): Boolean {
-            var alpha = 1f
-            var node: Any? = view
-            while (node is View) {
-                alpha *= node.alpha
-                node = node.parent
-            }
-            return alpha <= TRANSPARENT
-        }
-
-        /** The view's own coordinates to the root view's: each ancestor's transform and position, up to the root. */
-        fun transformToRoot(view: View): Matrix {
-            val matrix = Matrix()
-            var node: View = view
-            while (true) {
-                matrix.postConcat(node.matrix)
-                matrix.postTranslate(node.left.toFloat(), node.top.toFloat())
-                val parent = node.parent as? View ?: break
-                matrix.postTranslate(-parent.scrollX.toFloat(), -parent.scrollY.toFloat())
-                node = parent
-            }
-            return matrix
-        }
-
-        /**
-         * The share of [view] the viewer can see, and that part's bounding rectangle in the view's own pixels: its
-         * outline, transformed to the root's coordinates, cut by the window and by every ancestor that clips its
-         * children. Measured on the actual shapes, not on rectangles: a rotated view or ancestor turns a rectangle
-         * into a rotated one, whose bounding box would overstate what is seen. Nothing when it or an ancestor is
-         * not shown or transparent, or its window is not visible. Overlap by sibling views is not seen; nothing
-         * cheap sees it.
-         */
-        fun exposure(view: View): Pair<Double, Rect> {
-            if (isHidden(view)) return 0.0 to Rect()
-            val toRoot = transformToRoot(view)
-            val outline = corners(view.width.toFloat(), view.height.toFloat()).also(toRoot::mapPoints)
-            val whole = area(outline)
-            if (whole <= 0) return 0.0 to Rect()
-            val visible = clippedByAncestors(view, outline)
-            val seen = area(visible)
-            if (seen <= 0) return 0.0 to Rect()
-            // The visible part back in the view's own coordinates, for the page.
-            val inView = visible.copyOf().also(Matrix().also { toRoot.invert(it) }::mapPoints)
-            val xs = inView.filterIndexed { index, _ -> index % 2 == 0 }
-            val ys = inView.filterIndexed { index, _ -> index % 2 == 1 }
-            val box = Rect(floor(xs.min()).toInt(), floor(ys.min()).toInt(), ceil(xs.max()).toInt(), ceil(ys.max()).toInt())
-            if (!box.intersect(0, 0, view.width, view.height)) box.setEmpty()
-            return (seen / whole).coerceIn(0.0, 1.0) to box
-        }
-
-        /** Not shown, without an area, in a window that is not visible, or transparent: its alpha times its ancestors'. */
-        private fun isHidden(view: View): Boolean {
-            if (!view.isShown || view.windowVisibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return true
-            return isTransparent(view)
-        }
-
-        /** [outline], in the root's coordinates, cut by the window and by every ancestor that clips its children. */
-        private fun clippedByAncestors(view: View, outline: FloatArray): FloatArray {
-            val root = view.rootView
-            var visible = clip(outline, corners(root.width.toFloat(), root.height.toFloat()))
-            var child: View = view
-            while (visible.size >= 6) {
-                val parent = child.parent as? ViewGroup ?: break
-                val toRoot by lazy { transformToRoot(parent) }
-                if (parent.clipChildren) {
-                    visible = clip(visible, corners(parent.width.toFloat(), parent.height.toFloat()).also(toRoot::mapPoints))
-                }
-                // Its children draw inside its padding too (clipToPadding, on by default), whatever clipChildren says.
-                if (parent.clipToPadding && (parent.paddingLeft or parent.paddingTop or parent.paddingRight or parent.paddingBottom) != 0) {
-                    visible = clip(visible, paddedArea(parent).also(toRoot::mapPoints))
-                }
-                child = parent
-            }
-            return visible
-        }
-
-        /** [group]'s area inside its padding, as a polygon in its own coordinates. */
-        private fun paddedArea(group: ViewGroup): FloatArray {
-            val left = group.paddingLeft.toFloat()
-            val top = group.paddingTop.toFloat()
-            val right = (group.width - group.paddingRight).toFloat()
-            val bottom = (group.height - group.paddingBottom).toFloat()
-            // Padding that leaves no room clips everything.
-            if (right <= left || bottom <= top) return FloatArray(0)
-            return floatArrayOf(left, top, right, top, right, bottom, left, bottom)
-        }
-
-        /** A width×height rectangle at the origin as a polygon: x0, y0, x1, y1, … */
-        private fun corners(width: Float, height: Float) = floatArrayOf(0f, 0f, width, 0f, width, height, 0f, height)
-
-        /** The area of a polygon (shoelace formula), whatever its winding. */
-        private fun area(polygon: FloatArray): Double = abs(signedArea(polygon))
-
-        private fun signedArea(polygon: FloatArray): Double {
-            val count = polygon.size / 2
-            if (count < 3) return 0.0
-            var twice = 0.0
-            for (index in 0 until count) {
-                val next = (index + 1) % count
-                twice += polygon[index * 2].toDouble() * polygon[next * 2 + 1] - polygon[next * 2].toDouble() * polygon[index * 2 + 1]
-            }
-            return twice / 2
-        }
-
-        /**
-         * [subject] cut by the convex polygon [clipper] (Sutherland–Hodgman). Every outline here is the image of a
-         * rectangle under an affine transform, so the clipper is always convex.
-         */
-        private fun clip(subject: FloatArray, clipper: FloatArray): FloatArray {
-            val clipCount = clipper.size / 2
-            if (clipCount < 3) return FloatArray(0)
-            // The clipper's winding decides which side of each edge is inside.
-            val sign = if (signedArea(clipper) >= 0) 1.0 else -1.0
-            var output = subject
-            for (edge in 0 until clipCount) {
-                if (output.isEmpty()) break
-                val next = (edge + 1) % clipCount
-                output = clipByEdge(output, clipper[edge * 2], clipper[edge * 2 + 1], clipper[next * 2], clipper[next * 2 + 1], sign)
-            }
-            return output
-        }
-
-        /** [input] less what lies outside the edge a→b. */
-        private fun clipByEdge(input: FloatArray, ax: Float, ay: Float, bx: Float, by: Float, sign: Double): FloatArray {
-            val inside = { x: Double, y: Double -> sign * ((bx - ax) * (y - ay) - (by - ay) * (x - ax)) >= 0 }
-            val output = mutableListOf<Float>()
-            val count = input.size / 2
-            for (index in 0 until count) {
-                val cx = input[index * 2].toDouble()
-                val cy = input[index * 2 + 1].toDouble()
-                val previous = (index + count - 1) % count
-                val px = input[previous * 2].toDouble()
-                val py = input[previous * 2 + 1].toDouble()
-                val currentIn = inside(cx, cy)
-                if (currentIn != inside(px, py)) {
-                    // Where the segment previous→current crosses the edge's line.
-                    val dx = cx - px
-                    val dy = cy - py
-                    val denominator = dx * (by - ay) - dy * (bx - ax)
-                    val t = if (abs(denominator) < 1e-12) 1.0 else ((ax - px) * (by - ay) - (ay - py) * (bx - ax)) / denominator
-                    output += (px + t * dx).toFloat()
-                    output += (py + t * dy).toFloat()
-                }
-                if (currentIn) {
-                    output += cx.toFloat()
-                    output += cy.toFloat()
-                }
-            }
-            return output.toFloatArray()
-        }
     }
 }

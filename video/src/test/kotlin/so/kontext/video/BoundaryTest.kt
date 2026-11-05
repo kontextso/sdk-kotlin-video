@@ -52,7 +52,7 @@ import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.measurement.ViewabilityMeter
+import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
@@ -266,7 +266,7 @@ class BoundaryTest {
         view.layout(100, 100, 300, 300)
         view.scaleX = 0.5f
         view.scaleY = 0.5f
-        val (share, visible) = ViewabilityMeter.exposure(view)
+        val (share, visible) = ViewExposure.measure(view)
         assertEquals(1.0, share, 0.001)
         assertEquals("the visible part in the view's own coordinates", Rect(0, 0, 200, 200), visible)
     }
@@ -276,7 +276,7 @@ class BoundaryTest {
         val view = FrameLayout(container.context)
         container.addView(view)
         view.layout(0, 300, 320, 500) // half below the 400 px container
-        val (share, visible) = ViewabilityMeter.exposure(view)
+        val (share, visible) = ViewExposure.measure(view)
         assertEquals(0.5, share, 0.01)
         assertEquals(Rect(0, 0, 320, 100), visible)
     }
@@ -294,14 +294,14 @@ class BoundaryTest {
         parent.addView(view)
         view.layout(0, 0, 320, 400)
         // 0.1 × 0.1 × 0.1 = 0.001: below 1 %, though no single ancestor is.
-        assertEquals("not measured as seen", 0.0, ViewabilityMeter.exposure(view).first, 0.0)
-        assertFalse("not eligible to show", ViewabilityMeter.canBeSeen(view))
+        assertEquals("not measured as seen", 0.0, ViewExposure.measure(view).share, 0.0)
+        assertFalse("not eligible to show", ViewExposure.canBeSeen(view))
         // Two layers at 0.2 make 0.04: seen.
         (view.parent as View).alpha = 1f
         (view.parent!!.parent as View).alpha = 0.2f
         (view.parent!!.parent!!.parent as View).alpha = 0.2f
-        assertEquals(1.0, ViewabilityMeter.exposure(view).first, 0.001)
-        assertTrue(ViewabilityMeter.canBeSeen(view))
+        assertEquals(1.0, ViewExposure.measure(view).share, 0.001)
+        assertTrue(ViewExposure.canBeSeen(view))
     }
 
     @Test fun aParentsPaddingClipsTheCreative() {
@@ -315,7 +315,7 @@ class BoundaryTest {
         val view = FrameLayout(container.context)
         padded.addView(view)
         view.layout(0, 0, 200, 200)
-        val (share, visible) = ViewabilityMeter.exposure(view)
+        val (share, visible) = ViewExposure.measure(view)
         assertEquals("80×80 of 200×200", 0.16, share, 0.001)
         assertEquals(Rect(60, 60, 140, 140), visible)
     }
@@ -332,12 +332,12 @@ class BoundaryTest {
         // Scrolled down by 200: the ad sits at y 100–180 in the parent, whole in height; the parent cuts the
         // 40 px it sticks out on the right.
         scroller.scrollTo(0, 200)
-        val (share, visible) = ViewabilityMeter.exposure(view)
+        val (share, visible) = ViewExposure.measure(view)
         assertEquals("280×80 of 320×80", 0.875, share, 0.001)
         assertEquals(Rect(0, 0, 280, 80), visible)
         // Scrolled by 350: the ad sits at y −50 to 30, only its bottom 30 rows show.
         scroller.scrollTo(0, 350)
-        val (scrolledShare, scrolledVisible) = ViewabilityMeter.exposure(view)
+        val (scrolledShare, scrolledVisible) = ViewExposure.measure(view)
         assertEquals("280×30 of 320×80", 0.328, scrolledShare, 0.001)
         assertEquals(Rect(0, 50, 280, 80), scrolledVisible)
     }
@@ -351,9 +351,9 @@ class BoundaryTest {
         val view = FrameLayout(container.context)
         parent.addView(view)
         view.layout(100, 0, 220, 80)
-        assertEquals("all of it inside the container", 1.0, ViewabilityMeter.exposure(view).first, 0.001)
+        assertEquals("all of it inside the container", 1.0, ViewExposure.measure(view).share, 0.001)
         parent.clipChildren = true
-        assertEquals("cut at the parent's edge: 60 of 120", 0.5, ViewabilityMeter.exposure(view).first, 0.001)
+        assertEquals("cut at the parent's edge: 60 of 120", 0.5, ViewExposure.measure(view).share, 0.001)
     }
 
     @Test fun paddingDoesNotClipWithoutClipToPadding() {
@@ -368,7 +368,7 @@ class BoundaryTest {
         val view = FrameLayout(container.context)
         padded.addView(view)
         view.layout(0, 0, 200, 200)
-        val (share, visible) = ViewabilityMeter.exposure(view)
+        val (share, visible) = ViewExposure.measure(view)
         assertEquals("the padding is only spacing", 1.0, share, 0.001)
         assertEquals(Rect(0, 0, 200, 200), visible)
     }
@@ -384,7 +384,7 @@ class BoundaryTest {
         val view = FrameLayout(container.context)
         padded.addView(view)
         view.layout(0, 0, 200, 200)
-        val (share, visible) = ViewabilityMeter.exposure(view)
+        val (share, visible) = ViewExposure.measure(view)
         assertEquals(0.0, share, 0.0)
         assertTrue("nothing to show", visible.isEmpty)
     }
