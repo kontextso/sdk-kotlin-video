@@ -24,11 +24,11 @@ import so.kontext.video.internal.state.AdLifecycle
  * page, and its closing when the ad ends.
  */
 internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdScreen(ad), LinearAdActivity.Callbacks {
-    /** The screen once it attached, until it is gone or closing. */
+    /** The ad's Activity once it attached, until it is gone or closing. */
     var activity: LinearAdActivity? = null
         private set
 
-    /** What the ad runs once its closing screen is gone. */
+    /** What the ad runs once its closing Activity is gone. */
     private var onGone: (() -> Unit)? = null
 
     override val impressionTarget: View? get() = ad.loadedBridge?.webView
@@ -58,7 +58,7 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
         }
     }
 
-    // Another Activity over the screen leaves its view in a visible window, measured whole there. No
+    // Another Activity over the ad's leaves its view in a visible window, measured whole there. No
     // off-screen rule: a sheet over it after a click is the viewer's own doing.
     override fun configure() {
         meter?.isCovered = { activity?.isCovered == true }
@@ -67,9 +67,9 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     override fun reachedScreen() = Unit
 
     /**
-     * The Activity that started a linear ad finishes under it (the app closed that screen): the ad ends,
-     * interrupted, and its screen closes, as on iOS when the presenter is dismissed. Not a destroy without
-     * finishing (a configuration change, or the system reclaiming a screen behind): the app comes back to it
+     * The Activity that started a linear ad finishes under it (the app closed it): the ad ends,
+     * interrupted, and its own Activity closes, as on iOS when the presenter is dismissed. Not a destroy without
+     * finishing (a configuration change, or the system reclaiming an Activity behind): the app comes back to it
      * when the ad ends.
      */
     fun followStartingActivity(starter: Activity) = follow(starter) { activity, event ->
@@ -87,20 +87,20 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     }
 
     /**
-     * Every way the ad ends closes a screen still up, an interruption too: its page is gone and Back does
-     * nothing there. A screen the system took away has already cleared [activity].
+     * Every way the ad ends closes its Activity still up, an interruption too: its page is gone and Back does
+     * nothing there. An Activity the system took away has already cleared [activity].
      *
-     * 1. The screen finishes, marked as ended by the ad, with a fade.
-     * 2. `onAdEnded` waits for it to be gone, so the app can start its next screen from it: its own signal
+     * 1. The Activity finishes, marked as ended by the ad, with a fade.
+     * 2. `onAdEnded` waits for it to be gone, so the app can start its next Activity from it: its own signal
      *    (its stop as it finishes, or its destroy) runs [onGone].
-     * 3. A screen the system never takes down is a fault: after a cap well past any transition it is
+     * 3. An Activity the system never takes down is a fault: after a cap well past any transition it is
      *    reported, and [onGone] runs anyway (the ad delivers `onAdEnded` once).
      */
     override fun close(onGone: () -> Unit): Boolean {
         val screen = activity
         activity = null
         if (screen == null || screen.isFinishing || screen.isDestroyed) return false
-        // 1. The screen finishes, marked as ended by the ad, with a fade.
+        // 1. The Activity finishes, marked as ended by the ad, with a fade.
         this.onGone = onGone
         screen.isEndingByAd = true
         screen.finish()
@@ -114,7 +114,7 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
         return true
     }
 
-    /** The closing screen was never taken down: reported, and [onGone] runs anyway (`onAdEnded` once). */
+    /** The closing Activity was never taken down: reported, and [onGone] runs anyway (`onAdEnded` once). */
     private fun reportDismissalTimeout(onGone: () -> Unit) {
         Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen did not close in ${dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
         DebugReporter.event("ad.dismissalTimedOut", adId = ad.id, level = DebugReporter.Level.WARNING)
@@ -129,11 +129,11 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     }
 
     /**
-     * Starts the screen from [starter], which it follows from now on. Any launch that throws (the Activity
+     * Starts the ad's Activity from [starter], which it follows from now on. Any launch that throws (the Activity
      * stripped from the merged manifest, a refused start, an app's own startActivity override or a system state
-     * that throws something else) is the same failure. A screen that never starts (the system refused it, or the
+     * that throws something else) is the same failure. An Activity that never starts (the system refused it, or the
      * launch threw) must not hold the slot forever: a watchdog ends the ad, failed, once [showTimeoutMillis]
-     * passed with no screen in front. A launch that threw takes the same path at once, after show returns, as
+     * passed with none in front. A launch that threw takes the same path at once, after show returns, as
      * Swift's refused show does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED). On the
      * SDK's own scope when the owner is gone, so the slot is freed whatever holds the ad.
      */
@@ -167,16 +167,16 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
 
     companion object {
         /**
-         * How long a linear ad's screen may take to start, and the cap on its closing: a watchdog that reports
-         * a screen the system never takes down. Tests shorten them.
+         * How long a linear ad's Activity may take to start, and the cap on its closing: a watchdog that reports
+         * an Activity the system never takes down. Tests shorten them.
          */
         var showTimeoutMillis = 5_000L
         var dismissalTimeoutMillis = 10_000L
 
         /**
-         * Throws `CannotShowNow`, nothing changed, when [activity] cannot start the screen: it is finishing or
-         * destroyed, or not visible (stopped, or in picture-in-picture). The system would not start the screen
-         * from there (or not where the viewer sees it), and the bid would be spent on a screen that never comes.
+         * Throws `CannotShowNow`, nothing changed, when [activity] cannot start the ad's Activity: it is finishing or
+         * destroyed, or not visible (stopped, or in picture-in-picture). The system would not start it
+         * from there (or not where the viewer sees it), and the bid would be spent on an Activity that never comes.
          */
         fun checkCanStartFrom(activity: Activity, adId: String) {
             if (activity.isFinishing || activity.isDestroyed) {

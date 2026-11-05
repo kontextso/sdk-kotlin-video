@@ -13,8 +13,12 @@ import java.lang.ref.WeakReference
  * Where an ad on screen is shown: the one place where the formats differ in how they are put on screen,
  * measured and taken off.
  *
+ * The words, as everywhere in the SDK: a view is an Android view (`InlineAdView`, the app's container); an
+ * Activity is an Android screen; a screen (this class) is where an ad is shown, inline in the player
+ * ([InlineScreen]) or full screen ([LinearScreen]); on screen is visible to the viewer.
+ *
  * Why: an overlay or pause ad sits inline, in a view the SDK adds to the app's container; a linear ad has a
- * full-screen Activity of its own. Kept in one class per kind of screen ([InlineScreen], [LinearScreen], each in its own file), `VideoAd` asks
+ * full-screen Activity of its own. Kept in one class per kind of screen, each in its own file, `VideoAd` asks
  * "the screen" and never the format.
  *
  * How: `show` makes the screen as it reserves the slot (`ScreenSlot`) and keeps it as the ad's `screen`, which
@@ -22,19 +26,19 @@ import java.lang.ref.WeakReference
  *
  * ```
  *                  InlineScreen                        LinearScreen
- * show             attach(host): InlineAdView into the LinearAdActivity started; its attach (these
- *                  container                           Callbacks) puts the page in it; the
- *                                                      Activity that started it followed
+ * show             prepare (checks, variant), then      start: LinearAdActivity started; its
+ *                  addHost: InlineAdView into the      attach (these Callbacks) puts the page in
+ *                  container                           it; the Activity that started it followed
  * configure()      on-screen rule, seen → clock        covered by another Activity
- * reachedScreen()  the clock runs, the content rule    nothing: the screen's own onResume showed it
+ * reachedScreen()  the clock runs, the content rule    nothing: the Activity's own onResume showed it
  *                  starts, the holding Activity
  *                  followed
  * end:
  *   stopFollowing() the Activity's listener removed    the same
- *   tearDown()      clock → meter → host view out;     meter stopped, the screen's registration
+ *   tearDown()      clock → meter → host view out;     meter stopped, the Activity's registration
  *                  returns the active time             forgotten; returns 0
  *                  (overlayViewDuration)
- *   close(onGone)  nothing to wait for: false          the screen finishes; onGone once it is gone: true
+ *   close(onGone)  nothing to wait for: false          the Activity finishes; onGone once gone: true
  * ```
  *
  * A screen never ends the ad's life itself: it calls `ad.end(...)`, and `onGone` (the ad's `finish`) is the
@@ -76,7 +80,7 @@ internal sealed class AdScreen(
     abstract fun tearDown(): Long
 
     /**
-     * Closes what is still up. Returns `true` when the ad must wait: [onGone] then runs once the screen is gone
+     * Closes what is still up. Returns `true` when the ad must wait: [onGone] then runs once its Activity is gone
      * (or after a timeout); `false` when nothing is left to wait for, and [onGone] never runs.
      */
     abstract fun close(onGone: () -> Unit): Boolean

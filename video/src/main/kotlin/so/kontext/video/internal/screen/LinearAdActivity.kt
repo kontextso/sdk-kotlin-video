@@ -17,7 +17,7 @@ import so.kontext.video.internal.diagnostics.Logger
 import java.util.UUID
 
 /**
- * The full-screen screen the SDK starts for a linear ad. It owns nothing but the layout: the ad owns the
+ * The full-screen Activity the SDK starts for a linear ad. It owns nothing but the layout: the ad owns the
  * page and decides when it ends; the Activity tells the ad when it is shown, and when the system took it
  * away (`INTERRUPTED`). Back does nothing: the creative's own controls end the ad.
  */
@@ -41,11 +41,11 @@ internal class LinearAdActivity : ComponentActivity() {
     var isEndingByAd = false
 
     /**
-     * Another screen the viewer cannot see the ad through is over this one: the screen is paused (another
+     * Another Activity the viewer cannot see the ad through is over this one: this one is paused (another
      * Activity on top, translucent or a sheet like a store's in-app overlay) while it still draws in its
      * window. A dialog over it does not pause it, and the viewer sees the ad around it: not covered. Nor is
-     * a screen paused beside another app's in split screen (before Android 10 only the focused one is
-     * resumed). A full cover stops the screen and hides its window, which the meter sees on its own.
+     * an Activity paused beside another app's in split screen (before Android 10 only the focused one is
+     * resumed). A full cover stops this Activity and hides its window, which the meter sees on its own.
      */
     val isCovered: Boolean
         get() = !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !isInMultiWindowMode
@@ -54,26 +54,38 @@ internal class LinearAdActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val token = intent.getStringExtra(EXTRA_TOKEN)
         val callbacks = token?.let { callbacksByToken[it] }
-        // A screen restored after the process died, or started twice: there is no ad for it.
+        // 1. Find the ad this screen was started for; none (restored after the process died, or started twice): close.
         if (callbacks == null || savedInstanceState != null) {
             finish()
             return
         }
         this.callbacks = callbacks
+        // 2. Full screen: draw behind the bars and hide them (a swipe shows them briefly).
+        hideSystemBars()
+        // 3. A black root for the page.
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        setContentView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // 4. Back does nothing: the creative's controls end the ad.
+        ignoreBack()
+        // 5. Hand the root to the ad.
+        callbacks.attach(this, root)
+    }
+
+    private fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        setContentView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    }
+
+    private fun ignoreBack() {
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() = Unit
             },
         )
-        callbacks.attach(this, root)
     }
 
     override fun onResume() {
@@ -85,8 +97,8 @@ internal class LinearAdActivity : ComponentActivity() {
     }
 
     /**
-     * A finishing screen is gone for the viewer once it stops: the system may hold its onDestroy back for
-     * seconds (until the screen under it is idle), and the app hears `onAdEnded` only when the screen is gone.
+     * A finishing Activity is gone for the viewer once it stops: the system may hold its onDestroy back for
+     * seconds (until the Activity under it is idle), and the app hears `onAdEnded` only when this one is gone.
      */
     override fun onStop() {
         super.onStop()
@@ -96,7 +108,7 @@ internal class LinearAdActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         // The manifest's configChanges lists every change it can declare, so the page lives through rotation,
-        // resizing, a new font scale, locale or density. A screen recreated anyway (a change that cannot be
+        // resizing, a new font scale, locale or density. An Activity recreated anyway (a change that cannot be
         // declared) has lost its page, as has one the system took away: the ad ends now, interrupted.
         gone()
     }

@@ -17,7 +17,7 @@ import so.kontext.video.internal.screen.InlineScreen
  * milliseconds of video; and it cannot be shown over paused content. Without a tracked player it runs on
  * its own time (the clock's duration). A pause while the app is in the background (apps pause their player in
  * `onStop`) only freezes it, as the background freezes its clock: back in front, it goes on if the content
- * plays again within [returnGraceMillis], and ends as INTERRUPTED otherwise. Another screen of the
+ * plays again within [returnGraceMillis], and ends as INTERRUPTED otherwise. Another Activity of the
  * app over it is not the background: it ends the overlay (see `InlineScreen.followHoldingActivity`), and so does a
  * pause there.
  */

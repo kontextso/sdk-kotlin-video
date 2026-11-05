@@ -361,7 +361,7 @@ public class VideoAd internal constructor(
 
     /**
      * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Either it throws, and
-     * nothing happened, or it was accepted and `onAdEnded` follows, at the latest once the screen is gone.
+     * nothing happened, or it was accepted and `onAdEnded` follows, at the latest once that Activity is gone.
      * Throws as `show(container)` does; `CannotShowNow` for an Activity that is finishing, destroyed, stopped (not
      * visible) or in picture-in-picture (the ad stays ready; try again once it is visible). A started Activity
      * that is not resumed yet is fine: `onStart`, a result or permission callback, `onNewIntent`.
@@ -380,9 +380,9 @@ public class VideoAd internal constructor(
             throw VideoAdException.WrongShowMethod()
         }
         checkShowable()
-        // 1. The Activity must be able to start the screen, before anything changes: the ad stays ready otherwise.
+        // 1. The Activity must be able to start the ad's own, before anything changes: the ad stays ready otherwise.
         LinearScreen.checkCanStartFrom(activity, id)
-        // 2. Reserved, then the screen starts, watched until it comes.
+        // 2. Reserved, then the ad's Activity starts, watched until it comes.
         val bridge = shownBridge()
         val screen = LinearScreen(this, bridge)
         reserve(screen)
@@ -667,7 +667,7 @@ public class VideoAd internal constructor(
                 end(EndReason.INTERRUPTED)
             }
         }
-        // What depends on where the ad is: inline, the clock and the off-screen rule; linear, a screen over it.
+        // What depends on where the ad is: inline, the clock and the off-screen rule; linear, an Activity over it.
         screen?.meter = meter
         screen?.configure()
         meter.start()
@@ -934,9 +934,9 @@ public class VideoAd internal constructor(
 
         /**
          * The ad's screen disappeared for a reason the SDK did not cause: the container left the window or
-         * became too small for the ad, another screen of the app covered the container's (its Activity stopped
+         * became too small for the ad, another Activity of the app covered the container's (its Activity stopped
          * while the app stays in front; the app going to the background only pauses the ad), the linear ad's
-         * screen was destroyed under it or the Activity that started it finished. For an overlay with a
+         * Activity was destroyed under it or the Activity that started it finished. For an overlay with a
          * tracked player, also the content pausing (in the background: still paused a moment after the app's
          * return), ending or moving to another item; for a pause ad with a
          * tracked player, the content playing again (resumed outside the ad: the media notification, a headset).

@@ -10,9 +10,9 @@ import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
 /**
- * An Activity is one screen of the app. This object follows all of the app's screens and answers whether the
- * app is in front and whether a given screen is started or resumed, and it tells an ad on screen when its
- * screen resumes, stops or is destroyed.
+ * An Activity is one screen of the app. This object follows all of the app's Activities and answers whether the
+ * app is in front and whether a given Activity is started or resumed, and it tells an ad on screen when its
+ * Activity resumes, stops or is destroyed.
  *
  * `initialize` often runs after the first Activity started (after a consent screen, say), when its
  * start has already gone by: at registration the process's own importance says whether something of the
@@ -62,10 +62,10 @@ internal object AppActivities : Application.ActivityLifecycleCallbacks {
 
     /**
      * Whether [activity] is visible to the viewer: started, resumed or not, and not in picture-in-picture.
-     * Started is enough: Android starts a screen from `onStart`, a result or permission callback or
+     * Started is enough: Android starts an Activity from `onStart`, a result or permission callback or
      * `onNewIntent` (all before `onResume`), and it comes in front. Known from the Activity's first event; one
      * not seen yet falls back to the Activity's own lifecycle, else is assumed visible (a linear ad's show
-     * timeout still catches a screen that never comes).
+     * timeout still catches an Activity that never comes).
      */
     fun isVisibleToViewer(activity: Activity): Boolean {
         if (activity.isInPictureInPictureMode) return false

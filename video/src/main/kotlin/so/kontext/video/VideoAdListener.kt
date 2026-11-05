@@ -15,7 +15,7 @@ package so.kontext.video
  * a linear ad's end is normally where the content resumes; a pause ad closed with ✕ ([VideoAd.EndReason.CLOSED])
  * leaves the content paused, Resume ([VideoAd.EndReason.RESUMED]) means play. For an overlay or pause ad it
  * arrives synchronously, even from inside your own `dismiss()` or `destroy()`; for a linear ad once its
- * screen is gone, so the next screen can be started from it.
+ * Activity is gone, so the next Activity can be started from it.
  *
  * The ad holds the listener until [onAdEnded] has run, then lets it go.
  */
@@ -34,7 +34,7 @@ public interface VideoAdListener {
     public fun onAdClicked(ad: VideoAd, click: VideoAd.Click) {}
 
     /**
-     * The ad broke after `show` returned: the creative failed or stalled, or the linear ad's screen never
+     * The ad broke after `show` returned: the creative failed or stalled, or the linear ad's Activity never
      * started ([VideoAdException.CannotShowNow]). [onAdEnded] with [VideoAd.EndReason.FAILED] follows.
      */
     public fun onAdFailed(ad: VideoAd, error: VideoAdException) {}

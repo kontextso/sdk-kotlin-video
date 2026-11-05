@@ -51,13 +51,14 @@ adb logcat -s KontextVideo
   app's insets, the chosen size and the holding Activity; `LinearScreen`, its own Activity, the Activity that
   started it and its closing). `VideoAd` asks them rather than branching on the format.
 - Functional core, imperative shell: the rules with no Android in them (`SdkLifecycle`, `SdkState`, `AdLifecycle`,
-  `AdState`, `FrameProtocol`, `closeOutcome`) decide, and `SdkInitializer`, `VideoAd` and `FrameBridge` act
+  `AdState`, `AdStore.plan`, `ShowCheck`, `FrameProtocol`, `FrameNavigation`, `closeOutcome`) decide, and `SdkInitializer`, `VideoAd` and `FrameBridge` act
   on the answer; the rules are tested as plain JUnit tables. Swift has `SdkLifecycle`, `SdkState`, `AdLifecycle`,
   `AdState` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:
   - `state/`, the facts of the SDK, of each ad, and of each episode's ads, and the only ways they change; no
     Android. `AdStore.kt`: the ads one `VideoAds` holds (one unshown per format, the ids that left) and `plan`,
-    how an answer is followed, a pure table; `VideoAds` carries it out.
+    how an answer is followed, a pure table; `VideoAds` carries it out. `ShowCheck.kt`: show's refusals, in
+    order, over plain facts. `CloseOutcome.kt`: what a page's close does to an ad (the beacon, the end).
     `SdkLifecycle.kt`: the SDK's legal moves between the phases of `KontextVideo.State` (`canMove`), stateless.
     `SdkState.kt`: every fact of the SDK's life, the one source of truth: its phase (moved only by `moveTo`, which
     asks `SdkLifecycle.canMove`), the configuration, what `/config` said of the reports (`isErrorReportingOn`,
@@ -79,8 +80,14 @@ adb logcat -s KontextVideo
     page may navigate, and when leaving is a click), `TouchGate` (one touch opens one URL), `Origin`,
     `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
     through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only),
+    `FrameLoader` (gets the page running: the bridge made once, its load, the wait for `ad.loaded`),
     `FrameWebView` (the WebView locked down), `FrameWebViewClient` (what the WebView reports of the page's loads),
     `FrameEvent` (what the page told the bridge; what the ad does with each is `VideoAd`'s, `handle`).
+  - Words used throughout: a *view* is an Android view (`InlineAdView`, the app's container); an *Activity* is an
+    Android screen; a *screen* (`AdScreen`) is where an ad is shown, inline in the player (`InlineScreen`) or full
+    screen (`LinearScreen`); *on screen* is visible to the viewer. A *client* is a transport to one kind of host
+    (`ApiClient`, `BeaconClient`); a *fetcher* is one server request with a purpose, built on a client
+    (`AdsFetcher`, `ConfigFetcher`); a *loader* gets the ad's page running in a WebView (`FrameLoader`).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, which also places the page in its host, and `LinearScreen`, each in its own file),
     `ScreenSlot` (the app's one ad on screen, taken at `show`, freed before `onAdEnded`; the ad keeps its
     `AdScreen`, which holds the meter), `InlineAdView`, `AdGeometry` (the placement
@@ -125,6 +132,12 @@ adb logcat -s KontextVideo
   escape where the server may send its own value. `apiCheck` must pass; a deliberate change runs `apiDump`.
 - Never name other companies' products in code, comments, tests or docs.
 - Comments say *why*, in prose; KDoc on every public declaration.
+- Every file starts with a comment that says, in this order: what it is, in one plain sentence; why it exists or
+  is shaped this way, when that is not obvious; a picture or example (an ASCII diagram, a table, real numbers)
+  when the idea is spatial, a flow or a decision; where it fits: who uses it and what it hands off to. The main
+  function of a file with a multi-step flow gets numbered step comments (`// 1. …`, `// 2. …`). Small, obvious
+  files get only the first line. Never repeat what the code says; explain what it cannot. The reference:
+  `internal/screen/InlineAdView.kt`, its top comment and `onLayout`'s numbered steps.
 - A boolean that names a state (an adjective or participle) is an assertion with `is`, `has` or `was`: `isLoaded`,
   `hasImpression`, `wasOnScreen`; one named by a third-person verb stays (`countsTime`, `holdsAds`); a field that
   mirrors a wire format or a standard keeps its name (`gdpr`, `coppa`, `reportErrors`, JSON keys). Same names as Swift.

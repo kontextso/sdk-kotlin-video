@@ -27,7 +27,7 @@ import java.lang.ref.WeakReference
  *
  * Outputs: [onVerdict] (the beacon), [onExposure] (`ad.exposure` to the page), [onSeen] / [isSeen] (the clock),
  * [onOffScreen] and [onDetached] (the ad ends). Inputs: [isCovered] (something it cannot measure covers the ad,
- * such as another screen over a linear ad), [isActive] (the app is in front), [countsTime] (off while a video
+ * such as another Activity over a linear ad's), [isActive] (the app is in front), [countsTime] (off while a video
  * creative is not playing: a paused video does not count towards its 2 s).
  *
  * The two hard parts. The geometry is [ViewExposure]'s (and [Polygon]'s). The timing, [countDwell]:
@@ -56,7 +56,7 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
 
     /**
      * Whether something the meter cannot see covers the view while it stays in its window, visible: another
-     * Activity over a linear ad's screen, translucent or sheet-like. Asked on every tick; covered reads as 0.
+     * Activity over a linear ad's own, translucent or sheet-like. Asked on every tick; covered reads as 0.
      */
     var isCovered: (() -> Boolean)? = null
 

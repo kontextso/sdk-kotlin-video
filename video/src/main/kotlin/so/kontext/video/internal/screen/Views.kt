@@ -9,8 +9,8 @@ import android.view.ViewTreeObserver
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
-// What the SDK needs to know about a view the app gave it: which app screen it belongs to, and whether it has a
-// real size on screen yet.
+// What the SDK needs to know about a view the app gave it: which Activity it belongs to, and whether it has a real
+// size on screen yet.
 //
 // Why the size: adding a view does not place it. Until Android's next layout pass measures it, its width and
 // height are 0, and some containers never give it room at all (a vertical LinearLayout that puts the ad after a

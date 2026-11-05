@@ -71,6 +71,15 @@ Once a version is on Maven Central, the same app builds against it instead of ma
 ./gradlew -p extras/release-check assembleRelease -PsdkFromMavenCentral -PsdkVersion=0.1.0
 ```
 
+## Comments
+
+Every file starts with a comment that says, in this order: what it is, in one plain sentence; why it exists or is
+shaped this way, when that is not obvious; a picture or example (an ASCII diagram, a table, real numbers) when the
+idea is spatial, a flow or a decision; where it fits: who uses it and what it hands off to. The main function of a
+file with a multi-step flow gets numbered step comments (`// 1. …`, `// 2. …`). Small, obvious files get only the
+first line. Never repeat what the code says; explain what it cannot. See `internal/screen/InlineAdView.kt`: its top
+comment, and `onLayout`'s numbered steps.
+
 ## Naming
 
 A boolean that names a state reads as an assertion: `is`, `has` or `was` before the adjective or participle
