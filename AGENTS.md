@@ -49,16 +49,25 @@ adb logcat -s KontextVideo
 - Format differences live in two places: `ContentRule` (how an ad follows the content: `OverlayRule`,
   `PauseRule`, `NoContentRule`) and `AdScreen` (where it is shown: `InlineScreen`, the host view and the clock;
   `LinearScreen`, its own Activity and its closing). `VideoAd` asks them rather than branching on the format.
-- Functional core, imperative shell: the rules with no Android in them (`AdLifecycle`, `AdState`, `FrameProtocol`,
-  `FrameEvent.CloseReason.outcome`) decide, and `VideoAd` and `FrameBridge` act on the answer; the rules are
-  tested as plain JUnit tables. Swift has `AdLifecycle`, `AdState` and `FrameProtocol` under the same names.
+- Functional core, imperative shell: the rules with no Android in them (`SdkLifecycle`, `SdkState`, `AdLifecycle`,
+  `AdState`, `FrameProtocol`, `FrameEvent.CloseReason.outcome`) decide, and `Sdk`, `VideoAd` and `FrameBridge` act
+  on the answer; the rules are tested as plain JUnit tables. Swift has `SdkLifecycle`, `SdkState`, `AdLifecycle`,
+  `AdState` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:
-  - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
-    `core/AdLifecycle.kt`: the rules of an ad's life, stateless, no Android: its phases (offered, invalidated,
-    reserved, on screen, ending, ended) and `canMove`, their legal moves. `core/AdState.kt`: every fact of an ad's
-    life, the one source of truth: its phase (moved only by `moveTo`, which asks `AdLifecycle.canMove`), its
-    milestones (`isLoaded`, `wasOnScreen`, `hasImpression`, `isCompleted`, the failure), each recorded once and never
-    undone, and the flags derived from them; `VideoAd` holds one and its public flags read from it.
+  - `state/`, the state of the SDK and of each ad, and their legal moves; no Android, no side effects.
+    `SdkLifecycle.kt`: the SDK's legal moves between the phases of `KontextVideo.State` (`canMove`), stateless.
+    `SdkState.kt`: every fact of the SDK's life, the one source of truth: its phase (moved only by `moveTo`, which
+    asks `SdkLifecycle.canMove`), the configuration, what `/config` said of the reports (`isErrorReportingOn`,
+    `null` until it answers; `isDebugReportingOn`), and `isInitialized` and `disabledReason` derived from the
+    phase; `Sdk` holds one, `KontextVideo.state` and the reporters read it. `AdLifecycle.kt`: the rules of an ad's
+    life, stateless: its phases (offered, invalidated, reserved, on screen, ending, ended) and `canMove`, their
+    legal moves. `AdState.kt`: every fact of an ad's life, the one source of truth: its phase (moved only by
+    `moveTo`, which asks `AdLifecycle.canMove`), its milestones (`isLoaded`, `wasOnScreen`, `hasImpression`,
+    `isCompleted`, the failure), each recorded once and never undone, and the flags derived from them; `VideoAd`
+    holds one and its public flags read from it.
+  - `core/Sdk.kt`: the SDK's shell, what `KontextVideo` forwards to: it moves `SdkState` (`initialize`, `/config`
+    and its retry, the kill switch) and holds the app's inputs (`user`, `regulatory`, `variantId`) and the ad on
+    screen (`shownAd`).
   - `frame/`, the ad's web page and its messages: `FrameProtocol` (the frame protocol's rules, no WebView: the
     envelope, the sender, the states, the video's order, the playhead's bounds, the touch a click needs; `accept`
     returns a `Step`), `FrameBridge` (its shell: the WebView, which does each `Step`; the page's messages come
@@ -83,7 +92,8 @@ adb logcat -s KontextVideo
 ## Rules
 
 - Commit directly to `main`; no feature branches. Push and watch CI.
-- One source of truth: every fact of an ad's life is in `AdState`; everything else asks it.
+- One source of truth: every fact of the SDK's life is in `SdkState`, every fact of an ad's life in `AdState`;
+  everything else asks them.
 - The lifecycle guarantee is sacred: after a successful `show`, exactly one `onAdEnded`, whoever ended it; nothing is
   delivered to the listener before `show`.
 - The page never fires a beacon; `Tracker` does, each entry once, except `click`, `pause`, `resume`, `mute` and
