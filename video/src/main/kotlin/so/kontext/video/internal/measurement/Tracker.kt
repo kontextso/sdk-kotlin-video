@@ -83,6 +83,25 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
     /** The click-through with the beacon macros substituted, `[KONTEXT_FIREID]` with the click's own fire id. */
     fun clickThrough(url: String, fireId: String): String = substitute(url, null, fireId, null, null)
 
+    /**
+     * Runs [work] with the content playhead read once before it, so no beacon of it calls the app's player again
+     * and every beacon of one operation carries the same time. Read only when a URL asks for it (the ad's own,
+     * or [alsoFor], a click's URLs); a nested call keeps the outer reading.
+     */
+    fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T {
+        val asked = readsContentPlayhead || alsoFor.any(::asksForContentPlayhead)
+        if (frozenContentPlayhead != null || !asked) return work()
+        frozenContentPlayhead = lastContentPlayhead
+        try {
+            val playhead = contentPlayhead()
+            lastContentPlayhead = playhead
+            frozenContentPlayhead = playhead
+            return work()
+        } finally {
+            frozenContentPlayhead = null
+        }
+    }
+
     private fun send(url: String, label: String) {
         Logger.debug { "ad ${adId.take(8)}: beacon $label" }
         Environment.sendBeacon(url, "ad ${adId.take(8)}: $label")

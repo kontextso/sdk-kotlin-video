@@ -28,6 +28,20 @@ internal sealed class FrameEvent {
     enum class CloseReason {
         CLOSE, RESUME, COMPLETE;
 
+        /**
+         * What this close does to an ad (see `closeByPage` for the table): the beacon it fires, if any, how the ad
+         * ends, and whether it completes the ad. A linear ad closed before its video completed is a skip.
+         */
+        fun outcome(isLinear: Boolean, isCompleted: Boolean): Outcome = when {
+            isLinear && !isCompleted -> Outcome("skip", VideoAd.EndReason.SKIPPED)
+            this == COMPLETE -> Outcome(null, VideoAd.EndReason.COMPLETED, completes = true)
+            this == RESUME -> Outcome("close", VideoAd.EndReason.RESUMED)
+            else -> Outcome("close", VideoAd.EndReason.CLOSED)
+        }
+
+        /** A page's close as the ad carries it out: [beacon] fired, then the end with [endReason]. */
+        data class Outcome(val beacon: String?, val endReason: VideoAd.EndReason, val completes: Boolean = false)
+
         companion object {
             fun from(raw: String?): CloseReason = when (raw) {
                 "resume" -> RESUME

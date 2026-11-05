@@ -66,6 +66,13 @@ public class VideoAd internal constructor(
     // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
     // and a close before `complete` being a skip (VideoAdFrameEvents). A full-screen pause ad is a placement of the
     // inline screen (its host covers the container), not a format of its own.
+    //
+    // The rest of VideoAd lives in:
+    // - internal/frame/VideoAdFrameEvents.kt: handle, handleNow, closeByPage, reportCreativeError (what the ad does
+    //   with each message of its page);
+    // - internal/frame/VideoAdClick.kt: click, open (a click: beacon, click-through, listener);
+    // - internal/screen/VideoAdPlacement.kt: combinedInsets, chooseSize, refit (where the page goes in its host);
+    // - internal/core/AdLifecycle.kt: the phases and their legal moves (the lifecycle, read through [lifecycle]).
 
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id
@@ -596,20 +603,8 @@ public class VideoAd internal constructor(
     /** The page a show puts on screen: a loaded ad has one, made when its loading started. */
     private fun shownBridge(): FrameBridge = loadedBridge ?: throw VideoAdException.NotLoaded()
 
-    /** Runs [work] with the content playhead read once before it, so no beacon of it calls the app's player. */
-    internal fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T {
-        val asked = tracker.readsContentPlayhead || alsoFor.any(Tracker::asksForContentPlayhead)
-        if (tracker.frozenContentPlayhead != null || !asked) return work()
-        tracker.frozenContentPlayhead = tracker.lastContentPlayhead
-        try {
-            val playhead = tracker.contentPlayhead()
-            tracker.lastContentPlayhead = playhead
-            tracker.frozenContentPlayhead = playhead
-            return work()
-        } finally {
-            tracker.frozenContentPlayhead = null
-        }
-    }
+    /** Runs [work] with the content playhead read once before it (see [Tracker.withContentPlayhead]). */
+    internal fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T = tracker.withContentPlayhead(alsoFor, work)
 
     private fun reserve(screen: AdScreen) {
         lifecycle.transition(Phase.Reserved)

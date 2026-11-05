@@ -30,6 +30,30 @@ import so.kontext.video.internal.support.Logger
  * end ──► cancel()                         the pending return check goes
  * ```
  *
+ * What each rule decides, by the player's change and the rule's state, for an ad on screen over a tracked
+ * player (without one, nothing below applies: an overlay runs on its clock, a pause ad until the viewer or the
+ * app ends it). end = ends as INTERRUPTED; freeze = stays, its time stopped; wait = stays, decided later.
+ *
+ * ```
+ * OverlayRule          in front, playing      away (frozen)          back, within the grace
+ * paused / gone        end                    freeze                 wait (the check runs)
+ * plays                go on                  go on, unfrozen        go on, check cancelled
+ * tick                 count video time;      as paused or plays     as paused or plays
+ *                      COMPLETED at duration
+ * seek (jumped)        recount from here      recount from here      recount from here
+ * content changed      end                    end                    end
+ * another show, paused end                    freeze                 end
+ * the grace is over    -                      -                      still paused: end; else go on
+ *
+ * PauseRule            not yet seen paused    seen paused
+ * paused (or a tick)   note it                note it
+ * plays (or a tick)    ignore                 end
+ * content changed      end                    end
+ * seek (jumped)        ignore                 ignore
+ *
+ * NoContentRule        ignores every change (a linear ad covers the content)
+ * ```
+ *
  * Whether a player is tracked is read at each call, never fixed at show: `VideoAds.track` may come later.
  */
 internal sealed class ContentRule {

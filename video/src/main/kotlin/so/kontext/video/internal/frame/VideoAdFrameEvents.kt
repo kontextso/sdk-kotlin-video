@@ -114,27 +114,12 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
  * "watch to the end": a close is CLOSED, or RESUMED when it resumed the content.
  */
 internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
-    // A fact of the linear format, not of its screen.
-    if (format == AdFormat.LINEAR && !isCompleted) {
-        tracker.fire("skip")
-        end(EndReason.SKIPPED)
-        return
-    }
-    when (reason) {
-        FrameEvent.CloseReason.COMPLETE -> {
-            // The page ended itself because its creative ran to its end.
-            isCompleted = true
-            end(EndReason.COMPLETED)
-        }
-        FrameEvent.CloseReason.RESUME -> {
-            tracker.fire("close")
-            end(EndReason.RESUMED)
-        }
-        FrameEvent.CloseReason.CLOSE -> {
-            tracker.fire("close")
-            end(EndReason.CLOSED)
-        }
-    }
+    // Whether the ad is linear is a fact of the format, not of its screen.
+    val outcome = reason.outcome(isLinear = format == AdFormat.LINEAR, isCompleted = isCompleted)
+    // The page ended itself because its creative ran to its end.
+    if (outcome.completes) isCompleted = true
+    outcome.beacon?.let { tracker.fire(it) }
+    end(outcome.endReason)
 }
 
 internal fun VideoAd.reportCreativeError(vastCode: Int) {
