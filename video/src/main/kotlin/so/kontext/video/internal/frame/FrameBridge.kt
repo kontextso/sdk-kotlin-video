@@ -34,6 +34,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.LinkOpener
 import so.kontext.video.internal.support.Logger
 
 /**
@@ -76,7 +77,7 @@ internal class FrameBridge(
     val webView: WebView = TouchNotingWebView(contextWrapper)
 
     /** The frame protocol's rules and state for this page. */
-    private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, ::isAllowed)
+    private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, LinkOpener::isAllowed)
 
     /** Where the page is, as the protocol says. */
     val state: PageState get() = protocol.state
@@ -411,27 +412,6 @@ internal class FrameBridge(
     companion object {
         /** `ad.loaded` must arrive within this. A constant in spirit; a variable so the tests can set it. */
         var loadTimeoutMillis = 10_000L
-
-        /**
-         * Web, store and the advertiser's app links open. Refused: `intent:`, which could start any Android
-         * component; the schemes that call, text or pay without a page in between; and the rest, which are
-         * not links to anywhere. Links into the host app open too: which links an ad may carry is the ad server's decision.
-         */
-        private val refusedSchemes = setOf(
-            "intent", "javascript", "data", "file", "blob", "about", "content",
-            "tel", "sms", "smsto", "mms", "mmsto",
-        )
-
-        /**
-         * A link that may open: a usable URL (a scheme, no spaces or control characters, which iOS's URL parsing
-         * refuses too, and a host for a web link) whose scheme is not refused.
-         */
-        fun isAllowed(target: String): Boolean {
-            val scheme = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*):").find(target)?.groupValues?.get(1)?.lowercase() ?: return false
-            if (target.any { it <= ' ' || it == '\u007F' }) return false
-            if ((scheme == "http" || scheme == "https") && Uri.parse(target).host.isNullOrEmpty()) return false
-            return scheme !in refusedSchemes
-        }
 
         private fun toJson(value: Any?): JsonElement = when (value) {
             is Map<*, *> -> JsonObject(value.entries.associate { (k, v) -> k.toString() to toJson(v) })

@@ -42,6 +42,7 @@ import so.kontext.video.internal.support.ActivityTracker
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.LinkOpener
 import so.kontext.video.internal.support.Logger
 import so.kontext.video.internal.support.activity
 import java.lang.ref.WeakReference
@@ -69,7 +70,6 @@ public class VideoAd internal constructor(
     // The rest of VideoAd lives in:
     // - internal/frame/VideoAdFrameEvents.kt: handle, handleNow, closeByPage, reportCreativeError (what the ad does
     //   with each message of its page);
-    // - internal/frame/VideoAdClick.kt: click, open (a click: beacon, click-through, listener);
     // - internal/screen/VideoAdPlacement.kt: combinedInsets, chooseSize, refit (where the page goes in its host);
     // - internal/state/AdState.kt: every fact of the ad's life (read through [state]);
     // - internal/state/AdLifecycle.kt: its phases and their legal moves.
@@ -614,6 +614,33 @@ public class VideoAd internal constructor(
             withContentPlayhead { recordImpression() }
         }
         screen?.impressionWait = wait
+    }
+
+    // endregion
+
+    // region Clicks
+
+    /**
+     * The page's `ad.click`, as Swift's `VideoAd+Click`: the `click` beacon, the click-through with the same fire
+     * id (opened by [LinkOpener]), then `onAdClicked`.
+     */
+    internal fun click(url: String, fallback: String?, area: Click.Area) {
+        Logger.info { "ad ${id.take(8)}: click ($area) $url" }
+        // Every accepted click is counted: an end-card click on an ad without end-card entries (an overlay, a
+        // pause ad) fires the main creative's.
+        // One occurrence: the beacon and the click-through carry the same fire id.
+        val isEndCard = area == Click.Area.EndCard && tracker.has("click", "endCard")
+        val fireId = tracker.fire("click", part = if (isEndCard) "endCard" else null)
+        val target = tracker.clickThrough(url, fireId)
+        Environment.context?.let { context ->
+            if (!LinkOpener.open(context, target, fallback?.let { tracker.clickThrough(it, fireId) })) {
+                Logger.warning { "ad ${id.take(8)}: nothing could open the click-through $target" }
+            }
+        }
+        // The listener hears nothing after `onAdEnded`. Opening the click-through does not end the ad today; the check
+        // keeps that rule if it ever does.
+        if (hasEnded) return
+        listener?.onAdClicked(this, Click(area))
     }
 
     // endregion

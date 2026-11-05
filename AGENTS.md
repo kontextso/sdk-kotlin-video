@@ -74,7 +74,7 @@ adb logcat -s KontextVideo
     `FrameProtocol` (the frame protocol's rules, no WebView: the sender, the page's state (`PageState`, not the
     ad's), the video's order, the touch a click needs, a navigation; `accept` returns a `Step`), `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
     through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
-    message of its frame page), `VideoAdClick` (a click: beacon, click-through, listener).
+    message of its frame page).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
     `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement
     arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
@@ -87,7 +87,8 @@ adb logcat -s KontextVideo
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.
   - `device/`: `DeviceInfo`, `Consent` (through KontextKit).
-  - `support/`: `Environment` (the seams the tests replace), `ActivityTracker`, `Logger`,
+  - `support/`: `Environment` (the seams the tests replace), `ActivityTracker`, `LinkOpener` (which links may
+    open, and opening them), `Logger`,
     `ErrorReporter`, `DebugReporter`.
 - One main type per file. The root package holds the public API only.
 

@@ -208,50 +208,11 @@ class VideoAdLifecycleTest : SdkTest() {
         assertTrue("the click-through carries a fire id", intent.dataString!!.startsWith("https://brand.test/?fid=") && "KONTEXT" !in intent.dataString!!)
     }
 
-    // region Click-throughs: what may open
-
-    /** An Activity of [packageName] that opens [scheme] links from the web, as an app's deep link declares it. */
-    private fun appLink(packageName: String, scheme: String) {
-        val component = android.content.ComponentName(packageName, "$packageName.LinkActivity")
-        val packageManager = shadowOf(app.packageManager)
-        packageManager.addActivityIfNotPresent(component)
-        packageManager.addIntentFilterForActivity(
-            component,
-            android.content.IntentFilter(Intent.ACTION_VIEW).apply {
-                addCategory(Intent.CATEGORY_DEFAULT)
-                addCategory(Intent.CATEGORY_BROWSABLE)
-                addDataScheme(scheme)
-            },
-        )
-    }
+    // region Click-throughs: which target the page's click opens (how it opens: LinkOpenerTest)
 
     private fun click(ad: VideoAd, url: String, fallback: String? = null) {
         ad.loadedBridge!!.noteTouch()
         page(ad, "ad.click", """"url": "$url"${fallback?.let { """, "fallbackUrl": "$it"""" } ?: ""}""")
-    }
-
-    @Test fun anAdvertisersDeepLinkOpensAsABrowsableIntentWithNoComponent() {
-        appLink("com.brand.app", "brandapp")
-        val ad = overlay()
-        ad.show(container())
-        click(ad, "brandapp://product/1")
-        val intent = opened()!!
-        assertEquals("brandapp://product/1", intent.dataString)
-        assertTrue("only what a web link can reach", intent.hasCategory(Intent.CATEGORY_BROWSABLE))
-        assertNull(intent.component)
-        assertNull(intent.selector)
-        assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
-    }
-
-    @Test fun aDeepLinkIntoTheHostAppOpens() {
-        // Which links an ad may carry is the ad server's decision; the SDK opens the host app's own too.
-        appLink(app.packageName, "publisherapp")
-        val ad = overlay()
-        ad.show(container())
-        click(ad, "publisherapp://premium")
-        val intent = opened()!!
-        assertEquals("publisherapp://premium", intent.dataString)
-        assertTrue(intent.hasCategory(Intent.CATEGORY_BROWSABLE))
     }
 
     @Test fun callTextAndIntentLinksAreRefusedAndAnHttpFallbackOpensInstead() {
@@ -281,15 +242,6 @@ class VideoAdLifecycleTest : SdkTest() {
         click(ad, "https://brand.test/a b")
         assertNull(opened())
         assertEquals(4, events.size)
-    }
-
-    @Test fun aDeepLinkNothingOpensFallsBackToItsWebLink() {
-        shadowOf(app).checkActivities(true)
-        appLink("com.browser.test", "https")
-        val ad = overlay()
-        ad.show(container())
-        click(ad, "brandapp://product/1", fallback = "https://brand.test/product/1")
-        assertEquals("https://brand.test/product/1", opened()!!.dataString)
     }
 
     // endregion

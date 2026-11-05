@@ -5,7 +5,9 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
+import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.support.LinkOpener
 import so.kontext.video.internal.support.Logger
 
 // What the frame page reports, as beacons, the ad's state and the listener: VideoAd's half of the frame
@@ -57,7 +59,9 @@ internal fun VideoAd.handleNow(event: FrameEvent) {
         is FrameEvent.Open -> {
             Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${event.url}" }
             if (event.purpose == "adChoices") tracker.fire("iconClick")
-            open(event.url, null)
+            Environment.context?.let { context ->
+                if (!LinkOpener.open(context, event.url, null)) Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${event.url}" }
+            }
         }
         is FrameEvent.Close -> closeByPage(event.reason)
         is FrameEvent.Skip -> {

@@ -47,7 +47,7 @@ internal class FrameProtocol(
     videoDurationMillis: Long?,
     /** A URL's origin, for a navigation's target. */
     private val originOf: (String) -> FrameBridge.Origin?,
-    /** Whether a link may open (see `FrameBridge.isAllowed`). */
+    /** Whether a link may open (`LinkOpener.isAllowed`). */
     private val isAllowed: (String) -> Boolean,
 ) {
     /** What a top-level navigation of the page may do. */
