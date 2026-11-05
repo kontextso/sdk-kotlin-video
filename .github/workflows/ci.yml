@@ -61,6 +61,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      # Robolectric fetches its Android jars itself, into ~/.m2, outside Gradle's cache: one for the tests' SDK
+      # (robolectric.properties) and one for compileSdk's resources. Downloaded on every run, a refused fetch
+      # (HTTP 429) fails every test that starts meanwhile; the key names exactly the jars a run needs.
+      - name: Robolectric cache key
+        id: robolectric
+        run: |
+          version=$(sed -n 's/^robolectric = "\(.*\)"$/\1/p' gradle/libs.versions.toml)
+          sdk=$(sed -n 's/^sdk=//p' video/src/test/resources/robolectric.properties)
+          compile=$(sed -n 's/^ *compileSdk = \([0-9]*\).*/\1/p' video/build.gradle.kts)
+          echo "key=robolectric-$version-sdk$sdk-compile$compile" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Robolectric jars
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-${{ steps.robolectric.outputs.key }}
+
       - name: Build
         run: ./gradlew assembleDebug --stacktrace
 
