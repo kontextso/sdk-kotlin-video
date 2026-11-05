@@ -2,11 +2,7 @@ package so.kontext.video.internal.frame
 
 import android.content.Context
 import android.content.MutableContextWrapper
-import android.graphics.Bitmap
 import android.os.SystemClock
-import android.webkit.RenderProcessGoneDetail
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.JavaScriptReplyProxy
@@ -43,8 +39,9 @@ import so.kontext.video.internal.platform.LinkOpener
  *                                                                   endThenDeliver: the page torn down, then onEvent
  * ```
  *
- * Here: the WebView ([FrameWebView], its lockdown) and its client, the load and its timeout, pausing and resuming the page, what the
- * SDK sends the page, and the teardown.
+ * Here: the WebView ([FrameWebView], its lockdown) and its client ([FrameWebViewClient], what it reports of the
+ * page's loads), the load and its timeout, pausing and resuming the page, what the SDK sends the page, and the
+ * teardown.
  */
 internal class FrameBridge(
     /** The application's context: the WebView's base while the ad is not on screen. */
@@ -90,7 +87,15 @@ internal class FrameBridge(
     init {
         webView.onTouch = ::noteTouch
         webView.onNewWindow = ::externalNavigation
-        webView.webViewClient = Client().also { client = it }
+        webView.webViewClient = FrameWebViewClient(
+            adId,
+            phase = { state },
+            navigationDecision = ::navigationDecision,
+            onExternalLink = ::externalNavigation,
+            onPageReplaced = { fail(FrameEvent.Error(protocol.failureCode), FailureCause.PAGE) },
+            onLoadFailed = ::loadFailed,
+            onProcessGone = { fail(FrameEvent.Error(protocol.failureCode), FailureCause.PROCESS_TERMINATED) },
+        ).also { client = it }
         // A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
         // linear ad has no other way out: Back is consumed and dismiss() refuses it. The ad ends, failed.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE)) {
@@ -279,52 +284,6 @@ internal class FrameBridge(
         webView.loadUrl("about:blank")
         // Not from inside the WebView's own callback (a message, a render-process notice): after it returns.
         android.os.Handler(android.os.Looper.getMainLooper()).post { webView.destroy() }
-    }
-
-    private inner class Client : WebViewClient() {
-        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-            val target = request.url.toString()
-            return when (navigationDecision(target, request.isForMainFrame, view.url)) {
-                FrameProtocol.NavigationDecision.ALLOW -> false
-                FrameProtocol.NavigationDecision.CANCEL -> {
-                    Logger.warning { "frame ${adId.take(8)}: the page tried to replace itself after it was ready; refused" }
-                    true
-                }
-                FrameProtocol.NavigationDecision.EXTERNAL -> {
-                    externalNavigation(target)
-                    true
-                }
-            }
-        }
-
-        /**
-         * A new document after the page said it was loaded: a reload or a form POST, which never reach
-         * [shouldOverrideUrlLoading], or anything else that got past it. The creative and its controls are gone
-         * from under an ad that may be on screen: the ad ends, failed. A move within the document (a fragment,
-         * `pushState`) starts no page.
-         */
-        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-            if (state == FramePhase.LOADING || state == FramePhase.ENDED) return
-            Logger.warning { "frame ${adId.take(8)}: the page replaced itself after it was ready; the ad ends" }
-            view.stopLoading()
-            fail(FrameEvent.Error(protocol.failureCode), FailureCause.PAGE)
-        }
-
-        override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-            if (request.isForMainFrame) loadFailed(ErrorReport.Underlying("webview", error.errorCode))
-        }
-
-        override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
-            if (request.isForMainFrame) loadFailed(ErrorReport.Underlying("http", errorResponse.statusCode))
-        }
-
-        override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-            Logger.warning { "frame ${adId.take(8)}: web content process ended" }
-            // 405 is a failure while playing; an ad loaded but never shown gets the load error, like any other.
-            fail(FrameEvent.Error(protocol.failureCode), FailureCause.PROCESS_TERMINATED)
-            // The WebView is dead; returning true keeps the app alive.
-            return true
-        }
     }
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
