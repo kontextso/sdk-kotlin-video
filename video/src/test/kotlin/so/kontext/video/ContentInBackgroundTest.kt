@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.content.ContentPlayback
+import so.kontext.video.internal.content.OverlayRule
 import so.kontext.video.internal.screen.ScreenSlot
 
 /**
@@ -79,13 +80,13 @@ class ContentInBackgroundTest : SdkTest() {
         screen.pause()
         player.pauses()
         screen.stop()
-        idle(VideoAd.returnGraceMillis * 5)
+        idle(OverlayRule.returnGraceMillis * 5)
         assertFalse("the background only freezes it, ticks included", ad.hasEnded)
         // Back: the app plays again as its screen starts.
         screen.restart().start()
         player.plays()
         screen.resume()
-        idle(VideoAd.returnGraceMillis + tick * 2)
+        idle(OverlayRule.returnGraceMillis + tick * 2)
         assertTrue("it goes on, where it stopped", recorder.reasons.isEmpty())
         assertSame("its count of video time goes on", progress, ad.contentClock)
         assertEquals(1, container.childCount)
@@ -107,10 +108,10 @@ class ContentInBackgroundTest : SdkTest() {
         // A pause heard after the stop: in the background whatever the order.
         screen.pause().stop()
         player.pauses()
-        idle(VideoAd.returnGraceMillis * 5)
+        idle(OverlayRule.returnGraceMillis * 5)
         assertFalse(ad.hasEnded)
         screen.restart().start().resume()
-        idle(VideoAd.returnGraceMillis - tick)
+        idle(OverlayRule.returnGraceMillis - tick)
         assertFalse("the grace: the app may play it again", ad.hasEnded)
         idle(tick * 2)
         assertEquals("still paused: ended as any pause", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)

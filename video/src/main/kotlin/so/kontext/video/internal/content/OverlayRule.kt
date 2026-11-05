@@ -17,7 +17,7 @@ import so.kontext.video.internal.screen.InlineScreen
  * milliseconds of video; and it cannot be shown over paused content. Without a tracked player it runs on
  * its own time (the clock's duration). A pause while the app is in the background (apps pause their player in
  * `onStop`) only freezes it, as the background freezes its clock: back in front, it goes on if the content
- * plays again within `VideoAd.returnGraceMillis`, and ends as INTERRUPTED otherwise. Another screen of the
+ * plays again within [returnGraceMillis], and ends as INTERRUPTED otherwise. Another screen of the
  * app over it is not the background: it ends the overlay (see `InlineScreen.followHoldingActivity`), and so does a
  * pause there.
  */
@@ -154,13 +154,13 @@ internal class OverlayRule(private val ad: VideoAd) : ContentRule() {
     }
 
     /**
-     * `VideoAd.returnGraceMillis` after the return, the content decides: playing, the overlay goes on where it
+     * [returnGraceMillis] after the return, the content decides: playing, the overlay goes on where it
      * stopped; still paused, it ends as INTERRUPTED, as on any pause. Away again by then, the next return checks.
      */
     private fun checkAfterReturn() {
         returnCheck?.cancel()
         returnCheck = Environment.scope.launch {
-            delay(VideoAd.returnGraceMillis)
+            delay(returnGraceMillis)
             returnCheck = null
             if (ad.hasEnded || !isContentPausedAway || isAway) return@launch
             isContentPausedAway = false
@@ -168,5 +168,13 @@ internal class OverlayRule(private val ad: VideoAd) : ContentRule() {
             Logger.info { "ad ${ad.id.take(8)}: the content is still paused after the return; the overlay ends" }
             ad.end(EndReason.INTERRUPTED)
         }
+    }
+
+    companion object {
+        /**
+         * How long after the app's return an overlay whose content paused in the background waits for the
+         * content to play again before it ends. Tests shorten it.
+         */
+        var returnGraceMillis = 1_000L
     }
 }

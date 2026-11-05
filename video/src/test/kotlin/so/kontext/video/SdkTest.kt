@@ -14,6 +14,7 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.SdkInitializer
+import so.kontext.video.internal.content.OverlayRule
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
@@ -21,6 +22,7 @@ import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.LinearScreen
 import java.time.Duration
 
 /**
@@ -44,10 +46,10 @@ abstract class SdkTest {
     }
 
     @After fun tearDownSdk() {
-        VideoAd.showTimeoutMillis = 5_000
-        VideoAd.dismissalTimeoutMillis = 10_000
-        VideoAd.returnGraceMillis = 1_000
-        VideoAd.makeBridge = ::FrameBridge
+        LinearScreen.showTimeoutMillis = 5_000
+        LinearScreen.dismissalTimeoutMillis = 10_000
+        OverlayRule.returnGraceMillis = 1_000
+        Environment.makeBridge = ::FrameBridge
         owners.forEach { it.destroy() }
         SdkInitializer.resetForTesting()
         Environment.reset()

@@ -2,7 +2,6 @@ package so.kontext.video.internal.frame
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
-import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
@@ -14,7 +13,7 @@ import so.kontext.video.internal.platform.Environment
  * beacon, the reports, the public exceptions) stays `VideoAd`'s.
  *
  * ```
- *   bridge(existing) ──► the page's bridge, made once (VideoAd.makeBridge), or NoWebView
+ *   bridge(existing) ──► the page's bridge, made once (Environment.makeBridge), or NoWebView
  *   load(bridge)     ──► the page loads; the returned signal completes at ad.loaded (loaded())
  *                        or fails with the page's error or the ad's end (fail(error))
  * ```
@@ -35,7 +34,7 @@ internal class FrameLoader(private val payload: AdPayload) {
      * linear format, not of its screen. Throws [NoWebView].
      */
     fun bridge(existing: FrameBridge?, isLinear: Boolean, onEvent: (FrameEvent) -> Unit): FrameBridge = try {
-        existing ?: VideoAd.makeBridge(
+        existing ?: Environment.makeBridge(
             checkNotNull(Environment.context) { "no application context" },
             payload.id,
             payload.frameUrl,

@@ -413,7 +413,7 @@ class VideoAdLifecycleTest : SdkTest() {
 
     @Test fun aLinearAdGivesItsBridgeTheVideosDurationAndAnOverlayNone() {
         val durations = mutableListOf<Long?>()
-        VideoAd.makeBridge = { _, _, _, _, duration ->
+        Environment.makeBridge = { _, _, _, _, duration ->
             durations += duration
             throw android.util.AndroidRuntimeException("enough: the bridge was asked for")
         }
@@ -427,7 +427,7 @@ class VideoAdLifecycleTest : SdkTest() {
     }
 
     @Test fun aWebViewThatCannotBeMadeFailsTheLoadAsACreativeFailure() {
-        VideoAd.makeBridge = { _, _, _, _, _ -> throw android.util.AndroidRuntimeException("no WebView package") }
+        Environment.makeBridge = { _, _, _, _, _ -> throw android.util.AndroidRuntimeException("no WebView package") }
         val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay(tracking = tracking("error")))), Environment.now(), owner())
         var result: Result<Unit>? = null
         Environment.scope.launch { result = runCatching { ad.load() } }

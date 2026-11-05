@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.device.UserAgent
+import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.network.BeaconClient
 
 /**
@@ -74,6 +75,10 @@ internal object Environment {
     @set:VisibleForTesting
     var processName: (Context) -> String? = defaultProcessName
 
+    /** Makes an ad's bridge; tests make one that throws, as a device without a working WebView does. */
+    @set:VisibleForTesting
+    var makeBridge: (Context, String, String, Boolean, Long?) -> FrameBridge = defaultMakeBridge
+
     // The production defaults, each written once: the initializers above and reset() use them.
     private val defaultIsAppInForeground: () -> Boolean get() = { AppActivities.isAppInForeground }
     private val defaultNow: () -> Long get() = { SystemClock.elapsedRealtime() }
@@ -82,6 +87,7 @@ internal object Environment {
     private val defaultSendBeacon: (String, String) -> Unit get() = BeaconClient::send
     private val defaultAdvertisingId: suspend () -> String? get() = { context?.let { DeviceInfo.advertisingId(it) } }
     private val defaultProcessName: (Context) -> String? get() = ::currentProcessName
+    private val defaultMakeBridge: (Context, String, String, Boolean, Long?) -> FrameBridge get() = ::FrameBridge
 
     fun reset() {
         processName = defaultProcessName
@@ -95,6 +101,7 @@ internal object Environment {
         advertisingId = defaultAdvertisingId
         isAppInForeground = defaultIsAppInForeground
         sendBeacon = defaultSendBeacon
+        makeBridge = defaultMakeBridge
     }
 
     private fun failInDebuggableApp(message: String) {

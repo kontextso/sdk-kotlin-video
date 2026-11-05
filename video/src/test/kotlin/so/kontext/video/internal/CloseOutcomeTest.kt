@@ -1,9 +1,11 @@
-package so.kontext.video
+package so.kontext.video.internal
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.internal.frame.FrameEvent.CloseReason
+import so.kontext.video.internal.state.CloseOutcome
+import so.kontext.video.internal.state.closeOutcome
 
 /** A page's close as a table: the reason, the format and whether the video completed → the beacon and the end. */
 class CloseOutcomeTest {

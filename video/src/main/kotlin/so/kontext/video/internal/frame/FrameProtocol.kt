@@ -69,7 +69,7 @@ internal class FrameProtocol(
         private set
 
     /** The VAST error of a page that fails before it was shown: 400 for a video, 500 for a display creative. */
-    val loadErrorCode: Int = if (isVideo) 400 else 500
+    val loadErrorCode: Int = loadErrorCode(isVideo)
 
     /** The VAST error of a failure now: 405 on screen, else the load error. */
     val failureCode: Int get() = if (state == FramePhase.SHOWN) 405 else loadErrorCode
@@ -231,5 +231,8 @@ internal class FrameProtocol(
 
         /** VAST's undefined error: what a page's code outside 100-999 becomes. */
         private const val UNDEFINED_ERROR = 900
+
+        /** The VAST error of a creative that fails before it was shown: 400 for a video, 500 for a display creative. */
+        fun loadErrorCode(isVideo: Boolean): Int = if (isVideo) 400 else 500
     }
 }

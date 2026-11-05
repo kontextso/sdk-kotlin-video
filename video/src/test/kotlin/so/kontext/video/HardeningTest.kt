@@ -17,6 +17,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ScreenSlot
 
 /** What a hostile page, a refusing system or an app that keeps its ads must not break. */
@@ -134,7 +135,7 @@ class HardeningTest : SdkTest() {
             assertTrue(recorder.errors.single() is VideoAdException.CannotShowNow)
             assertTrue("no impression", "impression" !in events)
             assertNull("the slot is free", ScreenSlot.current)
-            idle(VideoAd.showTimeoutMillis + 1_000)
+            idle(LinearScreen.showTimeoutMillis + 1_000)
             assertEquals("exactly one outcome", 1, recorder.reasons.size)
             ErrorReporter.resetForTesting()
         }

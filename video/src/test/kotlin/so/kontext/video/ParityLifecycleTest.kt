@@ -35,6 +35,7 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.LinearAdActivity
+import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.internal.screen.systemInsets
 
@@ -1033,7 +1034,7 @@ class ParityLifecycleTest : SdkTest() {
     }
 
     @Test fun aLinearScreenThatNeverStartsEndsTheAdAsFailedWithNothingBillable() {
-        VideoAd.showTimeoutMillis = 500
+        LinearScreen.showTimeoutMillis = 500
         val recorder = Recorder()
         val ad = linear(tracking = tracking("creativeView", "impression", "start"))
         ad.listener = recorder

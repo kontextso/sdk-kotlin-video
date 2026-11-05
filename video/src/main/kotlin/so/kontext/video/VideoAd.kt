@@ -23,6 +23,7 @@ import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameLoader
+import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.ViewabilityMeter
@@ -39,6 +40,7 @@ import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
 import so.kontext.video.internal.state.SdkState
 import so.kontext.video.internal.state.ShowCheck
+import so.kontext.video.internal.state.closeOutcome
 import java.lang.ref.WeakReference
 
 /**
@@ -61,14 +63,17 @@ public class VideoAd internal constructor(
     // and a close before `complete` being a skip (closeByPage). A full-screen pause ad is a placement of the
     // inline screen (its host covers the container), not a format of its own.
     //
-    // Everything of the ad is in this class: no extension of VideoAd lives elsewhere. Its parts are:
-    // - internal/state/AdState.kt: every fact of the ad's life (read through [state]);
-    // - internal/state/AdLifecycle.kt: its phases and their legal moves;
-    // - internal/frame/FrameBridge.kt: its page; the page's events come back to [handle];
-    // - internal/measurement/Tracker.kt: its beacons ([tracker]);
-    // - internal/content/ContentRule.kt: how it follows the content ([contentRule]);
-    // - internal/screen/AdScreen.kt, InlineScreen.kt, LinearScreen.kt: where it is shown (and, inline, where the
-    //   page goes in its host).
+    // No extension of VideoAd lives elsewhere: this class decides and orders, its parts do the work.
+    // - internal/state/AdState.kt: every fact of the ad's life (read through [state]); AdLifecycle.kt: its phases
+    //   and their legal moves; ShowCheck.kt: show's refusals; CloseOutcome.kt: what a page's close does.
+    // - internal/frame/FrameLoader.kt: its page made and loaded; FrameBridge.kt: the page, whose events come
+    //   back to [handle].
+    // - internal/measurement/Tracker.kt: its beacons ([tracker]).
+    // - internal/content/ContentRule.kt: how it follows the content ([contentRule]).
+    // - internal/screen/AdScreen.kt: where it is shown, and the impression wait; InlineScreen.kt: the inline
+    //   show (the container's checks, the variant, the host) and where the page goes in its host;
+    //   LinearScreen.kt: the linear show (its own Activity, the launch and its watchdog); ScreenSlot.kt: the
+    //   app's one ad on screen.
 
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id
@@ -280,7 +285,7 @@ public class VideoAd internal constructor(
     }
 
     private fun bridgeFailed(error: Throwable): VideoAdException {
-        val code = if (payload.creative == AdPayload.Creative.VIDEO) 400 else 500
+        val code = FrameProtocol.loadErrorCode(isVideo = payload.creative == AdPayload.Creative.VIDEO)
         Logger.warning { "ad ${id.take(8)}: no WebView for the creative (${error.javaClass.simpleName}), VAST error $code" }
         tracker.fire("error", errorCode = code)
         ErrorReporter.report(
@@ -765,22 +770,6 @@ public class VideoAd internal constructor(
     internal companion object {
         /** The ends a video before its first frame reports as `close`: none fired a beacon of its own. */
         private val closedBeforeFirstFrame = setOf(EndReason.DISMISSED, EndReason.DESTROYED, EndReason.INTERRUPTED, EndReason.COMPLETED)
-
-        /**
-         * How long a linear ad's screen may take to start, and the cap on its closing: a watchdog that reports
-         * a screen the system never takes down. Tests shorten them.
-         */
-        var showTimeoutMillis = 5_000L
-        var dismissalTimeoutMillis = 10_000L
-
-        /**
-         * How long after the app's return an overlay whose content paused in the background waits for the
-         * content to play again before it ends. Tests shorten it.
-         */
-        var returnGraceMillis = 1_000L
-
-        /** Makes an ad's bridge; tests make one that throws, as a device without a working WebView does. */
-        var makeBridge: (android.content.Context, String, String, Boolean, Long?) -> FrameBridge = ::FrameBridge
     }
 
     /** What an ad pays: a CPM in a currency, and whether that figure is a clearing price or a forecast. */
@@ -961,42 +950,3 @@ public class VideoAd internal constructor(
         DESTROYED,
     }
 }
-
-/**
- * What a page's `ad.close` does to an ad: the beacon it fires, if any, how the ad ends, and whether it completes it.
- * [reason] is the close reason the page gave: CLOSE (the viewer's close button), RESUME (a pause ad's Resume button) or
- * COMPLETE (the page ended itself after the video, with no end card). [isLinear]: a linear (video) ad. [isCompleted]:
- * the video already reached its end, which the SDK knows from the page's `complete` event, never from a close.
- *
- * The rows are checked top to bottom; the first that matches wins:
- *
- * ```
- *   #  when                          beacon  ends as       meaning
- *   1  linear and not completed      skip    SKIPPED       the viewer left a video ad before it finished: a skip for
- *      (any reason)                                        tracking, by the close button or anything else
- *   2  reason COMPLETE               none    COMPLETED     the ad ended by itself after its video ran out (it also
- *                                            (completes)   marks the ad completed); nobody closed it, so no close
- *   3  reason RESUME                 close   RESUMED       a pause ad's Resume button: closed to continue watching
- *   4  anything else (CLOSE)         close   CLOSED        closed with the close button: an overlay, a pause ad, or a
- *                                                          linear ad's end card after the video finished
- * ```
- *
- * Examples:
- * - A linear ad closed at second 10 of 30: row 1, `skip`, SKIPPED.
- * - A linear ad, video finished, the end card's close button: not row 1 (completed); reason CLOSE, row 4: `close`, CLOSED.
- * - A linear ad, video finished, no end card: the page sends COMPLETE, row 2: no beacon, COMPLETED.
- * - An overlay's close button: not linear, row 4: `close`, CLOSED.
- * - A pause ad's Resume: row 3: `close`, RESUMED.
- *
- * Row 1 comes first on purpose: a linear ad whose page says COMPLETE without the SDK having seen the video's
- * `complete` is a skip. The SDK trusts its own record of what was watched, which is what advertisers pay for.
- */
-internal fun closeOutcome(reason: FrameEvent.CloseReason, isLinear: Boolean, isCompleted: Boolean): CloseOutcome = when {
-    isLinear && !isCompleted -> CloseOutcome("skip", VideoAd.EndReason.SKIPPED)
-    reason == FrameEvent.CloseReason.COMPLETE -> CloseOutcome(null, VideoAd.EndReason.COMPLETED, completesAd = true)
-    reason == FrameEvent.CloseReason.RESUME -> CloseOutcome("close", VideoAd.EndReason.RESUMED)
-    else -> CloseOutcome("close", VideoAd.EndReason.CLOSED)
-}
-
-/** A page's close as the ad carries it out: [beacon] fired, then the end with [endReason]. */
-internal data class CloseOutcome(val beacon: String?, val endReason: VideoAd.EndReason, val completesAd: Boolean = false)

@@ -63,6 +63,7 @@ import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.LinearScreen
 import java.net.CacheRequest
 import java.net.CacheResponse
 import java.net.ResponseCache
@@ -726,7 +727,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun aLinearScreenThatNeverStartsIsReported() {
         SdkInitializer.recordErrorReporting(true)
-        VideoAd.showTimeoutMillis = 300
+        LinearScreen.showTimeoutMillis = 300
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val ad = linear()
         ad.show(host) // the screen is asked for and never created

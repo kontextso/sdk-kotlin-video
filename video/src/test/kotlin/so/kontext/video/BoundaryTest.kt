@@ -60,6 +60,7 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
+import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
@@ -83,8 +84,8 @@ class BoundaryTest {
     }
 
     @After fun teardown() {
-        VideoAd.showTimeoutMillis = 5_000
-        VideoAd.dismissalTimeoutMillis = 10_000
+        LinearScreen.showTimeoutMillis = 5_000
+        LinearScreen.dismissalTimeoutMillis = 10_000
         owners.forEach { it.destroy() }
         SdkInitializer.resetForTesting()
         Environment.reset()
@@ -392,8 +393,8 @@ class BoundaryTest {
     }
 
     @Test fun aLinearScreenThatNeverComesToTheFrontEndsTheAd() {
-        VideoAd.showTimeoutMillis = 1_000
-        VideoAd.dismissalTimeoutMillis = 300 // the failed screen is finished; Robolectric never destroys it
+        LinearScreen.showTimeoutMillis = 1_000
+        LinearScreen.dismissalTimeoutMillis = 300 // the failed screen is finished; Robolectric never destroys it
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner())
         val reasons = mutableListOf<VideoAd.EndReason>()
@@ -419,7 +420,7 @@ class BoundaryTest {
     }
 
     @Test fun aLinearScreenThatNeverClosesIsReportedAtTheCapAndOnAdEndedComesOnce() {
-        VideoAd.dismissalTimeoutMillis = 500
+        LinearScreen.dismissalTimeoutMillis = 500
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val owner = owner()
         val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.linear())), owner)
@@ -470,7 +471,7 @@ class BoundaryTest {
         assertEquals(listOf(VideoAd.EndReason.SKIPPED), reasons)
         assertNull(ScreenSlot.current)
         screen.destroy()
-        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(VideoAd.dismissalTimeoutMillis + 1_000))
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(LinearScreen.dismissalTimeoutMillis + 1_000))
         assertEquals("once, and no watchdog report", listOf(VideoAd.EndReason.SKIPPED), reasons)
         assertTrue("ad.dismissal_timed_out" !in so.kontext.video.internal.diagnostics.ErrorReporter.bufferedCodes)
     }

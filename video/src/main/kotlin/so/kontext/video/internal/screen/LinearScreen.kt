@@ -108,7 +108,7 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
         screen.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         // 2. Its own signal, once it is gone, runs onGone (onScreenGone). 3. Or, past the cap, the timeout does.
         Environment.scope.launch {
-            delay(VideoAd.dismissalTimeoutMillis)
+            delay(dismissalTimeoutMillis)
             if (ad.state.phase !is AdLifecycle.Phase.Ended) reportDismissalTimeout(onGone)
         }
         return true
@@ -116,7 +116,7 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
 
     /** The closing screen was never taken down: reported, and [onGone] runs anyway (`onAdEnded` once). */
     private fun reportDismissalTimeout(onGone: () -> Unit) {
-        Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen did not close in ${VideoAd.dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
+        Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen did not close in ${dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
         DebugReporter.event("ad.dismissalTimedOut", adId = ad.id, level = DebugReporter.Level.WARNING)
         ErrorReporter.report(
             ErrorReport.Code.DISMISSAL_TIMED_OUT,
@@ -132,7 +132,7 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
      * Starts the screen from [starter], which it follows from now on. Any launch that throws (the Activity
      * stripped from the merged manifest, a refused start, an app's own startActivity override or a system state
      * that throws something else) is the same failure. A screen that never starts (the system refused it, or the
-     * launch threw) must not hold the slot forever: a watchdog ends the ad, failed, once [VideoAd.showTimeoutMillis]
+     * launch threw) must not hold the slot forever: a watchdog ends the ad, failed, once [showTimeoutMillis]
      * passed with no screen in front. A launch that threw takes the same path at once, after show returns, as
      * Swift's refused show does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED). On the
      * SDK's own scope when the owner is gone, so the slot is freed whatever holds the ad.
@@ -147,7 +147,7 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
             false
         }
         (ad.owner.get()?.scope ?: Environment.scope).launch {
-            if (started) delay(VideoAd.showTimeoutMillis) else yield()
+            if (started) delay(showTimeoutMillis) else yield()
             // On screen, not merely created: a screen that attached but never came to the front (started, never
             // resumed) would otherwise hold the slot for good.
             if (ad.hasEnded || ad.state.wasOnScreen) return@launch
@@ -166,6 +166,13 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     }
 
     companion object {
+        /**
+         * How long a linear ad's screen may take to start, and the cap on its closing: a watchdog that reports
+         * a screen the system never takes down. Tests shorten them.
+         */
+        var showTimeoutMillis = 5_000L
+        var dismissalTimeoutMillis = 10_000L
+
         /**
          * Throws `CannotShowNow`, nothing changed, when [activity] cannot start the screen: it is finishing or
          * destroyed, or not visible (stopped, or in picture-in-picture). The system would not start the screen
