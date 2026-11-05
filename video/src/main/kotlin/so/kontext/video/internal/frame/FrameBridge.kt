@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdPayload
@@ -83,7 +84,7 @@ internal class FrameBridge(
     val state: PageState get() = protocol.state
     var failureCause: FailureCause? = null
         private set
-    var failureUnderlying: ErrorReporter.Underlying? = null
+    var failureUnderlying: ErrorReport.Underlying? = null
         private set
     var onEvent: ((FrameEvent) -> Unit)? = null
 
@@ -280,8 +281,8 @@ internal class FrameBridge(
 
     private fun reportProtocolViolation(detail: String) {
         ErrorReporter.report(
-            ErrorReporter.Code.PROTOCOL_VIOLATION,
-            if (state == PageState.SHOWN) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
+            ErrorReport.Code.PROTOCOL_VIOLATION,
+            if (state == PageState.SHOWN) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
             adId = adId,
             detail = detail,
         )
@@ -337,11 +338,11 @@ internal class FrameBridge(
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-            if (request.isForMainFrame) loadFailed(ErrorReporter.Underlying("webview", error.errorCode))
+            if (request.isForMainFrame) loadFailed(ErrorReport.Underlying("webview", error.errorCode))
         }
 
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
-            if (request.isForMainFrame) loadFailed(ErrorReporter.Underlying("http", errorResponse.statusCode))
+            if (request.isForMainFrame) loadFailed(ErrorReport.Underlying("http", errorResponse.statusCode))
         }
 
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
@@ -354,7 +355,7 @@ internal class FrameBridge(
     }
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
-    private fun loadFailed(underlying: ErrorReporter.Underlying) {
+    private fun loadFailed(underlying: ErrorReport.Underlying) {
         if (state != PageState.LOADING) return
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying

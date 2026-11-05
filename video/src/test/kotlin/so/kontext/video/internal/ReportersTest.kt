@@ -26,7 +26,10 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.EventHistory
+import so.kontext.video.internal.diagnostics.ReportQueue
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.platform.Environment
 import java.io.IOException
@@ -87,13 +90,13 @@ class ReportersTest {
 
     private fun errorBatches() = received.filter { it.first == "/v2/error" }.map { it.second }
 
-    private fun report(code: ErrorReporter.Code = ErrorReporter.Code.CREATIVE_FAILED, detail: String = "x") =
-        ErrorReporter.report(code, ErrorReporter.Stage.PLAYBACK, adId = "ad-1", vastCode = 405, detail = detail)
+    private fun report(code: ErrorReport.Code = ErrorReport.Code.CREATIVE_FAILED, detail: String = "x") =
+        ErrorReporter.report(code, ErrorReport.Stage.PLAYBACK, adId = "ad-1", vastCode = 405, detail = detail)
 
     @Test fun reportsWaitForConfigAndLeaveTogetherWithTheirHistory() {
         DebugReporter.event("ad.shown", adId = "ad-1", state = mapOf("format" to "overlay", "secret" to "no"))
         report()
-        report(ErrorReporter.Code.LOAD_TIMEOUT)
+        report(ErrorReport.Code.LOAD_TIMEOUT)
         settle()
         assertTrue("nothing leaves before /config", errorBatches().isEmpty())
         Sdk.recordErrorReporting(true)
@@ -127,7 +130,7 @@ class ReportersTest {
         report()
         await { errorBatches().size >= 2 }
         // Reported between the attempts: it waits for the next batch, and changes nothing in this one.
-        report(ErrorReporter.Code.LOAD_TIMEOUT)
+        report(ErrorReport.Code.LOAD_TIMEOUT)
         await { errorBatches().size >= 4 }
         val attempts = errorBodies.take(3).map { it.decodeToString() }
         assertEquals("the same body, byte for byte, each time: $attempts", 1, attempts.toSet().size)
@@ -139,7 +142,7 @@ class ReportersTest {
         Environment.now = { 1_000_000 }
         // Fifty reports of exactly 1310 bytes: 65 500 bytes of reports, within the limit by themselves, not
         // with the envelope and the commas around them.
-        val target = ErrorReporter.MAX_BATCH_BYTES / ErrorReporter.MAX_BATCH
+        val target = ReportQueue.MAX_BATCH_BYTES / ReportQueue.MAX_BATCH
         fun sizeOf(detail: String): Int {
             report(detail = detail)
             return ErrorReporter.bufferedSizes.last()
@@ -149,12 +152,12 @@ class ReportersTest {
         val detail = "x".repeat(target - sizeOf("x") + 1)
         ErrorReporter.resetForTesting()
         ErrorReporter.intervalMillis = 10
-        repeat(ErrorReporter.MAX_BATCH) { report(detail = detail) }
-        assertEquals(List(ErrorReporter.MAX_BATCH) { target }, ErrorReporter.bufferedSizes)
+        repeat(ReportQueue.MAX_BATCH) { report(detail = detail) }
+        assertEquals(List(ReportQueue.MAX_BATCH) { target }, ErrorReporter.bufferedSizes)
         Sdk.recordErrorReporting(true)
-        await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ErrorReporter.MAX_BATCH }
+        await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ReportQueue.MAX_BATCH }
         val sizes = errorBodies.map { it.size }
-        assertTrue("each whole body within ${ErrorReporter.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ErrorReporter.MAX_BATCH_BYTES })
+        assertTrue("each whole body within ${ReportQueue.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ReportQueue.MAX_BATCH_BYTES })
         assertEquals("what did not fit went in the next batch: $sizes", 2, sizes.size)
     }
 
@@ -168,8 +171,8 @@ class ReportersTest {
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == count }
         val sizes = errorBodies.map { it.size }
         assertTrue("several batches: the byte limit decides, $sizes", sizes.size > 2)
-        assertTrue("each whole body within ${ErrorReporter.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ErrorReporter.MAX_BATCH_BYTES })
-        assertTrue("and filled close to it: $sizes", sizes.first() > ErrorReporter.MAX_BATCH_BYTES - 4_096)
+        assertTrue("each whole body within ${ReportQueue.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ReportQueue.MAX_BATCH_BYTES })
+        assertTrue("and filled close to it: $sizes", sizes.first() > ReportQueue.MAX_BATCH_BYTES - 4_096)
         assertEquals(0, errorBatches().sumOf { it["dropped"]!!.jsonPrimitive.int })
     }
 
@@ -188,33 +191,33 @@ class ReportersTest {
         Sdk.recordErrorReporting(true)
         report()
         await { errorBatches().size == 1 }
-        report(ErrorReporter.Code.LOAD_TIMEOUT)
+        report(ErrorReport.Code.LOAD_TIMEOUT)
         await { errorBatches().size == 2 }
         assertEquals("ad.load_timeout", errorBatches()[1]["errors"]!!.jsonArray.single().jsonObject["code"]!!.jsonPrimitive.content)
     }
 
     @Test fun beyondTheBufferTheOldestGoAndTheNextBatchSaysHowMany() {
-        repeat(ErrorReporter.MAX_BUFFERED + 5) { report() }
-        assertEquals(ErrorReporter.MAX_BUFFERED, ErrorReporter.bufferedCount)
+        repeat(ReportQueue.MAX_BUFFERED + 5) { report() }
+        assertEquals(ReportQueue.MAX_BUFFERED, ErrorReporter.bufferedCount)
         Sdk.recordErrorReporting(true)
-        await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ErrorReporter.MAX_BUFFERED }
+        await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ReportQueue.MAX_BUFFERED }
         val batches = errorBatches()
         assertEquals(5, batches.first()["dropped"]!!.jsonPrimitive.int)
-        assertTrue("at most ${ErrorReporter.MAX_BATCH} a batch", batches.all { it["errors"]!!.jsonArray.size <= ErrorReporter.MAX_BATCH })
+        assertTrue("at most ${ReportQueue.MAX_BATCH} a batch", batches.all { it["errors"]!!.jsonArray.size <= ReportQueue.MAX_BATCH })
         assertEquals(0, batches.last()["dropped"]!!.jsonPrimitive.int)
     }
 
     @Test fun aRequestFailureBecomesStatusOrClass() {
-        val http = ErrorReporter.RequestFailure(ApiException.Http(503, emptyList()))
+        val http = ErrorReport.FailedRequest(ApiException.Http(503, emptyList()))
         assertEquals(503, http.httpStatus)
         assertNull(http.underlying)
-        val transport = ErrorReporter.RequestFailure(ApiException.Transport(IOException("down")))
+        val transport = ErrorReport.FailedRequest(ApiException.Transport(IOException("down")))
         assertEquals("network", transport.detail)
-        assertEquals(ErrorReporter.Underlying("java.io.IOException", 0), transport.underlying)
-        val decoding = ErrorReporter.RequestFailure(ApiException.Decoding(IllegalArgumentException("bad")))
-        assertEquals(ErrorReporter.Underlying("java.lang.IllegalArgumentException", 0), decoding.underlying)
+        assertEquals(ErrorReport.Underlying("java.io.IOException", 0), transport.underlying)
+        val decoding = ErrorReport.FailedRequest(ApiException.Decoding(IllegalArgumentException("bad")))
+        assertEquals(ErrorReport.Underlying("java.lang.IllegalArgumentException", 0), decoding.underlying)
         assertNull(decoding.detail)
-        assertEquals(ErrorReporter.Underlying("java.lang.IllegalStateException", 0), ErrorReporter.RequestFailure(IllegalStateException()).underlying)
+        assertEquals(ErrorReport.Underlying("java.lang.IllegalStateException", 0), ErrorReport.FailedRequest(IllegalStateException()).underlying)
     }
 
     @Test fun debugEventsLeaveOnlyWhenTheServerAsked() {
@@ -236,8 +239,8 @@ class ReportersTest {
 
     @Test fun theHistoryKeepsTheLastThirty() {
         repeat(40) { DebugReporter.event("e$it") }
-        val history = DebugReporter.recentHistory()
-        assertEquals(DebugReporter.HISTORY_LENGTH, history.size)
+        val history = EventHistory.recent()
+        assertEquals(EventHistory.HISTORY_LENGTH, history.size)
         assertEquals("e10", history.first().name)
         assertFalse(history.any { it.name == "e9" })
     }

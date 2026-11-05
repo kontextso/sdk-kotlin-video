@@ -16,6 +16,7 @@ import so.kontext.video.KontextVideo.State
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.CountDownLatch
@@ -52,7 +53,7 @@ class SdkStatesTest : ParityHarness() {
 
     private fun failingConfig() = answer("/v2/config") { MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) }
 
-    private fun report(detail: String = "x") = ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, detail = detail)
+    private fun report(detail: String = "x") = ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = detail)
 
     /** A second `initialize` changes nothing: no `/config`, the same state, no listener told. */
     private fun assertSecondInitializeIgnored() {

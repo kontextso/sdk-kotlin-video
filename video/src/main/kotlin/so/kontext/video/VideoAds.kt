@@ -16,6 +16,7 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.Tracker
@@ -99,7 +100,7 @@ public class VideoAds @JvmOverloads constructor(
         if (missing.isNotEmpty()) {
             Environment.assertionFailure("Content: ${missing.joinToString()}")
             Logger.error { "content ${content.id}: ${missing.joinToString()}; the server will refuse its requests" }
-            ErrorReporter.report(ErrorReporter.Code.BAD_CONTENT, ErrorReporter.Stage.INTEGRATION, sessionId = sessionId, detail = missing.joinToString(","))
+            ErrorReporter.report(ErrorReport.Code.BAD_CONTENT, ErrorReport.Stage.INTEGRATION, sessionId = sessionId, detail = missing.joinToString(","))
         }
         if (content.leftOut.isNotEmpty()) Logger.warning { "content ${content.id}: ${content.leftOut.joinToString()}" }
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
@@ -299,12 +300,12 @@ public class VideoAds @JvmOverloads constructor(
                     Logger.error { "${content.id}: request ${built.requestId} failed, ${error.message}" }
                     @Suppress("InstanceOfCheckForException") // the code, not the handling, depends on it
                     ErrorReporter.report(
-                        if (error is ApiException.Decoding) ErrorReporter.Code.ADS_DECODE_FAILED else ErrorReporter.Code.ADS_REQUEST_FAILED,
-                        ErrorReporter.Stage.REQUEST,
+                        if (error is ApiException.Decoding) ErrorReport.Code.ADS_DECODE_FAILED else ErrorReport.Code.ADS_REQUEST_FAILED,
+                        ErrorReport.Stage.REQUEST,
                         requestId = built.requestId,
                         sessionId = sessionId,
-                        failure = ErrorReporter.RequestFailure(error),
-                        recovery = if (holdsAds) ErrorReporter.Recovery.HELD_ADS_KEPT else ErrorReporter.Recovery.NO_AD,
+                        failure = ErrorReport.FailedRequest(error),
+                        recovery = if (holdsAds) ErrorReport.Recovery.HELD_ADS_KEPT else ErrorReport.Recovery.NO_AD,
                     )
                     throw VideoAdException.Request(error.toRequestFailure())
                 }
@@ -353,12 +354,12 @@ public class VideoAds @JvmOverloads constructor(
             for (dropped in result.dropped) {
                 Logger.error { "${result.format} for ${content.id}: an ad of request $requestId is malformed at ${dropped.path} ($dropped); left out" }
                 ErrorReporter.report(
-                    ErrorReporter.Code.ADS_DECODE_FAILED,
-                    ErrorReporter.Stage.REQUEST,
+                    ErrorReport.Code.ADS_DECODE_FAILED,
+                    ErrorReport.Stage.REQUEST,
                     requestId = requestId,
                     sessionId = sessionId,
                     detail = "${result.format.wireName}:${dropped.path}",
-                    recovery = if (result.ads.isEmpty()) ErrorReporter.Recovery.NO_AD else null,
+                    recovery = if (result.ads.isEmpty()) ErrorReport.Recovery.NO_AD else null,
                 )
             }
         }

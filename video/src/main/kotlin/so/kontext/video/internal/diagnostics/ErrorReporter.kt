@@ -5,14 +5,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.platform.Environment
 import java.util.UUID
@@ -26,74 +24,18 @@ import kotlin.random.Random
  * outcome the app handles (no fill, destroyed, cancelled, disabled).
  *
  * Off until `/config` says `reportErrors: true`. Before it answers, reports wait in memory and leave once it
- * turns them on, or are dropped. Delivery is bounded and best effort: at most [MAX_BUFFERED] reports wait
- * (the oldest go, and the next batch says how many); one batch at a time, at most [MAX_BATCH]; a batch that
+ * turns them on, or are dropped. Delivery is bounded and best effort: at most `ReportQueue.MAX_BUFFERED` reports
+ * wait (the oldest go, and the next batch says how many); one batch at a time, at most `ReportQueue.MAX_BATCH`; a batch that
  * fails is retried unchanged after a doubling backoff with jitter; `410` ends reporting for this launch, any
  * other `4xx` but `429` drops that batch. Nothing is stored on disk. Each report carries codes and ids, never
  * free text from a system error, the advertising id, the user id, the email, consent strings, bodies or URLs.
  */
 internal object ErrorReporter {
-    /** What failed. Stable: the server groups by it. */
-    enum class Code(val wire: String) {
-        CONFIG_FAILED("config.failed"),
-        ADS_REQUEST_FAILED("ads.request_failed"),
-        ADS_DECODE_FAILED("ads.decode_failed"),
-        CREATIVE_FAILED("ad.creative_failed"),
-        LOAD_TIMEOUT("ad.load_timeout"),
-        FRAME_LOAD_FAILED("frame.load_failed"),
-        PROCESS_TERMINATED("frame.process_terminated"),
-        UNRESPONSIVE("frame.unresponsive"),
-        PROTOCOL_VIOLATION("frame.protocol_violation"),
-        PRESENTATION_FAILED("ad.presentation_failed"),
-        DISMISSAL_TIMED_OUT("ad.dismissal_timed_out"),
-        EMPTY_TOKEN("integration.empty_token"),
-        BAD_SERVER_URL("integration.bad_server_url"),
-        NOT_INITIALIZED("integration.not_initialized"),
-        BAD_CONTENT("integration.bad_content"),
-    }
-
-    /** Where in the SDK it failed. */
-    enum class Stage { CONFIG, REQUEST, LOAD, PRESENTATION, PLAYBACK, INTEGRATION }
-
-    /** What the SDK did about it. */
-    enum class Recovery(val wire: String) {
-        HELD_ADS_KEPT("held_ads_kept"),
-        NO_AD("no_ad"),
-        AD_ENDED_FAILED("ad_ended_failed"),
-        AD_DROPPED_BEFORE_SHOW("ad_dropped_before_show"),
-
-        /** The system never finished; `onAdEnded` was delivered anyway. */
-        DID_END_DELIVERED("did_end_delivered"),
-    }
-
-    /** A system error as a domain and a code only, as the Swift SDK sends it; its text can carry anything. */
-    data class Underlying(val domain: String, val code: Int)
-
-    /** A request's failure as the report's fields: an HTTP status, or the exception's class with `network`. */
-    class RequestFailure(error: Throwable) {
-        val httpStatus: Int? = (error as? ApiException.Http)?.status
-
-        // A Java exception has no code of its own: 0.
-        val underlying: Underlying? = when (error) {
-            is ApiException.Http -> null
-            is ApiException.Transport, is ApiException.Decoding -> error.cause?.javaClass?.name?.let { Underlying(it, 0) }
-            else -> Underlying(error.javaClass.name, 0)
-        }
-        val detail: String? = if (error is ApiException.Transport) "network" else null
-    }
-
     private enum class Mode { PENDING, ON, OFF }
 
     var intervalMillis = 100L
     var retryDelayMillis = 30_000L
     var maxRetryDelayMillis = 300_000L
-    const val MAX_BUFFERED = 200
-    const val MAX_BATCH = 50
-    const val MAX_BUFFERED_BYTES = 256 * 1024
-    const val MAX_BATCH_BYTES = 64 * 1024
-
-    /** UTF-8 bytes kept of every string field. */
-    const val MAX_FIELD_LENGTH = 64
 
     /**
      * The server answered a batch with `410`: reporting ends for this launch, whatever `/config` said. The
@@ -111,46 +53,24 @@ internal object ErrorReporter {
                 false -> Mode.OFF
             }
         }
-    private val buffer = ArrayDeque<Pair<JsonObject, Int>>()
-    private var bufferedBytes = 0
-    private var dropped = 0
+    private val queue = ReportQueue()
 
     /** The batch being delivered: its finished body, sent unchanged until the server answers it. */
-    private var pendingBatch: Batch? = null
-
-    private class Batch(val body: JsonObject, val count: Int)
+    private var pendingBatch: ReportQueue.Batch? = null
     private var failures = 0
     private var flushJob: Job? = null
 
     /** Reports waiting, for tests. */
-    val bufferedCount: Int get() = buffer.size
+    val bufferedCount: Int get() = queue.size
 
     /** The encoded sizes of the reports waiting, for tests. */
-    val bufferedSizes: List<Int> get() = buffer.map { it.second }
+    val bufferedSizes: List<Int> get() = queue.sizes
 
     /** The codes of the reports waiting, for tests. */
-    val bufferedCodes: List<String> get() = buffer.map { it.first["code"].toString().trim('"') }
+    val bufferedCodes: List<String> get() = queue.reports.map { it["code"].toString().trim('"') }
 
     /** The details of the reports waiting (empty without one), for tests. */
-    val bufferedDetails: List<String> get() = buffer.map { it.first["detail"]?.toString()?.trim('"').orEmpty() }
-
-    /** [text] cut to [MAX_FIELD_LENGTH] UTF-8 bytes, at a code point boundary so it stays valid text. */
-    fun capped(text: String): String {
-        if (text.toByteArray().size <= MAX_FIELD_LENGTH) return text
-        val result = StringBuilder()
-        var bytes = 0
-        var index = 0
-        while (index < text.length) {
-            val codePoint = text.codePointAt(index)
-            val piece = String(Character.toChars(codePoint))
-            val size = piece.toByteArray().size
-            if (bytes + size > MAX_FIELD_LENGTH) break
-            result.append(piece)
-            bytes += size
-            index += Character.charCount(codePoint)
-        }
-        return result.toString()
-    }
+    val bufferedDetails: List<String> get() = queue.reports.map { it["detail"]?.toString()?.trim('"').orEmpty() }
 
     /**
      * `/config` answered (`Sdk.recordErrorReporting`): reports on send what waited, reports off drop it for this
@@ -158,78 +78,41 @@ internal object ErrorReporter {
      */
     fun reportingChanged() {
         when (mode) {
-            Mode.ON -> if (buffer.isNotEmpty()) scheduleFlush(intervalMillis)
+            Mode.ON -> if (!queue.isEmpty()) scheduleFlush(intervalMillis)
             Mode.OFF -> dropAll()
             Mode.PENDING -> Unit
         }
     }
 
     fun report(
-        code: Code,
-        stage: Stage,
+        code: ErrorReport.Code,
+        stage: ErrorReport.Stage,
         requestId: String? = null,
         sessionId: String? = null,
         adId: String? = null,
         vastCode: Int? = null,
         httpStatus: Int? = null,
-        underlying: Underlying? = null,
+        underlying: ErrorReport.Underlying? = null,
         detail: String? = null,
-        recovery: Recovery? = null,
+        recovery: ErrorReport.Recovery? = null,
     ) {
         if (mode == Mode.OFF) return
-        val report = buildJsonObject {
-            put("id", UUID.randomUUID().toString())
-            put("createdAt", DebugReporter.timestamp())
-            put("code", code.wire)
-            put("stage", stage.name.lowercase())
-            putIfNotNull("requestId", requestId?.let(::capped))
-            putIfNotNull("sessionId", sessionId?.let(::capped))
-            putIfNotNull("adId", adId?.let(::capped))
-            putIfNotNull("vastCode", vastCode)
-            putIfNotNull("httpStatus", httpStatus)
-            underlying?.let {
-                put(
-                    "underlying",
-                    buildJsonObject {
-                        put("domain", capped(it.domain))
-                        put("code", it.code)
-                    },
-                )
-            }
-            putIfNotNull("detail", detail?.let(::capped))
-            putIfNotNull("recovery", recovery?.wire)
-            put(
-                "history",
-                JsonArray(
-                    DebugReporter.recentHistory().map { moment ->
-                        buildJsonObject {
-                            put("createdAt", moment.createdAt)
-                            put("name", moment.name)
-                            putIfNotNull("adId", moment.adId)
-                            moment.state?.let { state -> put("state", JsonObject(state.mapValues { DebugReporter.json(it.value) })) }
-                        }
-                    },
-                ),
-            )
-        }
+        val report = ErrorReport.json(code, stage, requestId, sessionId, adId, vastCode, httpStatus, underlying, detail, recovery)
         val adPart = adId?.let { " ad=" + it.take(8) } ?: ""
         Logger.debug { "error report ${code.wire}$adPart" }
-        val size = report.toString().toByteArray().size
-        if (size > MAX_BATCH_BYTES) {
-            dropped += 1
-            return
-        }
-        buffer.addLast(report to size)
-        bufferedBytes += size
-        while (buffer.size > MAX_BUFFERED || (bufferedBytes > MAX_BUFFERED_BYTES && buffer.size > 1)) {
-            bufferedBytes -= buffer.removeFirst().second
-            dropped += 1
-        }
+        if (!queue.add(report)) return
         if (mode == Mode.ON) scheduleFlush(intervalMillis)
     }
 
     /** A failed ads or `/config` request. */
-    fun report(code: Code, stage: Stage, requestId: String, sessionId: String? = null, failure: RequestFailure, recovery: Recovery? = null) {
+    fun report(
+        code: ErrorReport.Code,
+        stage: ErrorReport.Stage,
+        requestId: String,
+        sessionId: String? = null,
+        failure: ErrorReport.FailedRequest,
+        recovery: ErrorReport.Recovery? = null,
+    ) {
         report(
             code,
             stage,
@@ -246,9 +129,7 @@ internal object ErrorReporter {
         flushJob?.cancel()
         flushJob = null
         wasStoppedByServer = false
-        buffer.clear()
-        bufferedBytes = 0
-        dropped = 0
+        queue.clear()
         pendingBatch = null
         failures = 0
         intervalMillis = 100L
@@ -259,9 +140,7 @@ internal object ErrorReporter {
     private fun dropAll() {
         flushJob?.cancel()
         flushJob = null
-        buffer.clear()
-        bufferedBytes = 0
-        dropped = 0
+        queue.clear()
         pendingBatch = null
     }
 
@@ -271,7 +150,7 @@ internal object ErrorReporter {
             delay(delayMillis)
             val delivered = flush()
             flushJob = null
-            if (mode != Mode.ON || (pendingBatch == null && buffer.isEmpty())) return@launch
+            if (mode != Mode.ON || (pendingBatch == null && queue.isEmpty())) return@launch
             scheduleFlush(if (delivered) intervalMillis else nextRetryDelay())
         }
     }
@@ -316,50 +195,27 @@ internal object ErrorReporter {
         }
     }
 
-    /**
-     * The next batch from the buffer: the oldest reports whose whole body, envelope and separators included,
-     * stays within [MAX_BATCH_BYTES]; the rest wait for the next one. A report that does not fit even alone is
-     * dropped and counted. `null` when nothing is left to send.
-     */
-    private fun makeBatch(configuration: so.kontext.video.KontextVideo.Configuration, context: android.content.Context): Batch? {
+    /** The next batch from the queue, in this launch's envelope; it becomes the pending one. `null` when nothing is left. */
+    private fun makeBatch(configuration: so.kontext.video.KontextVideo.Configuration, context: android.content.Context): ReportQueue.Batch? {
         val batchId = UUID.randomUUID().toString()
         val os = DeviceInfo.os(context)
-        fun body(errors: List<JsonObject>, dropped: Int) = buildJsonObject {
-            put("batchId", batchId)
-            put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceInfo.installId(context))
-            put("sdk", SdkInfo.json())
-            put("app", DeviceInfo.app(context))
-            put(
-                "os",
-                buildJsonObject {
-                    os["name"]?.let { put("name", it) }
-                    os["version"]?.let { put("version", it) }
-                },
-            )
-            put("dropped", dropped)
-            put("errors", JsonArray(errors))
-        }
-        // The empty envelope, its `dropped` as large as it can get while this batch is made.
-        var bytes = body(emptyList(), dropped + buffer.size).toString().toByteArray().size
-        val reports = mutableListOf<JsonObject>()
-        while (buffer.isNotEmpty() && reports.size < MAX_BATCH) {
-            val (report, size) = buffer.first()
-            val added = size + if (reports.isEmpty()) 0 else 1 // the comma before it
-            if (bytes + added > MAX_BATCH_BYTES && reports.isNotEmpty()) break
-            buffer.removeFirst()
-            bufferedBytes -= size
-            if (bytes + added > MAX_BATCH_BYTES) {
-                dropped += 1
-                continue
+        return queue.makeBatch { errors, dropped ->
+            buildJsonObject {
+                put("batchId", batchId)
+                put("publisherToken", configuration.publisherToken)
+                put("installId", DeviceInfo.installId(context))
+                put("sdk", SdkInfo.json())
+                put("app", DeviceInfo.app(context))
+                put(
+                    "os",
+                    buildJsonObject {
+                        os["name"]?.let { put("name", it) }
+                        os["version"]?.let { put("version", it) }
+                    },
+                )
+                put("dropped", dropped)
+                put("errors", JsonArray(errors))
             }
-            reports += report
-            bytes += added
-        }
-        if (reports.isEmpty()) return null
-        return Batch(body(reports, dropped), reports.size).also {
-            dropped = 0
-            pendingBatch = it
-        }
+        }?.also { pendingBatch = it }
     }
 }

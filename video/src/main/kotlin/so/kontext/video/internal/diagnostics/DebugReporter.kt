@@ -5,7 +5,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.internal.core.Sdk
@@ -14,47 +13,34 @@ import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.platform.Environment
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.abs
 
 /**
  * Sends the SDK's debug events to `POST /debug`, only when `/config` asked for it (`reportDebug`). Events are
  * buffered and sent in batches, at most one request per [intervalMillis]. Small facts only: names, ad ids,
  * levels, and short string/number/boolean state. Never the advertising id, the email, the user id, consent
- * strings, request or response bodies. Every event is also one `debug` line in Logcat, and the last
- * [HISTORY_LENGTH] are kept for the history of an error report.
+ * strings, request or response bodies. Every event is also one `debug` line in Logcat, and is recorded in
+ * [EventHistory] for the history of an error report. Best effort: a batch that fails is lost, never retried.
  */
 internal object DebugReporter {
     enum class Level { INFO, WARNING, ERROR }
 
-    /** One event in the history an error report carries. */
-    class Moment(val createdAt: String, val name: String, val adId: String?, val state: Map<String, Any>?)
-
     var intervalMillis = 100L
     const val MAX_BUFFERED = 500
-    const val HISTORY_LENGTH = 30
 
     /** 2^53: every whole Double below it is exact as a Long. */
     private const val WHOLE_LIMIT = 9_007_199_254_740_992.0
-
-    /** The state keys an error report's history may carry; anything else stays on the device. */
-    val historyKeys = setOf("held", "playhead", "format", "filled", "reason", "enabled", "code", "durationMs", "step", "domain")
 
     /** What `/config` said (`reportDebug`), read from the SDK's state: off until it answers. */
     val isEnabled: Boolean get() = Sdk.state.isDebugReportingOn
 
     private val buffer = mutableListOf<JsonObject>()
-    private val history = ArrayDeque<Moment>()
     private var flushJob: Job? = null
 
     fun event(name: String, adId: String? = null, level: Level? = null, state: Map<String, Any>? = null) {
         Logger.debug { line(name, adId, state) }
-        val createdAt = timestamp()
-        history.addLast(Moment(createdAt, name, adId, state))
-        while (history.size > HISTORY_LENGTH) history.removeFirst()
+        val createdAt = ReportFormat.timestamp()
+        EventHistory.record(createdAt, name, adId, state)
         if (!isEnabled) return
         buffer += buildJsonObject {
             put("createdAt", createdAt)
@@ -72,14 +58,6 @@ internal object DebugReporter {
         if (!isEnabled) buffer.clear()
     }
 
-    /** The recent events, reduced for an error report: listed state keys only, strings and ids capped. */
-    fun recentHistory(): List<Moment> = history.map { moment ->
-        val state = moment.state?.filterKeys { it in historyKeys }?.mapValues { (_, value) ->
-            if (value is String) ErrorReporter.capped(value) else value
-        }
-        Moment(moment.createdAt, ErrorReporter.capped(moment.name), moment.adId?.let(ErrorReporter::capped), state?.takeIf { it.isNotEmpty() })
-    }
-
     /** `ad.loaded ad=f1a2b3c4 durationMs=842`, the event as Logcat shows it. */
     fun line(name: String, adId: String?, state: Map<String, Any>?): String = buildList {
         add(name)
@@ -91,7 +69,7 @@ internal object DebugReporter {
         flushJob?.cancel()
         flushJob = null
         buffer.clear()
-        history.clear()
+        EventHistory.clear()
         intervalMillis = 100L
     }
 
@@ -131,17 +109,5 @@ internal object DebugReporter {
             // Debug reporting never affects the SDK; a lost batch is lost.
             Logger.debug { "debug batch of ${events.size} not delivered: ${error.message}" }
         }
-    }
-
-    /** `2026-10-21T18:00:00.482Z`. */
-    fun timestamp(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-        .apply { timeZone = TimeZone.getTimeZone("UTC") }
-        .format(Date())
-
-    /** A state value as JSON. */
-    fun json(value: Any): JsonPrimitive = when (value) {
-        is Number -> JsonPrimitive(value)
-        is Boolean -> JsonPrimitive(value)
-        else -> JsonPrimitive(value.toString())
     }
 }

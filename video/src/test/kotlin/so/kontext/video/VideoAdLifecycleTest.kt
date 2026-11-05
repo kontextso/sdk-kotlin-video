@@ -22,6 +22,7 @@ import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.EventHistory
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.PageState
@@ -114,7 +115,7 @@ class VideoAdLifecycleTest : SdkTest() {
         )
         for ((reason, expected) in reasons) {
             overlay().invalidate(reason)
-            val moment = so.kontext.video.internal.diagnostics.DebugReporter.recentHistory().last()
+            val moment = so.kontext.video.internal.diagnostics.EventHistory.recent().last()
             assertEquals("ad.invalidated", moment.name)
             assertEquals("as iOS sends it", expected, moment.state)
         }

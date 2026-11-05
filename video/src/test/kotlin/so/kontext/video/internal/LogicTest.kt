@@ -11,7 +11,7 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.core.problems
-import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.ReportFormat
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
@@ -97,8 +97,8 @@ class LogicTest {
     }
 
     @Test fun reportFieldsAreCutAtACodePoint() {
-        assertEquals("a".repeat(64), ErrorReporter.capped("a".repeat(80)))
+        assertEquals("a".repeat(64), ReportFormat.capped("a".repeat(80)))
         val emoji = "😀".repeat(20) // 4 bytes each
-        assertEquals("😀".repeat(16), ErrorReporter.capped(emoji))
+        assertEquals("😀".repeat(16), ReportFormat.capped(emoji))
     }
 }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
@@ -289,12 +290,12 @@ public class VideoAd internal constructor(
         Logger.warning { "ad ${id.take(8)}: no WebView for the creative (${error.javaClass.simpleName}), VAST error $code" }
         tracker.fire("error", errorCode = code)
         ErrorReporter.report(
-            ErrorReporter.Code.FRAME_LOAD_FAILED,
-            ErrorReporter.Stage.LOAD,
+            ErrorReport.Code.FRAME_LOAD_FAILED,
+            ErrorReport.Stage.LOAD,
             sessionId = owner.get()?.sessionId,
             adId = id,
             vastCode = code,
-            recovery = ErrorReporter.Recovery.AD_DROPPED_BEFORE_SHOW,
+            recovery = ErrorReport.Recovery.AD_DROPPED_BEFORE_SHOW,
         )
         invalidate(InvalidationReason.CreativeFailed(code))
         DebugReporter.event("ad.loadFailed", adId = id, level = DebugReporter.Level.WARNING, state = mapOf("code" to code))
@@ -484,11 +485,11 @@ public class VideoAd internal constructor(
             Logger.error { "ad ${id.take(8)}: the linear ad's screen $what; ended as failed" }
             LinearAdActivity.forget(screen)
             ErrorReporter.report(
-                ErrorReporter.Code.PRESENTATION_FAILED,
-                ErrorReporter.Stage.PRESENTATION,
+                ErrorReport.Code.PRESENTATION_FAILED,
+                ErrorReport.Stage.PRESENTATION,
                 sessionId = owner.get()?.sessionId,
                 adId = id,
-                recovery = ErrorReporter.Recovery.AD_ENDED_FAILED,
+                recovery = ErrorReport.Recovery.AD_ENDED_FAILED,
             )
             fail(VideoAdException.CannotShowNow())
         }

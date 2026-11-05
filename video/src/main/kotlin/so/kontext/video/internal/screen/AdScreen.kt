@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
@@ -315,11 +316,11 @@ internal sealed class AdScreen(
                     Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen did not close in ${VideoAd.dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
                     DebugReporter.event("ad.dismissalTimedOut", adId = ad.id, level = DebugReporter.Level.WARNING)
                     ErrorReporter.report(
-                        ErrorReporter.Code.DISMISSAL_TIMED_OUT,
-                        ErrorReporter.Stage.PRESENTATION,
+                        ErrorReport.Code.DISMISSAL_TIMED_OUT,
+                        ErrorReport.Stage.PRESENTATION,
                         sessionId = ad.owner.get()?.sessionId,
                         adId = ad.id,
-                        recovery = ErrorReporter.Recovery.DID_END_DELIVERED,
+                        recovery = ErrorReport.Recovery.DID_END_DELIVERED,
                     )
                     onGone()
                 }

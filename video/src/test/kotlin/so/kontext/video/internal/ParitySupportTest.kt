@@ -52,8 +52,11 @@ import so.kontext.video.VideoAds
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.diagnostics.ReportFormat
+import so.kontext.video.internal.diagnostics.ReportQueue
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiClient
@@ -576,11 +579,11 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun reportsAreOffWhenConfigLeavesThemOutOrDisablesTheSdk() {
         initialize()
-        ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, detail = "x")
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = "x")
         assertEquals("reportErrors left out is off", 0, ErrorReporter.bufferedCount)
         answers.remove("/v2/config")
         initialize("""{"enabled": false, "disabledReason": "publisherDisabled"}""")
-        ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, detail = "x")
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = "x")
         assertEquals("a disabled SDK reports nothing", 0, ErrorReporter.bufferedCount)
         settle()
         assertTrue(requests("/v2/error").isEmpty())
@@ -675,7 +678,7 @@ class ParitySupportTest : ParityHarness() {
             if (calls == 1) MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) else MockResponse().setResponseCode(204)
         }
         Sdk.recordErrorReporting(true)
-        ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, adId = "ad-1", detail = "start")
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, adId = "ad-1", detail = "start")
         await { requests("/v2/error").size >= 2 }
         settle()
         val bodies = requests("/v2/error").map { it.text }
@@ -739,7 +742,7 @@ class ParitySupportTest : ParityHarness() {
         val free = "contact secret@example.com at https://evil.test/x"
         answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", noFill = free)).toString())
         format(owner(), AdFormat.PAUSE)
-        ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, detail = "start") // any fault after it carries the history
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = "start") // any fault after it carries the history
         await { errorReports("ad.creative_failed").isNotEmpty() }
         val raw = requests("/v2/error").last().text
         assertFalse("the server's free text stays on the device: $raw", raw.contains("secret@example.com") || raw.contains("evil.test"))
@@ -750,27 +753,27 @@ class ParitySupportTest : ParityHarness() {
     @Test fun everyStringFieldIsCappedByBytesEvenOneCharacterOfThousandsOfMarks() {
         val heavy = "e" + "́".repeat(5_000) // one character on screen, about 10 KB
         assertTrue(heavy.toByteArray().size > 10_000)
-        assertTrue(ErrorReporter.capped(heavy).toByteArray().size <= ErrorReporter.MAX_FIELD_LENGTH)
-        assertEquals("short", ErrorReporter.capped("short"))
+        assertTrue(ReportFormat.capped(heavy).toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
+        assertEquals("short", ReportFormat.capped("short"))
         val long = "a".repeat(10_000)
         DebugReporter.event(heavy, adId = heavy, state = mapOf("format" to heavy))
         Sdk.recordErrorReporting(true)
         repeat(20) { index ->
-            ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = ErrorReporter.Underlying(long, 0))
+            ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = ErrorReport.Underlying(long, 0))
         }
         await { errorReports().size == 20 }
         for (report in errorReports()) {
             for (field in listOf("requestId", "sessionId", "adId", "detail")) {
-                assertTrue("$field capped", report.str(field)!!.toByteArray().size <= ErrorReporter.MAX_FIELD_LENGTH)
+                assertTrue("$field capped", report.str(field)!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
             }
-            assertTrue(report["underlying"]!!.jsonObject.str("domain")!!.toByteArray().size <= ErrorReporter.MAX_FIELD_LENGTH)
+            assertTrue(report["underlying"]!!.jsonObject.str("domain")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
             val moment = report["history"]!!.jsonArray.single().jsonObject
-            assertTrue(moment.str("name")!!.toByteArray().size <= ErrorReporter.MAX_FIELD_LENGTH)
-            assertTrue(moment.str("adId")!!.toByteArray().size <= ErrorReporter.MAX_FIELD_LENGTH)
-            assertTrue(moment["state"]!!.jsonObject.str("format")!!.toByteArray().size <= ErrorReporter.MAX_FIELD_LENGTH)
+            assertTrue(moment.str("name")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
+            assertTrue(moment.str("adId")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
+            assertTrue(moment["state"]!!.jsonObject.str("format")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
         }
         val sizes = requests("/v2/error").map { it.bytes.size }
-        assertTrue("within the batch budget: $sizes", sizes.all { it <= ErrorReporter.MAX_BATCH_BYTES })
+        assertTrue("within the batch budget: $sizes", sizes.all { it <= ReportQueue.MAX_BATCH_BYTES })
     }
 
     @Test fun anExpiredHeldAdIsNotCountedAsKept() {

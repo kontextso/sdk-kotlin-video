@@ -5,6 +5,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.platform.Environment
@@ -128,19 +129,19 @@ internal fun VideoAd.closeByPage(reason: FrameEvent.CloseReason) {
 
 internal fun VideoAd.reportCreativeError(vastCode: Int) {
     val code = when (loadedBridge?.failureCause ?: FrameBridge.FailureCause.PAGE) {
-        FrameBridge.FailureCause.PAGE -> ErrorReporter.Code.CREATIVE_FAILED
-        FrameBridge.FailureCause.LOAD_TIMEOUT -> ErrorReporter.Code.LOAD_TIMEOUT
-        FrameBridge.FailureCause.LOAD_FAILED -> ErrorReporter.Code.FRAME_LOAD_FAILED
-        FrameBridge.FailureCause.PROCESS_TERMINATED -> ErrorReporter.Code.PROCESS_TERMINATED
-        FrameBridge.FailureCause.UNRESPONSIVE -> ErrorReporter.Code.UNRESPONSIVE
+        FrameBridge.FailureCause.PAGE -> ErrorReport.Code.CREATIVE_FAILED
+        FrameBridge.FailureCause.LOAD_TIMEOUT -> ErrorReport.Code.LOAD_TIMEOUT
+        FrameBridge.FailureCause.LOAD_FAILED -> ErrorReport.Code.FRAME_LOAD_FAILED
+        FrameBridge.FailureCause.PROCESS_TERMINATED -> ErrorReport.Code.PROCESS_TERMINATED
+        FrameBridge.FailureCause.UNRESPONSIVE -> ErrorReport.Code.UNRESPONSIVE
     }
     ErrorReporter.report(
         code,
-        if (wasShown) ErrorReporter.Stage.PLAYBACK else ErrorReporter.Stage.LOAD,
+        if (wasShown) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
         sessionId = owner.get()?.sessionId,
         adId = id,
         vastCode = vastCode,
         underlying = loadedBridge?.failureUnderlying,
-        recovery = if (wasShown) ErrorReporter.Recovery.AD_ENDED_FAILED else ErrorReporter.Recovery.AD_DROPPED_BEFORE_SHOW,
+        recovery = if (wasShown) ErrorReport.Recovery.AD_ENDED_FAILED else ErrorReport.Recovery.AD_DROPPED_BEFORE_SHOW,
     )
 }

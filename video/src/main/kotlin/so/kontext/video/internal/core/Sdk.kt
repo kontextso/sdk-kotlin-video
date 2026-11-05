@@ -14,6 +14,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.internal.SDK_VERSION
 import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.network.ApiClient
@@ -95,8 +96,8 @@ internal object Sdk {
             // A configuration mistake: every request would fail. Stops a debuggable app here, not at a 400 later.
             Environment.assertionFailure("KontextVideo.Configuration: ${problems.joinToString()}")
             Logger.error { "configuration: ${problems.joinToString()}; no ads will load" }
-            if (configuration.publisherToken.isEmpty()) ErrorReporter.report(ErrorReporter.Code.EMPTY_TOKEN, ErrorReporter.Stage.INTEGRATION)
-            if (problems.any { it.startsWith("adServerUrl") }) ErrorReporter.report(ErrorReporter.Code.BAD_SERVER_URL, ErrorReporter.Stage.INTEGRATION)
+            if (configuration.publisherToken.isEmpty()) ErrorReporter.report(ErrorReport.Code.EMPTY_TOKEN, ErrorReport.Stage.INTEGRATION)
+            if (problems.any { it.startsWith("adServerUrl") }) ErrorReporter.report(ErrorReport.Code.BAD_SERVER_URL, ErrorReport.Stage.INTEGRATION)
         }
         Logger.debug { "Initializing, SDK version ${SDK_VERSION}" }
         state.moveTo(State.Initializing)
@@ -139,7 +140,7 @@ internal object Sdk {
         if (isInitialized) return true
         Environment.assertionFailure("KontextVideo: call initialize() before $call")
         Logger.error { "$call called before initialize(); no ads will load" }
-        ErrorReporter.report(ErrorReporter.Code.NOT_INITIALIZED, ErrorReporter.Stage.INTEGRATION, detail = call)
+        ErrorReporter.report(ErrorReport.Code.NOT_INITIALIZED, ErrorReport.Stage.INTEGRATION, detail = call)
         return false
     }
 
@@ -202,7 +203,7 @@ internal object Sdk {
         } catch (error: Exception) {
             state.moveTo(State.Failed)
             Logger.error { "/config failed, no ads until it succeeds: ${error.message}" }
-            ErrorReporter.report(ErrorReporter.Code.CONFIG_FAILED, ErrorReporter.Stage.CONFIG, requestId = requestId, failure = ErrorReporter.RequestFailure(error))
+            ErrorReporter.report(ErrorReport.Code.CONFIG_FAILED, ErrorReport.Stage.CONFIG, requestId = requestId, failure = ErrorReport.FailedRequest(error))
         }
     }
 
