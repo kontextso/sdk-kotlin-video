@@ -67,8 +67,7 @@ adb logcat -s KontextVideo
     `isCompleted`, the failure), each recorded once and never undone, and the flags derived from them; `VideoAd`
     holds one and its public flags read from it.
   - `core/Sdk.kt`: the SDK's shell, what `KontextVideo` forwards to: it moves `SdkState` (`initialize`, `/config`
-    and its retry, the kill switch) and holds the app's inputs (`user`, `regulatory`, `variantId`) and the ad on
-    screen (`shownAd`).
+    and its retry, the kill switch) and holds the app's inputs (`user`, `regulatory`, `variantId`).
   - `frame/`, the ad's web page and its messages: `FrameMessage` (one page message read: the
     envelope, the 1 MB limit, the fields, the playhead's bounds; `parse` is `null` for a broken envelope),
     `FrameProtocol` (the frame protocol's rules, no WebView: the sender, the frame's phase (`FramePhase`, not the
@@ -79,7 +78,8 @@ adb logcat -s KontextVideo
     `FrameWebView` (the WebView locked down), `FrameWebViewClient` (what the WebView reports of the page's loads),
     `FrameEvent` (what the page told the bridge; what the ad does with each is `VideoAd`'s, `handle`).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, which also places the page in its host, and `LinearScreen`, each in its own file),
-    `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement
+    `ScreenSlot` (the app's one ad on screen, taken at `show`, freed before `onAdEnded`; the ad keeps its
+    `AdScreen`, which holds the meter), `InlineAdView`, `AdGeometry` (the placement
     arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
     behind Compose's `VideoAdHost`), `Views` (what the SDK asks of a view: its Activity, its system insets, its first layout).
   - `measurement/`, what the viewer saw (visibility, time on screen) and the beacons that report it: `Tracker`

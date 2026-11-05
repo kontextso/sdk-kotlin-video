@@ -81,8 +81,6 @@ internal class InlineScreen(
     var onScreenClock: OnScreenTimeClock? = null
         private set
 
-    override val isInline: Boolean get() = true
-
     // The host: it has an area only where the container gives the ad room, and places the page.
     override val impressionTarget: View? get() = hostView
     override val isPlaced: Boolean get() = hostView?.hasPlacedContent ?: true
@@ -106,7 +104,8 @@ internal class InlineScreen(
      * The meter is the one answer to "is it seen": the clock counts only then, and an ad nobody can see while
      * the app is in front (a feed cell swiped away) ends and frees the slot.
      */
-    override fun configure(meter: ViewabilityMeter) {
+    override fun configure() {
+        val meter = meter ?: return
         meter.onSeen = { seen -> onScreenClock?.seenChanged(seen) }
         meter.isActive = { Environment.isAppInForeground() && hostView?.windowVisibility == View.VISIBLE }
         meter.onOffScreen = {
@@ -130,12 +129,12 @@ internal class InlineScreen(
             ad.end(EndReason.COMPLETED)
         }
         this.onScreenClock = clock
-        clock.start(isVisible = hostView?.windowVisibility == View.VISIBLE, isSeen = ad.meter?.isSeen ?: true)
+        clock.start(isVisible = hostView?.windowVisibility == View.VISIBLE, isSeen = meter?.isSeen ?: true)
         ad.contentRule.started(clock)
         hostView?.activity?.let(::followHoldingActivity)
     }
 
-    override fun tearDown(meter: ViewabilityMeter?): Long {
+    override fun tearDown(): Long {
         val activeTime = onScreenClock?.stop() ?: 0
         // The stopped clock's callback reaches the owner's playback: an ended ad an app keeps must not keep its VideoAds.
         onScreenClock?.onActivate = null
@@ -143,6 +142,7 @@ internal class InlineScreen(
         meter?.stop()
         hostView?.let { (it.parent as? ViewGroup)?.removeView(it) }
         hostView = null
+        meter = null
         return activeTime
     }
 

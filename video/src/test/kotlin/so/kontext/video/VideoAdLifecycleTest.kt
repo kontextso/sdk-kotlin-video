@@ -29,6 +29,7 @@ import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
+import so.kontext.video.internal.screen.ScreenSlot
 
 /** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
 @RunWith(RobolectricTestRunner::class)
@@ -58,7 +59,7 @@ class VideoAdLifecycleTest : SdkTest() {
         ad.listener = recorder
         ad.show(container())
         assertTrue(ad.wasShown)
-        assertSame(ad, Sdk.adOnScreen)
+        assertSame(ad, ScreenSlot.current)
         assertEquals("the impression waits for the first layout", listOf("creativeView", "iconView"), events)
         laidOut()
         assertEquals(listOf("creativeView", "iconView", "impression"), events)
@@ -85,7 +86,7 @@ class VideoAdLifecycleTest : SdkTest() {
         assertEquals(listOf("ended"), recorder.heard)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals("never drawn: no impression, so no verdict", listOf("creativeView"), events)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aVerdictFollowsOnlyAnImpression() {
@@ -144,7 +145,7 @@ class VideoAdLifecycleTest : SdkTest() {
         ad.dismiss()
         assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
         assertTrue(ad.hasEnded)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertEquals("the host left the container", 0, container.childCount)
         assertEquals(listOf("overlayViewDuration"), events)
         assertNull("the listener is let go", ad.listener)
@@ -333,7 +334,7 @@ class VideoAdLifecycleTest : SdkTest() {
         assertThrows<VideoAdException.AlreadyShown> { first.show(container) }
         first.reject() // does nothing after show
         second.show(container)
-        assertSame(second, Sdk.adOnScreen)
+        assertSame(second, ScreenSlot.current)
     }
 
     @Test fun showRefusesAContainerNotOnScreen() {
@@ -515,7 +516,7 @@ class VideoAdLifecycleTest : SdkTest() {
         )
         linear().show(activity())
         assertTrue("an ordinary Activity: nothing to say", warnings.none { "singleInstance" in it })
-        Sdk.adOnScreen?.end(VideoAd.EndReason.DISMISSED)
+        ScreenSlot.current?.end(VideoAd.EndReason.DISMISSED)
         val host = Robolectric.buildActivity(SingleInstanceActivity::class.java).setup().get()
         val ad = linear()
         ad.show(host)
@@ -573,7 +574,7 @@ class VideoAdLifecycleTest : SdkTest() {
             listOf("creativeView", "start", "impression", "firstQuartile", "midpoint", "thirdQuartile", "complete", "creativeView", "close"),
             events,
         )
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aLinearAdClosedBeforeTheEndIsSkipped() {
@@ -611,7 +612,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val screen = openScreen(ad)
         screen.pause().stop().destroy() // not the ad's doing
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aLinearShowFromAFinishingActivityIsRefused() {

@@ -15,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.content.ContentPlayback
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.screen.ScreenSlot
 
 /**
  * An overlay over a tracked player whose content pauses as the app goes to the background (an app pausing its
@@ -115,7 +115,7 @@ class ContentInBackgroundTest : SdkTest() {
         idle(tick * 2)
         assertEquals("still paused: ended as any pause", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals(0, container.childCount)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         screen.pause().stop().destroy()
     }
 

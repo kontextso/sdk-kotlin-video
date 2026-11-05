@@ -11,6 +11,7 @@ import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.ScreenSlot
 
 /**
  * The app's code runs inside the SDK's: a listener or a player read may end the ad on the spot, and whatever
@@ -49,7 +50,7 @@ class ReentryTest : SdkTest() {
         laidOut()
         assertEquals(listOf("impression", "ended DISMISSED"), heard)
         assertTrue(ad.hasEnded)
-        assertNull("the slot is free", so.kontext.video.internal.core.Sdk.adOnScreen)
+        assertNull("the slot is free", ScreenSlot.current)
         assertEquals(listOf("creativeView", "impression", "overlayViewDuration"), events)
     }
 

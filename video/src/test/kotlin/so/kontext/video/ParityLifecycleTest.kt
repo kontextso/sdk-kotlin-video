@@ -30,12 +30,12 @@ import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.LinearAdActivity
+import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.internal.screen.systemInsets
 
 /**
@@ -218,7 +218,7 @@ class ParityLifecycleTest : SdkTest() {
         assertTrue(ad.isReady)
         assertFalse(ad.wasShown)
         assertNull(ad.invalidationReason)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertEquals(0, small.childCount)
         assertTrue("nothing fired by the attempt", events.isEmpty())
         ad.show(container(320, 400))
@@ -271,7 +271,7 @@ class ParityLifecycleTest : SdkTest() {
         val below = pagerPage(container(), 0f).apply { translationY = 2_000f }
         assertThrows<VideoAdException.CannotShowNow> { strip.show(below) }
         assertTrue(fullscreen.isReady && strip.isReady && !fullscreen.wasShown && !strip.wasShown)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertTrue("nothing heard, nothing fired", recorder.heard.isEmpty() && events.isEmpty())
         // Half swiped in: on screen, shown.
         val halfway = pagerPage(container(), 160f)
@@ -621,7 +621,7 @@ class ParityLifecycleTest : SdkTest() {
         (container.parent as ViewGroup).removeView(container)
         idle(1_000)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertNull("the next show in the app is not blocked", Sdk.adOnScreen)
+        assertNull("the next show in the app is not blocked", ScreenSlot.current)
         assertEquals(listOf("overlayViewDuration"), events)
     }
 
@@ -1029,7 +1029,7 @@ class ParityLifecycleTest : SdkTest() {
         screen.pause().stop().destroy()
         idle(3_000)
         assertEquals("once, after the screen is gone", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aLinearScreenThatNeverStartsEndsTheAdAsFailedWithNothingBillable() {
@@ -1038,13 +1038,13 @@ class ParityLifecycleTest : SdkTest() {
         val ad = linear(tracking = tracking("creativeView", "impression", "start"))
         ad.listener = recorder
         ad.show(activity())
-        assertSame(ad, Sdk.adOnScreen)
+        assertSame(ad, ScreenSlot.current)
         page(ad, "video.start", """"playhead": 0""") // a page that started anyway: dropped, it was never shown
         idle(700)
         assertEquals("no impression for an ad nobody saw", listOf("failed", "ended"), recorder.heard)
         assertTrue(recorder.errors.single() is VideoAdException.CannotShowNow)
         assertTrue("nothing billable", events.isEmpty())
-        assertNull("the screen is free again", Sdk.adOnScreen)
+        assertNull("the screen is free again", ScreenSlot.current)
     }
 
     @Test fun aDestroyWhileTheLinearScreenIsUpClosesItAndEndsAsDestroyed() {
@@ -1079,7 +1079,7 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals("read once, before the show changed anything", 1, player.reads)
         assertFalse(ad.wasShown)
         assertTrue(recorder.heard.isEmpty())
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertEquals(0, container.childCount)
         assertTrue(events.isEmpty())
     }
@@ -1171,7 +1171,7 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf("impression"), firstRecorder.heard)
         assertTrue(secondRecorder.heard.isEmpty())
         assertEquals("the refused show left nothing behind", 0, other.childCount)
-        assertSame(first, Sdk.adOnScreen)
+        assertSame(first, ScreenSlot.current)
     }
 
     @Test fun aDestroyFromTheContainersAddHookEndsTheAdWithNothingLeft() {
@@ -1186,7 +1186,7 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals("no impression for an ad that ended before it was on screen", listOf("ended"), recorder.heard)
         assertEquals(listOf(VideoAd.EndReason.DESTROYED), recorder.reasons)
         assertEquals(0, container.childCount)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertTrue("no view duration for an ad never on screen: $events", events.isEmpty())
     }
 
@@ -1201,7 +1201,7 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals("committed, then ended at once, never seen", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals(listOf("ended"), recorder.heard)
         assertEquals(0, container.childCount)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertTrue("no view duration for an ad never on screen: $events", events.isEmpty())
     }
 
@@ -1257,7 +1257,7 @@ class ParityLifecycleTest : SdkTest() {
         for ((shown, _, _) in round.subjects) if (shown.wasShown && !shown.hasEnded) shown.dismiss()
         round.owner.destroy()
         round.otherOwner.destroy()
-        assertNull("$label: the slot is free afterwards", Sdk.adOnScreen)
+        assertNull("$label: the slot is free afterwards", ScreenSlot.current)
     }
 
     private fun ignoringRefusals(block: () -> Unit) {
@@ -1287,7 +1287,7 @@ class ParityLifecycleTest : SdkTest() {
     private fun checkGuarantees(label: String, round: Round) {
         val onScreen = round.subjects.map { it.first }.filter { it.wasShown && !it.hasEnded }
         assertTrue("$label: at most one ad on screen", onScreen.size <= 1)
-        Sdk.adOnScreen?.let { slot -> assertTrue("$label: the slot holds the ad on screen", onScreen.any { it === slot }) }
+        ScreenSlot.current?.let { slot -> assertTrue("$label: the slot holds the ad on screen", onScreen.any { it === slot }) }
         for ((subject, recorder, view) in round.subjects) {
             val heard = recorder.heard
             val ends = heard.count { it == "ended" }

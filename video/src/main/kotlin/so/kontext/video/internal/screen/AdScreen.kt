@@ -12,24 +12,24 @@ import java.lang.ref.WeakReference
  * measured and taken off.
  *
  * Why: an overlay or pause ad sits inline, in a view the SDK adds to the app's container; a linear ad has a
- * full-screen Activity of its own. Kept in one class per kind of screen ([InlineScreen], [LinearScreen], each in its own file), `VideoAd` and `ShownAd` ask
+ * full-screen Activity of its own. Kept in one class per kind of screen ([InlineScreen], [LinearScreen], each in its own file), `VideoAd` asks
  * "the screen" and never the format.
  *
- * How: `show` makes the screen as it reserves the slot and hands it to the ad's `ShownAd`; the ad then calls
- * it at fixed moments:
+ * How: `show` makes the screen as it reserves the slot (`ScreenSlot`) and keeps it as the ad's `screen`, which
+ * also holds the viewability meter; the ad then calls it at fixed moments:
  *
  * ```
  *                  InlineScreen                        LinearScreen
  * show             attach(host): InlineAdView into the LinearAdActivity started; its attach (these
  *                  container                           Callbacks) puts the page in it; the
  *                                                      Activity that started it followed
- * configure(meter) on-screen rule, seen → clock        covered by another Activity
+ * configure()      on-screen rule, seen → clock        covered by another Activity
  * reachedScreen()  the clock runs, the content rule    nothing: the screen's own onResume showed it
  *                  starts, the holding Activity
  *                  followed
  * end:
  *   stopFollowing() the Activity's listener removed    the same
- *   tearDown(meter) clock → meter → host view out;     meter stopped, the screen's registration
+ *   tearDown()      clock → meter → host view out;     meter stopped, the screen's registration
  *                  returns the active time             forgotten; returns 0
  *                  (overlayViewDuration)
  *   close(onGone)  nothing to wait for: false          the screen finishes; onGone once it is gone: true
@@ -42,9 +42,6 @@ internal sealed class AdScreen(
     /** The ad this screen shows. */
     val ad: VideoAd,
 ) {
-    /** An overlay's or pause ad's view in the app's container, not a screen of its own. */
-    abstract val isInline: Boolean
-
     /** The view whose first layout with an area counts an image or HTML creative's impression. */
     abstract val impressionTarget: View?
 
@@ -58,20 +55,23 @@ internal sealed class AdScreen(
      */
     var impressionWait: (() -> Unit)? = null
 
+    /** Decides `viewable` / `notViewable` and reports exposure while the ad is on screen; set when it reaches it. */
+    var meter: ViewabilityMeter? = null
+
     /** Follows the Activity the screen depends on while the ad is on screen; removed when the ad ends. */
     private var activityListener: ((Activity, AppActivities.Event) -> Unit)? = null
 
-    /** The meter's inputs and outputs that depend on where the ad is. */
-    abstract fun configure(meter: ViewabilityMeter)
+    /** The [meter]'s inputs and outputs that depend on where the ad is. */
+    abstract fun configure()
 
     /** The ad reached the screen: what runs while it is on screen starts. */
     abstract fun reachedScreen()
 
     /**
-     * The ad is ending, in this order: its clock freezes for good, [meter] stops, what it put on screen goes.
-     * Returns the active time seen on screen.
+     * The ad is ending, in this order: its clock freezes for good, [meter] stops (and goes), what it put on
+     * screen goes. Returns the active time seen on screen.
      */
-    abstract fun tearDown(meter: ViewabilityMeter?): Long
+    abstract fun tearDown(): Long
 
     /**
      * Closes what is still up. Returns `true` when the ad must wait: [onGone] then runs once the screen is gone

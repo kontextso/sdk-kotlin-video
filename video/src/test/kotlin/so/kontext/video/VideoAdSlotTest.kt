@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.internal.screen.VideoAdSlot
 
 /** The declarative slot behind `VideoAdHost`: the ad it is given is shown, replaced or dismissed. */
@@ -41,7 +41,7 @@ class VideoAdSlotTest : SdkTest() {
         laidOut()
         slot.set(null)
         assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun anotherAdReplacesTheOneShown() {

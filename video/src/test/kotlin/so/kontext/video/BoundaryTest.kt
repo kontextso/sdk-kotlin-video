@@ -60,6 +60,7 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
+import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -144,7 +145,7 @@ class BoundaryTest {
         listener().onMediaItemTransition(MediaItem.fromUri("https://media.test/next.mp4"), Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
         listener().onEvents(player, events(Player.EVENT_MEDIA_ITEM_TRANSITION))
         assertTrue(ad.hasEnded)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aPauseAndAResumeInOneEventBatchStillEndTheOverlay() {
@@ -408,13 +409,13 @@ class BoundaryTest {
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1_500))
         assertTrue(ad.hasEnded)
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertEquals(listOf(VideoAd.EndReason.FAILED), reasons)
         // The screen comes to the front after all, then goes: the ad ended once and stays ended.
         screen.resume().pause().stop().destroy()
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(3_000))
         assertEquals(listOf(VideoAd.EndReason.FAILED), reasons)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aLinearScreenThatNeverClosesIsReportedAtTheCapAndOnAdEndedComesOnce() {
@@ -445,7 +446,7 @@ class BoundaryTest {
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2_000))
         assertEquals("once", listOf(VideoAd.EndReason.CLOSED), reasons)
         assertEquals("reported once", 1, so.kontext.video.internal.diagnostics.ErrorReporter.bufferedCodes.size)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         next.show(host)
         assertTrue(next.wasShown)
     }
@@ -467,7 +468,7 @@ class BoundaryTest {
         assertTrue("not at the pause", reasons.isEmpty())
         screen.stop() // the system may hold the destroy back for seconds; the stop is the screen gone
         assertEquals(listOf(VideoAd.EndReason.SKIPPED), reasons)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         screen.destroy()
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(VideoAd.dismissalTimeoutMillis + 1_000))
         assertEquals("once, and no watchdog report", listOf(VideoAd.EndReason.SKIPPED), reasons)

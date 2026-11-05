@@ -15,7 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.KontextVideo.Content
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.media3.track
 import androidx.media3.common.Player as Media3Player
 
@@ -89,7 +89,7 @@ class VideoAdEpisodeTest : SdkTest() {
         expectContentChanged(overlay, container, "the player plays episode B now")
         expectContentChanged(pause, container, "a pause ad too")
         assertTrue("no beacon", beacons.isEmpty())
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         // Episode A tracks a player again: its ads can be shown again.
         episodeA.track(player)
         assertFalse(episodeB.playback.isTracking)
@@ -109,7 +109,7 @@ class VideoAdEpisodeTest : SdkTest() {
         overlay.show(container())
         owner(Content("ep-b2", "en")).track(player)
         assertEquals("as for another item", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun anItemReportedChangedOnTheSamePlayerMakesShowThrow() {

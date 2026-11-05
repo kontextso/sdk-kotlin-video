@@ -43,7 +43,7 @@ import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.InlineScreen
 import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.screen.LinearScreen
-import so.kontext.video.internal.screen.ShownAd
+import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.internal.screen.activity
 import so.kontext.video.internal.screen.awaitLayout
 import so.kontext.video.internal.screen.systemInsets
@@ -65,7 +65,7 @@ public class VideoAd internal constructor(
     // Format differences live in two places, not in branches here:
     // - how the ad follows the content under it: its ContentRule (OverlayRule, PauseRule, NoContentRule), made
     //   once from the format;
-    // - where it is shown: its ShownAd's AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
+    // - where it is shown: its AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
     //   a linear ad), made by show.
     // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
     // and a close before `complete` being a skip (closeByPage). A full-screen pause ad is a placement of the
@@ -126,16 +126,21 @@ public class VideoAd internal constructor(
     private var loading: Deferred<Unit>? = null
     private var loadSignal: CompletableDeferred<Unit>? = null
 
-    /** The ad on screen, from `show` to `onAdEnded`: the slot, the screen (see [AdScreen]), the meter. */
-    internal var shownAd: ShownAd? = null
+    /**
+     * Where the ad is shown, from `show` to `onAdEnded` (see [AdScreen]): inline in the app's container, or its
+     * own Activity; it holds the meter. The app's one slot is [ScreenSlot]'s.
+     */
+    internal var screen: AdScreen? = null
         private set
-    private val hostView: InlineAdView? get() = shownAd?.hostView
-    internal val linearCallbacks: LinearAdActivity.Callbacks? get() = shownAd?.linearCallbacks
+    private val hostView: InlineAdView? get() = (screen as? InlineScreen)?.hostView
+
+    /** The registration that hands a linear ad to its Activity. */
+    internal val linearCallbacks: LinearAdActivity.Callbacks? get() = screen as? LinearScreen
 
     /** Every fact of the ad's life (see [AdState]): every public flag above reads from it, live. */
     internal val state = AdState()
-    internal val meter: ViewabilityMeter? get() = shownAd?.meter
-    internal val onScreenClock: OnScreenTimeClock? get() = shownAd?.onScreenClock
+    internal val meter: ViewabilityMeter? get() = screen?.meter
+    internal val onScreenClock: OnScreenTimeClock? get() = (screen as? InlineScreen)?.onScreenClock
 
     /** How the ad follows the content under it, by format: see [ContentRule]. */
     internal val contentRule: ContentRule = ContentRule.of(this)
@@ -530,12 +535,12 @@ public class VideoAd internal constructor(
     private fun checkShowable() {
         // The app code a show runs before its checks: an ad on screen over content that no longer fits it ends
         // (its `onAdEnded`; another ad, see ContentRule.endIfContentStopped), and the player is read.
-        if (!wasShown) Sdk.adOnScreen?.contentRule?.endIfContentStopped()
+        if (!wasShown) ScreenSlot.current?.contentRule?.endIfContentStopped()
         val contentPaused = contentRule.refusesShow()
         if (wasShown) throw VideoAdException.AlreadyShown()
         checkUsable()
         checkEpisode()
-        if (Sdk.adOnScreen != null) throw VideoAdException.AnotherAdShowing()
+        if (ScreenSlot.current != null) throw VideoAdException.AnotherAdShowing()
         if (!isLoaded) throw VideoAdException.NotLoaded()
         if (contentPaused) throw VideoAdException.ContentPaused()
     }
@@ -560,7 +565,8 @@ public class VideoAd internal constructor(
 
     private fun reserve(screen: AdScreen) {
         state.moveTo(Phase.Reserved)
-        shownAd = ShownAd.begin(this, owner.get(), screen)
+        ScreenSlot.take(this, owner.get())
+        this.screen = screen
     }
 
     /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */
@@ -579,17 +585,17 @@ public class VideoAd internal constructor(
             bridge.useApplicationContext()
         }
         if (!state.moveTo(Phase.Offered)) return
-        shownAd?.cancel(wasHeld)
-        shownAd = null
+        if (this.screen != null) ScreenSlot.cancel(this, wasHeld)
+        this.screen = null
     }
 
     /** The creative reached the screen: the page shows, the meter starts, and the beacons of `ad.show` fire. */
     internal fun reachedScreen(): Unit = withContentPlayhead {
         if (!state.moveTo(Phase.OnScreen)) return@withContentPlayhead
-        loadedBridge?.show((shownAd?.screen as? InlineScreen)?.chosenSize)
+        loadedBridge?.show((screen as? InlineScreen)?.chosenSize)
         Logger.info { "ad ${id.take(8)}: shown" }
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
-        val screen = shownAd?.screen
+        val screen = this.screen
         startMeter()
         // Inline: the clock, the content rule and the holding Activity start (see InlineScreen.reachedScreen).
         screen?.reachedScreen()
@@ -611,9 +617,9 @@ public class VideoAd internal constructor(
      */
     private fun recordImpressionAtLayout() {
         // Inline, the host: it has an area only where the container gives the ad room, and places the page.
-        val screen = shownAd?.screen
+        val screen = this.screen
         val view = screen?.impressionTarget ?: loadedBridge?.webView ?: return
-        val isInline = screen?.isInline == true
+        val isInline = screen is InlineScreen
         val wait = view.awaitLayout(isReady = { screen?.isPlaced ?: true }) {
             screen?.impressionWait = null
             val page = loadedBridge?.webView
@@ -812,8 +818,8 @@ public class VideoAd internal constructor(
             }
         }
         // What depends on where the ad is: inline, the clock and the off-screen rule; linear, a screen over it.
-        shownAd?.screen?.configure(meter)
-        shownAd?.meter = meter
+        screen?.meter = meter
+        screen?.configure()
         meter.start()
     }
 
@@ -837,28 +843,28 @@ public class VideoAd internal constructor(
     //  2. timers: the content rule's return check (ContentRule.cancel, from endNow);
     //  3. waiters: the first-layout wait (AdScreen.stopWaitingForImpression, from endNow);
     //  4. clock and meter: the clock and its onActivate, then the viewability meter (AdScreen.tearDown, from
-    //     ShownAd.tearDown);
+    //     endNow);
     //  5. renderer: the host view (AdScreen.tearDown) and the page (hidden, released; endNow);
     //  6. the linear screen's callbacks: LinearAdActivity.forget (AdScreen.tearDown), the linear screen closed
-    //     (AdScreen.close, from endNow), the ShownAd and its screen dropped (finish);
+    //     (AdScreen.close, from endNow), the screen dropped (finish);
     //  7. context: the WebView's context back to the application's (FrameBridge.useApplicationContext, from finish);
-    //  8. the app-wide on-screen slot, Sdk.shownAd (ShownAd.release);
-    //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (ShownAd.release);
+    //  8. the app-wide on-screen slot (ScreenSlot.release, from finish);
+    //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (ScreenSlot.release);
     // 10. listener: dropped just before onAdEnded, the last call (finish).
     private fun endNow(reason: EndReason) {
         if (!state.moveTo(Phase.Ending(reason))) return
-        shownAd?.screen?.stopFollowing()
+        screen?.stopFollowing()
         contentRule.cancel()
-        shownAd?.screen?.stopWaitingForImpression()
+        screen?.stopWaitingForImpression()
         if (reason == EndReason.FAILED) state.failure?.let { listener?.onAdFailed(this, it) }
-        val isInline = shownAd?.screen?.isInline == true
+        val isInline = screen is InlineScreen
         // `[KONTEXT_VIEWDURATION]` is the active time, not the wall clock.
-        val activeTime = shownAd?.tearDown() ?: 0
+        val activeTime = screen?.tearDown() ?: 0
         val bridge = loadedBridge
         bridge?.hide()
         loadedBridge = null
         // A linear ad's screen still up closes, and `onAdEnded` waits for it to be gone (LinearScreen.close).
-        val dismissing = shownAd?.screen?.close { finish(reason, bridge) } ?: false
+        val dismissing = screen?.close { finish(reason, bridge) } ?: false
         fireEndBeacons(reason, activeTime, isInline)
         Logger.info { "ad ${id.take(8)}: ended ($reason)" }
         DebugReporter.event("ad.ended", adId = id, state = mapOf("reason" to reason.name.lowercase()))
@@ -878,10 +884,10 @@ public class VideoAd internal constructor(
     /** [bridge]: the page the ad ended with, whose WebView goes back to the application's context. */
     private fun finish(reason: EndReason, bridge: FrameBridge?) {
         if (!state.moveTo(Phase.Ended(reason))) return
-        // An ended ad keeps its facts, not its ShownAd: an app that holds it holds no Activity or WebView.
+        // An ended ad keeps its facts, not its screen: an app that holds it holds no Activity or WebView.
         bridge?.useApplicationContext()
-        shownAd?.release()
-        shownAd = null
+        if (screen != null) ScreenSlot.release(this)
+        screen = null
         val listener = listener
         // The ad lets its listener go: an Activity held there must not outlive the ad.
         this.listener = null

@@ -48,7 +48,7 @@ internal class OverlayRule(private val ad: VideoAd) : ContentRule() {
     private val isAway: Boolean
         get() {
             if (!Environment.isAppInForeground()) return true
-            val holder = (ad.shownAd?.screen as? InlineScreen)?.holdingActivity?.get() ?: return false
+            val holder = (ad.screen as? InlineScreen)?.holdingActivity?.get() ?: return false
             return AppActivities.isResumed(holder) == false && !AppActivities.hasResumedActivity
         }
 

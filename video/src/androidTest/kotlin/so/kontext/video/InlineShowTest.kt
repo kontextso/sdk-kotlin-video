@@ -26,6 +26,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.ScreenSlot
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -95,7 +96,7 @@ class InlineShowTest {
                 assertTrue("the neighbour page", refused(ad, neighbour))
                 assertTrue("a ScrollView that has its child", refused(ad, scroll))
                 assertTrue(ad.isReady && !ad.wasShown)
-                assertNull(Sdk.adOnScreen)
+                assertNull(ScreenSlot.current)
                 ad.show(visible)
                 assertTrue(ad.wasShown)
                 owner.destroy()

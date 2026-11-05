@@ -18,12 +18,12 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
+import so.kontext.video.internal.screen.ScreenSlot
 
 /** Whether the app, and the Activity a linear ad starts from, are in front: what the clocks and `show(activity)` read. */
 @RunWith(RobolectricTestRunner::class)
@@ -120,7 +120,7 @@ class InFrontTest : SdkTest() {
         }
         assertTrue("the ad stays ready", ad.isReady)
         assertFalse("nothing spent", ad.wasShown)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
         assertNull("no screen starts", shadowOf(app).nextStartedActivity)
     }
 

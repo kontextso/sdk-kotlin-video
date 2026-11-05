@@ -12,12 +12,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.ScreenSlot
 
 /** What a hostile page, a refusing system or an app that keeps its ads must not break. */
 @RunWith(RobolectricTestRunner::class)
@@ -88,7 +88,7 @@ class HardeningTest : SdkTest() {
                 assertTrue("$what: $error", error is VideoAdException.CannotShowNow)
             }
             assertTrue("$what: the ad stays ready", ad.isReady && !ad.wasShown)
-            assertNull("$what: the slot is free", Sdk.adOnScreen)
+            assertNull("$what: the slot is free", ScreenSlot.current)
             assertEquals("$what: the owner holds it again", ad, owner.ads[AdFormat.OVERLAY])
             assertEquals("$what: nothing left in the container", children, refusing.childCount)
             assertTrue("$what: nothing fired, nothing heard", events.isEmpty() && recorder.heard.isEmpty())
@@ -133,7 +133,7 @@ class HardeningTest : SdkTest() {
             assertEquals(listOf(VideoAd.EndReason.FAILED), recorder.reasons)
             assertTrue(recorder.errors.single() is VideoAdException.CannotShowNow)
             assertTrue("no impression", "impression" !in events)
-            assertNull("the slot is free", Sdk.adOnScreen)
+            assertNull("the slot is free", ScreenSlot.current)
             idle(VideoAd.showTimeoutMillis + 1_000)
             assertEquals("exactly one outcome", 1, recorder.reasons.size)
             ErrorReporter.resetForTesting()

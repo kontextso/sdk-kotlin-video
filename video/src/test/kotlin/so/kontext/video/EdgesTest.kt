@@ -44,7 +44,7 @@ class EdgesTest : SdkTest() {
         fun chosen(widthDp: Int, vararg sizes: String): AdPayload.Size? {
             val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.overlay(sizes = sizes.joinToString(prefix = "[", postfix = "]")))), owner())
             ad.show(container((widthDp * density).toInt(), (300 * density).toInt()))
-            return (ad.shownAd!!.screen as InlineScreen).chosenSize.also { ad.dismiss() }
+            return (ad.screen!! as InlineScreen).chosenSize.also { ad.dismiss() }
         }
         assertEquals(AdPayload.Size(300, 60), chosen(320, """{"width": 160, "height": 40}""", """{"width": 300, "height": 60}"""))
         assertEquals("one that fits beats a bigger one shrunk", AdPayload.Size(300, 60), chosen(320, """{"width": 400, "height": 100}""", """{"width": 300, "height": 60}"""))

@@ -22,11 +22,11 @@ import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.content.ContentPlayback
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.ScreenSlot
 
 /** What the other suites leave: the full request body, the payload's last refusals, the content rules' paths. */
 @RunWith(RobolectricTestRunner::class)
@@ -239,7 +239,7 @@ class GapsTest : SdkTest() {
         } catch (error: VideoAdException) {
             assertTrue("$error", error is VideoAdException.CannotShowNow)
         }
-        assertNull("the slot is free", Sdk.adOnScreen)
+        assertNull("the slot is free", ScreenSlot.current)
         assertTrue("the ad stays ready", ad.isReady && !ad.wasShown)
         assertEquals("the owner holds it again", ad, owner.ads[AdFormat.PAUSE])
         assertEquals(0, refusing.childCount)

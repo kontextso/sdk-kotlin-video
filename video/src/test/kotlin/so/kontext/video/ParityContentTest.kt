@@ -19,10 +19,10 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.content.ContentTimeClock
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
+import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.media3.track
 import java.lang.ref.WeakReference
 import androidx.media3.common.Player as Media3Player
@@ -134,7 +134,7 @@ class ParityContentTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals(0, container.childCount)
         assertFalse(ad.isCompleted)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun showOverPausedContentThrowsWithNothingHeardAndWorksOnceItPlays() {
@@ -165,7 +165,7 @@ class ParityContentTest : SdkTest() {
         overlay.show(container)
         assertThrows<VideoAdException.AnotherAdShowing> { pause.show(container) }
         assertFalse(overlay.hasEnded)
-        assertSame(overlay, Sdk.adOnScreen)
+        assertSame(overlay, ScreenSlot.current)
         overlay.dismiss()
     }
 
@@ -417,7 +417,7 @@ class ParityContentTest : SdkTest() {
         assertFalse(pause.wasShown)
         assertTrue(pauseRecorder.heard.isEmpty())
         assertEquals(0, container.childCount)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aPlayingReadThatDestroysTheOwnerStopsTheShow() {
@@ -460,9 +460,9 @@ class ParityContentTest : SdkTest() {
         assertThrows<VideoAdException.AlreadyShown> { pause.show(container) }
         assertTrue(pause.hasEnded)
         assertEquals(listOf(VideoAd.EndReason.DISMISSED), pauseRecorder.reasons)
-        assertNull("an ended ad never takes the slot again", Sdk.adOnScreen)
+        assertNull("an ended ad never takes the slot again", ScreenSlot.current)
         pauseOwner.destroy()
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aDestroyInTheOverlaysEndWhileTrackingAnotherPlayerLeavesNothingListening() {
@@ -581,7 +581,7 @@ class ParityContentTest : SdkTest() {
         player.listeners.toList().forEach { it.onIsPlayingChanged(true) }
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals(0, container.childCount)
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun aPauseAdEndsWhenTheNextPageOfAFeedTakesThePlayer() {
@@ -598,7 +598,7 @@ class ParityContentTest : SdkTest() {
         player.listeners.toList().forEach { it.onIsPlayingChanged(true) }
         idle(tick * 4)
         assertEquals("its episode is gone from the player", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertNull("the next page's ad can show", Sdk.adOnScreen)
+        assertNull("the next page's ad can show", ScreenSlot.current)
     }
 
     @Test fun aPauseAdOverAPlayerWithoutAListenerEndsOnTheTickThatSeesItPlay() {
@@ -678,7 +678,7 @@ class ParityContentTest : SdkTest() {
         media3.playWhenReady = true
         media3.listener.captured.onPlayWhenReadyChanged(false, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
         assertTrue("the queued pause ended the overlay", overlay.hasEnded)
-        assertSame(pause, Sdk.adOnScreen)
+        assertSame(pause, ScreenSlot.current)
         media3.listener.captured.onPlayWhenReadyChanged(true, Media3Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
         assertTrue("the queued resume came before any pause of the pause ad: it stays", pauseRecorder.reasons.isEmpty())
         media3.playWhenReady = false
@@ -709,7 +709,7 @@ class ParityContentTest : SdkTest() {
         overlay.show(container)
         assertEquals("the pause ad over playing content ended first", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertTrue(overlay.wasShown)
-        assertSame(overlay, Sdk.adOnScreen)
+        assertSame(overlay, ScreenSlot.current)
         overlay.dismiss()
     }
 

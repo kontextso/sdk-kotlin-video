@@ -13,7 +13,6 @@ import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.AdLifecycle
@@ -30,7 +29,6 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     /** What the ad runs once its closing screen is gone. */
     private var onGone: (() -> Unit)? = null
 
-    override val isInline: Boolean get() = false
     override val impressionTarget: View? get() = ad.loadedBridge?.webView
     override val isPlaced: Boolean get() = true
 
@@ -60,8 +58,8 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
 
     // Another Activity over the screen leaves its view in a visible window, measured whole there. No
     // off-screen rule: a sheet over it after a click is the viewer's own doing.
-    override fun configure(meter: ViewabilityMeter) {
-        meter.isCovered = { activity?.isCovered == true }
+    override fun configure() {
+        meter?.isCovered = { activity?.isCovered == true }
     }
 
     override fun reachedScreen() = Unit
@@ -79,9 +77,10 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
         }
     }
 
-    override fun tearDown(meter: ViewabilityMeter?): Long {
+    override fun tearDown(): Long {
         meter?.stop()
         LinearAdActivity.forget(this)
+        meter = null
         return 0
     }
 

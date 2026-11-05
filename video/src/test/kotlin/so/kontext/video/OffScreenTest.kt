@@ -10,9 +10,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.util.ReflectionHelpers
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.ScreenSlot
 
 /**
  * The meter is the one answer to "is it seen": an overlay or pause ad scrolled or paged out of view while its
@@ -66,7 +66,7 @@ class OffScreenTest : SdkTest() {
         container.translationX = 10_000f
         ticks(ad, 1_100)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
-        assertNull("the slot is free for the next episode's ad", Sdk.adOnScreen)
+        assertNull("the slot is free for the next episode's ad", ScreenSlot.current)
     }
 
     @Test fun anAdWhollyOffScreenWhereItIsPlacedIsNeverCounted() {
@@ -85,7 +85,7 @@ class OffScreenTest : SdkTest() {
         laidOut()
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertFalse("no impression for an ad nobody could see", recorder.heard.contains("impression"))
-        assertNull(Sdk.adOnScreen)
+        assertNull(ScreenSlot.current)
     }
 
     @Test fun inTheBackgroundAnUnseenAdOnlyFreezes() {
