@@ -5,17 +5,13 @@ import android.graphics.Rect
 import android.view.ViewGroup
 import androidx.annotation.MainThread
 import androidx.core.graphics.Insets
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.content.ContentRule
 import so.kontext.video.internal.content.ContentTimeClock
@@ -32,7 +28,6 @@ import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.platform.LinkOpener
 import so.kontext.video.internal.screen.AdScreen
@@ -371,20 +366,6 @@ public class VideoAd internal constructor(
     }
 
     /**
-     * Whether [activity] is visible to the viewer: started, resumed or not, and not in picture-in-picture.
-     * Started is enough: Android starts a screen from `onStart`, a result or permission callback or
-     * `onNewIntent` (all before `onResume`), and it comes in front. The tracker knows from the Activity's first
-     * event; one it has not seen falls back to the Activity's own lifecycle, else is assumed visible (the
-     * show timeout still catches a screen that never comes).
-     */
-    private fun isVisibleToViewer(activity: Activity): Boolean {
-        if (activity.isInPictureInPictureMode) return false
-        return AppActivities.isStarted(activity)
-            ?: (activity as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED)
-            ?: true
-    }
-
-    /**
      * Shows a linear ad full screen, in the SDK's own Activity started from [activity]. Either it throws, and
      * nothing happened, or it was accepted and `onAdEnded` follows, at the latest once the screen is gone.
      * Throws as `show(container)` does; `CannotShowNow` for an Activity that is finishing, destroyed, stopped (not
@@ -405,51 +386,14 @@ public class VideoAd internal constructor(
             throw VideoAdException.WrongShowMethod()
         }
         checkShowable()
-        if (activity.isFinishing || activity.isDestroyed) {
-            Logger.warning { "ad ${id.take(8)}: cannot show, the Activity is finishing" }
-            throw VideoAdException.CannotShowNow()
-        }
-        // The system would not start the screen from there (or not where the viewer sees it), and the bid
-        // would be spent on a screen that never comes: refused while the ad is still usable.
-        if (!isVisibleToViewer(activity)) {
-            Logger.warning { "ad ${id.take(8)}: cannot show, the Activity is not visible (stopped, or in picture-in-picture)" }
-            throw VideoAdException.CannotShowNow()
-        }
+        // 1. The Activity must be able to start the screen, before anything changes: the ad stays ready otherwise.
+        LinearScreen.checkCanStartFrom(activity, id)
+        // 2. Reserved, then the screen starts, watched until it comes.
         val bridge = shownBridge()
         val screen = LinearScreen(this, bridge)
         reserve(screen)
         if (hasEnded) return
-        screen.followStartingActivity(activity)
-        // Any launch that throws (the Activity stripped from the merged manifest, a refused start, an app's own
-        // startActivity override or a system state that throws something else) is the same failure.
-        val started = try {
-            LinearAdActivity.start(activity, screen)
-            true
-        } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
-            Logger.error { "ad ${id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
-            false
-        }
-        // A screen that never starts (the system refused it, or the launch threw) must not hold the slot
-        // forever. A launch that threw takes the same path at once, after show returns, as Swift's refused
-        // show does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED). On the
-        // SDK's own scope when the owner is gone, so the slot is freed whatever holds the ad.
-        (owner.get()?.scope ?: Environment.scope).launch {
-            if (started) delay(showTimeoutMillis) else yield()
-            // On screen, not merely created: a screen that attached but never came to the front (started, never
-            // resumed) would otherwise hold the slot for good.
-            if (hasEnded || state.wasOnScreen) return@launch
-            val what = if (screen.activity == null) "did not start" else "never came to the front"
-            Logger.error { "ad ${id.take(8)}: the linear ad's screen $what; ended as failed" }
-            LinearAdActivity.forget(screen)
-            ErrorReporter.report(
-                ErrorReport.Code.PRESENTATION_FAILED,
-                ErrorReport.Stage.PRESENTATION,
-                sessionId = owner.get()?.sessionId,
-                adId = id,
-                recovery = ErrorReport.Recovery.AD_ENDED_FAILED,
-            )
-            fail(VideoAdException.CannotShowNow())
-        }
+        screen.start(activity)
     }
 
     /**

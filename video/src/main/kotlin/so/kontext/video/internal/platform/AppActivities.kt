@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.os.Bundle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
@@ -56,6 +58,20 @@ internal object AppActivities : Application.ActivityLifecycleCallbacks {
         started.containsKey(activity) -> true
         resumed.containsKey(activity) -> false
         else -> null
+    }
+
+    /**
+     * Whether [activity] is visible to the viewer: started, resumed or not, and not in picture-in-picture.
+     * Started is enough: Android starts a screen from `onStart`, a result or permission callback or
+     * `onNewIntent` (all before `onResume`), and it comes in front. Known from the Activity's first event; one
+     * not seen yet falls back to the Activity's own lifecycle, else is assumed visible (a linear ad's show
+     * timeout still catches a screen that never comes).
+     */
+    fun isVisibleToViewer(activity: Activity): Boolean {
+        if (activity.isInPictureInPictureMode) return false
+        return isStarted(activity)
+            ?: (activity as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED)
+            ?: true
     }
 
     fun register(application: Application, isProcessVisible: () -> Boolean = ::isProcessVisible) {

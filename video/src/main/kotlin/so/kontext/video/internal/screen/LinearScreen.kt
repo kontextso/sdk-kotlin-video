@@ -6,8 +6,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
+import so.kontext.video.VideoAdException
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
@@ -124,5 +126,60 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
             recovery = ErrorReport.Recovery.DID_END_DELIVERED,
         )
         onGone()
+    }
+
+    /**
+     * Starts the screen from [starter], which it follows from now on. Any launch that throws (the Activity
+     * stripped from the merged manifest, a refused start, an app's own startActivity override or a system state
+     * that throws something else) is the same failure. A screen that never starts (the system refused it, or the
+     * launch threw) must not hold the slot forever: a watchdog ends the ad, failed, once [VideoAd.showTimeoutMillis]
+     * passed with no screen in front. A launch that threw takes the same path at once, after show returns, as
+     * Swift's refused show does: show was accepted, so the ad ends with onAdFailed and onAdEnded(FAILED). On the
+     * SDK's own scope when the owner is gone, so the slot is freed whatever holds the ad.
+     */
+    fun start(starter: Activity) {
+        followStartingActivity(starter)
+        val started = try {
+            LinearAdActivity.start(starter, this)
+            true
+        } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
+            Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen could not start (${error.javaClass.simpleName})" }
+            false
+        }
+        (ad.owner.get()?.scope ?: Environment.scope).launch {
+            if (started) delay(VideoAd.showTimeoutMillis) else yield()
+            // On screen, not merely created: a screen that attached but never came to the front (started, never
+            // resumed) would otherwise hold the slot for good.
+            if (ad.hasEnded || ad.state.wasOnScreen) return@launch
+            val what = if (activity == null) "did not start" else "never came to the front"
+            Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen $what; ended as failed" }
+            LinearAdActivity.forget(this@LinearScreen)
+            ErrorReporter.report(
+                ErrorReport.Code.PRESENTATION_FAILED,
+                ErrorReport.Stage.PRESENTATION,
+                sessionId = ad.owner.get()?.sessionId,
+                adId = ad.id,
+                recovery = ErrorReport.Recovery.AD_ENDED_FAILED,
+            )
+            ad.fail(VideoAdException.CannotShowNow())
+        }
+    }
+
+    companion object {
+        /**
+         * Throws `CannotShowNow`, nothing changed, when [activity] cannot start the screen: it is finishing or
+         * destroyed, or not visible (stopped, or in picture-in-picture). The system would not start the screen
+         * from there (or not where the viewer sees it), and the bid would be spent on a screen that never comes.
+         */
+        fun checkCanStartFrom(activity: Activity, adId: String) {
+            if (activity.isFinishing || activity.isDestroyed) {
+                Logger.warning { "ad ${adId.take(8)}: cannot show, the Activity is finishing" }
+                throw VideoAdException.CannotShowNow()
+            }
+            if (!AppActivities.isVisibleToViewer(activity)) {
+                Logger.warning { "ad ${adId.take(8)}: cannot show, the Activity is not visible (stopped, or in picture-in-picture)" }
+                throw VideoAdException.CannotShowNow()
+            }
+        }
     }
 }
