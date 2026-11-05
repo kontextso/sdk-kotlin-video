@@ -12,7 +12,7 @@ import so.kontext.video.internal.diagnostics.Logger
 
 /**
  * The SDK's client of the ad's WebView: what the WebView reports about the page's loads, turned into the bridge's
- * terms. It decides nothing itself: a navigation is decided by the rules ([navigationDecision]), and each failure
+ * terms. It decides nothing itself: a navigation is decided by the rules (`FrameNavigation`, through [navigationDecision]), and each failure
  * goes back to `FrameBridge`, which ends the page.
  *
  * ```
@@ -28,7 +28,7 @@ internal class FrameWebViewClient(
     /** Where the page is now. */
     private val phase: () -> FramePhase,
     /** What a top-level navigation may do: (target, isMainFrame, the page's current URL). */
-    private val navigationDecision: (String, Boolean, String?) -> FrameProtocol.NavigationDecision,
+    private val navigationDecision: (String, Boolean, String?) -> FrameNavigation.NavigationDecision,
     /** A navigation out of the page's origin. */
     private val onExternalLink: (String) -> Unit,
     /** The page replaced itself after it was ready. */
@@ -41,12 +41,12 @@ internal class FrameWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val target = request.url.toString()
         return when (navigationDecision(target, request.isForMainFrame, view.url)) {
-            FrameProtocol.NavigationDecision.ALLOW -> false
-            FrameProtocol.NavigationDecision.CANCEL -> {
+            FrameNavigation.NavigationDecision.ALLOW -> false
+            FrameNavigation.NavigationDecision.CANCEL -> {
                 Logger.warning { "frame ${adId.take(8)}: the page tried to replace itself after it was ready; refused" }
                 true
             }
-            FrameProtocol.NavigationDecision.EXTERNAL -> {
+            FrameNavigation.NavigationDecision.EXTERNAL -> {
                 onExternalLink(target)
                 true
             }

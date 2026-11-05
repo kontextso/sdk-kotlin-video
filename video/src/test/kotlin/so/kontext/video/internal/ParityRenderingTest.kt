@@ -25,9 +25,10 @@ import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameNavigation
 import so.kontext.video.internal.frame.FramePhase
-import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.Origin
+import so.kontext.video.internal.frame.TouchGate
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
@@ -162,38 +163,38 @@ class ParityRenderingTest : SdkTest() {
     @Test fun aRedirectWithTheExplicitDefaultPortIsTheSameOrigin() {
         val bridge = bridge()
         val decide = { target: String -> bridge.navigationDecision(target, true, null) }
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, decide("https://frames.test:443/v2/frame/ad-1/next"))
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, decide("https://frames.test/other"))
-        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, decide("https://frames.test:8443/v2/frame/ad-1"))
-        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, decide("http://frames.test/v2/frame/ad-1"))
-        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, decide("https://evil.test/v2/frame/ad-1"))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, decide("https://frames.test:443/v2/frame/ad-1/next"))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, decide("https://frames.test/other"))
+        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, decide("https://frames.test:8443/v2/frame/ad-1"))
+        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, decide("http://frames.test/v2/frame/ad-1"))
+        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, decide("https://evil.test/v2/frame/ad-1"))
         val local = bridge(at = "http://localhost:5175/frame/ad-1")
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, local.navigationDecision("http://localhost:5175/x", true, null))
-        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, local.navigationDecision("http://localhost/x", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, local.navigationDecision("http://localhost:5175/x", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, local.navigationDecision("http://localhost/x", true, null))
     }
 
     @Test fun aTouchTooLongAgoAuthorizesNothing() {
         val bridge = bridge().shown()
         bridge.noteTouch()
-        now += FrameProtocol.TOUCH_WINDOW_MILLIS + 500
+        now += TouchGate.TOUCH_WINDOW_MILLIS + 500
         bridge.send("ad.click", "\"url\": \"https://brand.test\"")
         bridge.navigate("https://brand.test")
         assertTrue("an expired touch opens nothing", received.isEmpty())
         bridge.noteTouch()
-        now += FrameProtocol.TOUCH_WINDOW_MILLIS - 100
+        now += TouchGate.TOUCH_WINDOW_MILLIS - 100
         bridge.send("ad.click", "\"url\": \"https://brand.test\"")
         assertEquals("a touch within the window still does", 1, received.size)
     }
 
     @Test fun whileLoadingABlankPageGoesThroughAndOnceReadyTheSameFragmentStays() {
         val bridge = bridge()
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("about:blank", true, url))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("about:blank", true, url))
         bridge.shown()
         val anchored = "$url#endcard"
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision(anchored, true, anchored))
-        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision(url, true, url))
-        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, url))
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://anything.test/creative", false, url))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision(anchored, true, anchored))
+        assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision(url, true, url))
+        assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, url))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("https://anything.test/creative", false, url))
     }
 
     @Test fun anOpenCarriesAnUnfamiliarPurposeUnchanged() {

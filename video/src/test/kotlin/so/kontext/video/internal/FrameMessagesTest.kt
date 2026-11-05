@@ -15,9 +15,10 @@ import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameNavigation
 import so.kontext.video.internal.frame.FramePhase
-import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.Origin
+import so.kontext.video.internal.frame.TouchGate
 import so.kontext.video.internal.platform.Environment
 import java.time.Duration
 
@@ -145,7 +146,7 @@ class FrameMessagesTest {
         send("ad.click", "\"url\": \"https://brand.test\"")
         assertEquals("the touch was spent", 1, events.size)
         bridge.noteTouch()
-        now += FrameProtocol.TOUCH_WINDOW_MILLIS + 1
+        now += TouchGate.TOUCH_WINDOW_MILLIS + 1
         send("ad.open", "\"url\": \"https://brand.test/why\"")
         assertEquals("a touch too long ago", 1, events.size)
         bridge.noteTouch()
@@ -248,9 +249,9 @@ class FrameMessagesTest {
 
     @Test fun anInDocumentMoveStaysAndAnyOtherNavigationIsDecidedByOrigin() {
         shown()
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("$url#step2", true, url))
-        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision("https://frames.test/other#a", true, url))
-        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, null))
-        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test/#a", true, url))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("$url#step2", true, url))
+        assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision("https://frames.test/other#a", true, url))
+        assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision("about:blank", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test/#a", true, url))
     }
 }

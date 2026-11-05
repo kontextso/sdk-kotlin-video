@@ -64,7 +64,10 @@ internal class FrameBridge(
     val webView = FrameWebView(contextWrapper)
 
     /** The frame protocol's rules and state for this page. */
-    private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, Origin::of, LinkOpener::isAllowed)
+    private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, LinkOpener::isAllowed)
+
+    /** Where the page may navigate, and when leaving is a click; it spends the same touches as the protocol. */
+    private val navigation = FrameNavigation(protocol.origin, Origin::of, LinkOpener::isAllowed, protocol.touchGate) { protocol.state }
 
     /** Where the page is, as the protocol says. */
     val state: FramePhase get() = protocol.state
@@ -209,14 +212,14 @@ internal class FrameBridge(
         execute(protocol.accept(raw, sender, isMainFrame, Environment.now()))
     }
 
-    /** The viewer touched the WebView; a URL may be opened for [FrameProtocol.TOUCH_WINDOW_MILLIS]. */
+    /** The viewer touched the WebView; a URL may be opened for [TouchGate.TOUCH_WINDOW_MILLIS]. */
     fun noteTouch() {
-        protocol.noteTouch(Environment.now())
+        protocol.touchGate.noteTouch(Environment.now())
     }
 
-    /** What a top-level navigation may do (see [FrameProtocol.navigationDecision]). */
-    fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): FrameProtocol.NavigationDecision =
-        protocol.navigationDecision(target, isMainFrame, current)
+    /** What a top-level navigation may do (see [FrameNavigation.navigationDecision]). */
+    fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): FrameNavigation.NavigationDecision =
+        navigation.navigationDecision(target, isMainFrame, current)
 
     /** Does what the protocol said to a message of the page. */
     private fun execute(step: FrameProtocol.Step) {
@@ -247,7 +250,7 @@ internal class FrameBridge(
 
     /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
     private fun externalNavigation(target: String) {
-        execute(protocol.externalNavigation(target, Environment.now()))
+        execute(navigation.externalNavigation(target, Environment.now()))
     }
 
     private fun fail(event: FrameEvent, cause: FailureCause) {

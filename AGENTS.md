@@ -72,8 +72,12 @@ adb logcat -s KontextVideo
   - `frame/`, the ad's web page and its messages: `FrameMessage` (one page message read: the
     envelope, the 1 MB limit, the fields, the playhead's bounds; `parse` is `null` for a broken envelope),
     `FrameProtocol` (the frame protocol's rules, no WebView: the sender, the frame's phase (`FramePhase`, not the
-    ad's), the video's order, the touch a click needs, a navigation; `accept` returns a `Step`), `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
-    through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only), `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
+    ad's), the video's order, the touch a click needs; `accept` returns a `Step`), `FrameNavigation` (where the
+    page may navigate, and when leaving is a click), `TouchGate` (one touch opens one URL), `Origin`,
+    `FrameBridge` (its shell: the WebView and its context, which does each `Step`; the page's messages come
+    through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only),
+    `FrameWebView` (the WebView locked down), `FrameWebViewClient` (what the WebView reports of the page's loads),
+    `FrameEvent`, and `VideoAd`'s logic outside its class: `VideoAdFrameEvents` (what the ad does with each
     message of its frame page).
   - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
     `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement

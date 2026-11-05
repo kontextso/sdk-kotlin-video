@@ -1,15 +1,14 @@
 package so.kontext.video.internal
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameMessage
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.FrameProtocol
-import so.kontext.video.internal.frame.FrameProtocol.NavigationDecision
 import so.kontext.video.internal.frame.FrameProtocol.Step
 import so.kontext.video.internal.frame.Origin
+import so.kontext.video.internal.frame.TouchGate
 import java.net.URI
 
 /** The frame protocol as tables, with no WebView: message × state → step, the envelope, the order, the bounds. */
@@ -28,7 +27,7 @@ class FrameProtocolTableTest {
     }
 
     private fun protocol(isVideo: Boolean = true, durationMillis: Long? = null) =
-        FrameProtocol("ad-1", originOf(url), isVideo, durationMillis, ::originOf) { it.startsWith("https://") }
+        FrameProtocol("ad-1", originOf(url), isVideo, durationMillis, isAllowed = { it.startsWith("https://") })
 
     private fun FrameProtocol.send(type: String, fields: String = "", from: Origin? = page, mainFrame: Boolean = true): Step =
         accept("""{"adId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", from, mainFrame, now)
@@ -71,7 +70,7 @@ class FrameProtocolTableTest {
             val (type, fields) = row
             val actual = columns.map { column ->
                 val protocol = protocolIn(column)
-                protocol.noteTouch(now)
+                protocol.touchGate.noteTouch(now)
                 describe(protocol.send(type, fields))
             }
             assertEquals(row.drop(2), actual, type)
@@ -210,32 +209,13 @@ class FrameProtocolTableTest {
         }
         val link = "\"url\": \"https://brand.test\""
         assertEquals("drop", describe(protocol.send("ad.click", link)), "no touch")
-        protocol.noteTouch(now)
-        now += FrameProtocol.TOUCH_WINDOW_MILLIS
+        protocol.touchGate.noteTouch(now)
+        now += TouchGate.TOUCH_WINDOW_MILLIS
         assertEquals("Click", describe(protocol.send("ad.click", link)), "at the window's edge")
         assertEquals("drop", describe(protocol.send("ad.click", link)), "the touch is spent")
-        protocol.noteTouch(now)
-        now += FrameProtocol.TOUCH_WINDOW_MILLIS + 1
+        protocol.touchGate.noteTouch(now)
+        now += TouchGate.TOUCH_WINDOW_MILLIS + 1
         assertEquals("drop", describe(protocol.send("ad.open", link)), "too late")
         assertEquals("ignore", describe(protocol.send("ad.click", "\"url\": \"javascript:x\"")), "a link that may not open")
-        protocol.noteTouch(now)
-        assertEquals("Click", describe(protocol.externalNavigation("https://brand.test", now)))
-        assertEquals("drop", describe(protocol.externalNavigation("https://brand.test", now)))
-    }
-
-    @Test fun navigation() {
-        val protocol = protocol()
-        // target, loading, ready
-        val table = listOf(
-            Triple("https://frames.test/redirect", NavigationDecision.ALLOW, NavigationDecision.CANCEL),
-            Triple("about:blank", NavigationDecision.ALLOW, NavigationDecision.CANCEL),
-            Triple("https://brand.test", NavigationDecision.EXTERNAL, NavigationDecision.EXTERNAL),
-            Triple("$url#card", NavigationDecision.ALLOW, NavigationDecision.ALLOW),
-        )
-        for ((target, loading, _) in table) assertEquals(loading, protocol.navigationDecision(target, true, url), "loading: $target")
-        protocol.send("ad.loaded")
-        for ((target, _, ready) in table) assertEquals(ready, protocol.navigationDecision(target, true, url), "ready: $target")
-        assertEquals(NavigationDecision.ALLOW, protocol.navigationDecision("https://cdn.test/x", false, url), "a subframe")
-        assertNull(originOf("not a url"))
     }
 }

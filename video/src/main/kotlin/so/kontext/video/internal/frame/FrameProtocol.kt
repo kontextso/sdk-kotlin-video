@@ -8,19 +8,16 @@ import so.kontext.video.internal.diagnostics.Logger
  * and what the bridge must do about it. The functional core of the page bridge; `FrameBridge` is its shell (the
  * WebView, its clients, the load timeout, the teardown) and does what [accept] returns.
  *
- * Why apart: every rule here (the sender, the order of the states, the video's ordering, the touch a click
- * needs, a navigation, a violation reported once) is tested as a table, with no WebView or main thread. Reading
- * the message itself (the JSON, the envelope, the limit, the fields, the playhead's bounds) is [FrameMessage]'s.
+ * Why apart: every rule here (the sender, the order of the phases, the video's ordering, the touch a click
+ * needs, a violation reported once) is tested as a table, with no WebView or main thread. Reading the message
+ * itself (the JSON, the envelope, the limit, the fields, the playhead's bounds) is [FrameMessage]'s; the page's
+ * navigations are [FrameNavigation]'s; the touch a link needs is [TouchGate]'s, shared by both.
  *
  * How: the bridge passes each page message to [accept] and executes the [Step] it gets back. The clock comes in
  * as `now`; the page's origin and the link check come in from the bridge (they parse URLs with Android's `Uri`).
  *
- * The frame's phase ([FramePhase], where the ad's frame, its web page, is) is not the ad's state (`AdState`), and both are needed: the page's rules are checked
- * before the ad hears a message at all; the page can end itself (close, skip, error) before the ad knows; a page
- * can be loaded for an ad only offered, never shown; and an ad can be reserved (`show` accepted) while its page
- * is not shown yet. They move together at fixed points: the page's `ad.loaded` makes the ad loaded; the ad
- * reaching the screen shows the page (LOADED → SHOWN); a page that ends itself hands the ad its event, and the ad
- * ends; the ad's end, or its invalidation, hides the page (→ ENDED).
+ * The frame's phase ([FramePhase]) is not the ad's state; why both are needed and where they move together is
+ * in `AdState`.
  *
  * ```
  *   message              loading         loaded          shown                       ended
@@ -45,14 +42,11 @@ internal class FrameProtocol(
     isVideo: Boolean,
     /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
     videoDurationMillis: Long?,
-    /** A URL's origin, for a navigation's target. */
-    private val originOf: (String) -> Origin?,
     /** Whether a link may open (`LinkOpener.isAllowed`). */
     private val isAllowed: (String) -> Boolean,
+    /** The touch a click or an open needs, shared with [FrameNavigation]. */
+    val touchGate: TouchGate = TouchGate(),
 ) {
-    /** What a top-level navigation of the page may do. */
-    enum class NavigationDecision { ALLOW, CANCEL, EXTERNAL }
-
     /** What the bridge does with a page message. */
     sealed class Step {
         /** Nothing, not even a log line: a message the state makes meaningless (a late one, one too early). */
@@ -80,7 +74,6 @@ internal class FrameProtocol(
     /** The VAST error of a failure now: 405 on screen, else the load error. */
     val failureCode: Int get() = if (state == FramePhase.SHOWN) 405 else loadErrorCode
 
-    private var lastTouchAt = Long.MIN_VALUE / 2
     private var hasReportedViolation = false
 
     /** `video.start` arrived: the video's progress, quartiles, pause, resume and complete count only after it. */
@@ -165,26 +158,6 @@ internal class FrameProtocol(
         return true
     }
 
-    /** The viewer touched the page at [now]; a URL may be opened for [TOUCH_WINDOW_MILLIS]. */
-    fun noteTouch(now: Long) {
-        lastTouchAt = now
-    }
-
-    /** What a top-level navigation may do: while loading, its own origin and `about:blank`; once ready only an in-document (fragment) move. */
-    fun navigationDecision(target: String, isMainFrame: Boolean, current: String?): NavigationDecision {
-        if (!isMainFrame) return NavigationDecision.ALLOW
-        val isOurs = originOf(target) == origin || target == "about:blank"
-        if (state == FramePhase.LOADING) return if (isOurs) NavigationDecision.ALLOW else NavigationDecision.EXTERNAL
-        if (current != null && '#' in target && target.substringBefore('#') == current.substringBefore('#')) return NavigationDecision.ALLOW
-        return if (isOurs) NavigationDecision.CANCEL else NavigationDecision.EXTERNAL
-    }
-
-    /** A navigation out of our origin is a click the page could not report: honoured only after a touch. */
-    fun externalNavigation(target: String, now: Long): Step {
-        if (state != FramePhase.SHOWN || !isAllowed(target) || !consumeTouch(now)) return Step.Drop("navigation to $target cancelled", isWarning = true)
-        return Step.Deliver(FrameEvent.Click(target, null, VideoAd.Click.Area.Creative))
-    }
-
     private fun isFromPage(sender: Origin?, isMainFrame: Boolean) = isMainFrame && sender != null && sender == origin
 
     /** A click or an open: on screen, to a link that may open, right after a touch. */
@@ -195,7 +168,7 @@ internal class FrameProtocol(
         val fallback = if (type == "ad.click") message.fallbackUrl?.takeIf(isAllowed) else null
         // A click whose link may not open still has its fallback, which then is the click-through.
         val target = primary ?: fallback ?: return Step.Ignore
-        if (!consumeTouch(now)) return Step.Drop("$type to $target dropped, no touch before it", isWarning = true)
+        if (!touchGate.consume(now)) return Step.Drop("$type to $target dropped, no touch before it", isWarning = true)
         return if (type == "ad.click") {
             Step.Deliver(FrameEvent.Click(target, fallback.takeIf { primary != null }, VideoAd.Click.Area.from(message.area)))
         } else {
@@ -250,15 +223,7 @@ internal class FrameProtocol(
         return Step.Drop(log, violation.takeIf { first })
     }
 
-    /** One tap opens one URL: the first click, open or navigation it authorized spends it. */
-    private fun consumeTouch(now: Long): Boolean {
-        if (now - lastTouchAt > TOUCH_WINDOW_MILLIS) return false
-        lastTouchAt = Long.MIN_VALUE / 2
-        return true
-    }
-
     companion object {
-        const val TOUCH_WINDOW_MILLIS = 1_000L
         private const val DAY_MILLIS = 86_400_000L
 
         /** How far past the video's duration a page playhead may go: the page's rounding, not more. */

@@ -16,8 +16,8 @@ import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameNavigation
 import so.kontext.video.internal.frame.FramePhase
-import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
@@ -150,13 +150,13 @@ class AndroidPartsTest {
 
     @Test fun onceReadyThePageMayNotReplaceItself() {
         val bridge = bridge()
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
-        assertEquals(FrameProtocol.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test", true, null))
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://frames.test"), true)
         val current = "https://frames.test/v2/frame/ad-1"
-        assertEquals(FrameProtocol.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("$current#card", true, current))
-        assertEquals(FrameProtocol.NavigationDecision.ALLOW, bridge.navigationDecision("https://cdn.test/x", false, current))
+        assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("$current#card", true, current))
+        assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("https://cdn.test/x", false, current))
     }
 
     @Test fun aPageErrorBeforeShowFailsWithItsCode() {
