@@ -293,7 +293,7 @@ internal sealed class ContentRule {
 
         override fun endIfContentStopped() {
             val playback = ad.owner.get()?.playback ?: return
-            if (!isTracking || !ad.state.isPresented || ad.hasEnded) return
+            if (!isTracking || !ad.state.wasOnScreen || ad.hasEnded) return
             endIfContentResumed(playback.isPlaying)
         }
 

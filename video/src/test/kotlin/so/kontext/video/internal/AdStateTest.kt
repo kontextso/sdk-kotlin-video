@@ -9,12 +9,13 @@ import org.junit.jupiter.api.Test
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
+import so.kontext.video.internal.core.AdLifecycle
+import so.kontext.video.internal.core.AdLifecycle.Phase
 import so.kontext.video.internal.core.AdState
-import so.kontext.video.internal.core.AdState.Phase
 
 /**
- * The ad's state as a table: every move from every phase, legal or refused, the flags each phase gives, and the
- * milestones, each recorded once and never undone.
+ * The ad's state: every move from every phase, applied or refused and changing nothing, the flags each phase gives,
+ * and the milestones, each recorded once and never undone. The rule itself is [AdLifecycleTest]'s table.
  */
 class AdStateTest {
     private val phases: List<Phase> = listOf(
@@ -38,32 +39,33 @@ class AdStateTest {
             is Phase.Ending -> listOf(Phase.Reserved, Phase.OnScreen, phase)
             is Phase.Ended -> listOf(Phase.Reserved, Phase.OnScreen, Phase.Ending(phase.reason), phase)
         }
-        return AdState().also { state -> path.forEach { assertTrue(state.transition(it)) } }
+        return AdState().also { state -> path.forEach { assertTrue(state.moveTo(it)) } }
     }
 
-    @Test fun everyMoveFromEveryPhase() {
-        // from → the phases it may move to; every other move is refused and changes nothing.
-        val legal = mapOf(
-            "Offered" to setOf("Invalidated", "Reserved"),
-            "Invalidated" to emptySet(),
-            "Reserved" to setOf("OnScreen", "Ending", "Offered"),
-            "OnScreen" to setOf("Ending"),
-            "Ending" to setOf("Ended"),
-            "Ended" to emptySet(),
-        )
+    @Test fun everyMoveIsAppliedOnlyWhenLegal() {
         for (from in phases) {
             for (to in phases) {
                 val state = at(from)
-                val moved = state.transition(to)
-                val expected = name(to) in legal.getValue(name(from))
-                assertEquals(expected, moved, "${name(from)} → ${name(to)}")
+                val expected = AdLifecycle.canMove(from, to)
+                assertEquals(expected, state.moveTo(to), "${name(from)} → ${name(to)}")
                 assertEquals(if (expected) to else from, state.phase, "${name(from)} → ${name(to)}")
             }
         }
     }
 
+    @Test fun onlyTheFirstMoveOnScreenRecordsItAndNothingUndoesIt() {
+        val state = AdState()
+        assertTrue(state.moveTo(Phase.Reserved))
+        assertFalse(state.wasOnScreen)
+        assertTrue(state.moveTo(Phase.OnScreen))
+        assertTrue(state.wasOnScreen)
+        assertTrue(state.moveTo(Phase.Ending(EndReason.CLOSED)))
+        assertTrue(state.moveTo(Phase.Ended(EndReason.CLOSED)))
+        assertTrue(state.wasOnScreen, "kept after the end")
+    }
+
     @Test fun theFlagsOfEachPhase() {
-        // phase → wasShown, hasEnded, isPresented
+        // phase → wasShown, hasEnded, wasOnScreen
         val flags = mapOf(
             "Offered" to listOf(false, false, false),
             "Invalidated" to listOf(false, false, false),
@@ -74,49 +76,49 @@ class AdStateTest {
         )
         for (phase in phases) {
             val state = at(phase)
-            assertEquals(flags.getValue(name(phase)), listOf(state.wasShown, state.hasEnded, state.isPresented), name(phase))
+            assertEquals(flags.getValue(name(phase)), listOf(state.wasShown, state.hasEnded, state.wasOnScreen), name(phase))
         }
         assertEquals(InvalidationReason.Expired, at(Phase.Invalidated(InvalidationReason.Expired)).invalidationReason)
         assertNull(at(Phase.Ended(EndReason.CLOSED)).invalidationReason)
     }
 
-    @Test fun anAdEndedDuringItsAttachWasNeverPresented() {
+    @Test fun anAdEndedDuringItsAttachWasNeverOnScreen() {
         val state = AdState()
-        state.transition(Phase.Reserved)
-        assertTrue(state.transition(Phase.Ending(EndReason.INTERRUPTED)))
+        state.moveTo(Phase.Reserved)
+        assertTrue(state.moveTo(Phase.Ending(EndReason.INTERRUPTED)))
         assertTrue(state.hasEnded)
-        assertFalse(state.isPresented, "no end beacons for an ad that never reached the screen")
+        assertFalse(state.wasOnScreen, "no end beacons for an ad that never reached the screen")
     }
 
     @Test fun anUnreservedAdIsOfferedAgainAndCanBeShownAgain() {
         val state = AdState()
-        state.transition(Phase.Reserved)
-        assertTrue(state.transition(Phase.Offered))
+        state.moveTo(Phase.Reserved)
+        assertTrue(state.moveTo(Phase.Offered))
         assertFalse(state.wasShown)
-        assertTrue(state.transition(Phase.Reserved))
+        assertTrue(state.moveTo(Phase.Reserved))
     }
 
     @Test fun aSecondEndChangesNothing() {
         val state = at(Phase.Ending(EndReason.SKIPPED))
-        assertFalse(state.transition(Phase.Ending(EndReason.CLOSED)))
+        assertFalse(state.moveTo(Phase.Ending(EndReason.CLOSED)))
         assertEquals(Phase.Ending(EndReason.SKIPPED), state.phase)
     }
 
     @Test fun eachMilestoneIsRecordedOnceAndNeverUndone() {
         val state = AdState()
-        assertEquals(listOf(false, false, false), listOf(state.loaded, state.completed, state.impressionRecorded))
+        assertEquals(listOf(false, false, false), listOf(state.isLoaded, state.isCompleted, state.hasImpression))
         state.markLoaded()
         state.markLoaded()
-        assertTrue(state.loaded)
+        assertTrue(state.isLoaded)
         assertTrue(state.markImpression(), "the first impression is recorded")
         assertFalse(state.markImpression(), "a second one is not")
-        assertTrue(state.impressionRecorded)
+        assertTrue(state.hasImpression)
         state.markCompleted()
-        assertTrue(state.completed)
+        assertTrue(state.isCompleted)
         assertEquals(Phase.Offered, state.phase, "a milestone does not move the phase")
         for (next in listOf(Phase.Reserved, Phase.OnScreen, Phase.Ending(EndReason.COMPLETED), Phase.Ended(EndReason.COMPLETED))) {
-            assertTrue(state.transition(next))
-            assertEquals(listOf(true, true, true), listOf(state.loaded, state.completed, state.impressionRecorded), "kept at ${name(next)}")
+            assertTrue(state.moveTo(next))
+            assertEquals(listOf(true, true, true), listOf(state.isLoaded, state.isCompleted, state.hasImpression), "kept at ${name(next)}")
         }
         assertFalse(state.markImpression(), "still recorded after the end")
     }
@@ -124,8 +126,8 @@ class AdStateTest {
     @Test fun anInvalidatedAdKeepsItsMilestones() {
         val state = AdState()
         state.markLoaded()
-        assertTrue(state.transition(Phase.Invalidated(InvalidationReason.Rejected)))
-        assertTrue(state.loaded)
+        assertTrue(state.moveTo(Phase.Invalidated(InvalidationReason.Rejected)))
+        assertTrue(state.isLoaded)
     }
 
     @Test fun theFailureIsReadBackAndTheFirstStays() {
@@ -136,8 +138,8 @@ class AdStateTest {
         state.markFailed(VideoAdException.PresenterUnavailable())
         assertSame(error, state.failure, "the first failure stays")
         assertEquals(Phase.OnScreen, state.phase, "a milestone does not move the phase")
-        assertTrue(state.transition(Phase.Ending(EndReason.FAILED)))
-        assertTrue(state.transition(Phase.Ended(EndReason.FAILED)))
+        assertTrue(state.moveTo(Phase.Ending(EndReason.FAILED)))
+        assertTrue(state.moveTo(Phase.Ended(EndReason.FAILED)))
         assertSame(error, state.failure, "kept after onAdEnded")
     }
 }

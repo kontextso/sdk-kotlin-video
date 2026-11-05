@@ -7,7 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
-import so.kontext.video.internal.core.AdState
+import so.kontext.video.internal.core.AdLifecycle
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
@@ -228,7 +228,7 @@ internal sealed class AdScreen {
             screen.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             Environment.scope.launch {
                 delay(VideoAd.dismissalTimeoutMillis)
-                if (ad.state.phase !is AdState.Phase.Ended) {
+                if (ad.state.phase !is AdLifecycle.Phase.Ended) {
                     Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen did not close in ${VideoAd.dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
                     DebugReporter.event("ad.dismissalTimedOut", adId = ad.id, level = DebugReporter.Level.WARNING)
                     ErrorReporter.report(

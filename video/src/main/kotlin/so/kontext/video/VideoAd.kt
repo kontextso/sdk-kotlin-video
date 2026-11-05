@@ -20,8 +20,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import so.kontext.video.internal.core.AdLifecycle.Phase
 import so.kontext.video.internal.core.AdState
-import so.kontext.video.internal.core.AdState.Phase
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
@@ -72,7 +72,8 @@ public class VideoAd internal constructor(
     //   with each message of its page);
     // - internal/frame/VideoAdClick.kt: click, open (a click: beacon, click-through, listener);
     // - internal/screen/VideoAdPlacement.kt: combinedInsets, chooseSize, refit (where the page goes in its host);
-    // - internal/core/AdState.kt: every fact of the ad's life, the phases and their legal moves (read through [state]).
+    // - internal/core/AdState.kt: every fact of the ad's life (read through [state]);
+    // - internal/core/AdLifecycle.kt: its phases and their legal moves.
 
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id
@@ -90,7 +91,7 @@ public class VideoAd internal constructor(
     public val durationMillis: Long? get() = payload.durationMillis
 
     /** `load()` finished: the creative is rendered off screen. */
-    public val isLoaded: Boolean get() = state.loaded
+    public val isLoaded: Boolean get() = state.isLoaded
 
     /** Loaded and still usable: `show` will not throw `NotLoaded`, `Invalidated` or `Disabled`. */
     public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired && Sdk.disabledReason == null
@@ -105,7 +106,7 @@ public class VideoAd internal constructor(
     public val hasEnded: Boolean get() = state.hasEnded
 
     /** The creative ran to its end: an overlay's duration elapsed, a linear video played through. */
-    public val isCompleted: Boolean get() = state.completed
+    public val isCompleted: Boolean get() = state.isCompleted
 
     /** The moments on screen. Held until `onAdEnded` has run. */
     public var listener: VideoAdListener? = null
@@ -534,7 +535,7 @@ public class VideoAd internal constructor(
             if (started) delay(presentationTimeoutMillis) else yield()
             // Presented, not merely created: a screen that attached but never came to the front (started, never
             // resumed) would otherwise hold the slot for good.
-            if (hasEnded || state.isPresented) return@launch
+            if (hasEnded || state.wasOnScreen) return@launch
             val what = if (screen.activity == null) "did not start" else "never came to the front"
             Logger.error { "ad ${id.take(8)}: the linear ad's screen $what; ended as failed" }
             LinearAdActivity.forget(screen)
@@ -603,7 +604,7 @@ public class VideoAd internal constructor(
     internal fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T = tracker.withContentPlayhead(alsoFor, work)
 
     private fun reserve(screen: AdScreen) {
-        state.transition(Phase.Reserved)
+        state.moveTo(Phase.Reserved)
         presentation = Presentation.begin(this, owner.get(), screen)
     }
 
@@ -620,7 +621,7 @@ public class VideoAd internal constructor(
         }
         loadedBridge?.webView?.let { webView -> runCatching { (webView.parent as? ViewGroup)?.removeView(webView) } }
         Environment.context?.let { contextWrapper.baseContext = it }
-        if (!state.transition(Phase.Offered)) return
+        if (!state.moveTo(Phase.Offered)) return
         presentation?.cancel(wasHeld)
         presentation = null
     }
@@ -630,7 +631,7 @@ public class VideoAd internal constructor(
     }
 
     private fun presentNow() {
-        if (!state.transition(Phase.OnScreen)) return
+        if (!state.moveTo(Phase.OnScreen)) return
         loadedBridge?.show()
         Logger.info { "ad ${id.take(8)}: shown" }
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
@@ -696,7 +697,7 @@ public class VideoAd internal constructor(
         meter.onVerdict = verdict@{ verdict ->
             // A verdict follows an impression: an ad that never had one (an untapped video, a video that failed
             // before its first frame) was never billed, and its DSP must not hear notViewable for it.
-            if (!state.impressionRecorded) return@verdict
+            if (!state.hasImpression) return@verdict
             withContentPlayhead { tracker.fire(verdict.event) }
             Logger.info { "ad ${id.take(8)}: ${verdict.event}" }
         }
@@ -742,7 +743,7 @@ public class VideoAd internal constructor(
     //  9. player binding: the owner's showing ad and its ticks, VideoAds.adDidEnd (Presentation.release);
     // 10. listener: dropped just before onAdEnded, the last call (finish).
     private fun endNow(reason: EndReason) {
-        if (!state.transition(Phase.Ending(reason))) return
+        if (!state.moveTo(Phase.Ending(reason))) return
         activityListener?.let(ActivityTracker::removeListener)
         activityListener = null
         contentRule.cancel()
@@ -764,16 +765,16 @@ public class VideoAd internal constructor(
 
     /** The beacons of an end, for an ad that was on screen: one that ended inside show, before it was presented, had no view. */
     private fun fireEndBeacons(reason: EndReason, activeTimeMillis: Long, inline: Boolean) {
-        if (!state.isPresented) return
+        if (!state.wasOnScreen) return
         // Shown, not billed: a video on screen that never reached its first frame (`video.start`) still gives the
         // server its outcome. Ended by the viewer, the app or an interruption: `close`. A failure has fired its
         // `error`; the page's own close or skip has fired its beacon.
-        if (payload.creative == AdPayload.Creative.VIDEO && !state.impressionRecorded && reason in closedBeforeFirstFrame) tracker.fire("close")
+        if (payload.creative == AdPayload.Creative.VIDEO && !state.hasImpression && reason in closedBeforeFirstFrame) tracker.fire("close")
         if (inline) tracker.fire("overlayViewDuration", viewDurationMillis = activeTimeMillis)
     }
 
     private fun finish(reason: EndReason) {
-        if (!state.transition(Phase.Ended(reason))) return
+        if (!state.moveTo(Phase.Ended(reason))) return
         // An ended ad keeps its facts, not its presentation: an app that holds it holds no Activity or WebView.
         Environment.context?.let { contextWrapper.baseContext = it }
         presentation?.release()
@@ -789,7 +790,7 @@ public class VideoAd internal constructor(
     // region Ending before show
 
     internal fun invalidate(reason: InvalidationReason) {
-        if (!state.transition(Phase.Invalidated(reason))) return
+        if (!state.moveTo(Phase.Invalidated(reason))) return
         Logger.debug { "$format ad ${id.take(8)} ended before show: $reason" }
         // Wire names, as iOS sends them; a failed creative's code as its own key.
         val details = mapOf("reason" to reason.wireName) + ((reason as? InvalidationReason.CreativeFailed)?.let { mapOf("code" to it.code) } ?: emptyMap())
