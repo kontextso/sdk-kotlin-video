@@ -32,8 +32,3 @@ internal sealed class ConfigResponse {
         }
     }
 }
-
-/** Stands in for a `disabledReason` the server left out or sent malformed. */
-internal const val UNKNOWN_REASON = "unknown"
-
-internal fun invalid(reason: String): Nothing = throw ApiException.Decoding(IllegalArgumentException(reason))

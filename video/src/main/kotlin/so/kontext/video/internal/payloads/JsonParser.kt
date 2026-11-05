@@ -2,6 +2,7 @@ package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import so.kontext.video.internal.network.ApiException
 
 /**
  * Parses JSON into a tree (`Json.parseToJsonElement`, kotlinx.serialization's equivalent of `JSON.parse`), with
@@ -49,3 +50,11 @@ internal object JsonParser {
         return deepest
     }
 }
+
+// Shared by the two answers' decoders, `ConfigResponse` and `AdsResponse`.
+
+/** Stands in for a `disabledReason` the server left out or sent malformed. */
+internal const val UNKNOWN_REASON = "unknown"
+
+/** The whole answer is refused: an [ApiException.Decoding] that says why. */
+internal fun invalid(reason: String): Nothing = throw ApiException.Decoding(IllegalArgumentException(reason))

@@ -64,7 +64,7 @@ internal class AdPayload(
         private val frameSchemes = setOf("http", "https")
 
         /** Why [url] cannot be a frame page, or `null`: it must be http or https, with a host and a port from 1 to 65535 (or none). */
-        fun frameUrlProblem(url: String): String? {
+        private fun frameUrlProblem(url: String): String? {
             val uri = try {
                 URI(url)
             } catch (_: URISyntaxException) {
