@@ -2,10 +2,7 @@ package so.kontext.video
 
 import android.app.Activity
 import android.graphics.Rect
-import android.view.View
 import android.view.ViewGroup
-import android.widget.GridLayout
-import android.widget.LinearLayout
 import androidx.annotation.MainThread
 import androidx.core.graphics.Insets
 import androidx.lifecycle.Lifecycle
@@ -39,14 +36,12 @@ import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.platform.LinkOpener
 import so.kontext.video.internal.screen.AdScreen
-import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.InlineScreen
 import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ScreenSlot
 import so.kontext.video.internal.screen.activity
 import so.kontext.video.internal.screen.awaitLayout
-import so.kontext.video.internal.screen.systemInsets
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
 import so.kontext.video.internal.state.SdkState
@@ -133,7 +128,6 @@ public class VideoAd internal constructor(
      */
     internal var screen: AdScreen? = null
         private set
-    private val hostView: InlineAdView? get() = (screen as? InlineScreen)?.hostView
 
     /** The registration that hands a linear ad to its Activity. */
     internal val linearCallbacks: LinearAdActivity.Callbacks? get() = screen as? LinearScreen
@@ -351,82 +345,29 @@ public class VideoAd internal constructor(
             throw VideoAdException.WrongShowMethod()
         }
         checkShowable()
-        if (!ViewExposure.canBeSeen(container)) {
-            Logger.warning { "ad ${id.take(8)}: cannot show, the container is not on screen or is hidden" }
-            throw VideoAdException.CannotShowNow()
-        }
-        // Attached and laid out is not on screen: a pager's neighbour page, a view scrolled away, a screen behind
-        // another or an app in the background. The impression would count for nobody: refused, the ad ready.
-        if (!isOnScreen(container)) throw VideoAdException.CannotShowNow()
-        warnIfNotOverlaying(container)
         val screen = InlineScreen(this, Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom)))
-        val density = container.resources.displayMetrics.density
-        // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
-        // area, inside its padding, less the bars that reach into it and the app's insets. In the container's
-        // pixels, so the minimum is a container size.
-        val system = container.systemInsets
-        val contentArea = Rect(
-            maxOf(container.paddingLeft, system.left),
-            maxOf(container.paddingTop, system.top),
-            maxOf(container.paddingRight, system.right),
-            maxOf(container.paddingBottom, system.bottom),
-        )
-        screen.chooseSize(container.width, container.height, screen.combinedInsets(contentArea), density)
-        // Reserved before any of the app's code runs: adding the host calls the container's own hooks. A show
-        // from there finds the slot taken; a destroy there ends this ad. The container may refuse the host (a
-        // ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.
+        // 1. The container's checks and the variant, before anything changes: the ad stays ready if they fail.
+        screen.prepare(container)
+        // 2. Reserved before any of the app's code runs: adding the host calls the container's own hooks. A show
+        //    from there finds the slot taken; a destroy there ends this ad. The container may refuse the host (a
+        //    ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.
         val bridge = shownBridge()
         val wasHeld = owner.get()?.ads?.get(format) === this
         reserve(screen)
+        // 3. The host goes into the container.
         try {
-            bridge.useShowingContext(container.context)
-            val webView = bridge.webView
-            (webView.parent as? ViewGroup)?.removeView(webView)
-            if (hasEnded) return
-            // A full-screen pause ad's page stops at the bars (see refit): its host fills the strips behind
-            // them and takes their touches, so the paused frame and the player stay covered as on iOS.
-            val host = InlineAdView(container.context, webView, coversWhole = payload.position == AdPayload.Position.FULLSCREEN)
-            host.place = { width, height, system -> screen.refit(width, height, system, density) }
-            screen.attach(host)
-            container.addView(host)
+            if (!screen.addHost(container, bridge)) return
         } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-            unreserve(container, screen, wasHeld, error)
+            unreserve(screen, wasHeld, error, container)
             // An ad its owner ended meanwhile (a destroy in the container's hook) has had its onAdEnded: show
             // was accepted and is over. Otherwise nothing was shown and nothing spent.
             if (hasEnded) return
             throw VideoAdException.CannotShowNow()
         }
-        // A destroy in the container's hook ended the ad and took its host.
-        val host = hostView ?: return
-        // The container's own hook may have removed the host, or taken the container off screen.
-        if (!hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !ViewExposure.canBeSeen(container) || ViewExposure.isTransparent(host))) {
-            Logger.warning { "ad ${id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
-            end(EndReason.INTERRUPTED)
-            return
-        }
+        // 4. Still there after the container's hooks, it reached the screen.
+        if (!screen.isStillOnScreen(container)) return
         contentRule.endIfContentStopped()
         reachedScreen()
-    }
-
-    /** A container that lays its children out one after another gives the ad no room over the player. */
-    private fun warnIfNotOverlaying(container: ViewGroup) {
-        if (container !is LinearLayout && container !is GridLayout) return
-        Logger.warning {
-            "ad ${id.take(8)}: the container is a ${container.javaClass.simpleName}, which places the ad beside the player, not over it; " +
-                "use a FrameLayout-like container"
-        }
-    }
-
-    /** Some of [container] is inside its window, its Activity is started and the app is in front. Says why not. */
-    private fun isOnScreen(container: ViewGroup): Boolean {
-        val why = when {
-            ViewExposure.measure(container).share <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
-            !Environment.isAppInForeground() -> "the app is not in front"
-            container.activity?.let { it.isFinishing || it.isDestroyed || AppActivities.isStarted(it) == false } == true -> "its Activity is not visible"
-            else -> return true
-        }
-        Logger.warning { "ad ${id.take(8)}: cannot show, $why; the ad stays ready" }
-        return false
     }
 
     /**
@@ -571,20 +512,9 @@ public class VideoAd internal constructor(
     }
 
     /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */
-    private fun unreserve(container: ViewGroup, screen: InlineScreen, wasHeld: Boolean, error: Exception) {
+    private fun unreserve(screen: InlineScreen, wasHeld: Boolean, error: Exception, container: ViewGroup) {
         Logger.warning { "ad ${id.take(8)}: the container refused the ad (${error.javaClass.simpleName}); not shown, the ad stays ready" }
-        val host = hostView
-        screen.hostView = null
-        if (host != null) {
-            // A container that refuses a child may refuse its removal too.
-            runCatching { (host.parent as? ViewGroup)?.removeView(host) }
-            if (host.parent === container) runCatching { container.removeViewInLayout(host) }
-            host.removeAllViews()
-        }
-        loadedBridge?.let { bridge ->
-            runCatching { (bridge.webView.parent as? ViewGroup)?.removeView(bridge.webView) }
-            bridge.useApplicationContext()
-        }
+        screen.releaseRefusedHost(container)
         if (!state.moveTo(Phase.Offered)) return
         if (this.screen != null) ScreenSlot.cancel(this, wasHeld)
         this.screen = null

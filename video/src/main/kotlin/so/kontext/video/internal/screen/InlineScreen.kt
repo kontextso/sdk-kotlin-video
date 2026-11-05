@@ -4,11 +4,15 @@ import android.app.Activity
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import android.widget.GridLayout
+import android.widget.LinearLayout
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.measurement.OnScreenTimeClock
+import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
@@ -81,9 +85,89 @@ internal class InlineScreen(
     var onScreenClock: OnScreenTimeClock? = null
         private set
 
+    /** The container's display density, read by [prepare]: the page's sizes are in dp. */
+    private var density = 1f
+
     // The host: it has an area only where the container gives the ad room, and places the page.
     override val impressionTarget: View? get() = hostView
     override val isPlaced: Boolean get() = hostView?.hasPlacedContent ?: true
+
+    /**
+     * Before the slot is taken, nothing changed yet: [container] must be on screen, and a variant must fit it.
+     * Throws `CannotShowNow` or `ContainerTooSmall`; the ad stays ready.
+     */
+    fun prepare(container: ViewGroup) {
+        if (!ViewExposure.canBeSeen(container)) {
+            Logger.warning { "ad ${ad.id.take(8)}: cannot show, the container is not on screen or is hidden" }
+            throw VideoAdException.CannotShowNow()
+        }
+        // Attached and laid out is not on screen: a pager's neighbour page, a view scrolled away, a screen behind
+        // another or an app in the background. The impression would count for nobody: refused, the ad ready.
+        if (!isOnScreen(container)) throw VideoAdException.CannotShowNow()
+        warnIfNotOverlaying(container)
+        density = container.resources.displayMetrics.density
+        // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
+        // area, inside its padding, less the bars that reach into it and the app's insets. In the container's
+        // pixels, so the minimum is a container size.
+        val system = container.systemInsets
+        val contentArea = Rect(
+            maxOf(container.paddingLeft, system.left),
+            maxOf(container.paddingTop, system.top),
+            maxOf(container.paddingRight, system.right),
+            maxOf(container.paddingBottom, system.bottom),
+        )
+        chooseSize(container.width, container.height, combinedInsets(contentArea), density)
+    }
+
+    /**
+     * After the slot is taken: [bridge]'s page goes into a new host in [container]. Runs the container's own
+     * hooks, which may throw (a container that refuses a child: a ScrollView with its child, a ListView); then
+     * the ad undoes the show ([releaseRefusedHost]). Says `false` when the ad ended meanwhile.
+     */
+    fun addHost(container: ViewGroup, bridge: FrameBridge): Boolean {
+        bridge.useShowingContext(container.context)
+        val webView = bridge.webView
+        (webView.parent as? ViewGroup)?.removeView(webView)
+        if (ad.hasEnded) return false
+        // A full-screen pause ad's page stops at the bars (see refit): its host fills the strips behind
+        // them and takes their touches, so the paused frame and the player stay covered as on iOS.
+        val host = InlineAdView(container.context, webView, coversWhole = ad.payload.position == AdPayload.Position.FULLSCREEN)
+        host.place = { width, height, system -> refit(width, height, system, density) }
+        attach(host)
+        container.addView(host)
+        return true
+    }
+
+    /** The container refused the host: the host and the page leave it, and the page holds no Activity. */
+    fun releaseRefusedHost(container: ViewGroup) {
+        val host = hostView
+        hostView = null
+        if (host != null) {
+            // A container that refuses a child may refuse its removal too.
+            runCatching { (host.parent as? ViewGroup)?.removeView(host) }
+            if (host.parent === container) runCatching { container.removeViewInLayout(host) }
+            host.removeAllViews()
+        }
+        ad.loadedBridge?.let { bridge ->
+            runCatching { (bridge.webView.parent as? ViewGroup)?.removeView(bridge.webView) }
+            bridge.useApplicationContext()
+        }
+    }
+
+    /**
+     * The host is still where it was added: a destroy in the container's hook ended the ad and took its host
+     * (`false`); the container's own hook may have removed the host, or taken the container off screen: the ad
+     * ends, interrupted (`false`).
+     */
+    fun isStillOnScreen(container: ViewGroup): Boolean {
+        val host = hostView ?: return false
+        if (!ad.hasEnded && (host.parent !== container || host.visibility != View.VISIBLE || !ViewExposure.canBeSeen(container) || ViewExposure.isTransparent(host))) {
+            Logger.warning { "ad ${ad.id.take(8)}: the ad left the screen as it was added; ended as interrupted" }
+            ad.end(EndReason.INTERRUPTED)
+            return false
+        }
+        return true
+    }
 
     /** `show` made [host] for the container: the screen hears its fit and its window. */
     fun attach(host: InlineAdView) {
@@ -205,6 +289,27 @@ internal class InlineScreen(
      * pausing there, see `OverlayRule`); a stop for a configuration change recreates the Activity, and the
      * container leaving the window ends the ad there.
      */
+    /** A container that lays its children out one after another gives the ad no room over the player. */
+    private fun warnIfNotOverlaying(container: ViewGroup) {
+        if (container !is LinearLayout && container !is GridLayout) return
+        Logger.warning {
+            "ad ${ad.id.take(8)}: the container is a ${container.javaClass.simpleName}, which places the ad beside the player, not over it; " +
+                "use a FrameLayout-like container"
+        }
+    }
+
+    /** Some of [container] is inside its window, its Activity is started and the app is in front. Says why not. */
+    private fun isOnScreen(container: ViewGroup): Boolean {
+        val why = when {
+            ViewExposure.measure(container).share <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
+            !Environment.isAppInForeground() -> "the app is not in front"
+            container.activity?.let { it.isFinishing || it.isDestroyed || AppActivities.isStarted(it) == false } == true -> "its Activity is not visible"
+            else -> return true
+        }
+        Logger.warning { "ad ${ad.id.take(8)}: cannot show, $why; the ad stays ready" }
+        return false
+    }
+
     private fun followHoldingActivity(holder: Activity) {
         holdingActivity = WeakReference(holder)
         follow(holder) { activity, event ->
