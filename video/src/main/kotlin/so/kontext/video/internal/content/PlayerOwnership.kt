@@ -33,4 +33,9 @@ internal object PlayerOwnership {
     fun release(playback: ContentPlayback) {
         owners.removeAll { it.playback.get().let { owner -> owner == null || owner === playback } }
     }
+
+    /** No player owned. Tests only: the ownership is process-wide. */
+    fun resetForTesting() {
+        owners.clear()
+    }
 }

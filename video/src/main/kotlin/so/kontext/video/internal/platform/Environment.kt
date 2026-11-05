@@ -12,6 +12,7 @@ import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.network.BeaconClient
@@ -84,6 +85,8 @@ internal object Environment {
 
     fun reset() {
         processName = defaultProcessName
+        // The last test's work ends with it: a request still out cannot change the next test's SDK.
+        scope.cancel()
         scope = newScope()
         now = defaultNow
         assertionFailure = defaultAssertionFailure

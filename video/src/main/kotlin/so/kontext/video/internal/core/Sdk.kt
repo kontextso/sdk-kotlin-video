@@ -12,6 +12,7 @@ import so.kontext.video.KontextVideo.State
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.SDK_VERSION
+import so.kontext.video.internal.content.PlayerOwnership
 import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
@@ -224,6 +225,7 @@ internal object Sdk {
         DebugReporter.resetForTesting()
         ErrorReporter.resetForTesting()
         UserAgent.resetForTesting()
+        PlayerOwnership.resetForTesting()
         Logger.level = Configuration.LogLevel.WARNING
     }
 }
