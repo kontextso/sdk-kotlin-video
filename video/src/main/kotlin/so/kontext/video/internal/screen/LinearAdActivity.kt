@@ -22,7 +22,7 @@ import java.util.UUID
  * away (`INTERRUPTED`). Back does nothing: the creative's own controls end the ad.
  */
 internal class LinearAdActivity : ComponentActivity() {
-    /** What a linear ad gives its screen: `AdScreen.LinearScreen` implements it. */
+    /** What a linear ad gives its screen: `LinearScreen` implements it. */
     interface Callbacks {
         /** The screen is up: put the page in [root]. */
         fun attach(activity: LinearAdActivity, root: FrameLayout)

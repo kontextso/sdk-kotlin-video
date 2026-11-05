@@ -78,10 +78,10 @@ adb logcat -s KontextVideo
     through `addWebMessageListener` as `KontextAndroid`, for the page's own origin and main frame only),
     `FrameWebView` (the WebView locked down), `FrameWebViewClient` (what the WebView reports of the page's loads),
     `FrameEvent` (what the page told the bridge; what the ad does with each is `VideoAd`'s, `handle`).
-  - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, `LinearScreen`),
+  - `screen/`, putting the ad on screen: `AdScreen` (where an ad is shown: `InlineScreen`, which also places the page in its host, and `LinearScreen`, each in its own file),
     `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement
     arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
-    behind Compose's `VideoAdHost`), `VideoAdPlacement`, `Views` (what the SDK asks of a view: its Activity, its system insets, its first layout).
+    behind Compose's `VideoAdHost`), `Views` (what the SDK asks of a view: its Activity, its system insets, its first layout).
   - `measurement/`, what the viewer saw (visibility, time on screen) and the beacons that report it: `Tracker`
     (which beacons fire, sent by `BeaconClient`) with `TrackingMacros`, `ViewabilityMeter` with `ViewExposure`
     and `Polygon`, `OnScreenTimeClock`.

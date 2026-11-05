@@ -14,7 +14,7 @@ import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.screen.AdScreen
+import so.kontext.video.internal.screen.InlineScreen
 
 /** The public API's corners: when an ad is ready, which size it takes, where a click lands, what equals what. */
 @RunWith(RobolectricTestRunner::class)
@@ -44,7 +44,7 @@ class EdgesTest : SdkTest() {
         fun chosen(widthDp: Int, vararg sizes: String): AdPayload.Size? {
             val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.overlay(sizes = sizes.joinToString(prefix = "[", postfix = "]")))), owner())
             ad.show(container((widthDp * density).toInt(), (300 * density).toInt()))
-            return (ad.shownAd!!.screen as AdScreen.InlineScreen).chosenSize.also { ad.dismiss() }
+            return (ad.shownAd!!.screen as InlineScreen).chosenSize.also { ad.dismiss() }
         }
         assertEquals(AdPayload.Size(300, 60), chosen(320, """{"width": 160, "height": 40}""", """{"width": 300, "height": 60}"""))
         assertEquals("one that fits beats a bigger one shrunk", AdPayload.Size(300, 60), chosen(320, """{"width": 400, "height": 100}""", """{"width": 300, "height": 60}"""))

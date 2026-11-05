@@ -11,7 +11,7 @@ import kotlin.math.roundToInt
  * only rectangles and scales. Where the ad goes: a variant scaled down to fit the view less its insets, never
  * enlarged and never below its smallest scale, centred, at the top or the bottom. Sizes come in dp and are turned
  * into pixels with the display density. The ad's own choices (which variant, which insets) are in
- * `VideoAdPlacement`; whether the viewer could see a view is in `ViewExposure`.
+ * `InlineScreen` (its placement); whether the viewer could see a view is in `ViewExposure`.
  */
 internal object AdGeometry {
     /** A width and a height in pixels. */

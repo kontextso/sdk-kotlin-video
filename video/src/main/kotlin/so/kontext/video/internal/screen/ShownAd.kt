@@ -27,13 +27,13 @@ internal class ShownAd private constructor(
     var meter: ViewabilityMeter? = null
 
     /** The view the SDK put into the app's container for an overlay or pause ad. */
-    val hostView: InlineAdView? get() = (screen as? AdScreen.InlineScreen)?.hostView
+    val hostView: InlineAdView? get() = (screen as? InlineScreen)?.hostView
 
     /** Time seen on screen, for an overlay or pause ad; it also ends an overlay whose duration elapsed. */
-    val onScreenClock: OnScreenTimeClock? get() = (screen as? AdScreen.InlineScreen)?.onScreenClock
+    val onScreenClock: OnScreenTimeClock? get() = (screen as? InlineScreen)?.onScreenClock
 
     /** The registration that hands a linear ad to its screen. */
-    val linearCallbacks: LinearAdActivity.Callbacks? get() = screen as? AdScreen.LinearScreen
+    val linearCallbacks: LinearAdActivity.Callbacks? get() = screen as? LinearScreen
 
     /** The ad is ending: measuring stops and the inline page leaves the screen. Returns the active time seen. */
     fun tearDown(): Long {

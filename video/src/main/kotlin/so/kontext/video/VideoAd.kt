@@ -40,13 +40,12 @@ import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.platform.LinkOpener
 import so.kontext.video.internal.screen.AdScreen
 import so.kontext.video.internal.screen.InlineAdView
+import so.kontext.video.internal.screen.InlineScreen
 import so.kontext.video.internal.screen.LinearAdActivity
+import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ShownAd
 import so.kontext.video.internal.screen.activity
 import so.kontext.video.internal.screen.awaitLayout
-import so.kontext.video.internal.screen.chooseSize
-import so.kontext.video.internal.screen.combinedInsets
-import so.kontext.video.internal.screen.refit
 import so.kontext.video.internal.screen.systemInsets
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
@@ -78,7 +77,8 @@ public class VideoAd internal constructor(
     // - internal/frame/FrameBridge.kt: its page; the page's events come back to [handle];
     // - internal/measurement/Tracker.kt: its beacons ([tracker]);
     // - internal/content/ContentRule.kt: how it follows the content ([contentRule]);
-    // - internal/screen/AdScreen.kt and VideoAdPlacement.kt: where it is shown and where the page goes in its host.
+    // - internal/screen/AdScreen.kt, InlineScreen.kt, LinearScreen.kt: where it is shown (and, inline, where the
+    //   page goes in its host).
 
     /** The server's id of the ad, for support. */
     public val id: String get() = payload.id
@@ -353,7 +353,7 @@ public class VideoAd internal constructor(
         // another or an app in the background. The impression would count for nobody: refused, the ad ready.
         if (!isOnScreen(container)) throw VideoAdException.CannotShowNow()
         warnIfNotOverlaying(container)
-        val screen = AdScreen.InlineScreen(this, Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom)))
+        val screen = InlineScreen(this, Rect(maxOf(0, insets.left), maxOf(0, insets.top), maxOf(0, insets.right), maxOf(0, insets.bottom)))
         val density = container.resources.displayMetrics.density
         // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
         // area, inside its padding, less the bars that reach into it and the app's insets. In the container's
@@ -469,7 +469,7 @@ public class VideoAd internal constructor(
             throw VideoAdException.CannotShowNow()
         }
         val bridge = shownBridge()
-        val screen = AdScreen.LinearScreen(this, bridge)
+        val screen = LinearScreen(this, bridge)
         reserve(screen)
         if (hasEnded) return
         screen.followStartingActivity(activity)
@@ -564,7 +564,7 @@ public class VideoAd internal constructor(
     }
 
     /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */
-    private fun unreserve(container: ViewGroup, screen: AdScreen.InlineScreen, wasHeld: Boolean, error: Exception) {
+    private fun unreserve(container: ViewGroup, screen: InlineScreen, wasHeld: Boolean, error: Exception) {
         Logger.warning { "ad ${id.take(8)}: the container refused the ad (${error.javaClass.simpleName}); not shown, the ad stays ready" }
         val host = hostView
         screen.hostView = null
@@ -586,12 +586,12 @@ public class VideoAd internal constructor(
     /** The creative reached the screen: the page shows, the meter starts, and the beacons of `ad.show` fire. */
     internal fun reachedScreen(): Unit = withContentPlayhead {
         if (!state.moveTo(Phase.OnScreen)) return@withContentPlayhead
-        loadedBridge?.show((shownAd?.screen as? AdScreen.InlineScreen)?.chosenSize)
+        loadedBridge?.show((shownAd?.screen as? InlineScreen)?.chosenSize)
         Logger.info { "ad ${id.take(8)}: shown" }
         DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
         val screen = shownAd?.screen
         startMeter()
-        // Inline: the clock, the content rule and the holding Activity start (see AdScreen.InlineScreen.reachedScreen).
+        // Inline: the clock, the content rule and the holding Activity start (see InlineScreen.reachedScreen).
         screen?.reachedScreen()
         // At `ad.show`: creativeView and the AdChoices icon's view. The impression of an image or HTML creative
         // waits for the page's first layout with an area, a video's for its first frame (`video.start`). The
@@ -857,7 +857,7 @@ public class VideoAd internal constructor(
         val bridge = loadedBridge
         bridge?.hide()
         loadedBridge = null
-        // A linear ad's screen still up closes, and `onAdEnded` waits for it to be gone (AdScreen.LinearScreen.close).
+        // A linear ad's screen still up closes, and `onAdEnded` waits for it to be gone (LinearScreen.close).
         val dismissing = shownAd?.screen?.close { finish(reason, bridge) } ?: false
         fireEndBeacons(reason, activeTime, isInline)
         Logger.info { "ad ${id.take(8)}: ended ($reason)" }
