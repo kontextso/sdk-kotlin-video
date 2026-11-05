@@ -6,7 +6,6 @@ import android.view.ViewGroup
 import androidx.annotation.MainThread
 import androidx.core.graphics.Insets
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -23,6 +22,7 @@ import so.kontext.video.internal.diagnostics.IntegrationGuard
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
+import so.kontext.video.internal.frame.FrameLoader
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.ViewabilityMeter
@@ -113,7 +113,9 @@ public class VideoAd internal constructor(
     /** The ad's page, if any: made when loading starts, released when the ad ends. Reading it never makes one. */
     internal var loadedBridge: FrameBridge? = null
     private var loading: Deferred<Unit>? = null
-    private var loadSignal: CompletableDeferred<Unit>? = null
+
+    /** Gets the ad's page running: its bridge, its load, the wait for `ad.loaded` (see [FrameLoader]). */
+    private val frameLoader = FrameLoader(payload)
 
     /**
      * Where the ad is shown, from `show` to `onAdEnded` (see [AdScreen]): inline in the app's container, or its
@@ -245,25 +247,13 @@ public class VideoAd internal constructor(
     private fun startLoading(): Deferred<Unit> {
         val owner = owner.get() ?: throw VideoAdException.Destroyed()
         val bridge = try {
-            // A linear ad's duration is its video's length; an overlay's is its time on screen, not the video's.
-            // A fact of the linear format, not of its screen.
-            loadedBridge ?: makeBridge(
-                checkNotNull(Environment.context) { "no application context" },
-                payload.id,
-                payload.frameUrl,
-                payload.creative == AdPayload.Creative.VIDEO,
-                payload.durationMillis.takeIf { format == AdFormat.LINEAR },
-            ).also { bridge ->
-                bridge.onEvent = { event -> handle(event) }
-                loadedBridge = bridge
-            }
-        } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
+            frameLoader.bridge(loadedBridge, isLinear = format == AdFormat.LINEAR) { event -> handle(event) }.also { loadedBridge = it }
+        } catch (error: FrameLoader.NoWebView) {
             // The WebView is missing or updating, or refused the bridge: the app hears a creative that failed
             // to load, never an exception of the platform's.
-            throw bridgeFailed(error)
+            throw bridgeFailed(error.cause ?: error)
         }
-        val signal = CompletableDeferred<Unit>().also { loadSignal = it }
-        bridge.load()
+        val signal = frameLoader.load(bridge)
         val task = owner.scope.async {
             val started = Environment.now()
             try {
@@ -511,18 +501,15 @@ public class VideoAd internal constructor(
             FrameEvent.Loaded -> {
                 state.markLoaded()
                 tracker.record(event)
-                loadSignal?.complete(Unit)
-                loadSignal = null
+                frameLoader.loaded()
             }
             is FrameEvent.Error -> {
                 tracker.record(event)
                 reportCreativeError(event.code)
-                val signal = loadSignal
                 when {
-                    signal != null -> {
-                        loadSignal = null
+                    frameLoader.isWaiting -> {
                         Logger.warning { "ad ${id.take(8)}: creative failed to load, VAST error ${event.code}" }
-                        signal.completeExceptionally(VideoAdException.CreativeFailed(event.code))
+                        frameLoader.fail(VideoAdException.CreativeFailed(event.code))
                     }
                     wasShown -> {
                         Logger.warning { "ad ${id.take(8)}: creative failed after show, VAST error ${event.code}" }
@@ -758,10 +745,7 @@ public class VideoAd internal constructor(
         loadedBridge = null
         // Never shown, so no onAdEnded to let the listener go (see finish): it goes here.
         listener = null
-        loadSignal?.let {
-            loadSignal = null
-            it.completeExceptionally(error(reason))
-        }
+        if (frameLoader.isWaiting) frameLoader.fail(error(reason))
         owner.get()?.adDidLeave(this)
     }
 
