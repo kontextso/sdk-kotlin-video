@@ -48,8 +48,8 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.content.ContentPlayback
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.Origin
@@ -79,14 +79,14 @@ class BoundaryTest {
         Environment.sendBeacon = { _, _ -> }
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
-        Sdk.configureForTesting(Configuration("test-token"))
+        SdkInitializer.configureForTesting(Configuration("test-token"))
     }
 
     @After fun teardown() {
         VideoAd.showTimeoutMillis = 5_000
         VideoAd.dismissalTimeoutMillis = 10_000
         owners.forEach { it.destroy() }
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
     }
 

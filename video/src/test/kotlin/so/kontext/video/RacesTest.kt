@@ -25,8 +25,9 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -73,7 +74,7 @@ class RacesTest {
     @After fun stop() {
         configGate?.countDown()
         adsGate?.countDown()
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
         server.shutdown()
     }
@@ -137,7 +138,7 @@ class RacesTest {
         await { call.result != null }
         assertTrue(call.result!!.exceptionOrNull() is VideoAdException.Destroyed)
         configGate!!.countDown()
-        await { Sdk.state.phase == KontextVideo.State.Enabled }
+        await { SdkState.current.phase == KontextVideo.State.Enabled }
         Thread.sleep(50)
         assertEquals("nothing left after destroy", 0, adsRequests.get())
     }
@@ -177,7 +178,7 @@ class RacesTest {
         val first = VideoAds(Content("ep-1", "en"))
         val call = format(first)
         assertTrue(adsArrived.await(5, TimeUnit.SECONDS))
-        Sdk.disable("killed") // another video's response switched the SDK off meanwhile
+        SdkInitializer.disable("killed") // another video's response switched the SDK off meanwhile
         adsGate!!.countDown()
         await { call.result != null }
         assertTrue(call.result!!.exceptionOrNull() is VideoAdException.Disabled)
@@ -192,7 +193,7 @@ class RacesTest {
         val ads = VideoAds(Content("ep", "en"))
         val call = format(ads)
         shadowOf(Looper.getMainLooper()).idle()
-        Sdk.disable("killed")
+        SdkInitializer.disable("killed")
         agent.complete(null)
         await { call.result != null }
         assertTrue(call.result!!.exceptionOrNull() is VideoAdException.Disabled)
@@ -207,7 +208,7 @@ class RacesTest {
         val ads = VideoAds(Content("ep", "en"))
         val call = format(ads)
         assertTrue(adsArrived.await(5, TimeUnit.SECONDS))
-        Sdk.disable("killed")
+        SdkInitializer.disable("killed")
         adsGate!!.countDown()
         await { call.result != null }
         assertTrue(call.result!!.exceptionOrNull() is VideoAdException.Disabled)

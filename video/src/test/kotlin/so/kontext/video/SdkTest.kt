@@ -13,7 +13,7 @@ import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
@@ -40,7 +40,7 @@ abstract class SdkTest {
         Environment.sendBeacon = { url, _ -> beacons += url }
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
-        Sdk.configureForTesting(Configuration("test-token"))
+        SdkInitializer.configureForTesting(Configuration("test-token"))
     }
 
     @After fun tearDownSdk() {
@@ -49,7 +49,7 @@ abstract class SdkTest {
         VideoAd.returnGraceMillis = 1_000
         VideoAd.makeBridge = ::FrameBridge
         owners.forEach { it.destroy() }
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
         AppActivities.resetForTesting()
         ErrorReporter.resetForTesting()

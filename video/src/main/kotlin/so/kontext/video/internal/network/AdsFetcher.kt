@@ -3,7 +3,7 @@ package so.kontext.video.internal.network
 import kotlinx.coroutines.CancellationException
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
@@ -11,6 +11,7 @@ import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 
 /**
  * One `VideoAds`'s ads request, from the SDK being on to a parsed answer it may use: one request at a time, made
@@ -49,15 +50,15 @@ internal class AdsFetcher(
     /** Asks the server; returns the answer, or throws [VideoAdException]. */
     suspend fun fetch(): AdsResponse {
         // 1. The SDK on, the VideoAds still usable.
-        val isEnabled = Sdk.waitUntilEnabled()
+        val isEnabled = SdkInitializer.waitUntilEnabled()
         checkStillUsable()
         if (!isEnabled) {
-            Logger.warning { "${content.id}: not requested, the SDK is ${Sdk.state.phase}" }
-            Sdk.disabledReason?.let { throw VideoAdException.Disabled(it) }
+            Logger.warning { "${content.id}: not requested, the SDK is ${SdkState.current.phase}" }
+            SdkState.current.disabledReason?.let { throw VideoAdException.Disabled(it) }
             throw VideoAdException.InitializationFailed()
         }
         // 2. The request, `held` read now.
-        val configuration = Sdk.configuration ?: throw VideoAdException.NotInitialized()
+        val configuration = SdkState.current.configuration ?: throw VideoAdException.NotInitialized()
         val context = Environment.context ?: throw VideoAdException.NotInitialized()
         val adsRequest = AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis(), sessionId, heldIds)
         // Another video's response may have switched the SDK off meanwhile: nothing leaves.
@@ -87,7 +88,7 @@ internal class AdsFetcher(
         }
         // 4. The kill switch switches the whole SDK off and drops every ad, with no notices.
         if (response is AdsResponse.Disabled) {
-            Sdk.disable(response.reason)
+            SdkInitializer.disable(response.reason)
             onDisabled()
             throw VideoAdException.Disabled(response.reason)
         }

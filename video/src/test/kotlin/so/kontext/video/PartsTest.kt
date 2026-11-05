@@ -16,7 +16,7 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
@@ -28,6 +28,7 @@ import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
+import so.kontext.video.internal.state.SdkState
 import java.util.concurrent.TimeUnit
 
 /** The pieces around an ad: the host view, the clock, the bridge's remaining paths, beacons, logging and the facade. */
@@ -329,13 +330,13 @@ class PartsTest : SdkTest() {
     }
 
     @Test fun aSecondInitializeIsIgnored() {
-        val configuration = Sdk.configuration
+        val configuration = SdkState.current.configuration
         KontextVideo.initialize(ApplicationProvider.getApplicationContext(), Configuration("other"))
-        assertSame(configuration, Sdk.configuration)
+        assertSame(configuration, SdkState.current.configuration)
     }
 
     @Test fun formatWithACallbackDeliversTheError() {
-        Sdk.disable("paused")
+        SdkInitializer.disable("paused")
         var error: VideoAdException? = null
         owner().format(
             AdFormat.PAUSE,

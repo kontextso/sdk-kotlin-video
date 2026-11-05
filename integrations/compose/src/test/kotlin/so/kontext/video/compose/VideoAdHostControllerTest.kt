@@ -23,7 +23,7 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdListener
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
@@ -49,12 +49,12 @@ class VideoAdHostControllerTest {
         Environment.sendBeacon = { _, _ -> }
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
-        Sdk.configureForTesting(KontextVideo.Configuration("test-token"))
+        SdkInitializer.configureForTesting(KontextVideo.Configuration("test-token"))
     }
 
     @After fun tearDownSdk() {
         owners.forEach { it.destroy() }
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
         AppActivities.resetForTesting()
     }

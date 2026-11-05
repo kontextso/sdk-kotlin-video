@@ -38,15 +38,17 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.core.problems
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.IntegrationGuard
 import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.diagnostics.problems
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.measurement.TrackingMacros
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 import java.net.URLDecoder
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -109,7 +111,7 @@ class ParityAdsTest {
         configGate?.countDown()
         adsGate?.countDown()
         owners.forEach { it.destroy() }
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
         Logger.sink = null
         server.shutdown()
@@ -613,7 +615,7 @@ class ParityAdsTest {
         adsAnswer = MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START)
         val call = call { ads.format(AdFormat.PAUSE) }
         await { adsBodies().size == 2 }
-        Sdk.disable("publisherDisabled")
+        SdkInitializer.disable("publisherDisabled")
         adsGate!!.countDown()
         assertEquals("disabled, not the held ad", "publisherDisabled", call.settled().failure<VideoAdException.Disabled>().reason)
     }
@@ -990,8 +992,8 @@ class ParityAdsTest {
 
     @Test fun startsNotInitialized() {
         assertEquals(KontextVideo.State.NotInitialized, KontextVideo.state)
-        assertFalse(Sdk.isInitialized)
-        assertNull(Sdk.configuration)
+        assertFalse(SdkState.current.isInitialized)
+        assertNull(SdkState.current.configuration)
     }
 
     @Test fun initializeSendsTheTokenAndTheInstallIdAndTellsTheListener() {
@@ -1003,7 +1005,7 @@ class ParityAdsTest {
         configGate!!.countDown()
         await { reported != null }
         assertEquals(KontextVideo.State.Enabled, reported)
-        assertEquals(configuration, Sdk.configuration)
+        assertEquals(configuration, SdkState.current.configuration)
         val body = Json.parseToJsonElement(received.first { it.first == "/v2/config" }.second).jsonObject
         assertEquals("test-token", body["publisherToken"]!!.jsonPrimitive.content)
         val installId = DeviceInfo.installId(ApplicationProvider.getApplicationContext())
@@ -1017,7 +1019,7 @@ class ParityAdsTest {
         var reported: KontextVideo.State? = null
         KontextVideo.initialize(ApplicationProvider.getApplicationContext(), configuration) { reported = it }
         await { configCount() == 1 }
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         configGate!!.countDown()
         settle(150)
         assertEquals("the cancelled request neither fails nor enables what was reset", KontextVideo.State.NotInitialized, KontextVideo.state)
@@ -1037,7 +1039,7 @@ class ParityAdsTest {
         var told = 0
         KontextVideo.initialize(ApplicationProvider.getApplicationContext(), Configuration("other") { adServerUrl = server.url("/").toString() }) { told++ }
         settle()
-        assertEquals("the first configuration stays", "test-token", Sdk.configuration!!.publisherToken)
+        assertEquals("the first configuration stays", "test-token", SdkState.current.configuration!!.publisherToken)
         assertEquals("an ignored call tells no listener", 0, told)
         assertEquals(1, configCount())
         assertEquals("the state the first call produced", KontextVideo.State.Enabled, call { KontextVideo.awaitInitialization() }.settled().getOrThrow())
@@ -1081,7 +1083,7 @@ class ParityAdsTest {
             MockResponse().setResponseCode(503) to KontextVideo.State.Failed,
         )
         for ((answer, expected) in outcomes) {
-            Sdk.resetForTesting()
+            SdkInitializer.resetForTesting()
             configAnswer = answer
             val reported = mutableListOf<KontextVideo.State>()
             KontextVideo.initialize(ApplicationProvider.getApplicationContext(), configuration) { reported += it }
@@ -1103,7 +1105,7 @@ class ParityAdsTest {
         initialize()
         settle()
         assertEquals("a switched-off SDK makes no WebView", 0, reads)
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         configAnswer = MockResponse().setBody("""{"enabled": true}""")
         initialize()
         await { reads == 1 }
@@ -1124,7 +1126,7 @@ class ParityAdsTest {
         assertTrue("initialize()" in messages[0])
         initialize()
         messages.clear()
-        assertTrue(Sdk.requireInitialized("x"))
+        assertTrue(IntegrationGuard.requireInitialized("x"))
         assertTrue(messages.isEmpty())
     }
 
@@ -1136,7 +1138,7 @@ class ParityAdsTest {
             MockResponse().setResponseCode(400).setBody("""{"errors": [{"status": "400", "code": "invalidRequest"}]}"""),
         )
         for (failure in failures) {
-            Sdk.resetForTesting()
+            SdkInitializer.resetForTesting()
             configAnswer = failure
             val before = configCount()
             assertEquals(KontextVideo.State.Failed, initialize())

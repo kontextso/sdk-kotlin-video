@@ -2,14 +2,16 @@ package so.kontext.video.internal.state
 
 import androidx.annotation.VisibleForTesting
 import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.State
+import so.kontext.video.KontextVideo.User
 
 /**
  * One source of truth: the one place every fact of the SDK's own life lives (where it is, the configuration it was
- * initialized with, what `/config` said of the reports), and the only way those facts change. Everyone else asks
- * it: `KontextVideo.state`, `Sdk.isInitialized` and `Sdk.disabledReason`, the error and debug reporters. The data
- * only: which moves are legal is [SdkLifecycle]'s rule, which [moveTo] asks. No Android, no side effects; `Sdk`
- * acts on it (the shell: `/config`, its retry, the reporters).
+ * initialized with, what `/config` said of the reports, the app's inputs), and the only way those facts change.
+ * Everyone else asks the one shared instance, [current]: `KontextVideo`, the ads requests, the error and debug
+ * reporters. The data only: which moves are legal is [SdkLifecycle]'s rule, which [moveTo] asks. No Android, no
+ * side effects; `SdkInitializer` acts on it (the shell: `/config`, its retry, the reporters).
  */
 internal class SdkState {
     /** Where the SDK is now, as `KontextVideo.state` shows it. It moves only through [moveTo]. */
@@ -29,6 +31,18 @@ internal class SdkState {
 
     /** What `/config` said of debug events (`reportDebug`); off until it answers. Set by [recordDebugReporting]. */
     var isDebugReportingOn: Boolean = false
+        private set
+
+    /** What the publisher knows about the viewer (`KontextVideo.user`); the next ads request carries it. */
+    var user: User? = null
+        private set
+
+    /** The app's privacy and consent signals (`KontextVideo.regulatory`). */
+    var regulatory: Regulatory? = null
+        private set
+
+    /** The publisher's A/B test variant (`KontextVideo.variantId`). */
+    var variantId: String? = null
         private set
 
     /** `initialize` was called: the phase left [State.NotInitialized], never to return. */
@@ -60,10 +74,36 @@ internal class SdkState {
         isDebugReportingOn = isOn
     }
 
+    /** The app set `KontextVideo.user`. */
+    fun recordUser(user: User?) {
+        this.user = user
+    }
+
+    /** The app set `KontextVideo.regulatory`. */
+    fun recordRegulatory(regulatory: Regulatory?) {
+        this.regulatory = regulatory
+    }
+
+    /** The app set `KontextVideo.variantId`. */
+    fun recordVariantId(variantId: String?) {
+        this.variantId = variantId
+    }
+
     /** As if `/config` had enabled the SDK with [configuration], without it. Tests only. */
     @VisibleForTesting
     fun enableForTesting(configuration: Configuration) {
         this.configuration = configuration
         phase = State.Enabled
+    }
+
+    companion object {
+        /** The SDK's state: one per process, as the SDK is. */
+        var current: SdkState = SdkState()
+            private set
+
+        /** Back to a fresh state, as before `initialize`. Tests only. */
+        fun resetForTesting() {
+            current = SdkState()
+        }
     }
 }

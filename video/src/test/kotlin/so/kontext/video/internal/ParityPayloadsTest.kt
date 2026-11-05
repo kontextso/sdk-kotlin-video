@@ -37,7 +37,6 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.measurement.Tracker
@@ -669,7 +668,7 @@ class ParityRequestsTest : SdkTest() {
         server.start()
         try {
             repeat(2) {
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 var done = false
                 KontextVideo.initialize(context, Configuration("pub-dev") { adServerUrl = server.url("/").toString() }) { done = true }
                 val deadline = System.currentTimeMillis() + 10_000
@@ -769,7 +768,7 @@ class ParityRequestsTest : SdkTest() {
     }
 
     @JUnit4Test fun everyFormatThrowsNotInitializedBeforeInitialize() {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         val ads = VideoAds(Content("v", "en")).also { owners += it }
         for (format in AdFormat.entries) {
             val error = runCatching { runBlocking { ads.format(format) } }.exceptionOrNull()

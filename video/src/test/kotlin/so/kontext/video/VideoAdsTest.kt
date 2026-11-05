@@ -28,7 +28,7 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -63,7 +63,7 @@ class VideoAdsTest {
     }
 
     @After fun stop() {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
         server.shutdown()
     }

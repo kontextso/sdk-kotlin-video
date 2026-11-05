@@ -7,12 +7,12 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 import java.util.UUID
 import kotlin.math.min
 import kotlin.math.pow
@@ -47,7 +47,7 @@ internal object ErrorReporter {
     private val mode: Mode
         get() = when {
             wasStoppedByServer -> Mode.OFF
-            else -> when (Sdk.state.isErrorReportingOn) {
+            else -> when (SdkState.current.isErrorReportingOn) {
                 null -> Mode.PENDING
                 true -> Mode.ON
                 false -> Mode.OFF
@@ -73,7 +73,7 @@ internal object ErrorReporter {
     val bufferedDetails: List<String> get() = queue.reports.map { it["detail"]?.toString()?.trim('"').orEmpty() }
 
     /**
-     * `/config` answered (`Sdk.recordErrorReporting`): reports on send what waited, reports off drop it for this
+     * `/config` answered (`SdkInitializer.recordErrorReporting`): reports on send what waited, reports off drop it for this
      * launch.
      */
     fun reportingChanged() {
@@ -163,7 +163,7 @@ internal object ErrorReporter {
     // Batch, send, and the server's answers each decide one thing.
     @Suppress("CyclomaticComplexMethod")
     private suspend fun flush(): Boolean {
-        val configuration = Sdk.configuration ?: return true
+        val configuration = SdkState.current.configuration ?: return true
         val context = Environment.context ?: return true
         if (mode != Mode.ON) return true
         val batch = pendingBatch ?: makeBatch(configuration, context) ?: return true

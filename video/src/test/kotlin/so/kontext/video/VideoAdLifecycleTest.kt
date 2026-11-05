@@ -21,7 +21,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.EventHistory
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
@@ -371,7 +371,7 @@ class VideoAdLifecycleTest : SdkTest() {
 
     @Test fun showRefusesAfterTheSdkWasSwitchedOff() {
         val ad = overlay()
-        Sdk.disable("paused")
+        SdkInitializer.disable("paused")
         assertThrows<VideoAdException.Disabled> { ad.show(container()) }
     }
 

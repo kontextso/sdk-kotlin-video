@@ -24,7 +24,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.KontextVideo.Configuration
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
@@ -57,7 +56,7 @@ class ReportersTest {
         }
         server.start()
         Environment.context = ApplicationProvider.getApplicationContext()
-        Sdk.configureForTesting(Configuration("test-token") { adServerUrl = server.url("/").toString() })
+        SdkInitializer.configureForTesting(Configuration("test-token") { adServerUrl = server.url("/").toString() })
         ErrorReporter.intervalMillis = 10
         ErrorReporter.retryDelayMillis = 50
         ErrorReporter.maxRetryDelayMillis = 100
@@ -65,7 +64,7 @@ class ReportersTest {
     }
 
     @After fun stop() {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         Environment.reset()
         server.shutdown()
     }
@@ -99,7 +98,7 @@ class ReportersTest {
         report(ErrorReport.Code.LOAD_TIMEOUT)
         settle()
         assertTrue("nothing leaves before /config", errorBatches().isEmpty())
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         await { errorBatches().isNotEmpty() }
         val batch = errorBatches().single()
         assertEquals("test-token", batch["publisherToken"]!!.jsonPrimitive.content)
@@ -115,9 +114,9 @@ class ReportersTest {
 
     @Test fun configWithoutReportsDropsThemForTheLaunch() {
         report()
-        Sdk.recordErrorReporting(false)
+        SdkInitializer.recordErrorReporting(false)
         report()
-        Sdk.recordErrorReporting(true) // off is final
+        SdkInitializer.recordErrorReporting(true) // off is final
         report()
         settle()
         assertTrue(errorBatches().isEmpty())
@@ -126,7 +125,7 @@ class ReportersTest {
 
     @Test fun aFailedBatchIsRetriedUnchanged() {
         errorAnswers = mutableListOf(500, 503)
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         report()
         await { errorBatches().size >= 2 }
         // Reported between the attempts: it waits for the next batch, and changes nothing in this one.
@@ -154,7 +153,7 @@ class ReportersTest {
         ErrorReporter.intervalMillis = 10
         repeat(ReportQueue.MAX_BATCH) { report(detail = detail) }
         assertEquals(List(ReportQueue.MAX_BATCH) { target }, ErrorReporter.bufferedSizes)
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ReportQueue.MAX_BATCH }
         val sizes = errorBodies.map { it.size }
         assertTrue("each whole body within ${ReportQueue.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ReportQueue.MAX_BATCH_BYTES })
@@ -167,7 +166,7 @@ class ReportersTest {
         val count = 60 // about 3.7 KB each: all within the 256 KB buffer, about four batches
         repeat(count) { report() }
         assertEquals("all buffered", count, ErrorReporter.bufferedCount)
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == count }
         val sizes = errorBodies.map { it.size }
         assertTrue("several batches: the byte limit decides, $sizes", sizes.size > 2)
@@ -178,7 +177,7 @@ class ReportersTest {
 
     @Test fun goneStopsReportingForTheLaunch() {
         errorAnswers = mutableListOf(410)
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         report()
         await { errorBatches().size == 1 }
         report()
@@ -188,7 +187,7 @@ class ReportersTest {
 
     @Test fun aRefusedBatchIsDroppedNotRetried() {
         errorAnswers = mutableListOf(400)
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         report()
         await { errorBatches().size == 1 }
         report(ErrorReport.Code.LOAD_TIMEOUT)
@@ -199,7 +198,7 @@ class ReportersTest {
     @Test fun beyondTheBufferTheOldestGoAndTheNextBatchSaysHowMany() {
         repeat(ReportQueue.MAX_BUFFERED + 5) { report() }
         assertEquals(ReportQueue.MAX_BUFFERED, ErrorReporter.bufferedCount)
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ReportQueue.MAX_BUFFERED }
         val batches = errorBatches()
         assertEquals(5, batches.first()["dropped"]!!.jsonPrimitive.int)
@@ -224,14 +223,14 @@ class ReportersTest {
         DebugReporter.event("before")
         settle()
         assertTrue(received.none { it.first == "/v2/debug" })
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(true)
         DebugReporter.event("ads.request", level = DebugReporter.Level.WARNING, state = mapOf("held" to 1, "playhead" to 2.5))
         await { received.any { it.first == "/v2/debug" } }
         val event = received.first { it.first == "/v2/debug" }.second["events"]!!.jsonArray.single().jsonObject
         assertEquals("ads.request", event["name"]!!.jsonPrimitive.content)
         assertEquals("warning", event["level"]!!.jsonPrimitive.content)
         assertEquals("ads.request ad=f1a2b3c4 held=1 playhead=2.5", DebugReporter.line("ads.request", "f1a2b3c4deadbeef", mapOf("playhead" to 2.5, "held" to 1)))
-        Sdk.recordDebugReporting(false)
+        SdkInitializer.recordDebugReporting(false)
         DebugReporter.event("after")
         settle()
         assertEquals(1, received.count { it.first == "/v2/debug" })

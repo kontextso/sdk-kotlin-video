@@ -13,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.shadows.ShadowSystemClock
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
@@ -31,7 +31,7 @@ class DeferredLifecycleTest : SdkTest() {
     @Test fun anAdIsNotReadyWhileTheSdkIsSwitchedOff() {
         val ad = overlay()
         assertTrue(ad.isReady)
-        Sdk.disable("paused")
+        SdkInitializer.disable("paused")
         assertFalse("show would throw Disabled", ad.isReady)
     }
 

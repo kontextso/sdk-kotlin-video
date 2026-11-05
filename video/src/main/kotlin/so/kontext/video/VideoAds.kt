@@ -15,18 +15,15 @@ import kotlinx.coroutines.withContext
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.content.ContentPlayback
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
-import so.kontext.video.internal.diagnostics.ErrorReport
-import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.IntegrationGuard
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.AdsFetcher
 import so.kontext.video.internal.payloads.AdsResponse
-import so.kontext.video.internal.payloads.leftOut
-import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.AdStore
+import so.kontext.video.internal.state.SdkState
 import java.util.UUID
 
 /**
@@ -101,15 +98,9 @@ public class VideoAds @JvmOverloads constructor(
     internal val playheadMillis: Long get() = playback.playheadMillis
 
     init {
-        Sdk.requireInitialized("VideoAds(content)")
+        IntegrationGuard.requireInitialized("VideoAds(content)")
         // What the publisher passed wrong, said once here rather than as a server 400 later.
-        val missing = content.missingRequired
-        if (missing.isNotEmpty()) {
-            Environment.assertionFailure("Content: ${missing.joinToString()}")
-            Logger.error { "content ${content.id}: ${missing.joinToString()}; the server will refuse its requests" }
-            ErrorReporter.report(ErrorReport.Code.BAD_CONTENT, ErrorReport.Stage.INTEGRATION, sessionId = sessionId, detail = missing.joinToString(","))
-        }
-        if (content.leftOut.isNotEmpty()) Logger.warning { "content ${content.id}: ${content.leftOut.joinToString()}" }
+        IntegrationGuard.checkContent(content, sessionId)
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
         // The ad on screen hears of the player: an overlay ends when the content stops, and counts its time.
         playback.onChange = { change -> showing?.contentRule?.contentDidChange(change) }
@@ -130,7 +121,7 @@ public class VideoAds @JvmOverloads constructor(
 
     private suspend fun formatOnMain(format: AdFormat): VideoAd {
         if (isDestroyed) throw VideoAdException.Destroyed()
-        if (!Sdk.requireInitialized("ads.format()")) throw VideoAdException.NotInitialized()
+        if (!IntegrationGuard.requireInitialized("ads.format()")) throw VideoAdException.NotInitialized()
         val task = request ?: startRequest()
         val noFill = try {
             task.await()
@@ -188,7 +179,7 @@ public class VideoAds @JvmOverloads constructor(
      */
     @MainThread
     public fun track(player: ContentPlayer) {
-        Sdk.checkMainThread("VideoAds.track()")
+        IntegrationGuard.requireMainThread("VideoAds.track()")
         if (isDestroyed) return
         playback.track(player)
     }
@@ -206,7 +197,7 @@ public class VideoAds @JvmOverloads constructor(
      */
     @MainThread
     public fun destroy() {
-        Sdk.checkMainThread("VideoAds.destroy()")
+        IntegrationGuard.requireMainThread("VideoAds.destroy()")
         if (isDestroyed) return
         isDestroyed = true
         scope.cancel()
@@ -254,7 +245,7 @@ public class VideoAds @JvmOverloads constructor(
 
     private fun checkStillUsable() {
         if (isDestroyed) throw VideoAdException.Destroyed()
-        Sdk.disabledReason?.let { throw VideoAdException.Disabled(it) }
+        SdkState.current.disabledReason?.let { throw VideoAdException.Disabled(it) }
     }
 
     /**

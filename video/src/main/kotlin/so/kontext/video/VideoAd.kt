@@ -23,10 +23,10 @@ import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.content.ContentRule
 import so.kontext.video.internal.content.ContentTimeClock
 import so.kontext.video.internal.content.OverlayRule
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.IntegrationGuard
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
@@ -49,6 +49,7 @@ import so.kontext.video.internal.screen.awaitLayout
 import so.kontext.video.internal.screen.systemInsets
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
+import so.kontext.video.internal.state.SdkState
 import java.lang.ref.WeakReference
 
 /**
@@ -99,7 +100,7 @@ public class VideoAd internal constructor(
     public val isLoaded: Boolean get() = state.isLoaded
 
     /** Loaded and still usable: `show` will not throw `NotLoaded`, `Invalidated` or `Disabled`. */
-    public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired && Sdk.disabledReason == null
+    public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired && SdkState.current.disabledReason == null
 
     /** Why the ad ended before it was shown, once it did. */
     public val invalidationReason: InvalidationReason? get() = state.invalidationReason
@@ -202,7 +203,7 @@ public class VideoAd internal constructor(
     @MainThread
     @JvmOverloads
     public fun reject(reason: RejectReason = RejectReason.NotUsed) {
-        Sdk.checkMainThread("VideoAd.reject()")
+        IntegrationGuard.requireMainThread("VideoAd.reject()")
         withContentPlayhead {
             if (wasShown) {
                 Logger.warning { "$format ad ${id.take(8)}: reject() after show does nothing; the ad was shown" }
@@ -234,7 +235,7 @@ public class VideoAd internal constructor(
     internal fun checkUsable() {
         val owner = owner.get()
         if (owner == null || owner.isDestroyed) throw VideoAdException.Destroyed()
-        Sdk.disabledReason?.let { throw VideoAdException.Disabled(it) }
+        SdkState.current.disabledReason?.let { throw VideoAdException.Disabled(it) }
         invalidationReason?.let { throw error(it) }
         if (isExpired) {
             invalidate(InvalidationReason.Expired)
@@ -339,7 +340,7 @@ public class VideoAd internal constructor(
     @Throws(VideoAdException::class)
     @JvmOverloads
     public fun show(container: ViewGroup, insets: Insets = Insets.NONE) {
-        Sdk.checkMainThread("VideoAd.show(container)")
+        IntegrationGuard.requireMainThread("VideoAd.show(container)")
         withContentPlayhead { showInline(container, insets) }
     }
 
@@ -452,7 +453,7 @@ public class VideoAd internal constructor(
     @MainThread
     @Throws(VideoAdException::class)
     public fun show(activity: Activity) {
-        Sdk.checkMainThread("VideoAd.show(activity)")
+        IntegrationGuard.requireMainThread("VideoAd.show(activity)")
         withContentPlayhead { showLinear(activity) }
     }
 
@@ -517,7 +518,7 @@ public class VideoAd internal constructor(
      */
     @MainThread
     public fun dismiss() {
-        Sdk.checkMainThread("VideoAd.dismiss()")
+        IntegrationGuard.requireMainThread("VideoAd.dismiss()")
         // A fact of the linear format, not of its screen: it ends by itself or by the viewer.
         if (format == AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.dismiss() on a linear ad; it ends by itself, VideoAds.destroy() forces it off")

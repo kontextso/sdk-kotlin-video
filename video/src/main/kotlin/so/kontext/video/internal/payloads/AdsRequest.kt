@@ -7,11 +7,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.KontextVideo.Content
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 import java.util.UUID
 import kotlin.math.roundToInt
 
@@ -42,15 +42,15 @@ internal class AdsRequest private constructor(
             val userAgent = UserAgent.requestUserAgent(context)
             val ifa = Environment.advertisingId()
             // A usable CMP value wins per field; the publisher fills in the rest. COPPA comes only from the publisher.
-            val regulatory = Consent.read(context, Sdk.regulatory)
+            val regulatory = Consent.read(context, SdkState.current.regulatory)
             // The ads held now, after the waits: one shown, rejected or expired meanwhile is not listed.
             val heldIds = held()
             val body = buildJsonObject {
                 put("requestId", requestId)
                 put("publisherToken", publisherToken)
                 put("installId", DeviceInfo.installId(context))
-                regulatory.userToSend(Sdk.user)?.let { put("user", it.toJson()) }
-                putIfNotNull("variantId", Sdk.variantId)
+                regulatory.userToSend(SdkState.current.user)?.let { put("user", it.toJson()) }
+                putIfNotNull("variantId", SdkState.current.variantId)
                 // Only an id the viewer allows: one with limited ad tracking is not read at all.
                 regulatory.advertisingIdToSend(ifa)?.let {
                     put(

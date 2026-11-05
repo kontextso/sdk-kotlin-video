@@ -49,7 +49,6 @@ import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
@@ -104,7 +103,7 @@ abstract class ParityHarness : SdkTest() {
             }
         }
         server.start()
-        Sdk.configureForTesting(Configuration("test-token") { adServerUrl = baseUrl })
+        SdkInitializer.configureForTesting(Configuration("test-token") { adServerUrl = baseUrl })
         fastReporters()
     }
 
@@ -160,7 +159,7 @@ abstract class ParityHarness : SdkTest() {
 
     /** `KontextVideo.initialize` from scratch against the local server, `/config` answering [config]. */
     protected fun initialize(config: String = """{"enabled": true}""", token: String = "test-token"): KontextVideo.State {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         fastReporters()
         if (answers["/v2/config"] == null) answer("/v2/config", config)
         var state: KontextVideo.State? = null
@@ -546,15 +545,15 @@ class ParitySupportTest : ParityHarness() {
     private val debugOn = """{"enabled": true, "reportDebug": true}"""
 
     @Test fun initializeInAnotherProcessOfTheAppStaysOffWithoutAServerCall() {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         answer("/v2/config", """{"enabled": true}""")
         val app = Environment.context!!
         Environment.processName = { "${app.packageName}:playback" }
         var heard: KontextVideo.State? = null
         KontextVideo.initialize(app, Configuration("test-token") { adServerUrl = baseUrl }) { heard = it }
-        assertEquals(KontextVideo.State.Disabled(Sdk.NOT_MAIN_PROCESS), KontextVideo.state)
+        assertEquals(KontextVideo.State.Disabled(SdkInitializer.NOT_MAIN_PROCESS), KontextVideo.state)
         await { heard != null }
-        assertEquals("the listener is told", KontextVideo.State.Disabled(Sdk.NOT_MAIN_PROCESS), heard)
+        assertEquals("the listener is told", KontextVideo.State.Disabled(SdkInitializer.NOT_MAIN_PROCESS), heard)
         settle()
         assertTrue("no /config", requests("/v2/config").isEmpty())
         // An ads request there is refused as for a switched-off SDK, not as a call before initialize.
@@ -677,7 +676,7 @@ class ParitySupportTest : ParityHarness() {
             calls += 1
             if (calls == 1) MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) else MockResponse().setResponseCode(204)
         }
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, adId = "ad-1", detail = "start")
         await { requests("/v2/error").size >= 2 }
         settle()
@@ -687,7 +686,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun theCreativesFailuresAreToldApartBehindTheSameVastCode() {
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         val ads = owner()
         val terminated = overlay(ads)
         terminated.show(container())
@@ -710,7 +709,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aPageThatBreaksTheMessageContractIsReportedOncePerAd() {
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         val ad = pause()
         val bridge = ad.loadedBridge!!
         val origin = Origin.of(ad.payload.frameUrl)
@@ -726,7 +725,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aLinearScreenThatNeverStartsIsReported() {
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         VideoAd.showTimeoutMillis = 300
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val ad = linear()
@@ -757,7 +756,7 @@ class ParitySupportTest : ParityHarness() {
         assertEquals("short", ReportFormat.capped("short"))
         val long = "a".repeat(10_000)
         DebugReporter.event(heavy, adId = heavy, state = mapOf("format" to heavy))
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         repeat(20) { index ->
             ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = ErrorReport.Underlying(long, 0))
         }
@@ -803,7 +802,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aPageThatCannotLoadCarriesTheSystemsError() {
-        Sdk.recordErrorReporting(true)
+        SdkInitializer.recordErrorReporting(true)
         val payload = AdPayload.parse(Fixtures.json(Fixtures.pause()))
         val ad = VideoAd(payload, Environment.now(), owner())
         Environment.scope.launch { runCatching { ad.load() } }
@@ -821,7 +820,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun integrationMistakesAreReportedOnceTheServerAllowsIt() {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         fastReporters()
         val early = VideoAds(Content("v", "en")) // before initialize: waits in memory
         answer("/v2/config", reportsOn)
@@ -879,7 +878,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun eventsAreCoalescedIntoOneRequestPerInterval() {
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(true)
         repeat(20) { DebugReporter.event("tick", state = mapOf("i" to it)) }
         await { debugBatches("tick").isNotEmpty() }
         settle()
@@ -889,10 +888,10 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun disablingDropsTheBuffer() {
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(true)
         DebugReporter.event("tick")
-        Sdk.recordDebugReporting(false)
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(false)
+        SdkInitializer.recordDebugReporting(true)
         DebugReporter.event("after")
         await { debugBatches("after").isNotEmpty() }
         settle()
@@ -900,7 +899,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aFailedBatchIsLostQuietlyAndTheNextOneGoesOut() {
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(true)
         answer("/v2/debug") { MockResponse().setResponseCode(500) }
         DebugReporter.event("lost-once")
         await { debugBatches("lost-once").isNotEmpty() }
@@ -939,7 +938,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun oneRequestAtATimeAndTheRestWaitForIt() {
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(true)
         val gate = CountDownLatch(1)
         answer("/v2/debug") {
             gate.await(10, TimeUnit.SECONDS)
@@ -963,7 +962,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun theBufferKeepsTheNewestEventsOnly() {
-        Sdk.recordDebugReporting(true)
+        SdkInitializer.recordDebugReporting(true)
         val gate = CountDownLatch(1)
         answer("/v2/debug") {
             gate.await(10, TimeUnit.SECONDS)

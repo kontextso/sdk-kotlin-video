@@ -7,12 +7,12 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.payloads.putIfNotNull
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 import kotlin.math.abs
 
 /**
@@ -32,7 +32,7 @@ internal object DebugReporter {
     private const val WHOLE_LIMIT = 9_007_199_254_740_992.0
 
     /** What `/config` said (`reportDebug`), read from the SDK's state: off until it answers. */
-    val isEnabled: Boolean get() = Sdk.state.isDebugReportingOn
+    val isEnabled: Boolean get() = SdkState.current.isDebugReportingOn
 
     private val buffer = mutableListOf<JsonObject>()
     private var flushJob: Job? = null
@@ -53,7 +53,7 @@ internal object DebugReporter {
         scheduleFlush()
     }
 
-    /** `/config` answered (`Sdk.recordDebugReporting`): off drops what waits. */
+    /** `/config` answered (`SdkInitializer.recordDebugReporting`): off drops what waits. */
     fun reportingChanged() {
         if (!isEnabled) buffer.clear()
     }
@@ -90,7 +90,7 @@ internal object DebugReporter {
     }
 
     private suspend fun flush() {
-        val configuration = Sdk.configuration ?: return
+        val configuration = SdkState.current.configuration ?: return
         val context = Environment.context ?: return
         if (!isEnabled || buffer.isEmpty()) return
         val events = buffer.toList()

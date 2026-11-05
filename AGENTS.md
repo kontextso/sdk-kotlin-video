@@ -51,7 +51,7 @@ adb logcat -s KontextVideo
   app's insets, the chosen size and the holding Activity; `LinearScreen`, its own Activity, the Activity that
   started it and its closing). `VideoAd` asks them rather than branching on the format.
 - Functional core, imperative shell: the rules with no Android in them (`SdkLifecycle`, `SdkState`, `AdLifecycle`,
-  `AdState`, `FrameProtocol`, `closeOutcome`) decide, and `Sdk`, `VideoAd` and `FrameBridge` act
+  `AdState`, `FrameProtocol`, `closeOutcome`) decide, and `SdkInitializer`, `VideoAd` and `FrameBridge` act
   on the answer; the rules are tested as plain JUnit tables. Swift has `SdkLifecycle`, `SdkState`, `AdLifecycle`,
   `AdState` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:
@@ -61,15 +61,17 @@ adb logcat -s KontextVideo
     `SdkLifecycle.kt`: the SDK's legal moves between the phases of `KontextVideo.State` (`canMove`), stateless.
     `SdkState.kt`: every fact of the SDK's life, the one source of truth: its phase (moved only by `moveTo`, which
     asks `SdkLifecycle.canMove`), the configuration, what `/config` said of the reports (`isErrorReportingOn`,
-    `null` until it answers; `isDebugReportingOn`), and `isInitialized` and `disabledReason` derived from the
-    phase; `Sdk` holds one, `KontextVideo.state` and the reporters read it. `AdLifecycle.kt`: the rules of an ad's
+    `null` until it answers; `isDebugReportingOn`), the app's inputs (`user`, `regulatory`, `variantId`), and
+    `isInitialized` and `disabledReason` derived from the phase; one shared instance, `SdkState.current`, which
+    `KontextVideo`, the requests and the reporters read. `AdLifecycle.kt`: the rules of an ad's
     life, stateless: its phases (offered, invalidated, reserved, on screen, ending, ended) and `canMove`, their
     legal moves. `AdState.kt`: every fact of an ad's life, the one source of truth: its phase (moved only by
     `moveTo`, which asks `AdLifecycle.canMove`), its milestones (`isLoaded`, `wasOnScreen`, `hasImpression`,
     `isCompleted`, the failure), each recorded once and never undone, and the flags derived from them; `VideoAd`
     holds one and its public flags read from it.
-  - `core/Sdk.kt`: the SDK's shell, what `KontextVideo` forwards to: it moves `SdkState` (`initialize`, `/config`
-    and its retry, the kill switch) and holds the app's inputs (`user`, `regulatory`, `variantId`).
+  - `internal/SdkInitializer.kt`: the entry point of the internals; everything else lives in a folder named by its
+    topic. It initializes the SDK and keeps it on or off: it moves `SdkState.current` (`initialize`, `/config`
+    through `ConfigFetcher` and its retry, the kill switch, the report switches).
   - `frame/`, the ad's web page and its messages: `FrameMessage` (one page message read: the
     envelope, the 1 MB limit, the fields, the playhead's bounds; `parse` is `null` for a broken envelope),
     `FrameProtocol` (the frame protocol's rules, no WebView: the sender, the frame's phase (`FramePhase`, not the
@@ -92,10 +94,12 @@ adb logcat -s KontextVideo
   - `payloads/`, the ad server's API: `/config`, `/ads`, its error body, and the app's inputs as sent (the
     error-report and debug bodies stay in `diagnostics/`): `AdPayload`, `AppInputs` (the request rules of the app's Content and User), `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`, `JsonParser` (the depth-guarded parse), `JsonFields` (the lenient readers).
   - `network/`, everything that goes to our server and back: `HttpTransport` (connections, redirects, at most
-    10), `ApiClient` (our server), `BeaconClient` (tracking GETs), `AdsFetcher` (one `VideoAds`'s ads request:
+    10), `ApiClient` (our server), `BeaconClient` (tracking GETs), `ConfigFetcher` (the `/config` request),
+    `AdsFetcher` (one `VideoAds`'s ads request:
     the waits, the body, the answer, its failures, the kill switch), `ApiException`.
   - `device/`: `DeviceInfo` (the device facts), `UserAgent` (the shared lookup, its wait and its fallback), `Consent` (through KontextKit).
-  - `diagnostics/`: `Logger`; `ErrorReporter` (the shell that sends to `/error`), `ErrorReport` (one report: its
+  - `diagnostics/`: `Logger`; `IntegrationGuard` (the app's own mistakes: off the main thread, before
+    `initialize`, a configuration, content or user that cannot work); `ErrorReporter` (the shell that sends to `/error`), `ErrorReport` (one report: its
     vocabulary and its JSON), `ReportQueue` (the bounded queue and its batches); `DebugReporter` (`/debug`),
     `EventHistory` (the last events an error report carries); `ReportFormat` (capped, timestamp, json).
   - `platform/`: `Environment` (the seams the tests replace), `AppActivities` (the app's screens: in front,

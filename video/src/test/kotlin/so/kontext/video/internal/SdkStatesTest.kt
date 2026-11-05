@@ -14,11 +14,11 @@ import so.kontext.video.KontextVideo
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.State
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.SdkState
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -37,7 +37,7 @@ class SdkStatesTest : ParityHarness() {
 
     /** From scratch: `initialize` not called yet. */
     private fun fresh() {
-        Sdk.resetForTesting()
+        SdkInitializer.resetForTesting()
         fastReporters()
     }
 
@@ -63,7 +63,7 @@ class SdkStatesTest : ParityHarness() {
         KontextVideo.initialize(Environment.context!!, Configuration("other") { adServerUrl = baseUrl }) { told++ }
         settle()
         assertEquals(before, KontextVideo.state)
-        assertEquals("test-token", Sdk.configuration!!.publisherToken)
+        assertEquals("test-token", SdkState.current.configuration!!.publisherToken)
         assertEquals(configs, requests("/v2/config").size)
         assertEquals(0, told)
     }
@@ -73,14 +73,14 @@ class SdkStatesTest : ParityHarness() {
     @Test fun notInitializedMovesToInitializingThenEnabled() {
         fresh()
         assertEquals(State.NotInitialized, KontextVideo.state)
-        assertFalse(Sdk.isInitialized)
-        assertNull(Sdk.disabledReason)
+        assertFalse(SdkState.current.isInitialized)
+        assertNull(SdkState.current.disabledReason)
         val gate = heldConfig("""{"enabled": true}""")
         var heard: State? = null
         try {
             KontextVideo.initialize(Environment.context!!, configuration) { heard = it }
             assertEquals(State.Initializing, KontextVideo.state)
-            assertTrue(Sdk.isInitialized)
+            assertTrue(SdkState.current.isInitialized)
             await { requests("/v2/config").size == 1 }
             assertSecondInitializeIgnored()
         } finally {
@@ -89,14 +89,14 @@ class SdkStatesTest : ParityHarness() {
         await { heard != null }
         assertEquals(State.Enabled, heard)
         assertEquals(State.Enabled, KontextVideo.state)
-        assertNull(Sdk.disabledReason)
+        assertNull(SdkState.current.disabledReason)
         assertSecondInitializeIgnored()
     }
 
     @Test fun initializingMovesToDisabledWhenConfigSaysSo() {
         assertEquals(State.Disabled("publisherDisabled"), initialize(disabled))
-        assertEquals("publisherDisabled", Sdk.disabledReason)
-        assertTrue(Sdk.isInitialized)
+        assertEquals("publisherDisabled", SdkState.current.disabledReason)
+        assertTrue(SdkState.current.isInitialized)
         assertSecondInitializeIgnored()
         val call = startFormat(owner(), AdFormat.PAUSE)
         await { call.result != null }
@@ -107,8 +107,8 @@ class SdkStatesTest : ParityHarness() {
     @Test fun initializingMovesToFailedAndTheNextAdsRequestMovesItBackToInitializing() {
         failingConfig()
         assertEquals(State.Failed, initialize())
-        assertTrue(Sdk.isInitialized)
-        assertNull(Sdk.disabledReason)
+        assertTrue(SdkState.current.isInitialized)
+        assertNull(SdkState.current.disabledReason)
         assertSecondInitializeIgnored()
         // A retry that fails again: back to Failed.
         val first = startFormat(owner(), AdFormat.PAUSE)
@@ -147,9 +147,9 @@ class SdkStatesTest : ParityHarness() {
         val app = Environment.context!!
         Environment.processName = { "${app.packageName}:playback" }
         KontextVideo.initialize(app, configuration)
-        assertEquals(State.Disabled(Sdk.NOT_MAIN_PROCESS), KontextVideo.state)
-        assertEquals(Sdk.NOT_MAIN_PROCESS, Sdk.disabledReason)
-        assertTrue(Sdk.isInitialized)
+        assertEquals(State.Disabled(SdkInitializer.NOT_MAIN_PROCESS), KontextVideo.state)
+        assertEquals(SdkInitializer.NOT_MAIN_PROCESS, SdkState.current.disabledReason)
+        assertTrue(SdkState.current.isInitialized)
         assertSecondInitializeIgnored()
     }
 
@@ -162,9 +162,9 @@ class SdkStatesTest : ParityHarness() {
         assertEquals(State.Disabled("killed"), KontextVideo.state)
         assertSecondInitializeIgnored()
         // Another answer in flight meanwhile may carry another reason: the last one stays.
-        Sdk.disable("killed")
+        SdkInitializer.disable("killed")
         assertEquals(State.Disabled("killed"), KontextVideo.state)
-        Sdk.disable("other")
+        SdkInitializer.disable("other")
         assertEquals(State.Disabled("other"), KontextVideo.state)
     }
 

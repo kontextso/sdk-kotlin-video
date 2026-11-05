@@ -5,7 +5,9 @@ import androidx.annotation.MainThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import so.kontext.video.internal.SDK_VERSION
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
+import so.kontext.video.internal.diagnostics.IntegrationGuard
+import so.kontext.video.internal.state.SdkState
 
 /**
  * The SDK's one entry point. Call [initialize] once, in `Application.onCreate`; then create a [VideoAds]
@@ -67,7 +69,7 @@ public object KontextVideo {
 
     /** The current state. */
     @JvmStatic
-    public val state: State get() = Sdk.state.phase
+    public val state: State get() = SdkState.current.phase
 
     /**
      * What the publisher knows about the viewer. Set it whenever you learn it, for example after login; the
@@ -76,10 +78,11 @@ public object KontextVideo {
     @JvmStatic
     @set:MainThread
     public var user: User?
-        get() = Sdk.user
+        get() = SdkState.current.user
         set(value) {
-            Sdk.checkMainThread("KontextVideo.user")
-            Sdk.user = value
+            IntegrationGuard.requireMainThread("KontextVideo.user")
+            SdkState.current.recordUser(value)
+            IntegrationGuard.checkUser(value)
         }
 
     /**
@@ -89,20 +92,20 @@ public object KontextVideo {
     @JvmStatic
     @set:MainThread
     public var regulatory: Regulatory?
-        get() = Sdk.regulatory
+        get() = SdkState.current.regulatory
         set(value) {
-            Sdk.checkMainThread("KontextVideo.regulatory")
-            Sdk.regulatory = value
+            IntegrationGuard.requireMainThread("KontextVideo.regulatory")
+            SdkState.current.recordRegulatory(value)
         }
 
     /** The publisher's A/B test variant, if any; sent with every later request. */
     @JvmStatic
     @set:MainThread
     public var variantId: String?
-        get() = Sdk.variantId
+        get() = SdkState.current.variantId
         set(value) {
-            Sdk.checkMainThread("KontextVideo.variantId")
-            Sdk.variantId = value
+            IntegrationGuard.requireMainThread("KontextVideo.variantId")
+            SdkState.current.recordVariantId(value)
         }
 
     /**
@@ -118,12 +121,12 @@ public object KontextVideo {
     @JvmStatic
     @JvmOverloads
     public fun initialize(context: Context, configuration: Configuration, listener: InitializationListener? = null) {
-        Sdk.checkMainThread("KontextVideo.initialize()")
-        Sdk.initialize(context, configuration, listener?.let { it::onInitialized })
+        IntegrationGuard.requireMainThread("KontextVideo.initialize()")
+        SdkInitializer.initialize(context, configuration, listener?.let { it::onInitialized })
     }
 
     /** Waits until `/config` has answered or failed, and returns the state; at once when it already has. Callable from any dispatcher. */
-    public suspend fun awaitInitialization(): State = withContext(Dispatchers.Main.immediate) { Sdk.awaitInitialization() }
+    public suspend fun awaitInitialization(): State = withContext(Dispatchers.Main.immediate) { SdkInitializer.awaitInitialization() }
 
     // The models below (Configuration, Content, User, Regulatory) share one shape, the builder pattern:
     //

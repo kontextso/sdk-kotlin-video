@@ -21,7 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
@@ -66,7 +66,7 @@ class InlineShowTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val activity = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -104,7 +104,7 @@ class InlineShowTest {
         } finally {
             main {
                 activity.finish()
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
         }
@@ -114,7 +114,7 @@ class InlineShowTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         // An edge-to-edge player, as a video app's, whose container reaches under the bars (enforced from API
         // 35), and one the system keeps clear of them: in both, the page is the container less the bars.
@@ -122,7 +122,7 @@ class InlineShowTest {
             for (edgeToEdge in listOf(true, false)) fullScreenPauseClearsTheBars(edgeToEdge)
         } finally {
             main {
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
         }
@@ -181,7 +181,7 @@ class InlineShowTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val activity = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -220,7 +220,7 @@ class InlineShowTest {
                 owner.destroy()
                 cover?.finish()
                 activity.finish()
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
         }

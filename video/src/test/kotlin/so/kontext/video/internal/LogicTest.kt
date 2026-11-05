@@ -11,8 +11,8 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.content.ContentTimeClock
-import so.kontext.video.internal.core.problems
 import so.kontext.video.internal.diagnostics.ReportFormat
+import so.kontext.video.internal.diagnostics.problems
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.payloads.noFillReasonFrom

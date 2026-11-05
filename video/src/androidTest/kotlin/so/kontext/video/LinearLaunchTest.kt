@@ -16,7 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
-import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
@@ -71,7 +71,7 @@ class LinearLaunchTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, LeaveHintHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -102,7 +102,7 @@ class LinearLaunchTest {
             ended.await(5, TimeUnit.SECONDS)
             main {
                 host.finish()
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
         }
@@ -137,7 +137,7 @@ class LinearLaunchTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, LandscapeHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -177,7 +177,7 @@ class LinearLaunchTest {
             ended.await(5, TimeUnit.SECONDS)
             main {
                 host.finish()
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
             shell("settings put system accelerometer_rotation $autoRotate")
@@ -189,7 +189,7 @@ class LinearLaunchTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, LeaveHintHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -218,7 +218,7 @@ class LinearLaunchTest {
         } finally {
             main {
                 if (ad?.hasEnded == false) ad?.end(VideoAd.EndReason.INTERRUPTED)
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
         }
@@ -228,7 +228,7 @@ class LinearLaunchTest {
         main {
             Environment.context = instrumentation.targetContext
             Environment.sendBeacon = { _, _ -> }
-            Sdk.configureForTesting(Configuration("test-token"))
+            SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
             Intent(instrumentation.targetContext, LeaveHintHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -286,7 +286,7 @@ class LinearLaunchTest {
             ended.await(5, TimeUnit.SECONDS)
             main {
                 host.finish()
-                Sdk.resetForTesting()
+                SdkInitializer.resetForTesting()
                 Environment.reset()
             }
         }

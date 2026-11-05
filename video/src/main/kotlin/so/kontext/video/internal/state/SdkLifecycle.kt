@@ -19,7 +19,7 @@ import so.kontext.video.KontextVideo.State
  * ```
  *
  * `Disabled` is final but for its reason: no `/config` follows it, and a second `initialize` is ignored in every
- * state but `NotInitialized` (`Sdk.isInitialized`). `Failed` moves only back to `Initializing`: the kill switch
+ * state but `NotInitialized` (`SdkState.current.isInitialized`). `Failed` moves only back to `Initializing`: the kill switch
  * arrives in an ads answer, and no ads request leaves while `/config` has not enabled the SDK.
  */
 internal object SdkLifecycle {
