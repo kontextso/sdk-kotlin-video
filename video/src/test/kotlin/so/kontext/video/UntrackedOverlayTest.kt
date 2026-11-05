@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.Logger
 
 /** An overlay shown before `track`: it runs on its clock, as before, and says so at show. */
 @RunWith(RobolectricTestRunner::class)

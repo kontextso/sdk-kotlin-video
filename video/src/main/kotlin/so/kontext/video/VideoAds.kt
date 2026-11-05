@@ -15,6 +15,9 @@ import kotlinx.coroutines.withContext
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
@@ -24,11 +27,8 @@ import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.support.DebugReporter
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Logger
 import java.util.UUID
 
 /**

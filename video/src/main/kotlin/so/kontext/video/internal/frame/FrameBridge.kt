@@ -31,11 +31,11 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.LinkOpener
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.platform.LinkOpener
 
 /**
  * Owns the WebView of one ad and speaks the Kontext Frame Protocol v2 with its page: the imperative shell around

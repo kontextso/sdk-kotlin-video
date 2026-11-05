@@ -14,13 +14,13 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.ActivityTracker
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.platform.AppActivities
+import so.kontext.video.internal.platform.Environment
 import java.time.Duration
 
 /**
@@ -51,7 +51,7 @@ abstract class SdkTest {
         owners.forEach { it.destroy() }
         Sdk.resetForTesting()
         Environment.reset()
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         ErrorReporter.resetForTesting()
         Logger.sink = null
     }

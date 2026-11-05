@@ -13,16 +13,16 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.SDK_VERSION
 import so.kontext.video.internal.device.UserAgent
+import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.payloads.emptyFields
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.ShownAd
 import so.kontext.video.internal.state.SdkState
-import so.kontext.video.internal.support.DebugReporter
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Logger
 
 /**
  * The machinery behind `KontextVideo`, the shell around [SdkState]: it moves the SDK's state (`initialize`,

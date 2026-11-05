@@ -3,8 +3,8 @@ package so.kontext.video.internal.playback
 import android.os.Handler
 import android.os.Looper
 import so.kontext.video.ContentPlayer
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.Tracker
-import so.kontext.video.internal.support.Logger
 import java.lang.ref.WeakReference
 
 /**

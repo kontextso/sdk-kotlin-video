@@ -1,6 +1,6 @@
 package so.kontext.video.internal.playback
 
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 import kotlin.math.abs
 
 /**

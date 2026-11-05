@@ -13,7 +13,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.Logger
 import java.util.UUID
 
 /**

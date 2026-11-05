@@ -20,12 +20,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.AppActivities
+import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.platform.LinkOpener
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.playback.ContentRule
 import so.kontext.video.internal.screen.AdScreen
@@ -33,18 +39,12 @@ import so.kontext.video.internal.screen.FirstLayout
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.screen.ShownAd
+import so.kontext.video.internal.screen.activity
 import so.kontext.video.internal.screen.chooseSize
 import so.kontext.video.internal.screen.combinedInsets
 import so.kontext.video.internal.screen.refit
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
-import so.kontext.video.internal.support.ActivityTracker
-import so.kontext.video.internal.support.DebugReporter
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.LinkOpener
-import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.support.activity
 import java.lang.ref.WeakReference
 
 /**
@@ -405,7 +405,7 @@ public class VideoAd internal constructor(
         val why = when {
             ViewabilityMeter.exposure(container).first <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
             !Environment.isAppInForeground() -> "the app is not in front"
-            container.activity?.let { it.isFinishing || it.isDestroyed || ActivityTracker.isStarted(it) == false } == true -> "its Activity is not visible"
+            container.activity?.let { it.isFinishing || it.isDestroyed || AppActivities.isStarted(it) == false } == true -> "its Activity is not visible"
             else -> return true
         }
         Logger.warning { "ad ${id.take(8)}: cannot show, $why; the ad stays ready" }
@@ -421,7 +421,7 @@ public class VideoAd internal constructor(
      */
     private fun isVisibleToViewer(activity: Activity): Boolean {
         if (activity.isInPictureInPictureMode) return false
-        return ActivityTracker.isStarted(activity)
+        return AppActivities.isStarted(activity)
             ?: (activity as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED)
             ?: true
     }

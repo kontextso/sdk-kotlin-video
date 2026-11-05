@@ -8,8 +8,8 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.kit.deviceinfo.NetworkInfoProvider
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.platform.Environment
 
 /**
  * The user agent an ads request carries: the WebView's `navigator.userAgent`, read once through KontextKit and

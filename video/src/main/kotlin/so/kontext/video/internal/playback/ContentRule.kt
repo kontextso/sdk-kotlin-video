@@ -6,11 +6,11 @@ import kotlinx.coroutines.launch
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.platform.AppActivities
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.AdScreen
-import so.kontext.video.internal.support.ActivityTracker
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
 
 /**
  * How an ad on screen follows the content under it: the one place where the three formats differ in that.
@@ -131,7 +131,7 @@ internal sealed class ContentRule {
             get() {
                 if (!Environment.isAppInForeground()) return true
                 val holder = (ad.shownAd?.screen as? AdScreen.InlineScreen)?.holdingActivity?.get() ?: return false
-                return ActivityTracker.isResumed(holder) == false && !ActivityTracker.hasResumedActivity
+                return AppActivities.isResumed(holder) == false && !AppActivities.hasResumedActivity
             }
 
         override fun refusesShow(): Boolean {

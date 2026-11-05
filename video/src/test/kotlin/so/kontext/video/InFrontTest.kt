@@ -21,9 +21,9 @@ import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.AppActivities
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
-import so.kontext.video.internal.support.ActivityTracker
-import so.kontext.video.internal.support.Environment
 
 /** Whether the app, and the Activity a linear ad starts from, are in front: what the clocks and `show(activity)` read. */
 @RunWith(RobolectricTestRunner::class)
@@ -47,10 +47,10 @@ class InFrontTest : SdkTest() {
     // region The app in front
 
     @Test fun anActivityStartedBeforeInitializeKeepsTheAppInFront() {
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         val screen = Robolectric.buildActivity(Activity::class.java).setup()
         processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND)
-        ActivityTracker.register(app)
+        AppActivities.register(app)
         assertTrue("on screen before the SDK listened", Environment.isAppInForeground())
         screen.pause()
         assertTrue("paused is still started", Environment.isAppInForeground())
@@ -61,29 +61,29 @@ class InFrontTest : SdkTest() {
     }
 
     @Test fun anAppInTheBackgroundAtInitializeIsNotInFront() {
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED)
-        ActivityTracker.register(app)
+        AppActivities.register(app)
         assertFalse(Environment.isAppInForeground())
     }
 
     @Test fun aProcessWithOnlyAForegroundServiceIsNotInFront() {
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         // A music or download service: foreground for the system, nothing on screen.
         processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE)
-        ActivityTracker.register(app)
+        AppActivities.register(app)
         assertFalse(Environment.isAppInForeground())
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE)
-        ActivityTracker.register(app)
+        AppActivities.register(app)
         assertTrue("an Activity visible behind another app's", Environment.isAppInForeground())
     }
 
     @Test fun initializeBeforeAnyActivityCountsOnlyTheActivitiesThatStart() {
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         // Application.onCreate of a launch: the process is already foreground, no Activity exists yet.
         processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND)
-        ActivityTracker.register(app)
+        AppActivities.register(app)
         val screen = Robolectric.buildActivity(Activity::class.java).setup()
         assertTrue(Environment.isAppInForeground())
         screen.pause().stop()
@@ -91,10 +91,10 @@ class InFrontTest : SdkTest() {
     }
 
     @Test fun theLoadTimeoutRunsWhenInitializeCameAfterTheFirstActivity() {
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         Robolectric.buildActivity(Activity::class.java).setup()
         processImportance(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND)
-        ActivityTracker.register(app)
+        AppActivities.register(app)
         FrameBridge.loadTimeoutMillis = 500
         try {
             val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
@@ -230,13 +230,13 @@ class InFrontTest : SdkTest() {
 
     @Test fun anActivityTheTrackerHasNotSeenFallsBackToItsLifecycle() {
         val screen = Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup()
-        ActivityTracker.resetForTesting() // the SDK listens from now on: it has seen nothing of this Activity
+        AppActivities.resetForTesting() // the SDK listens from now on: it has seen nothing of this Activity
         screen.pause().stop()
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         assertEquals(androidx.lifecycle.Lifecycle.State.CREATED, screen.get().lifecycle.currentState)
         assertRefused(linear(), screen.get())
         val started = Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup().pause()
-        ActivityTracker.resetForTesting()
+        AppActivities.resetForTesting()
         assertEquals(androidx.lifecycle.Lifecycle.State.STARTED, started.get().lifecycle.currentState)
         val ad = linear()
         ad.show(started.get())

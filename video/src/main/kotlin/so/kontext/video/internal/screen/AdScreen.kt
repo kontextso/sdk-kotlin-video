@@ -9,17 +9,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
+import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.AppActivities
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.AdLifecycle
-import so.kontext.video.internal.support.ActivityTracker
-import so.kontext.video.internal.support.DebugReporter
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Logger
-import so.kontext.video.internal.support.activity
 import java.lang.ref.WeakReference
 
 /**
@@ -74,7 +73,7 @@ internal sealed class AdScreen(
     var impressionWait: (() -> Unit)? = null
 
     /** Follows the Activity the screen depends on while the ad is on screen; removed when the ad ends. */
-    private var activityListener: ((Activity, ActivityTracker.Event) -> Unit)? = null
+    private var activityListener: ((Activity, AppActivities.Event) -> Unit)? = null
 
     /** The meter's inputs and outputs that depend on where the ad is. */
     abstract fun configure(meter: ViewabilityMeter)
@@ -96,7 +95,7 @@ internal sealed class AdScreen(
 
     /** The ad is ending: the Activity it followed is no longer heard. */
     fun stopFollowing() {
-        activityListener?.let(ActivityTracker::removeListener)
+        activityListener?.let(AppActivities::removeListener)
         activityListener = null
     }
 
@@ -107,12 +106,12 @@ internal sealed class AdScreen(
     }
 
     /** Hears [activity]'s events until the ad ends. */
-    protected fun follow(activity: Activity, onEvent: (Activity, ActivityTracker.Event) -> Unit) {
+    protected fun follow(activity: Activity, onEvent: (Activity, AppActivities.Event) -> Unit) {
         val target = WeakReference(activity)
-        val listener: (Activity, ActivityTracker.Event) -> Unit = { which, event -> if (which === target.get() && !ad.hasEnded) onEvent(which, event) }
-        activityListener?.let(ActivityTracker::removeListener)
+        val listener: (Activity, AppActivities.Event) -> Unit = { which, event -> if (which === target.get() && !ad.hasEnded) onEvent(which, event) }
+        activityListener?.let(AppActivities::removeListener)
         activityListener = listener
-        ActivityTracker.addListener(listener)
+        AppActivities.addListener(listener)
     }
 
     /**
@@ -215,8 +214,8 @@ internal sealed class AdScreen(
         private fun followHoldingActivity(holder: Activity) {
             holdingActivity = WeakReference(holder)
             follow(holder) { activity, event ->
-                if (event == ActivityTracker.Event.RESUMED) ad.contentRule.holdingActivityResumed()
-                if (event == ActivityTracker.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
+                if (event == AppActivities.Event.RESUMED) ad.contentRule.holdingActivityResumed()
+                if (event == AppActivities.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
                     Logger.warning { "ad ${ad.id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
                     ad.end(EndReason.INTERRUPTED)
                 }
@@ -279,7 +278,7 @@ internal sealed class AdScreen(
          * when the ad ends.
          */
         fun followStartingActivity(starter: Activity) = follow(starter) { activity, event ->
-            if (event == ActivityTracker.Event.DESTROYED && activity.isFinishing) {
+            if (event == AppActivities.Event.DESTROYED && activity.isFinishing) {
                 Logger.warning { "ad ${ad.id.take(8)}: the Activity that started the linear ad finished; ended as interrupted" }
                 ad.end(EndReason.INTERRUPTED)
             }

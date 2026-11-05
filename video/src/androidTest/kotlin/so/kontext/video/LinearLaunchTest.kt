@@ -20,8 +20,8 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
-import so.kontext.video.internal.support.Environment
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 

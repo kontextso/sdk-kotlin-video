@@ -16,8 +16,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.measurement.ViewabilityMeter
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
-import so.kontext.video.internal.support.Environment
 
 /**
  * A linear ad under another screen, as the Swift suite has it: another Activity over its screen (paused, its

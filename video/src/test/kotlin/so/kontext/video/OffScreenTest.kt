@@ -12,7 +12,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.measurement.ViewabilityMeter
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 
 /**
  * The meter is the one answer to "is it seen": an overlay or pause ad scrolled or paged out of view while its

@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.PageState
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 
 /**
  * Every message of the frame protocol in every state of the bridge, through the real bridge: what reaches the ad.

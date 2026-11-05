@@ -13,10 +13,10 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.platform.Environment
 
 /** What a hostile page, a refusing system or an app that keeps its ads must not break. */
 @RunWith(RobolectricTestRunner::class)

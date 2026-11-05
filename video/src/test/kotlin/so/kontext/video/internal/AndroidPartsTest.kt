@@ -18,9 +18,9 @@ import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.screen.AdGeometry
-import so.kontext.video.internal.support.Environment
 
 /** The parts that need Android classes: player tracking, placement arithmetic, the frame bridge's checks. */
 @RunWith(RobolectricTestRunner::class)

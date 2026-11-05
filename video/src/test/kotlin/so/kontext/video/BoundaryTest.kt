@@ -56,9 +56,9 @@ import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.screen.InlineAdView
-import so.kontext.video.internal.support.Environment
 import so.kontext.video.media3.track
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -438,12 +438,12 @@ class BoundaryTest {
         assertThrows(VideoAdException.AnotherAdShowing::class.java) { next.show(host) }
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(700))
         assertEquals("delivered at the cap", listOf(VideoAd.EndReason.CLOSED), reasons)
-        assertEquals(listOf("ad.dismissal_timed_out"), so.kontext.video.internal.support.ErrorReporter.bufferedCodes)
+        assertEquals(listOf("ad.dismissal_timed_out"), so.kontext.video.internal.diagnostics.ErrorReporter.bufferedCodes)
         // The screen goes after all: nothing more.
         screen.pause().stop().destroy()
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2_000))
         assertEquals("once", listOf(VideoAd.EndReason.CLOSED), reasons)
-        assertEquals("reported once", 1, so.kontext.video.internal.support.ErrorReporter.bufferedCodes.size)
+        assertEquals("reported once", 1, so.kontext.video.internal.diagnostics.ErrorReporter.bufferedCodes.size)
         assertNull(Sdk.adOnScreen)
         next.show(host)
         assertTrue(next.wasShown)
@@ -470,7 +470,7 @@ class BoundaryTest {
         screen.destroy()
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(VideoAd.dismissalTimeoutMillis + 1_000))
         assertEquals("once, and no watchdog report", listOf(VideoAd.EndReason.SKIPPED), reasons)
-        assertTrue("ad.dismissal_timed_out" !in so.kontext.video.internal.support.ErrorReporter.bufferedCodes)
+        assertTrue("ad.dismissal_timed_out" !in so.kontext.video.internal.diagnostics.ErrorReporter.bufferedCodes)
     }
 
     @Test fun aPhoneIsAPhoneOnTheWire() {

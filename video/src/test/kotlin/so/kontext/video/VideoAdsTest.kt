@@ -29,7 +29,7 @@ import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /** `KontextVideo` and `VideoAds` against a local HTTP server: the SDK's own requests run unchanged. */

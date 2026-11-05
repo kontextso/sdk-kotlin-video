@@ -5,10 +5,10 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.VideoAd.InvalidationReason
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.LinkOpener
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.platform.LinkOpener
 
 // What the frame page reports, as beacons, the ad's state and the listener: VideoAd's half of the frame
 // protocol, the bridge (`FrameBridge`) being the other.

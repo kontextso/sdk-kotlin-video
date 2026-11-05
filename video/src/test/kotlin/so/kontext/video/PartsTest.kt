@@ -17,16 +17,16 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.measurement.ActiveTimeClock
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
-import so.kontext.video.internal.support.Logger
 import java.util.concurrent.TimeUnit
 
 /** The pieces around an ad: the host view, the clock, the bridge's remaining paths, beacons, logging and the facade. */

@@ -1,8 +1,5 @@
 package so.kontext.video.internal.screen
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
 import android.view.ViewGroup
 import androidx.annotation.MainThread
 import androidx.annotation.RestrictTo
@@ -69,7 +66,7 @@ public class VideoAdSlot(private val container: ViewGroup) {
     private fun show(ad: VideoAd) {
         try {
             if (ad.format == AdFormat.LINEAR) {
-                val activity = container.context.activity() ?: throw VideoAdException.CannotShowNow()
+                val activity = container.context.activity ?: throw VideoAdException.CannotShowNow()
                 ad.show(activity)
             } else {
                 ad.show(container, insets)
@@ -87,11 +84,5 @@ public class VideoAdSlot(private val container: ViewGroup) {
             ad.dismiss() // its onAdEnded reaches the listener
         }
         if (!ad.wasShown && ad.listener === forwarder) ad.listener = null
-    }
-
-    private tailrec fun Context.activity(): Activity? = when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.activity()
-        else -> null
     }
 }

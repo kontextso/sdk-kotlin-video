@@ -1,7 +1,7 @@
 package so.kontext.video.internal.frame
 
 import so.kontext.video.VideoAd
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.Logger
 
 /**
  * The Kontext Frame Protocol v2 as rules, with no WebView: what a message of the ad's page means, in which state,

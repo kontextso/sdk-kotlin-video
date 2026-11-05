@@ -1,9 +1,10 @@
-package so.kontext.video.internal.support
+package so.kontext.video.internal.platform
 
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import so.kontext.video.internal.diagnostics.Logger
 
 /**
  * Which links an ad may open, and opening them: the click-through of an `ad.click`, the target of an `ad.open`

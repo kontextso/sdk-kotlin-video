@@ -25,10 +25,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.support.DebugReporter
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.platform.Environment
 import java.io.IOException
 import java.util.concurrent.ConcurrentLinkedQueue
 

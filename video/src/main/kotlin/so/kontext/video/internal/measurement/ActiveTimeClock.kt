@@ -3,8 +3,8 @@ package so.kontext.video.internal.measurement
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.platform.Environment
 
 /**
  * A stopwatch that runs only while the viewer can see an overlay or pause ad.

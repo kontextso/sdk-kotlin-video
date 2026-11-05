@@ -10,7 +10,7 @@ import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 import kotlin.concurrent.thread
 
 /** The calls that must run on the main thread say so when they do not; a callback hears one outcome. */

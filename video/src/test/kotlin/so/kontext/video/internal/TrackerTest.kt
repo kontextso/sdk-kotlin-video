@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 
 class TrackerTest {
     private val sent = mutableListOf<String>()

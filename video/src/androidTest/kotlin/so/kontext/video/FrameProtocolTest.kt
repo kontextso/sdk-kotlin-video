@@ -21,7 +21,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 import java.io.ByteArrayInputStream
 import java.util.Collections
 import java.util.concurrent.CountDownLatch

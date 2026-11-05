@@ -1,21 +1,23 @@
-package so.kontext.video.internal.support
+package so.kontext.video.internal.platform
 
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.os.Bundle
-import android.view.View
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
 /**
- * Follows the app's Activities, so the SDK knows whether the app is in front and whether an Activity is
- * resumed. `initialize` often runs after the first Activity started (after a consent screen, say), when its
+ * An Activity is one screen of the app. This object follows all of the app's screens and answers whether the
+ * app is in front and whether a given screen is started or resumed, and it tells an ad on screen when its
+ * screen resumes, stops or is destroyed.
+ *
+ * `initialize` often runs after the first Activity started (after a consent screen, say), when its
  * start has already gone by: at registration the process's own importance says whether something of the
  * app is on screen, until the first lifecycle event; from then on an Activity started before registration
  * makes itself known at its next pause or resume.
  */
-internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
+internal object AppActivities : Application.ActivityLifecycleCallbacks {
     /** Started and not stopped. Weak: the SDK never keeps an Activity. */
     private val started = WeakHashMap<Activity, Unit>()
     private val resumed = WeakHashMap<Activity, Boolean>()
@@ -127,14 +129,3 @@ internal object ActivityTracker : Application.ActivityLifecycleCallbacks {
     // A copy: a listener ends its ad, which removes it from the list.
     private fun notify(activity: Activity, event: Event) = listeners.toList().forEach { it(activity, event) }
 }
-
-/** The Activity the view is in, through any context wrappers. */
-internal val View.activity: Activity?
-    get() {
-        var context: android.content.Context? = context
-        while (context is android.content.ContextWrapper) {
-            if (context is Activity) return context
-            context = context.baseContext
-        }
-        return null
-    }

@@ -87,9 +87,9 @@ adb logcat -s KontextVideo
   - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
     (tracking GETs), `ApiException`, the JSON helpers.
   - `device/`: `DeviceInfo` (the device facts), `UserAgent` (the shared lookup, its wait and its fallback), `Consent` (through KontextKit).
-  - `support/`: `Environment` (the seams the tests replace), `ActivityTracker`, `LinkOpener` (which links may
-    open, and opening them), `Logger`,
-    `ErrorReporter`, `DebugReporter`.
+  - `diagnostics/`: `Logger`, `ErrorReporter` (`/error`), `DebugReporter` (`/debug`).
+  - `platform/`: `Environment` (the seams the tests replace), `AppActivities` (the app's screens: in front,
+    started, resumed), `LinkOpener` (which links may open, and opening them).
 - One main type per file. The root package holds the public API only.
 
 ## Rules

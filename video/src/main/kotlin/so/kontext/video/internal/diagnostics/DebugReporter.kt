@@ -1,4 +1,4 @@
-package so.kontext.video.internal.support
+package so.kontext.video.internal.diagnostics
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -13,6 +13,7 @@ import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.payloads.SdkInfo
+import so.kontext.video.internal.platform.Environment
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

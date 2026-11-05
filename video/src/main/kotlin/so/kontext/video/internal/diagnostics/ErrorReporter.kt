@@ -1,4 +1,4 @@
-package so.kontext.video.internal.support
+package so.kontext.video.internal.diagnostics
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -14,6 +14,7 @@ import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.putIfNotNull
 import so.kontext.video.internal.payloads.SdkInfo
+import so.kontext.video.internal.platform.Environment
 import java.util.UUID
 import kotlin.math.min
 import kotlin.math.pow

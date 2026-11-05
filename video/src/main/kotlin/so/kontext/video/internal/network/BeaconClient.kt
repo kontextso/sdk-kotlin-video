@@ -3,8 +3,8 @@ package so.kontext.video.internal.network
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.diagnostics.Logger
+import so.kontext.video.internal.platform.Environment
 import java.net.URL
 
 /**

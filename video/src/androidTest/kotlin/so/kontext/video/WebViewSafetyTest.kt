@@ -17,10 +17,10 @@ import org.junit.runner.RunWith
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 

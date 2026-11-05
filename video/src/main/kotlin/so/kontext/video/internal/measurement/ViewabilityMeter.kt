@@ -7,8 +7,8 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.VisibleForTesting
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.FirstLayout
-import so.kontext.video.internal.support.Environment
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.ceil

@@ -17,7 +17,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.PageState
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 import java.time.Duration
 
 /** The frame protocol from the page's side: what each message does in each state, and what is dropped. */

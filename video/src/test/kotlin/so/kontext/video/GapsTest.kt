@@ -25,8 +25,8 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.playback.ContentPlayback
-import so.kontext.video.internal.support.Environment
 
 /** What the other suites leave: the full request body, the payload's last refusals, the content rules' paths. */
 @RunWith(RobolectricTestRunner::class)

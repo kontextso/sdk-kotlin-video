@@ -55,7 +55,7 @@ import so.kontext.video.internal.payloads.emptyFields
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.payloads.noFillReasonFrom
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.junit.Assert as JUnit4
 import org.junit.Test as JUnit4Test

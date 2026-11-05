@@ -2,8 +2,8 @@ package so.kontext.video.internal.screen
 
 import android.graphics.Rect
 import so.kontext.video.VideoAdException
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Logger
 
 // Where an overlay or pause ad goes in the app's container. Two layers: this file decides, AdGeometry calculates.
 //

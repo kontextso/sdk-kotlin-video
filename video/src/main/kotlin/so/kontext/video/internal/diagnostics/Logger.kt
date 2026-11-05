@@ -1,4 +1,4 @@
-package so.kontext.video.internal.support
+package so.kontext.video.internal.diagnostics
 
 import android.util.Log
 import so.kontext.video.KontextVideo.Configuration.LogLevel

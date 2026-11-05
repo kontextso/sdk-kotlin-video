@@ -15,9 +15,9 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.State
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.support.DebugReporter
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.ErrorReporter
+import so.kontext.video.internal.diagnostics.DebugReporter
+import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 

@@ -19,10 +19,10 @@ import so.kontext.video.KontextVideo.Content
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.playback.ContentPlayback
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.screen.InlineAdView
-import so.kontext.video.internal.support.Environment
 import so.kontext.video.media3.track
 import java.lang.ref.WeakReference
 import androidx.media3.common.Player as Media3Player

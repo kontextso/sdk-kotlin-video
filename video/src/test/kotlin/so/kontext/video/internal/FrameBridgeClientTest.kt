@@ -23,7 +23,7 @@ import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.PageState
-import so.kontext.video.internal.support.Environment
+import so.kontext.video.internal.platform.Environment
 
 /** What only a WebView calls on the bridge: navigation decisions, load errors, a dead renderer, dialogs. */
 @RunWith(RobolectricTestRunner::class)
@@ -65,7 +65,7 @@ class FrameBridgeClientTest {
         bridge.webView.webViewClient.onReceivedError(bridge.webView, request(url), error)
         assertEquals(500, (events.single() as FrameEvent.Error).code)
         assertEquals(FrameBridge.FailureCause.LOAD_FAILED, bridge.failureCause)
-        assertEquals(so.kontext.video.internal.support.ErrorReporter.Underlying("webview", -2), bridge.failureUnderlying)
+        assertEquals(so.kontext.video.internal.diagnostics.ErrorReporter.Underlying("webview", -2), bridge.failureUnderlying)
     }
 
     @Test fun aSubframeErrorOrOneAfterLoadIsNotAFailure() {
@@ -80,7 +80,7 @@ class FrameBridgeClientTest {
         val response = WebResourceResponse("text/html", "UTF-8", 404, "Not Found", emptyMap(), null)
         bridge.webView.webViewClient.onReceivedHttpError(bridge.webView, request(url), response)
         assertEquals(FrameBridge.FailureCause.LOAD_FAILED, bridge.failureCause)
-        assertEquals(so.kontext.video.internal.support.ErrorReporter.Underlying("http", 404), bridge.failureUnderlying)
+        assertEquals(so.kontext.video.internal.diagnostics.ErrorReporter.Underlying("http", 404), bridge.failureUnderlying)
     }
 
     @Test fun aDeadRendererFailsTheAdAndKeepsTheAppAlive() {

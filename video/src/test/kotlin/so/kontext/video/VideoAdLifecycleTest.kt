@@ -22,12 +22,12 @@ import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.core.Sdk
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.PageState
 import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
 
 /** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
 @RunWith(RobolectricTestRunner::class)
@@ -114,7 +114,7 @@ class VideoAdLifecycleTest : SdkTest() {
         )
         for ((reason, expected) in reasons) {
             overlay().invalidate(reason)
-            val moment = so.kontext.video.internal.support.DebugReporter.recentHistory().last()
+            val moment = so.kontext.video.internal.diagnostics.DebugReporter.recentHistory().last()
             assertEquals("ad.invalidated", moment.name)
             assertEquals("as iOS sends it", expected, moment.state)
         }

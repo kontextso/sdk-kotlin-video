@@ -1,8 +1,8 @@
 package so.kontext.video.internal.measurement
 
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.support.Environment
-import so.kontext.video.internal.support.Logger
+import so.kontext.video.internal.platform.Environment
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
