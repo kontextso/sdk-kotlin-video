@@ -55,7 +55,9 @@ adb logcat -s KontextVideo
   on the answer; the rules are tested as plain JUnit tables. Swift has `SdkLifecycle`, `SdkState`, `AdLifecycle`,
   `AdState` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:
-  - `state/`, the state of the SDK and of each ad, and their legal moves; no Android, no side effects.
+  - `state/`, the facts of the SDK, of each ad, and of each episode's ads, and the only ways they change; no
+    Android. `AdStore.kt`: the ads one `VideoAds` holds (one unshown per format, the ids that left) and `plan`,
+    how an answer is followed, a pure table; `VideoAds` carries it out.
     `SdkLifecycle.kt`: the SDK's legal moves between the phases of `KontextVideo.State` (`canMove`), stateless.
     `SdkState.kt`: every fact of the SDK's life, the one source of truth: its phase (moved only by `moveTo`, which
     asks `SdkLifecycle.canMove`), the configuration, what `/config` said of the reports (`isErrorReportingOn`,
@@ -88,8 +90,9 @@ adb logcat -s KontextVideo
     time), `ContentTimeClock` (an overlay's video time), `ContentRule` (how an ad follows the content, one class
     per format: `OverlayRule`, `PauseRule` in their own files, `NoContentRule`).
   - `payloads/`: `AdPayload`, `AppInputs` (the request rules of the app's Content and User), `AdsRequest`, `AdsResponse`, `ConfigRequest`, `ConfigResponse`, `ErrorResponse`, `SdkInfo`, `JsonParser` (the depth-guarded parse), `JsonFields` (the lenient readers).
-  - `network/`: `HttpTransport` (connections, redirects, at most 10), `ApiClient` (our server), `BeaconClient`
-    (tracking GETs), `ApiException`.
+  - `network/`, everything that goes to our server and back: `HttpTransport` (connections, redirects, at most
+    10), `ApiClient` (our server), `BeaconClient` (tracking GETs), `AdsFetcher` (one `VideoAds`'s ads request:
+    the waits, the body, the answer, its failures, the kill switch), `ApiException`.
   - `device/`: `DeviceInfo` (the device facts), `UserAgent` (the shared lookup, its wait and its fallback), `Consent` (through KontextKit).
   - `diagnostics/`: `Logger`; `ErrorReporter` (the shell that sends to `/error`), `ErrorReport` (one report: its
     vocabulary and its JSON), `ReportQueue` (the bounded queue and its batches); `DebugReporter` (`/debug`),

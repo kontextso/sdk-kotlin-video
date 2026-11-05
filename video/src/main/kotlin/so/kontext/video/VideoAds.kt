@@ -21,15 +21,12 @@ import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.Tracker
-import so.kontext.video.internal.network.ApiClient
-import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.toRequestFailure
-import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.payloads.AdsRequest
+import so.kontext.video.internal.network.AdsFetcher
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.state.AdStore
 import java.util.UUID
 
 /**
@@ -53,8 +50,7 @@ public class VideoAds @JvmOverloads constructor(
         private set
 
     /** The id of the latest ads request, `null` before the first. Quote it to Kontext when an ad or a no-fill looks wrong. */
-    public var lastRequestId: String? = null
-        private set
+    public val lastRequestId: String? get() = fetcher.lastRequestId
 
     // Labels are a free format on purpose: Kontext defines them per publisher and the server ignores the ones it
     // does not use, so the SDK sends exactly what the app gives, with no checks (any key, any value, any number).
@@ -64,11 +60,11 @@ public class VideoAds @JvmOverloads constructor(
     /** One per `VideoAds`, sent with every request: the server keeps the bids it gave out per session. */
     internal val sessionId: String = UUID.randomUUID().toString()
 
-    /** The unshown ad of each format, at most one. */
-    internal val ads = mutableMapOf<AdFormat, VideoAd>()
+    /** The ads held, at most one unshown per format, and the ids that left (see [AdStore]). */
+    private val store = AdStore()
 
-    /** Ids that left: shown, rejected, expired, failed, destroyed. A response that brings one back is ignored. */
-    private val spentIds = mutableSetOf<String>()
+    /** The unshown ad of each format, at most one. */
+    internal val ads: MutableMap<AdFormat, VideoAd> get() = store.ads
 
     /** The ad of this `VideoAds` on screen. */
     // Stored, not derived from ScreenSlot.current: destroy() clears it at once while a linear ad's slot lasts until its screen closes.
@@ -78,6 +74,19 @@ public class VideoAds @JvmOverloads constructor(
     /** Where this object's requests and loads run; [destroy] cancels it. */
     internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var request: Deferred<Map<AdFormat, NoFillReason>>? = null
+
+    /** The ads request itself: the waits, the body, the answer, its failures and the kill switch. */
+    private val fetcher = AdsFetcher(
+        content,
+        this.labels,
+        sessionId,
+        playheadMillis = { playheadMillis },
+        heldIds = store::heldIds,
+        checkIdsAgainstHeld = store::checkIdsAgainstHeld,
+        holdsAds = { store.holdsAds },
+        checkStillUsable = ::checkStillUsable,
+        onDisabled = { ads.values.toList().forEach { it.invalidate(VideoAd.InvalidationReason.Destroyed) } },
+    )
 
     /** Under memory pressure an expired ad's WebView goes at once; valid ads stay loaded, so `show` stays instant. */
     private val memoryCallbacks = object : ComponentCallbacks2 {
@@ -90,8 +99,6 @@ public class VideoAds @JvmOverloads constructor(
 
     /** Content time in milliseconds, read now, or 0. */
     internal val playheadMillis: Long get() = playback.playheadMillis
-
-    private val holdsAds: Boolean get() = ads.values.any { !it.isExpired }
 
     init {
         Sdk.requireInitialized("VideoAds(content)")
@@ -129,7 +136,7 @@ public class VideoAds @JvmOverloads constructor(
             task.await()
         } catch (error: VideoAdException.Request) {
             checkStillUsable()
-            validHeld(format)?.let { held ->
+            store.ad(format)?.let { held ->
                 Logger.info { "$format for ${content.id}: request failed, returning the held ad ${held.id.take(8)}" }
                 return held
             }
@@ -140,15 +147,7 @@ public class VideoAds @JvmOverloads constructor(
             throw error
         }
         checkStillUsable()
-        return validHeld(format) ?: throw VideoAdException.NoFill(noFill[format] ?: NoFillReason.Unknown)
-    }
-
-    /** The held ad of [format] while it is valid: one that expired since the answer (app code ran first) leaves silently. */
-    private fun validHeld(format: AdFormat): VideoAd? {
-        val held = ads[format] ?: return null
-        if (!held.isExpired) return held
-        held.invalidate(VideoAd.InvalidationReason.Expired)
-        return null
+        return store.ad(format) ?: throw VideoAdException.NoFill(noFill[format] ?: NoFillReason.Unknown)
     }
 
     /** [format] for callers without coroutines: [callback] gets the ad, or the exception, on the main thread. */
@@ -221,17 +220,14 @@ public class VideoAds @JvmOverloads constructor(
     override fun toString(): String = "VideoAds(content=${content.id}, destroyed=$isDestroyed)"
 
     /** An ad ended before `show`, or was shown: it leaves its format, and its id is never accepted again. */
-    internal fun adDidLeave(ad: VideoAd) {
-        if (ads[ad.format] === ad) ads.remove(ad.format)
-        spentIds += ad.id
-    }
+    internal fun adDidLeave(ad: VideoAd) = store.left(ad)
 
     internal fun adDidBeginShowing(ad: VideoAd) {
         showing = ad
         // An overlay counts its milliseconds of video, and an overlay or pause ad watches a player without a
         // listener, on ticks. With no player tracked there is nothing to watch; `track` starts them later.
         playback.isTicking = ad.format != AdFormat.LINEAR && playback.isTracking
-        adDidLeave(ad)
+        store.beganShowing(ad)
     }
 
     /** `show` reserved [ad] and could not put it on screen: it is held again as before, its id unspent. */
@@ -240,8 +236,7 @@ public class VideoAds @JvmOverloads constructor(
             showing = null
             playback.isTicking = false
         }
-        spentIds -= ad.id
-        if (wasHeld && ads[ad.format] == null) ads[ad.format] = ad
+        store.didNotShow(ad, wasHeld)
     }
 
     internal fun adDidEnd(ad: VideoAd) {
@@ -263,106 +258,14 @@ public class VideoAds @JvmOverloads constructor(
     }
 
     /**
-     * The request belongs to the `VideoAds`, not to the caller: nobody cancels it but [destroy]. `held` is read
-     * after the request's waits (`/config`, the user agent, the advertising id), just before the body: an ad
-     * shown, rejected or expired meanwhile is not listed. Expired ads are dropped there (silently; the server
-     * knows `expires`), so `held` lists valid ones.
+     * The request belongs to the `VideoAds`, not to the caller: nobody cancels it but [destroy]. Calls made while
+     * it runs share it. [AdsFetcher] asks the server; the answer is then followed as [AdStore.plan] says.
      */
     private fun startRequest(): Deferred<Map<AdFormat, NoFillReason>> {
-        val held = {
-            ads.values.filter { it.isExpired }.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }
-            AdFormat.entries.mapNotNull { ads[it]?.id }
-        }
-        val task = scope.async {
-            run {
-                val isEnabled = Sdk.waitUntilEnabled()
-                checkStillUsable()
-                if (!isEnabled) {
-                    Logger.warning { "${content.id}: not requested, the SDK is ${Sdk.state.phase}" }
-                    Sdk.disabledReason?.let { throw VideoAdException.Disabled(it) }
-                    throw VideoAdException.InitializationFailed()
-                }
-                val configuration = Sdk.configuration ?: throw VideoAdException.NotInitialized()
-                val context = Environment.context ?: throw VideoAdException.NotInitialized()
-                val adsRequest = AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis, sessionId, held)
-                // Another video's response may have switched the SDK off meanwhile: nothing leaves.
-                checkStillUsable()
-                lastRequestId = adsRequest.requestId
-                Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms, holding ${adsRequest.held.size}" }
-                DebugReporter.event("ads.request", state = mapOf("held" to adsRequest.held.size, "playhead" to adsRequest.playheadMillis))
-                val response = try {
-                    AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)).also(::checkIdsAgainstHeld)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
-                    // Not swallowed: the report carries it, and the app hears the failure it maps to (toRequestFailure).
-                    checkStillUsable()
-                    Logger.error { "${content.id}: request ${adsRequest.requestId} failed, ${error.message}" }
-                    @Suppress("InstanceOfCheckForException") // the code, not the handling, depends on it
-                    ErrorReporter.report(
-                        if (error is ApiException.Decoding) ErrorReport.Code.ADS_DECODE_FAILED else ErrorReport.Code.ADS_REQUEST_FAILED,
-                        ErrorReport.Stage.REQUEST,
-                        requestId = adsRequest.requestId,
-                        sessionId = sessionId,
-                        failure = ErrorReport.FailedRequest(error),
-                        recovery = if (holdsAds) ErrorReport.Recovery.HELD_ADS_KEPT else ErrorReport.Recovery.NO_AD,
-                    )
-                    throw VideoAdException.Request(error.toRequestFailure())
-                }
-                receive(response, adsRequest.requestId)
-            }
-        }
+        val task = scope.async { apply(fetcher.fetch()) }
         request = task
         task.invokeOnCompletion { if (request === task) request = null }
         return task
-    }
-
-    /** The kill switch in an answer switches the whole SDK off and drops every ad, with no notices. */
-    private fun receive(response: AdsResponse, requestId: String): Map<AdFormat, NoFillReason> {
-        if (response is AdsResponse.Disabled) {
-            Sdk.disable(response.reason)
-            ads.values.toList().forEach { it.invalidate(VideoAd.InvalidationReason.Destroyed) }
-            throw VideoAdException.Disabled(response.reason)
-        }
-        checkStillUsable()
-        reportDroppedAds(response, requestId)
-        return apply(response)
-    }
-
-    /**
-     * One id is one bid, across answers as within one: an answer that brings, under one format, the id of an ad
-     * held under another (one the answer may leave out, so kept) is malformed as a whole, before anything held
-     * or spent changes, as an id listed twice in one answer is.
-     */
-    private fun checkIdsAgainstHeld(response: AdsResponse) {
-        val results = (response as? AdsResponse.Formats)?.results ?: return
-        for (result in results) {
-            for (payload in result.ads) {
-                val other = ads.entries.firstOrNull { (format, held) -> format != result.format && held.id == payload.id } ?: continue
-                throw ApiException.Decoding(IllegalArgumentException("ad ${payload.id} is ${result.format}, and held as ${other.key}"))
-            }
-        }
-    }
-
-    /**
-     * A malformed ad was left out of its format, the rest of the answer counts: reported once per dropped ad,
-     * with its format and the field that failed (`overlay:price.currency`), as the Swift SDK does.
-     */
-    private fun reportDroppedAds(response: AdsResponse, requestId: String) {
-        val results = (response as? AdsResponse.Formats)?.results ?: return
-        for (result in results) {
-            for (dropped in result.dropped) {
-                Logger.error { "${result.format} for ${content.id}: an ad of request $requestId is malformed at ${dropped.path} ($dropped); left out" }
-                ErrorReporter.report(
-                    ErrorReport.Code.ADS_DECODE_FAILED,
-                    ErrorReport.Stage.REQUEST,
-                    requestId = requestId,
-                    sessionId = sessionId,
-                    detail = "${result.format.wireName}:${dropped.path}",
-                    recovery = if (result.ads.isEmpty()) ErrorReport.Recovery.NO_AD else null,
-                )
-            }
-        }
     }
 
     /**
@@ -373,33 +276,28 @@ public class VideoAds @JvmOverloads constructor(
      * leaves first, silently, whether the answer names its format or not.
      */
     private fun apply(response: AdsResponse): Map<AdFormat, NoFillReason> {
-        ads.values.filter { it.isExpired }.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }
+        store.dropExpired()
         val noFill = mutableMapOf<AdFormat, NoFillReason>()
-        for (format in AdFormat.entries) {
-            val current = ads[format]
-            val result = response.result(format)
-            if (result == null) {
-                if (current == null) noFill[format] = NoFillReason.Unknown
-                continue
+        for (step in store.plan(response)) {
+            val format = step.format
+            when (step) {
+                is AdStore.Step.Keep -> Unit
+                is AdStore.Step.Drop -> ads[format]?.invalidate(VideoAd.InvalidationReason.Expired)
+                is AdStore.Step.NoFill -> {
+                    noFill[format] = step.reason
+                    if (step.isAnswered) logNoFill(format, step.reason)
+                }
+                is AdStore.Step.IgnoreUsed -> {
+                    Logger.debug { "$format for ${content.id}: ad ${step.id.take(8)} was already used, ignored" }
+                    noFill[format] = NoFillReason.AlreadyUsed
+                }
+                is AdStore.Step.Replace -> {
+                    val payload = step.payload
+                    Logger.info { "$format for ${content.id}: ad ${payload.id.take(8)}, ${payload.price.value} ${payload.price.currency} cpm" }
+                    DebugReporter.event("ads.response", adId = payload.id, state = mapOf("format" to format.wireName, "filled" to true))
+                    ads[format] = VideoAd(payload, Environment.now(), this)
+                }
             }
-            val payload: AdPayload? = result.ads.firstOrNull()
-            if (payload == null) {
-                current?.invalidate(VideoAd.InvalidationReason.Expired)
-                val reason = result.noFillReason ?: NoFillReason.Unknown
-                noFill[format] = reason
-                logNoFill(format, reason)
-                continue
-            }
-            if (current != null && current.id == payload.id) continue
-            current?.invalidate(VideoAd.InvalidationReason.Expired)
-            if (payload.id in spentIds) {
-                Logger.debug { "$format for ${content.id}: ad ${payload.id.take(8)} was already used, ignored" }
-                noFill[format] = NoFillReason.AlreadyUsed
-                continue
-            }
-            Logger.info { "$format for ${content.id}: ad ${payload.id.take(8)}, ${payload.price.value} ${payload.price.currency} cpm" }
-            DebugReporter.event("ads.response", adId = payload.id, state = mapOf("format" to format.wireName, "filled" to true))
-            ads[format] = VideoAd(payload, Environment.now(), this)
         }
         return noFill
     }
@@ -416,17 +314,12 @@ public class VideoAds @JvmOverloads constructor(
 
     /** Every valid held ad gets its `notUsed` beacon and ends; the ad on screen ends. */
     private fun endAll() {
-        for (ad in ads.values.toList()) {
-            if (ad.isExpired) {
-                ad.invalidate(VideoAd.InvalidationReason.Expired)
-                continue
-            }
+        store.endAll { ad ->
             ad.withContentPlayhead {
                 ad.invalidate(VideoAd.InvalidationReason.Destroyed)
                 ad.tracker.fire("notUsed", notUsed = Tracker.NotUsed.Destroyed)
             }
         }
-        ads.clear()
         showing?.end(VideoAd.EndReason.DESTROYED)
         showing = null
     }
