@@ -176,7 +176,8 @@ class ParityPayloadsTest {
         assertEquals("sizes.height", path(Fixtures.overlay(sizes = """[{"width": 320}]""")))
         assertEquals("rendering.url", path(Fixtures.overlay(frameUrl = "file:///sdcard/ad.html")))
         assertEquals("trigger.kind", path(overlay.replace("\"manual\"", "\"timed\"")))
-        assertEquals("trigger.to", path(overlay.replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 0}")))
+        assertEquals("trigger.kind", path(overlay.replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 0}")))
+        assertEquals("trigger.kind", path(overlay.replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 0, \"to\": 1000}")))
         assertEquals("position", path(overlay.replace("\"bottom\"", "\"left\"")))
     }
 
@@ -255,8 +256,6 @@ class ParityPayloadsTest {
         val linear = parse(Fixtures.linear().replace("30000, \"skipOffset\": 5000", "29999.5, \"skipOffset\": 5000.49"))
         assertEquals(30_000L, linear.durationMillis)
         assertEquals(5_000L, linear.skipOffsetMillis)
-        val window = Fixtures.overlay().replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 1000.25, \"to\": 9000.5}")
-        assertEquals("ad-1", parse(window).id, "a fractional window decodes")
         // Out of range, not finite or negative stays invalid.
         for (refused in listOf(
             Fixtures.overlay(duration = "-0.6"),
@@ -268,7 +267,6 @@ class ParityPayloadsTest {
             Fixtures.overlay().replace("\"expires\": 600000", "\"expires\": 0.4"),
             Fixtures.overlay().replace("\"expires\": 600000", "\"expires\": 3.2e11"),
             Fixtures.linear().replace("\"skipOffset\": 5000", "\"skipOffset\": -1.5"),
-            window.replace("9000.5", "1e400"),
         )) {
             assertThrows<ApiException.Decoding>(refused) { parse(refused) }
         }

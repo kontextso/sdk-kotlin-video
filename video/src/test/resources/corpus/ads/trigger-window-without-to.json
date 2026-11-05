@@ -190,7 +190,7 @@
       "linear": "ad:l-1"
     },
     "decodeReports": [
-      "overlay:trigger.to"
+      "overlay:trigger.kind"
     ]
   }
 }

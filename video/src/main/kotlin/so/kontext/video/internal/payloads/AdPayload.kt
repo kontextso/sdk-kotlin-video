@@ -139,14 +139,16 @@ internal class AdPayload(
             TrackingEvent(event = name, url = url, offsetMillis = offset, part = part)
         } ?: invalidAt("tracking", "ad $id: tracking")
 
+        /**
+         * Only a `manual` trigger is taken. The SDK does not act on a trigger yet: the app decides when to show.
+         * A `window` is refused rather than shown at any time, so a server that expects window timing sees the
+         * ad dropped (and reported) instead of silently wrong timing; any other kind is refused as unknown.
+         */
         private fun checkTrigger(ad: JsonObject, id: String) {
             val trigger = ad["trigger"]?.obj() ?: invalidAt("trigger", "ad $id: trigger")
-            when (trigger.str("kind")) {
+            when (val kind = trigger.str("kind")) {
                 "manual" -> Unit
-                "window" -> {
-                    if (millis(trigger, "from") == null) invalidAt("trigger.from", "ad $id: trigger window")
-                    if (millis(trigger, "to") == null) invalidAt("trigger.to", "ad $id: trigger window")
-                }
+                "window" -> invalidAt("trigger.kind", "ad $id: trigger kind $kind is not supported yet")
                 else -> invalidAt("trigger.kind", "ad $id: unknown trigger kind")
             }
         }

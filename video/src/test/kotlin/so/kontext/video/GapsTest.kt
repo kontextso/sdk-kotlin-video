@@ -80,8 +80,11 @@ class GapsTest : SdkTest() {
             } catch (_: ApiException.Decoding) {
             }
         }
-        val window = AdPayload.parse(Fixtures.json(Fixtures.overlay().replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 1, \"to\": 2}")))
-        assertEquals("a timed answer is still an ad", "ad-1", window.id)
+        try {
+            AdPayload.parse(Fixtures.json(Fixtures.overlay().replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 1, \"to\": 2}")))
+            org.junit.Assert.fail("a window trigger is not supported yet: the ad is dropped")
+        } catch (_: ApiException.Decoding) {
+        }
     }
 
     private class Player(var playing: Boolean = true, var position: Long = 0) : ContentPlayer {
