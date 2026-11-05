@@ -27,7 +27,7 @@ import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.PageState
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
@@ -602,7 +602,7 @@ class ParityRenderingTest : SdkTest() {
     @Test fun anElapsedDurationIsReportedOnceWhateverTheWindowDoesAfter() {
         Environment.reset() // the real clock: the duration runs on the looper
         var elapsed = 0
-        val clock = ActiveTimeClock(100, "clock-1") { elapsed += 1 }
+        val clock = OnScreenTimeClock(100, "clock-1") { elapsed += 1 }
         clock.start(isVisible = true)
         idle(200)
         assertEquals(1, elapsed)
@@ -620,7 +620,7 @@ class ParityRenderingTest : SdkTest() {
         val ad = overlay(duration = "60000")
         val container = container()
         ad.show(container)
-        val clock = ad.clock!!
+        val clock = ad.onScreenClock!!
         assertTrue(clock.isCounting)
         Environment.isAppInForeground = { false } // another Activity of the app is what stopped
         assertTrue("its window still shows", clock.isCounting)

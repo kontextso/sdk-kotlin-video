@@ -25,7 +25,7 @@ sdk-kotlin-video/
 │                                             #   frame/FrameMessage.kt: one page message read (the envelope, the fields)
 │                                             #   screen/: putting the ad on screen
 │                                             #   screen/ShownAd.kt: one ad on screen, from show to onAdEnded (the slot)
-│                                             #   measurement/: measuring and reporting
+│                                             #   measurement/: what the viewer saw (visibility, time on screen) and the beacons that report it
 │                                             #   format differences: content/ContentRule.kt, screen/AdScreen.kt
 ├── video/src/test/                           # JUnit 5 and Robolectric tests
 ├── video/api/video.api                       # the public API, checked by apiCheck

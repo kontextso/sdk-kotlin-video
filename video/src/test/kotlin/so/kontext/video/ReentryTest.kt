@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.handle
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.platform.Environment
 
 /**
@@ -116,7 +116,7 @@ class ReentryTest : SdkTest() {
         val ad = overlay(owner, duration = "3000")
         ad.listener = recorder
         ad.show(container())
-        val clock = ad.clock!!
+        val clock = ad.onScreenClock!!
         clock.windowVisibilityChanged(isVisible = true) // already counting: nothing changes
         now = 1_000
         player.position = 1_000
@@ -167,7 +167,7 @@ class ReentryTest : SdkTest() {
         var now = 0L
         Environment.now = { now }
         var elapsed = 0
-        val clock = ActiveTimeClock(1_000, "ad-1") { elapsed += 1 }
+        val clock = OnScreenTimeClock(1_000, "ad-1") { elapsed += 1 }
         clock.windowVisibilityChanged(isVisible = true) // before start: ignored
         assertFalse(clock.isCounting)
         clock.start(isVisible = false)
@@ -193,11 +193,11 @@ class ReentryTest : SdkTest() {
     }
 
     @Test fun aStoppedClockNeverElapses() {
-        val clock = ActiveTimeClock(500, "ad-1") { throw AssertionError("elapsed after stop") }
+        val clock = OnScreenTimeClock(500, "ad-1") { throw AssertionError("elapsed after stop") }
         clock.start(isVisible = true)
         clock.stop()
         idle(1_000)
-        val endless = ActiveTimeClock(null, "ad-2") { throw AssertionError("no duration, no end") }
+        val endless = OnScreenTimeClock(null, "ad-2") { throw AssertionError("no duration, no end") }
         endless.start(isVisible = true)
         idle(100_000)
         assertTrue(endless.isCounting)

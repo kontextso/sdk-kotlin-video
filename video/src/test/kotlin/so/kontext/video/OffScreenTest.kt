@@ -55,14 +55,14 @@ class OffScreenTest : SdkTest() {
     @Test fun anAdScrolledOutOfViewStopsCountingAndEndsAfterASecond() {
         val (ad, container) = shown()
         val recorder = Recorder().also { ad.listener = it }
-        assertTrue(ad.clock!!.isCounting)
+        assertTrue(ad.onScreenClock!!.isCounting)
         container.translationX = 10_000f // a feed cell swiped away, still in its window
         ticks(ad, 500)
-        assertFalse("unseen: not on screen time", ad.clock!!.isCounting)
+        assertFalse("unseen: not on screen time", ad.onScreenClock!!.isCounting)
         assertFalse("half a second is a peek, not gone", ad.hasEnded)
         container.translationX = 0f
         ticks(ad, 100)
-        assertTrue("back in view: counting again", ad.clock!!.isCounting)
+        assertTrue("back in view: counting again", ad.onScreenClock!!.isCounting)
         container.translationX = 10_000f
         ticks(ad, 1_100)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
@@ -94,12 +94,12 @@ class OffScreenTest : SdkTest() {
         container.translationX = 10_000f
         ticks(ad, 3_000)
         assertFalse(ad.hasEnded)
-        assertFalse(ad.clock!!.isCounting)
+        assertFalse(ad.onScreenClock!!.isCounting)
         // Back in front and in view: it goes on.
         Environment.isAppInForeground = { true }
         container.translationX = 0f
         ticks(ad, 100)
         assertFalse(ad.hasEnded)
-        assertTrue(ad.clock!!.isCounting)
+        assertTrue(ad.onScreenClock!!.isCounting)
     }
 }

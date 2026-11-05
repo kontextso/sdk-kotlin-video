@@ -22,7 +22,7 @@ import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.PageState
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.HttpTransport
 import so.kontext.video.internal.platform.Environment
@@ -59,7 +59,7 @@ class PartsTest : SdkTest() {
         Environment.now = { now }
         var elapsed = false
         var activations = 0
-        val clock = ActiveTimeClock(durationMillis = 3_000, adId = "ad-1") { elapsed = true }
+        val clock = OnScreenTimeClock(durationMillis = 3_000, adId = "ad-1") { elapsed = true }
         clock.onActivate = { activations++ }
         clock.start(isVisible = true)
         now = 1_000

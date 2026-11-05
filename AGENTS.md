@@ -79,8 +79,9 @@ adb logcat -s KontextVideo
     `ShownAd` (one ad on screen, from `show` to `onAdEnded`: the slot, its screen, the meter; `Sdk.shownAd`), `InlineAdView`, `AdGeometry` (the placement
     arithmetic), `LinearAdActivity` (with `Callbacks`, what a linear ad gives its screen), `VideoAdSlot` (the slot
     behind Compose's `VideoAdHost`), `VideoAdPlacement`, `FirstLayout`.
-  - `measurement/`, measuring and reporting: `Tracker` (which beacons fire, sent by `BeaconClient`),
-    `ViewabilityMeter`, `ActiveTimeClock`.
+  - `measurement/`, what the viewer saw (visibility, time on screen) and the beacons that report it: `Tracker`
+    (which beacons fire, sent by `BeaconClient`) with `TrackingMacros`, `ViewabilityMeter` with `ViewExposure`
+    and `Polygon`, `OnScreenTimeClock`.
   - `content/`: `ContentPlayback` (the tracked player), `PlayerOwnership` (a player belongs to one `VideoAds` at a
     time), `ContentTimeClock` (an overlay's video time), `ContentRule` (how an ad follows the content, one class
     per format: `OverlayRule`, `PauseRule` in their own files, `NoContentRule`).

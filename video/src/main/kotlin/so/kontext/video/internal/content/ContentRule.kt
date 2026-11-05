@@ -2,7 +2,7 @@ package so.kontext.video.internal.content
 
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 
 /**
  * How an ad on screen follows the content under it: the one place where the three formats differ in that.
@@ -63,7 +63,7 @@ internal sealed class ContentRule {
     open fun refusesShow(): Boolean = false
 
     /** The ad is on screen, its [clock] (inline formats) running. */
-    open fun started(clock: ActiveTimeClock?) = Unit
+    open fun started(clock: OnScreenTimeClock?) = Unit
 
     /** The tracked player changed or a tick came. */
     open fun contentDidChange(change: ContentPlayback.Change) = Unit

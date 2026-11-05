@@ -3,7 +3,7 @@ package so.kontext.video.internal.content
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAd.EndReason
 import so.kontext.video.internal.diagnostics.Logger
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 
 /**
  * A pause ad lives only while the content is paused, when the `VideoAds` tracks a player: the content playing
@@ -20,7 +20,7 @@ internal class PauseRule(private val ad: VideoAd) : ContentRule() {
         private set
 
     /** It notes whether the content is paused now, so it ends once it plays after a pause. */
-    override fun started(clock: ActiveTimeClock?) {
+    override fun started(clock: OnScreenTimeClock?) {
         if (!ad.isTrackingContent) return
         wasContentPaused = ad.contentPlayback?.isPlaying == false
     }

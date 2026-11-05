@@ -29,7 +29,7 @@ import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.handle
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
@@ -133,7 +133,7 @@ public class VideoAd internal constructor(
     internal val state = AdState()
     internal val meter: ViewabilityMeter? get() = shownAd?.meter
     internal var isVideoPlaying = false
-    internal val clock: ActiveTimeClock? get() = shownAd?.clock
+    internal val onScreenClock: OnScreenTimeClock? get() = shownAd?.onScreenClock
 
     /** How the ad follows the content under it, by format: see [ContentRule]. */
     internal val contentRule: ContentRule = ContentRule.of(this)

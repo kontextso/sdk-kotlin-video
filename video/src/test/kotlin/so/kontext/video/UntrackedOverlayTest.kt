@@ -23,7 +23,7 @@ class UntrackedOverlayTest : SdkTest() {
         ad.show(container())
         val expected = "overlay ${ad.id.take(8)} shown before track(): its duration counts on-screen time, not video time"
         assertEquals(listOf(expected), warnings.filter { "before track()" in it })
-        assertTrue("shown as before, on its clock", ad.wasShown && !ad.hasEnded && ad.clock != null)
+        assertTrue("shown as before, on its clock", ad.wasShown && !ad.hasEnded && ad.onScreenClock != null)
     }
 
     @Test fun aTrackedOverlayDoesNotWarn() {

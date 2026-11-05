@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference
  * every 250 ms: tick()
  *   ├─ measure:   ViewExposure.measure(view): share on screen (0–1) and the visible rectangle
  *   ├─ report:    changed? onExposure(share, rect)       → the page, which tells the creative
- *   │             any of it seen? changed: onSeen(bool)  → ActiveTimeClock
+ *   │             any of it seen? changed: onSeen(bool)  → OnScreenTimeClock
  *   ├─ off-screen: nothing seen for 1 s while the app is in front: onOffScreen  → the ad ends
  *   └─ dwell:     ≥ 50 % without a break for the required time: onVerdict(VIEWABLE), once
  * stop() at the ad's end: no verdict yet? NOT_VIEWABLE (VIEW_UNDETERMINED when the view is gone)
@@ -39,7 +39,7 @@ import java.lang.ref.WeakReference
  * of a size and a page would pause its video for nothing; one tick of grace before [onDetached], since a view
  * moved to another parent in the same moment is not gone; the verdict is decided once.
  *
- * Not ActiveTimeClock: that one adds up any time seen, with breaks; this one judges the 50 % rule.
+ * Not OnScreenTimeClock: that one adds up any time seen, with breaks; this one judges the 50 % rule.
  */
 internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     enum class Verdict(val event: String) { VIEWABLE("viewable"), NOT_VIEWABLE("notViewable"), VIEW_UNDETERMINED("viewUndetermined") }

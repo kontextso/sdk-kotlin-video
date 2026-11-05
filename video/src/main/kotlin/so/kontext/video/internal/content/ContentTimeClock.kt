@@ -4,7 +4,7 @@ import so.kontext.video.internal.platform.Environment
 import kotlin.math.abs
 
 /**
- * The twin of `ActiveTimeClock`: that one counts an ad's time on screen, this one an overlay's time of video.
+ * The twin of `OnScreenTimeClock`: that one counts an ad's time on screen, this one an overlay's time of video.
  *
  * An overlay's duration in milliseconds of video: the playhead's progress while the overlay is on screen and
  * its window visible ([resync] when it comes back, so time hidden counts nothing). A step backwards, or one

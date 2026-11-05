@@ -28,7 +28,7 @@ import so.kontext.video.internal.platform.Environment
  * break). This clock counts any part seen, with breaks. It only counts and tells; the ad decides what an
  * elapsed duration means.
  */
-internal class ActiveTimeClock(
+internal class OnScreenTimeClock(
     private val durationMillis: Long?,
     private val adId: String,
     private val onElapsed: () -> Unit,
@@ -39,7 +39,7 @@ internal class ActiveTimeClock(
     private var isWindowVisible = false
     private var isSeen = true
     private var isStopped = false
-    private var isExpired = false
+    private var hasElapsed = false
     private var timer: Job? = null
 
     /** An active stretch is running. */
@@ -76,10 +76,6 @@ internal class ActiveTimeClock(
         update()
     }
 
-    private fun update() {
-        if (isWindowVisible && isSeen) resume() else pause()
-    }
-
     /** The ad ended: the clock freezes for good and returns the active time it counted. */
     fun stop(): Long {
         if (!isStopped) {
@@ -87,6 +83,10 @@ internal class ActiveTimeClock(
             isStopped = true
         }
         return accumulated
+    }
+
+    private fun update() {
+        if (isWindowVisible && isSeen) resume() else pause()
     }
 
     private fun pause() {
@@ -107,13 +107,18 @@ internal class ActiveTimeClock(
 
     private fun startTimer() {
         val duration = durationMillis ?: return
-        if (timer != null || isExpired) return
-        val remaining = (duration - elapsedMillis).coerceIn(0, 86_400_000)
+        if (timer != null || hasElapsed) return
+        val remaining = (duration - elapsedMillis).coerceIn(0, MAX_TIMER_MILLIS)
         timer = Environment.scope.launch {
             delay(remaining)
-            if (isStopped || isExpired) return@launch
-            isExpired = true
+            if (isStopped || hasElapsed) return@launch
+            hasElapsed = true
             onElapsed()
         }
+    }
+
+    private companion object {
+        /** The longest wait one timer takes, a day: a duration past it is a server mistake, not an ad to wait out. */
+        const val MAX_TIMER_MILLIS = 86_400_000L
     }
 }

@@ -3,7 +3,7 @@ package so.kontext.video.internal.screen
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAds
 import so.kontext.video.internal.core.Sdk
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import java.lang.ref.WeakReference
 
@@ -30,7 +30,7 @@ internal class ShownAd private constructor(
     val hostView: InlineAdView? get() = (screen as? AdScreen.InlineScreen)?.hostView
 
     /** Time seen on screen, for an overlay or pause ad; it also ends an overlay whose duration elapsed. */
-    val clock: ActiveTimeClock? get() = (screen as? AdScreen.InlineScreen)?.clock
+    val onScreenClock: OnScreenTimeClock? get() = (screen as? AdScreen.InlineScreen)?.onScreenClock
 
     /** The registration that hands a linear ad to its screen. */
     val linearCallbacks: LinearAdActivity.Callbacks? get() = screen as? AdScreen.LinearScreen

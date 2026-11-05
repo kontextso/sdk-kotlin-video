@@ -14,7 +14,7 @@ import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.measurement.ActiveTimeClock
+import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
@@ -116,7 +116,7 @@ internal sealed class AdScreen(
     }
 
     /**
-     * An overlay or pause ad: the [InlineAdView] in the app's container, and the [ActiveTimeClock] that counts its
+     * An overlay or pause ad: the [InlineAdView] in the app's container, and the [OnScreenTimeClock] that counts its
      * time seen (and an overlay's wall-clock duration). It follows the Activity holding the container.
      */
     class InlineScreen(
@@ -135,7 +135,7 @@ internal sealed class AdScreen(
             private set
 
         /** Time seen on screen; it also ends an overlay whose wall-clock duration elapsed. From [reachedScreen] to [tearDown]. */
-        var clock: ActiveTimeClock? = null
+        var onScreenClock: OnScreenTimeClock? = null
             private set
 
         override val isInline: Boolean get() = true
@@ -156,7 +156,7 @@ internal sealed class AdScreen(
                     ad.end(EndReason.INTERRUPTED)
                 }
             }
-            host.onWindowVisibility = { visible -> clock?.windowVisibilityChanged(visible) }
+            host.onWindowVisibility = { visible -> onScreenClock?.windowVisibilityChanged(visible) }
         }
 
         /**
@@ -164,7 +164,7 @@ internal sealed class AdScreen(
          * the app is in front (a feed cell swiped away) ends and frees the slot.
          */
         override fun configure(meter: ViewabilityMeter) {
-            meter.onSeen = { seen -> clock?.seenChanged(seen) }
+            meter.onSeen = { seen -> onScreenClock?.seenChanged(seen) }
             meter.isActive = { Environment.isAppInForeground() && hostView?.windowVisibility == View.VISIBLE }
             meter.onOffScreen = {
                 if (!ad.hasEnded) {
@@ -180,23 +180,23 @@ internal sealed class AdScreen(
          * 3. The ad follows the Activity holding the container.
          */
         override fun reachedScreen() {
-            val clock = ActiveTimeClock(ad.contentRule.wallClockDurationMillis, ad.id) {
-                if (ad.hasEnded) return@ActiveTimeClock
+            val clock = OnScreenTimeClock(ad.contentRule.wallClockDurationMillis, ad.id) {
+                if (ad.hasEnded) return@OnScreenTimeClock
                 Logger.debug { "ad ${ad.id.take(8)}: overlay duration of ${ad.durationMillis ?: 0} ms on screen elapsed" }
                 ad.state.markCompleted()
                 ad.end(EndReason.COMPLETED)
             }
-            this.clock = clock
+            this.onScreenClock = clock
             clock.start(isVisible = hostView?.windowVisibility == View.VISIBLE, isSeen = ad.meter?.isSeen ?: true)
             ad.contentRule.started(clock)
             hostView?.activity?.let(::followHoldingActivity)
         }
 
         override fun tearDown(meter: ViewabilityMeter?): Long {
-            val activeTime = clock?.stop() ?: 0
+            val activeTime = onScreenClock?.stop() ?: 0
             // The stopped clock's callback reaches the owner's playback: an ended ad an app keeps must not keep its VideoAds.
-            clock?.onActivate = null
-            clock = null
+            onScreenClock?.onActivate = null
+            onScreenClock = null
             meter?.stop()
             hostView?.let { (it.parent as? ViewGroup)?.removeView(it) }
             hostView = null

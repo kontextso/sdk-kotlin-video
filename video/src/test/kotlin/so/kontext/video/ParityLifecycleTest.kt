@@ -590,7 +590,7 @@ class ParityLifecycleTest : SdkTest() {
         ad.show(container())
         laidOut()
         assertEquals(listOf("impression", "ended DISMISSED"), heard)
-        assertNull("no clock", ad.clock)
+        assertNull("no clock", ad.onScreenClock)
         assertNull("no meter", ad.meter)
         assertNull("no WebView", ad.loadedBridge)
         idle(2_000)
