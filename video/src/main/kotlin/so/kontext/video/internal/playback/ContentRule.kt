@@ -169,7 +169,7 @@ internal sealed class ContentRule {
             if (change != ContentPlayback.Change.Tick) return
             if (progress.advance(playback.playheadMillis, counting = ad.clock?.isCounting == true, speed = playback.playbackSpeed)) {
                 Logger.debug { "ad ${ad.id.take(8)}: overlay duration of ${progress.durationMillis} ms of video elapsed" }
-                ad.isCompleted = true
+                ad.state.markCompleted()
                 ad.end(EndReason.COMPLETED)
             }
         }
@@ -293,7 +293,7 @@ internal sealed class ContentRule {
 
         override fun endIfContentStopped() {
             val playback = ad.owner.get()?.playback ?: return
-            if (!isTracking || !ad.lifecycle.isPresented || ad.hasEnded) return
+            if (!isTracking || !ad.state.isPresented || ad.hasEnded) return
             endIfContentResumed(playback.isPlaying)
         }
 

@@ -87,7 +87,7 @@ class LinearLaunchTest {
                 bridge.receive("""{"adId":"ad-3","type":"ad.loaded"}""", FrameBridge.Origin.of(parsed.frameUrl), true)
                 bridge.onEvent = { linear.handle(it) }
                 linear.loadedBridge = bridge
-                linear.isLoaded = true
+                linear.state.markLoaded()
                 linear.listener = object : VideoAdListener {
                     override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) = ended.countDown()
                 }
@@ -119,7 +119,7 @@ class LinearLaunchTest {
         bridge.receive("""{"adId":"ad-3","type":"ad.loaded"}""", FrameBridge.Origin.of(parsed.frameUrl), true)
         bridge.onEvent = { linear.handle(it) }
         linear.loadedBridge = bridge
-        linear.isLoaded = true
+        linear.state.markLoaded()
         return linear
     }
 

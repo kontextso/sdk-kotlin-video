@@ -49,13 +49,14 @@ adb logcat -s KontextVideo
 - Format differences live in two places: `ContentRule` (how an ad follows the content: `OverlayRule`,
   `PauseRule`, `NoContentRule`) and `AdScreen` (where it is shown: `InlineScreen`, the host view and the clock;
   `LinearScreen`, its own Activity and its closing). `VideoAd` asks them rather than branching on the format.
-- Functional core, imperative shell: the rules with no Android in them (`AdLifecycle`, `FrameProtocol`,
+- Functional core, imperative shell: the rules with no Android in them (`AdState`, `FrameProtocol`,
   `FrameEvent.CloseReason.outcome`) decide, and `VideoAd` and `FrameBridge` act on the answer; the rules are
-  tested as plain JUnit tables. Swift has `AdLifecycle` and `FrameProtocol` under the same names.
+  tested as plain JUnit tables. Swift has `AdState` and `FrameProtocol` under the same names.
 - `internal/`, mirroring the Swift SDK's folders:
   - `core/Sdk.kt`: what `KontextVideo` holds (configuration, `/config` state, the ad on screen).
-    `core/AdLifecycle.kt`: an ad's phases (offered, invalidated, reserved, on screen, ending, ended) and their legal
-    moves, no Android; `VideoAd` holds one and its public flags read from it.
+    `core/AdState.kt`: every fact of an ad's life, no Android: its phases (offered, invalidated, reserved, on
+    screen, ending, ended) and their legal moves, and its milestones (loaded, presented, impression, completed, the
+    failure), each recorded once and never undone; `VideoAd` holds one and its public flags read from it.
   - `frame/`, the ad's web page and its messages: `FrameProtocol` (the frame protocol's rules, no WebView: the
     envelope, the sender, the states, the video's order, the playhead's bounds, the touch a click needs; `accept`
     returns a `Step`), `FrameBridge` (its shell: the WebView, which does each `Step`; the page's messages come
@@ -80,6 +81,7 @@ adb logcat -s KontextVideo
 ## Rules
 
 - Commit directly to `main`; no feature branches. Push and watch CI.
+- One source of truth: every fact of an ad's life is in `AdState`; everything else asks it.
 - The lifecycle guarantee is sacred: after a successful `show`, exactly one `onAdEnded`, whoever ended it; nothing is
   delivered to the listener before `show`.
 - The page never fires a beacon; `Tracker` does, each entry once, except `click`, `pause`, `resume`, `mute` and

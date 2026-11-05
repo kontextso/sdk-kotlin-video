@@ -50,7 +50,7 @@ class InlineShowTest {
         bridge.receive("""{"adId":"ad-2","type":"ad.loaded"}""", FrameBridge.Origin.of(parsed.frameUrl), true)
         bridge.onEvent = { ad.handle(it) }
         ad.loadedBridge = bridge
-        ad.isLoaded = true
+        ad.state.markLoaded()
         return ad
     }
 

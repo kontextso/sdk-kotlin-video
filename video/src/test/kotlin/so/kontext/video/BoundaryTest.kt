@@ -107,7 +107,7 @@ class BoundaryTest {
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
         bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", FrameBridge.Origin.of(payload.frameUrl), true)
         ad.loadedBridge = bridge
-        ad.isLoaded = true
+        ad.state.markLoaded()
         return ad
     }
 

@@ -91,7 +91,7 @@ abstract class SdkTest {
         bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", FrameBridge.Origin.of(payload.frameUrl), true)
         bridge.onEvent = { event -> ad.handle(event) } // as the ad wires the bridges it makes itself
         ad.loadedBridge = bridge
-        ad.isLoaded = true
+        ad.state.markLoaded()
         return ad
     }
 

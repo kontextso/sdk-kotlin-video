@@ -67,6 +67,7 @@ public class VideoAds @JvmOverloads constructor(
     private val spentIds = mutableSetOf<String>()
 
     /** The ad of this `VideoAds` on screen. */
+    // Stored, not derived from Sdk.adOnScreen: destroy() clears it at once while a linear ad's slot lasts until its screen closes.
     internal var showing: VideoAd? = null
         private set
 
