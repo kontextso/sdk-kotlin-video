@@ -18,6 +18,7 @@ import so.kontext.video.internal.core.Sdk
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.toRequestFailure
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
@@ -290,7 +291,8 @@ public class VideoAds @JvmOverloads constructor(
                     AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", built.body)).also(::checkIdsAgainstHeld)
                 } catch (error: CancellationException) {
                     throw error
-                } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+                    // Not swallowed: the app hears it as the failure it maps to (toRequestFailure), the report carries it.
+                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
                     checkStillUsable()
                     Logger.error { "${content.id}: request ${built.requestId} failed, ${error.message}" }
                     @Suppress("InstanceOfCheckForException") // the code, not the handling, depends on it
@@ -302,7 +304,7 @@ public class VideoAds @JvmOverloads constructor(
                         failure = ErrorReporter.RequestFailure(error),
                         recovery = if (holdsAds) ErrorReporter.Recovery.HELD_ADS_KEPT else ErrorReporter.Recovery.NO_AD,
                     )
-                    throw VideoAdException.Request(VideoAdException.RequestFailure.from(error))
+                    throw VideoAdException.Request(error.toRequestFailure())
                 }
                 receive(response, built.requestId)
             }

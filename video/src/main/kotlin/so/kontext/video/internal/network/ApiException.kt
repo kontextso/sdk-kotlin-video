@@ -1,7 +1,10 @@
 package so.kontext.video.internal.network
 
+import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.payloads.ErrorResponse
 import java.io.IOException
+import java.net.ProtocolException
+import java.net.SocketTimeoutException
 
 /** Why a request to the ad server failed. */
 internal sealed class ApiException(message: String, cause: Throwable? = null) : Exception(message, cause) {
@@ -21,3 +24,18 @@ internal class ResponseTooLarge : IOException("the answer is over ${ApiClient.MA
 
 /** The exchange threw something other than an `IOException`: a request the SDK could not complete as the contract says. */
 internal class UnexpectedFailure(cause: Throwable) : IOException(cause)
+
+/**
+ * What the app hears of what an ads request threw: a timeout is [RequestFailure.TimedOut]; an answer over the size
+ * limit, a status line that is not HTTP or an exchange that threw something unexpected is
+ * [RequestFailure.BadResponse]; every other I/O failure is [RequestFailure.Offline]. An error status is
+ * [RequestFailure.Server]; an undecodable answer, and anything else, [RequestFailure.BadResponse].
+ */
+internal fun Throwable?.toRequestFailure(): RequestFailure = when (this) {
+    is ApiException.Transport -> cause.toRequestFailure()
+    is ApiException.Http -> if (status > 0) RequestFailure.Server(status) else RequestFailure.BadResponse
+    is SocketTimeoutException -> RequestFailure.TimedOut
+    is ResponseTooLarge, is UnexpectedFailure, is ProtocolException -> RequestFailure.BadResponse
+    is IOException -> RequestFailure.Offline
+    else -> RequestFailure.BadResponse
+}

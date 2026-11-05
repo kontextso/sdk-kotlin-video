@@ -11,6 +11,7 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.payloads.AdsRequest
+import so.kontext.video.internal.payloads.noFillReasonFrom
 import so.kontext.video.internal.playback.ContentProgress
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
@@ -85,7 +86,7 @@ class LogicTest {
     }
 
     @Test fun theWireNamesMapBothWays() {
-        assertEquals(NoFillReason.GeoRestricted, NoFillReason.from("geoRestricted"))
+        assertEquals(NoFillReason.GeoRestricted, noFillReasonFrom("geoRestricted"))
         assertEquals("geoRestricted", NoFillReason.GeoRestricted.toString())
         assertEquals(VideoAd.Click.Area.EndCard, VideoAd.Click.Area.from("endCard"))
         assertEquals(VideoAd.Click.Area.Creative, VideoAd.Click.Area.from(null))

@@ -1,12 +1,5 @@
 package so.kontext.video
 
-import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.ResponseTooLarge
-import so.kontext.video.internal.network.UnexpectedFailure
-import java.io.IOException
-import java.net.ProtocolException
-import java.net.SocketTimeoutException
-
 /**
  * Why the SDK could not do its job, reached two ways.
  *
@@ -133,26 +126,10 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
 
         /** The case's name, for logs: `offline`, `timedOut`, `server(503)`, `badResponse`. */
         override fun toString(): String = name
-
-        internal companion object {
-            /**
-             * From what the request threw: a timeout is [TimedOut]; an answer over the size limit, a status line
-             * that is not HTTP or an exchange that threw something unexpected is [BadResponse]; every other I/O
-             * failure is [Offline]. An error status is [Server]; an undecodable answer, and anything else, [BadResponse].
-             */
-            fun from(error: Throwable?): RequestFailure = when (error) {
-                is ApiException.Transport -> from(error.cause)
-                is ApiException.Http -> if (error.status > 0) Server(error.status) else BadResponse
-                is SocketTimeoutException -> TimedOut
-                is ResponseTooLarge, is UnexpectedFailure, is ProtocolException -> BadResponse
-                is IOException -> Offline
-                else -> BadResponse
-            }
-        }
     }
 
     /** Why the server had nothing for a format; [Other] is a reason this SDK version does not know, as sent. */
-    public sealed class NoFillReason(private val wireName: String) {
+    public sealed class NoFillReason(internal val wireName: String) {
         /** No campaign matched the content, the viewer or the moment. */
         public object NoAdMatch : NoFillReason("noAdMatch")
 
@@ -189,16 +166,5 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
 
         /** The wire name, for logs. */
         override fun toString(): String = wireName
-
-        internal companion object {
-            // Lazy: built while NoFillReason itself is still initializing, the list would hold nulls for its objects.
-            private val known by lazy { listOf(NoAdMatch, ContentUnsafe, FormatNotEnabled, FrequencyCap, GeoRestricted, TemporaryError, AlreadyUsed, Unknown) }
-
-            /** From the wire; `null` (left out or malformed) is [Unknown]. */
-            fun from(raw: String?): NoFillReason = when (raw) {
-                null -> Unknown
-                else -> known.firstOrNull { it.wireName == raw } ?: Other(raw)
-            }
-        }
     }
 }

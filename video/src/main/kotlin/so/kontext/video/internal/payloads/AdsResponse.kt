@@ -78,9 +78,29 @@ internal sealed class AdsResponse {
                 ads.isNotEmpty() -> null
                 // Ads came and none could be read: the server's reason would be about something else.
                 dropped.isNotEmpty() -> NoFillReason.Unknown
-                else -> NoFillReason.from(entry.str("noFillReason"))
+                else -> noFillReasonFrom(entry.str("noFillReason"))
             }
             return FormatResult(format, ads, reason, dropped)
         }
     }
+}
+
+// Lazy: built while NoFillReason itself is still initializing, the list would hold nulls for its objects.
+private val knownNoFillReasons by lazy {
+    listOf(
+        NoFillReason.NoAdMatch,
+        NoFillReason.ContentUnsafe,
+        NoFillReason.FormatNotEnabled,
+        NoFillReason.FrequencyCap,
+        NoFillReason.GeoRestricted,
+        NoFillReason.TemporaryError,
+        NoFillReason.AlreadyUsed,
+        NoFillReason.Unknown,
+    )
+}
+
+/** A no-fill reason from the wire; `null` (left out or malformed) is [NoFillReason.Unknown], one this SDK does not know [NoFillReason.Other]. */
+internal fun noFillReasonFrom(raw: String?): NoFillReason = when (raw) {
+    null -> NoFillReason.Unknown
+    else -> knownNoFillReasons.firstOrNull { it.wireName == raw } ?: NoFillReason.Other(raw)
 }

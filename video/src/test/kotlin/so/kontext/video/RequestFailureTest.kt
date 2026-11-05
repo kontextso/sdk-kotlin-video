@@ -8,6 +8,7 @@ import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.ResponseTooLarge
 import so.kontext.video.internal.network.UnexpectedFailure
+import so.kontext.video.internal.network.toRequestFailure
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
@@ -23,11 +24,11 @@ import javax.net.ssl.SSLHandshakeException
  * the HTTP status and the answer; the underlying exception stays out of the public API.
  */
 class RequestFailureTest {
-    private fun transport(error: IOException) = RequestFailure.from(ApiException.Transport(error))
+    private fun transport(error: IOException) = ApiException.Transport(error).toRequestFailure()
 
     @Test fun aTimeoutIsTimedOut() {
         assertEquals(RequestFailure.TimedOut, transport(SocketTimeoutException("read timed out")))
-        assertEquals("a bare one, the same", RequestFailure.TimedOut, RequestFailure.from(SocketTimeoutException()))
+        assertEquals("a bare one, the same", RequestFailure.TimedOut, SocketTimeoutException().toRequestFailure())
     }
 
     @Test fun everyOtherWayOfNotGettingThroughIsOffline() {
@@ -42,23 +43,23 @@ class RequestFailureTest {
         )
         for (error in offline) {
             assertEquals(error.javaClass.simpleName, RequestFailure.Offline, transport(error))
-            assertEquals("a bare ${error.javaClass.simpleName}, the same", RequestFailure.Offline, RequestFailure.from(error))
+            assertEquals("a bare ${error.javaClass.simpleName}, the same", RequestFailure.Offline, error.toRequestFailure())
         }
     }
 
     @Test fun everyErrorStatusIsAServerFailureWithItsStatus() {
         for (status in listOf(400, 404, 410, 422, 429, 500, 502, 503, 504, 302)) {
-            assertEquals("$status", RequestFailure.Server(status), RequestFailure.from(ApiException.Http(status, emptyList())))
+            assertEquals("$status", RequestFailure.Server(status), ApiException.Http(status, emptyList()).toRequestFailure())
         }
-        assertEquals("not an HTTP answer", RequestFailure.BadResponse, RequestFailure.from(ApiException.Http(-1, emptyList())))
+        assertEquals("not an HTTP answer", RequestFailure.BadResponse, ApiException.Http(-1, emptyList()).toRequestFailure())
     }
 
     @Test fun anAnswerTheSdkCannotUseIsABadResponse() {
-        assertEquals(RequestFailure.BadResponse, RequestFailure.from(ApiException.Decoding(IllegalArgumentException("not JSON"))))
+        assertEquals(RequestFailure.BadResponse, ApiException.Decoding(IllegalArgumentException("not JSON")).toRequestFailure())
         assertEquals("over the size limit", RequestFailure.BadResponse, transport(ResponseTooLarge()))
         assertEquals("a status line that is not HTTP", RequestFailure.BadResponse, transport(ProtocolException("Unexpected status line")))
         assertEquals("anything else the exchange threw", RequestFailure.BadResponse, transport(UnexpectedFailure(IllegalArgumentException("port out of range"))))
-        assertEquals("anything unknown", RequestFailure.BadResponse, RequestFailure.from(IllegalStateException("?")))
+        assertEquals("anything unknown", RequestFailure.BadResponse, IllegalStateException("?").toRequestFailure())
     }
 
     @Test fun theReasonsCompareByValueAndNameThemselves() {

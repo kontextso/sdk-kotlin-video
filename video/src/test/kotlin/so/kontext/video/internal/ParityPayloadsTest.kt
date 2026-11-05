@@ -43,6 +43,7 @@ import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
+import so.kontext.video.internal.network.toRequestFailure
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
@@ -50,6 +51,7 @@ import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.payloads.ErrorResponse
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.payloads.UNKNOWN_REASON
+import so.kontext.video.internal.payloads.noFillReasonFrom
 import so.kontext.video.internal.support.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.junit.Assert as JUnit4
@@ -529,7 +531,7 @@ class ParityPayloadsTest {
             VideoAdException.RequestFailure.BadResponse to "request failed (badResponse)",
         )
         for ((failure, expected) in requests) assertEquals(expected, VideoAdException.Request(failure).message)
-        assertEquals(VideoAdException.RequestFailure.Server(500), VideoAdException.Request(VideoAdException.RequestFailure.from(ApiException.Http(500, emptyList()))).failure)
+        assertEquals(VideoAdException.RequestFailure.Server(500), VideoAdException.Request(ApiException.Http(500, emptyList()).toRequestFailure()).failure)
     }
 
     @Test fun everyNoFillReasonMapsFromTheWireAndBack() {
@@ -544,11 +546,11 @@ class ParityPayloadsTest {
             "unknown" to NoFillReason.Unknown,
         )
         for ((wire, reason) in known) {
-            assertEquals(reason, NoFillReason.from(wire), wire)
+            assertEquals(reason, noFillReasonFrom(wire), wire)
             assertEquals(wire, reason.toString(), "and back: $wire")
         }
-        assertEquals(NoFillReason.Unknown, NoFillReason.from(null), "absent is unknown")
-        assertEquals(NoFillReason.Other("aReasonFromTheFuture"), NoFillReason.from("aReasonFromTheFuture"))
+        assertEquals(NoFillReason.Unknown, noFillReasonFrom(null), "absent is unknown")
+        assertEquals(NoFillReason.Other("aReasonFromTheFuture"), noFillReasonFrom("aReasonFromTheFuture"))
         assertEquals("aReasonFromTheFuture", NoFillReason.Other("aReasonFromTheFuture").toString())
     }
 }
