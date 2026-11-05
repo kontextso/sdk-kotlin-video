@@ -48,7 +48,7 @@ internal object HttpTransport {
      * Sends a POST of [body] to [start], or a GET when [body] is `null`, and follows redirects by [redirects].
      * [maxBodyBytes]: the final body is read up to it ([ResponseTooLarge] past it); `null` reads no body at all, and
      * disconnecting drops whatever the server still sends. [current] holds the open connection, so a caller can
-     * disconnect it from another thread to stop a blocked read; [isActive] is asked before each hop.
+     * disconnect it from another thread to stop a blocked read; [isActive] is asked before each hop and again before its answer is read.
      */
     fun exchange(
         start: URL,
@@ -67,6 +67,9 @@ internal object HttpTransport {
             current?.set(connection)
             try {
                 send(connection, if (post) body else null, timeoutMillis)
+                // A disconnect between the send and the read would not stop the read: the JDK reconnects and
+                // waits on the new connection until the timeout. A caller gone by now ends the exchange here.
+                if (!isActive()) throw IOException("cancelled")
                 val status = connection.responseCode
                 val next = nextHop(connection, status, url, redirects)
                 if (next == null) {

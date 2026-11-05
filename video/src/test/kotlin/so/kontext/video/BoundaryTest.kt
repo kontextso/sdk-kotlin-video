@@ -535,14 +535,28 @@ class BoundaryTest {
     private class WatchedExecutor : java.util.concurrent.Executor {
         val finished = CountDownLatch(1)
 
+        @Volatile var worker: Thread? = null
+
         override fun execute(command: Runnable) {
-            Thread {
+            worker = Thread {
                 try {
                     command.run()
                 } finally {
                     finished.countDown()
                 }
-            }.start()
+            }.also { it.start() }
+        }
+
+        /**
+         * Waits until the worker reads the answer. The server has the request once the body is sent, a moment
+         * before the read starts; a disconnect in that moment lets the JDK open a new connection and wait on it.
+         */
+        fun awaitReading() {
+            val deadline = System.currentTimeMillis() + 5_000
+            while (worker?.stackTrace?.any { it.methodName == "parseHTTP" } != true) {
+                if (System.currentTimeMillis() > deadline) fail("the worker never read the answer")
+                Thread.sleep(1)
+            }
         }
     }
 
@@ -563,6 +577,7 @@ class BoundaryTest {
         try {
             val job = scope.async { ApiClient(server.url("/").toString(), 10_000, executor).post("config", buildJsonObject {}) }
             assertTrue(arrived.await(5, TimeUnit.SECONDS))
+            executor.awaitReading()
             job.cancel()
             job.join() // the caller is gone while the server still holds the request
             assertTrue("the disconnect ended the blocked read", executor.finished.await(5, TimeUnit.SECONDS))
