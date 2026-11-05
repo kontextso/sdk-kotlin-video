@@ -38,6 +38,7 @@ import so.kontext.video.internal.screen.activity
 import so.kontext.video.internal.state.AdLifecycle.Phase
 import so.kontext.video.internal.state.AdState
 import so.kontext.video.internal.state.SdkState
+import so.kontext.video.internal.state.ShowCheck
 import java.lang.ref.WeakReference
 
 /**
@@ -406,17 +407,24 @@ public class VideoAd internal constructor(
     override fun toString(): String =
         "VideoAd(id=${id.take(8)}, format=$format, price=$price, loaded=$isLoaded, shown=$wasShown, ended=$hasEnded)"
 
+    /** Throws what [ShowCheck] says, from the facts gathered here in the order the checks have always run. */
     private fun checkShowable() {
         // The app code a show runs before its checks: an ad on screen over content that no longer fits it ends
         // (its `onAdEnded`; another ad, see ContentRule.endIfContentStopped), and the player is read.
         if (!wasShown) ScreenSlot.current?.contentRule?.endIfContentStopped()
         val contentPaused = contentRule.refusesShow()
-        if (wasShown) throw VideoAdException.AlreadyShown()
+        // Only for an ad not shown yet: these checks end an expired ad, or one whose episode changed.
+        val usableError = if (wasShown) null else usableError()
+        ShowCheck.refusal(wasShown, usableError, ScreenSlot.current != null, isLoaded, contentPaused)?.let { throw it }
+    }
+
+    /** Why the ad can no longer be shown ([checkUsable], [checkEpisode]), or `null`. */
+    private fun usableError(): VideoAdException? = try {
         checkUsable()
         checkEpisode()
-        if (ScreenSlot.current != null) throw VideoAdException.AnotherAdShowing()
-        if (!isLoaded) throw VideoAdException.NotLoaded()
-        if (contentPaused) throw VideoAdException.ContentPaused()
+        null
+    } catch (error: VideoAdException) {
+        error
     }
 
     /**
