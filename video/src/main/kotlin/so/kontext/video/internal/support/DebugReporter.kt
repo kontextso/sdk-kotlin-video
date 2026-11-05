@@ -42,11 +42,8 @@ internal object DebugReporter {
     /** The state keys an error report's history may carry; anything else stays on the device. */
     val historyKeys = setOf("held", "playhead", "format", "filled", "reason", "enabled", "code", "durationMs", "step", "domain")
 
-    var isEnabled = false
-        set(value) {
-            field = value
-            if (!value) buffer.clear()
-        }
+    /** What `/config` said (`reportDebug`), read from the SDK's state: off until it answers. */
+    val isEnabled: Boolean get() = Sdk.state.isDebugReportingOn
 
     private val buffer = mutableListOf<JsonObject>()
     private val history = ArrayDeque<Moment>()
@@ -69,6 +66,11 @@ internal object DebugReporter {
         scheduleFlush()
     }
 
+    /** `/config` answered (`Sdk.recordDebugReporting`): off drops what waits. */
+    fun reportingChanged() {
+        if (!isEnabled) buffer.clear()
+    }
+
     /** The recent events, reduced for an error report: listed state keys only, strings and ids capped. */
     fun recentHistory(): List<Moment> = history.map { moment ->
         val state = moment.state?.filterKeys { it in historyKeys }?.mapValues { (_, value) ->
@@ -87,7 +89,6 @@ internal object DebugReporter {
     fun resetForTesting() {
         flushJob?.cancel()
         flushJob = null
-        isEnabled = false
         buffer.clear()
         history.clear()
         intervalMillis = 100L

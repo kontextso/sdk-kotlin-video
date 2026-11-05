@@ -67,7 +67,7 @@ public object KontextVideo {
 
     /** The current state. */
     @JvmStatic
-    public val state: State get() = Sdk.state
+    public val state: State get() = Sdk.state.phase
 
     /**
      * What the publisher knows about the viewer. Set it whenever you learn it, for example after login; the

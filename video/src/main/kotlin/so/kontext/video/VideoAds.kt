@@ -274,7 +274,7 @@ public class VideoAds @JvmOverloads constructor(
                 val isEnabled = Sdk.waitUntilEnabled()
                 checkStillUsable()
                 if (!isEnabled) {
-                    Logger.warning { "${content.id}: not requested, the SDK is ${Sdk.state}" }
+                    Logger.warning { "${content.id}: not requested, the SDK is ${Sdk.state.phase}" }
                     Sdk.disabledReason?.let { throw VideoAdException.Disabled(it) }
                     throw VideoAdException.InitializationFailed()
                 }

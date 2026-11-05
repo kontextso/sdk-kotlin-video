@@ -137,7 +137,7 @@ class RacesTest {
         await { call.result != null }
         assertTrue(call.result!!.exceptionOrNull() is VideoAdException.Destroyed)
         configGate!!.countDown()
-        await { Sdk.state == KontextVideo.State.Enabled }
+        await { Sdk.state.phase == KontextVideo.State.Enabled }
         Thread.sleep(50)
         assertEquals("nothing left after destroy", 0, adsRequests.get())
     }

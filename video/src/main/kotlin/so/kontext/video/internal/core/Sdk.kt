@@ -17,15 +17,17 @@ import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.payloads.ConfigRequest
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.screen.ShownAd
+import so.kontext.video.internal.state.SdkState
 import so.kontext.video.internal.support.DebugReporter
 import so.kontext.video.internal.support.Environment
 import so.kontext.video.internal.support.ErrorReporter
 import so.kontext.video.internal.support.Logger
 
 /**
- * The machinery behind `KontextVideo`: the configuration, where `/config` got to, the values the app sets (`user`,
- * `regulatory`, `variantId`) and the one ad on screen in the whole app. Every public call on `KontextVideo` is a
- * thin wrapper that forwards here. Main thread only.
+ * The machinery behind `KontextVideo`, the shell around [SdkState]: it moves the SDK's state (`initialize`,
+ * `/config` and its retry, the kill switch) and holds the values the app sets (`user`, `regulatory`, `variantId`)
+ * and the one ad on screen in the whole app. Every public call on `KontextVideo` is a thin wrapper that forwards
+ * here. Main thread only.
  *
  * Why not in `KontextVideo` itself: a JVM quirk. Kotlin's `internal` means "visible only inside this module", but
  * the JVM has no such level: an `internal` member of a public class compiles as public, with a slightly mangled
@@ -38,10 +40,10 @@ internal object Sdk {
     /** The [State.Disabled] reason in a process other than the app's main one. */
     const val NOT_MAIN_PROCESS = "not the app's main process"
 
-    var configuration: Configuration? = null
+    /** The SDK's own facts, the one source of truth: its phase, the configuration, what `/config` said. */
+    var state: SdkState = SdkState()
         private set
-    var state: State = State.NotInitialized
-        private set
+    val configuration: Configuration? get() = state.configuration
     var user: User? = null
         set(value) {
             field = value
@@ -62,10 +64,10 @@ internal object Sdk {
 
     private var initJob: Deferred<Unit>? = null
 
-    val isInitialized: Boolean get() = configuration != null
+    val isInitialized: Boolean get() = state.isInitialized
 
     /** The server's reason while the SDK is switched off, else `null`. */
-    val disabledReason: String? get() = (state as? State.Disabled)?.reason
+    val disabledReason: String? get() = state.disabledReason
 
     fun initialize(context: Context, configuration: Configuration, onDone: ((State) -> Unit)?) {
         if (isInitialized) {
@@ -77,15 +79,15 @@ internal object Sdk {
         if (process != null && process != mainProcess) {
             // Another process of the app (a playback or download service): its own /config would count a
             // launch twice, and its WebView would take the data directory the main process's WebViews need.
-            this.configuration = configuration
+            state.recordConfiguration(configuration)
             Logger.level = configuration.logLevel
-            state = State.Disabled(NOT_MAIN_PROCESS)
+            state.moveTo(State.Disabled(NOT_MAIN_PROCESS))
             Logger.warning { "initialize() in the process $process, not the app's main one; the SDK stays off here" }
-            if (onDone != null) Environment.scope.launch { onDone(state) }
+            if (onDone != null) Environment.scope.launch { onDone(state.phase) }
             return
         }
         Environment.context = context.applicationContext
-        this.configuration = configuration
+        state.recordConfiguration(configuration)
         Logger.level = configuration.logLevel
         val problems = configuration.problems
         if (problems.isNotEmpty()) {
@@ -96,20 +98,20 @@ internal object Sdk {
             if (problems.any { it.startsWith("adServerUrl") }) ErrorReporter.report(ErrorReporter.Code.BAD_SERVER_URL, ErrorReporter.Stage.INTEGRATION)
         }
         Logger.debug { "Initializing, SDK version ${SDK_VERSION}" }
-        state = State.Initializing
+        state.moveTo(State.Initializing)
         val job = Environment.scope.async { fetchConfig(configuration) }
         initJob = job
         if (onDone != null) {
             Environment.scope.launch {
                 job.await()
-                onDone(state)
+                onDone(state.phase)
             }
         }
     }
 
     suspend fun awaitInitialization(): State {
         initJob?.await()
-        return state
+        return state.phase
     }
 
     /**
@@ -117,15 +119,14 @@ internal object Sdk {
      * and answers `false` when the SDK is off. A cancelled caller stops waiting at once; `/config` goes on.
      */
     suspend fun waitUntilEnabled(): Boolean {
-        if (state == State.Failed) retryConfig()
-        if (state == State.Initializing) initJob?.await()
-        return state == State.Enabled
+        if (state.phase == State.Failed) retryConfig()
+        if (state.phase == State.Initializing) initJob?.await()
+        return state.phase == State.Enabled
     }
 
     /** An ads response said `enabled: false`: the same kill switch as `/config`. */
     fun disable(reason: String) {
-        if (state == State.Disabled(reason)) return
-        state = State.Disabled(reason)
+        if (!state.moveTo(State.Disabled(reason))) return
         Logger.warning { "Disabled by the server: $reason" }
     }
 
@@ -152,12 +153,23 @@ internal object Sdk {
         Logger.error { "$call called on the thread ${Thread.currentThread().name}, not the main thread; call it on the main thread" }
     }
 
+    /** `/config`'s `reportErrors`, recorded in [state]; [ErrorReporter] sends, keeps or drops its reports by it. */
+    fun recordErrorReporting(isOn: Boolean) {
+        state.recordErrorReporting(isOn)
+        ErrorReporter.reportingChanged()
+    }
+
+    /** `/config`'s `reportDebug`, recorded in [state]; [DebugReporter] sends its events or drops them by it. */
+    fun recordDebugReporting(isOn: Boolean) {
+        state.recordDebugReporting(isOn)
+        DebugReporter.reportingChanged()
+    }
+
     /** After a failed `/config`, every ads request tries it again first. */
     private fun retryConfig() {
         val configuration = configuration ?: return
-        if (state != State.Failed) return
+        if (!state.moveTo(State.Initializing)) return
         Logger.info { "Retrying /config" }
-        state = State.Initializing
         initJob = Environment.scope.async { fetchConfig(configuration) }
     }
 
@@ -169,25 +181,25 @@ internal object Sdk {
         try {
             when (val response = ConfigResponse.parse(ApiClient(configuration.adServerUrl).post("config", request.body))) {
                 is ConfigResponse.Enabled -> {
-                    DebugReporter.isEnabled = response.reportDebug
-                    ErrorReporter.configure(response.reportErrors)
+                    recordDebugReporting(response.reportDebug)
+                    recordErrorReporting(response.reportErrors)
                     DebugReporter.event("config.response", state = mapOf("enabled" to true))
-                    state = State.Enabled
+                    state.moveTo(State.Enabled)
                     Logger.info { "Enabled" }
                     // The browser user agent every ads request carries, read in a WebView once per process:
                     // started now, so the first request rarely waits for it.
                     Environment.scope.launch { Environment.userAgent() }
                 }
                 is ConfigResponse.Disabled -> {
-                    state = State.Disabled(response.reason)
-                    ErrorReporter.configure(false)
+                    state.moveTo(State.Disabled(response.reason))
+                    recordErrorReporting(false)
                     Logger.warning { "Disabled by the server: ${response.reason}" }
                 }
             }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            state = State.Failed
+            state.moveTo(State.Failed)
             Logger.error { "/config failed, no ads until it succeeds: ${error.message}" }
             ErrorReporter.report(ErrorReporter.Code.CONFIG_FAILED, ErrorReporter.Stage.CONFIG, requestId = requestId, failure = ErrorReporter.RequestFailure(error))
         }
@@ -195,16 +207,14 @@ internal object Sdk {
 
     /** A configuration without `/config`, as if initialized and enabled. Tests only. */
     fun configureForTesting(configuration: Configuration) {
-        this.configuration = configuration
-        state = State.Enabled
+        state.enableForTesting(configuration)
     }
 
     /** Back to the state before `initialize`. Tests only: the SDK is process-wide. */
     fun resetForTesting() {
         initJob?.cancel()
         initJob = null
-        configuration = null
-        state = State.NotInitialized
+        state = SdkState()
         user = null
         regulatory = null
         variantId = null

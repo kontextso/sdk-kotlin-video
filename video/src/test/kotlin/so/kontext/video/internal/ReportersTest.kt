@@ -96,7 +96,7 @@ class ReportersTest {
         report(ErrorReporter.Code.LOAD_TIMEOUT)
         settle()
         assertTrue("nothing leaves before /config", errorBatches().isEmpty())
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         await { errorBatches().isNotEmpty() }
         val batch = errorBatches().single()
         assertEquals("test-token", batch["publisherToken"]!!.jsonPrimitive.content)
@@ -112,9 +112,9 @@ class ReportersTest {
 
     @Test fun configWithoutReportsDropsThemForTheLaunch() {
         report()
-        ErrorReporter.configure(false)
+        Sdk.recordErrorReporting(false)
         report()
-        ErrorReporter.configure(true) // off is final
+        Sdk.recordErrorReporting(true) // off is final
         report()
         settle()
         assertTrue(errorBatches().isEmpty())
@@ -123,7 +123,7 @@ class ReportersTest {
 
     @Test fun aFailedBatchIsRetriedUnchanged() {
         errorAnswers = mutableListOf(500, 503)
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         report()
         await { errorBatches().size >= 2 }
         // Reported between the attempts: it waits for the next batch, and changes nothing in this one.
@@ -151,7 +151,7 @@ class ReportersTest {
         ErrorReporter.intervalMillis = 10
         repeat(ErrorReporter.MAX_BATCH) { report(detail = detail) }
         assertEquals(List(ErrorReporter.MAX_BATCH) { target }, ErrorReporter.bufferedSizes)
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ErrorReporter.MAX_BATCH }
         val sizes = errorBodies.map { it.size }
         assertTrue("each whole body within ${ErrorReporter.MAX_BATCH_BYTES} bytes: $sizes", sizes.all { it <= ErrorReporter.MAX_BATCH_BYTES })
@@ -164,7 +164,7 @@ class ReportersTest {
         val count = 60 // about 3.7 KB each: all within the 256 KB buffer, about four batches
         repeat(count) { report() }
         assertEquals("all buffered", count, ErrorReporter.bufferedCount)
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == count }
         val sizes = errorBodies.map { it.size }
         assertTrue("several batches: the byte limit decides, $sizes", sizes.size > 2)
@@ -175,7 +175,7 @@ class ReportersTest {
 
     @Test fun goneStopsReportingForTheLaunch() {
         errorAnswers = mutableListOf(410)
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         report()
         await { errorBatches().size == 1 }
         report()
@@ -185,7 +185,7 @@ class ReportersTest {
 
     @Test fun aRefusedBatchIsDroppedNotRetried() {
         errorAnswers = mutableListOf(400)
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         report()
         await { errorBatches().size == 1 }
         report(ErrorReporter.Code.LOAD_TIMEOUT)
@@ -196,7 +196,7 @@ class ReportersTest {
     @Test fun beyondTheBufferTheOldestGoAndTheNextBatchSaysHowMany() {
         repeat(ErrorReporter.MAX_BUFFERED + 5) { report() }
         assertEquals(ErrorReporter.MAX_BUFFERED, ErrorReporter.bufferedCount)
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         await { errorBatches().sumOf { it["errors"]!!.jsonArray.size } == ErrorReporter.MAX_BUFFERED }
         val batches = errorBatches()
         assertEquals(5, batches.first()["dropped"]!!.jsonPrimitive.int)
@@ -221,14 +221,14 @@ class ReportersTest {
         DebugReporter.event("before")
         settle()
         assertTrue(received.none { it.first == "/v2/debug" })
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(true)
         DebugReporter.event("ads.request", level = DebugReporter.Level.WARNING, state = mapOf("held" to 1, "playhead" to 2.5))
         await { received.any { it.first == "/v2/debug" } }
         val event = received.first { it.first == "/v2/debug" }.second["events"]!!.jsonArray.single().jsonObject
         assertEquals("ads.request", event["name"]!!.jsonPrimitive.content)
         assertEquals("warning", event["level"]!!.jsonPrimitive.content)
         assertEquals("ads.request ad=f1a2b3c4 held=1 playhead=2.5", DebugReporter.line("ads.request", "f1a2b3c4deadbeef", mapOf("playhead" to 2.5, "held" to 1)))
-        DebugReporter.isEnabled = false
+        Sdk.recordDebugReporting(false)
         DebugReporter.event("after")
         settle()
         assertEquals(1, received.count { it.first == "/v2/debug" })

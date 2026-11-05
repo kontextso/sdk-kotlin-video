@@ -94,7 +94,22 @@ internal object ErrorReporter {
     /** UTF-8 bytes kept of every string field. */
     const val MAX_FIELD_LENGTH = 64
 
-    private var mode = Mode.PENDING
+    /**
+     * The server answered a batch with `410`: reporting ends for this launch, whatever `/config` said. The
+     * reporter's own fact, from its own endpoint, not the SDK's state.
+     */
+    private var wasStoppedByServer = false
+
+    /** Pending until `/config` answers, then what it said (`SdkState.isErrorReportingOn`), unless the server stopped it. */
+    private val mode: Mode
+        get() = when {
+            wasStoppedByServer -> Mode.OFF
+            else -> when (Sdk.state.isErrorReportingOn) {
+                null -> Mode.PENDING
+                true -> Mode.ON
+                false -> Mode.OFF
+            }
+        }
     private val buffer = ArrayDeque<Pair<JsonObject, Int>>()
     private var bufferedBytes = 0
     private var dropped = 0
@@ -136,14 +151,15 @@ internal object ErrorReporter {
         return result.toString()
     }
 
-    /** `/config` answered: `reportErrors` turns the reports on, anything else drops them for this launch. */
-    fun configure(isEnabled: Boolean) {
-        if (mode == Mode.OFF) return
-        if (isEnabled) {
-            mode = Mode.ON
-            if (buffer.isNotEmpty()) scheduleFlush(intervalMillis)
-        } else {
-            turnOff()
+    /**
+     * `/config` answered (`Sdk.recordErrorReporting`): reports on send what waited, reports off drop it for this
+     * launch.
+     */
+    fun reportingChanged() {
+        when (mode) {
+            Mode.ON -> if (buffer.isNotEmpty()) scheduleFlush(intervalMillis)
+            Mode.OFF -> dropAll()
+            Mode.PENDING -> Unit
         }
     }
 
@@ -228,7 +244,7 @@ internal object ErrorReporter {
     fun resetForTesting() {
         flushJob?.cancel()
         flushJob = null
-        mode = Mode.PENDING
+        wasStoppedByServer = false
         buffer.clear()
         bufferedBytes = 0
         dropped = 0
@@ -239,8 +255,7 @@ internal object ErrorReporter {
         maxRetryDelayMillis = 300_000L
     }
 
-    private fun turnOff() {
-        mode = Mode.OFF
+    private fun dropAll() {
         flushJob?.cancel()
         flushJob = null
         buffer.clear()
@@ -282,7 +297,8 @@ internal object ErrorReporter {
         } catch (error: ApiException.Http) {
             if (error.status == 410) {
                 Logger.debug { "error reports turned off by the server" }
-                turnOff()
+                wasStoppedByServer = true
+                dropAll()
                 true
             } else if (error.status in 400..499 && error.status != 429) {
                 Logger.debug { "error batch of ${batch.count} refused with ${error.status}, dropped" }

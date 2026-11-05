@@ -674,7 +674,7 @@ class ParitySupportTest : ParityHarness() {
             calls += 1
             if (calls == 1) MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) else MockResponse().setResponseCode(204)
         }
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, adId = "ad-1", detail = "start")
         await { requests("/v2/error").size >= 2 }
         settle()
@@ -684,7 +684,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun theCreativesFailuresAreToldApartBehindTheSameVastCode() {
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         val ads = owner()
         val terminated = overlay(ads)
         terminated.show(container())
@@ -707,7 +707,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aPageThatBreaksTheMessageContractIsReportedOncePerAd() {
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         val ad = pause()
         val bridge = ad.loadedBridge!!
         val origin = FrameBridge.Origin.of(ad.payload.frameUrl)
@@ -723,7 +723,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aLinearScreenThatNeverStartsIsReported() {
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         VideoAd.showTimeoutMillis = 300
         val host = Robolectric.buildActivity(Activity::class.java).setup().get()
         val ad = linear()
@@ -754,7 +754,7 @@ class ParitySupportTest : ParityHarness() {
         assertEquals("short", ErrorReporter.capped("short"))
         val long = "a".repeat(10_000)
         DebugReporter.event(heavy, adId = heavy, state = mapOf("format" to heavy))
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         repeat(20) { index ->
             ErrorReporter.report(ErrorReporter.Code.CREATIVE_FAILED, ErrorReporter.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = ErrorReporter.Underlying(long, 0))
         }
@@ -800,7 +800,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aPageThatCannotLoadCarriesTheSystemsError() {
-        ErrorReporter.configure(true)
+        Sdk.recordErrorReporting(true)
         val payload = AdPayload.parse(Fixtures.json(Fixtures.pause()))
         val ad = VideoAd(payload, Environment.now(), owner())
         Environment.scope.launch { runCatching { ad.load() } }
@@ -876,7 +876,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun eventsAreCoalescedIntoOneRequestPerInterval() {
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(true)
         repeat(20) { DebugReporter.event("tick", state = mapOf("i" to it)) }
         await { debugBatches("tick").isNotEmpty() }
         settle()
@@ -886,10 +886,10 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun disablingDropsTheBuffer() {
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(true)
         DebugReporter.event("tick")
-        DebugReporter.isEnabled = false
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(false)
+        Sdk.recordDebugReporting(true)
         DebugReporter.event("after")
         await { debugBatches("after").isNotEmpty() }
         settle()
@@ -897,7 +897,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun aFailedBatchIsLostQuietlyAndTheNextOneGoesOut() {
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(true)
         answer("/v2/debug") { MockResponse().setResponseCode(500) }
         DebugReporter.event("lost-once")
         await { debugBatches("lost-once").isNotEmpty() }
@@ -936,7 +936,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun oneRequestAtATimeAndTheRestWaitForIt() {
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(true)
         val gate = CountDownLatch(1)
         answer("/v2/debug") {
             gate.await(10, TimeUnit.SECONDS)
@@ -960,7 +960,7 @@ class ParitySupportTest : ParityHarness() {
     }
 
     @Test fun theBufferKeepsTheNewestEventsOnly() {
-        DebugReporter.isEnabled = true
+        Sdk.recordDebugReporting(true)
         val gate = CountDownLatch(1)
         answer("/v2/debug") {
             gate.await(10, TimeUnit.SECONDS)
