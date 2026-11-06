@@ -1,14 +1,19 @@
 package so.kontext.video.example
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -28,8 +33,19 @@ import so.kontext.video.media3.track
 
 /**
  * One episode: the player, the ad area over it, and the moment each format appears. The ad area covers the
- * whole screen above the title; the SDK keeps a strip or a card clear of the system bars, and the insets
- * keep it above the title; a full-screen pause ad fills it all. Taps outside an ad go through to the player.
+ * whole screen, drawn behind the system bars; the SDK keeps a strip or a card clear of the bars, and the insets
+ * keep it below the back button and above the title block; a full-screen pause ad fills it all, the button and
+ * the title included. Taps outside an ad go through to the player.
+ *
+ * ```
+ *   status bar
+ *   16 dp, the back button (36 dp), then a gap: 24 dp for an overlay strip, 16 dp for a pause card
+ *   ── the ad's top inset: 76 dp or 68 dp below the bar ──
+ *        the ad's room
+ *   ── the ad's bottom inset: the title block + 20 dp above the bar ──
+ *   the title block: the title, the status line, 24 dp
+ *   navigation bar
+ * ```
  */
 class PlayerActivity : ComponentActivity(), VideoAdListener {
     private lateinit var video: Video
@@ -37,13 +53,14 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
     private lateinit var ads: VideoAds
     private lateinit var adArea: FrameLayout
     private lateinit var status: TextView
-    private lateinit var titleBlock: TextView
+    private lateinit var titleBlock: LinearLayout
     private var ad: VideoAd? = null
     private var isPaused = false
     private var isLeaving = false
     private var startJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         video = Video.all.first { it.id == intent.getStringExtra(EXTRA_VIDEO) }
         player = ExoPlayer.Builder(this).build().apply {
@@ -58,26 +75,50 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
             player = this@PlayerActivity.player
             setOnClickListener { toggle() }
         }, match())
-        titleBlock = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
-            setPadding(dp(16), 0, dp(16), dp(32))
-            text = video.title
-        }
         status = TextView(this).apply {
             setTextColor(Color.argb(204, 255, 255, 255))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setPadding(dp(16), 0, dp(16), dp(12))
+            setPadding(0, dp(4), 0, 0)
             text = "preparing the ad"
         }
+        titleBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), 0, dp(16), dp(24))
+            addView(TextView(this@PlayerActivity).apply {
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                text = video.title
+            })
+            addView(status)
+        }
         root.addView(titleBlock, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
-        root.addView(status, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply {
-            bottomMargin = dp(60)
-        })
-        // Where the SDK puts overlay and pause ads: the whole screen, above the title.
+        val back = TextView(this).apply {
+            text = "‹"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            gravity = Gravity.CENTER
+            contentDescription = "Back"
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(102, 0, 0, 0))
+            }
+            setOnClickListener { finish() }
+        }
+        root.addView(back, FrameLayout.LayoutParams(dp(BACK_SIZE_DP), dp(BACK_SIZE_DP), Gravity.TOP or Gravity.START))
+        // Where the SDK puts overlay and pause ads: the whole screen, above the title and the back button.
         adArea = FrameLayout(this)
         root.addView(adArea, match())
         setContentView(root)
+        // The button and the title block keep clear of the bars, as the SDK keeps the ad: the insets below are
+        // measured from the bars' edges, which the SDK adds to them.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            (back.layoutParams as FrameLayout.LayoutParams).setMargins(bars.left + dp(BACK_MARGIN_DP), bars.top + dp(BACK_MARGIN_DP), 0, 0)
+            (titleBlock.layoutParams as FrameLayout.LayoutParams).setMargins(bars.left, 0, bars.right, bars.bottom)
+            back.requestLayout()
+            titleBlock.requestLayout()
+            insets
+        }
 
         // Creating it sends nothing; the request goes out in prepareAd(). The SDK reads the playhead from the
         // player and follows its playback: an overlay lives only while the content plays.
@@ -148,10 +189,19 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
     private fun showInPlayer() {
         val ad = ad?.takeIf { it.isReady } ?: return
         try {
-            ad.show(adArea, Insets.of(0, 0, 0, titleBlock.height + dp(12)))
+            ad.show(adArea, adInsets())
         } catch (error: VideoAdException) {
             status.text = "show: ${error.message}"
         }
+    }
+
+    /**
+     * Below the back button (its margin, its size, then a gap: wider for an overlay strip than for a pause card,
+     * 76 and 68 dp as on iOS) and 20 dp above the title block. A full-screen pause ad ignores them.
+     */
+    private fun adInsets(): Insets {
+        val gap = if (video.format == AdFormat.OVERLAY) OVERLAY_GAP_DP else PAUSE_CARD_GAP_DP
+        return Insets.of(0, dp(BACK_MARGIN_DP + BACK_SIZE_DP + gap), 0, titleBlock.height + dp(20))
     }
 
     private fun showLinear() {
@@ -195,5 +245,13 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
 
     companion object {
         const val EXTRA_VIDEO = "video"
+
+        /** The back button: its margin from the bars' edges and its size. */
+        private const val BACK_MARGIN_DP = 16
+        private const val BACK_SIZE_DP = 36
+
+        /** The gap between the back button and an ad at the top. */
+        private const val OVERLAY_GAP_DP = 24
+        private const val PAUSE_CARD_GAP_DP = 16
     }
 }

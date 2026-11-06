@@ -40,9 +40,10 @@ class MainActivity : ComponentActivity() {
             })
         }
         setContentView(ScrollView(this).apply { addView(list) })
-        // `adb shell am start -n so.kontext.video.example/.MainActivity --es video demo-overlay` opens a video directly.
-        intent.getStringExtra(PlayerActivity.EXTRA_VIDEO)?.let { id ->
-            startActivity(Intent(this, PlayerActivity::class.java).putExtra(PlayerActivity.EXTRA_VIDEO, id))
+        // `adb shell am start -n so.kontext.video.example/.MainActivity --es video demo-overlay` opens a video
+        // directly; a format (`--es video pause`) opens its `demo-<format>` video.
+        intent.getStringExtra(PlayerActivity.EXTRA_VIDEO)?.let(Video::find)?.let { video ->
+            startActivity(Intent(this, PlayerActivity::class.java).putExtra(PlayerActivity.EXTRA_VIDEO, video.id))
         }
     }
 

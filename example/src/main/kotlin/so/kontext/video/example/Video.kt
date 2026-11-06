@@ -19,15 +19,25 @@ data class Video(
     val caption: String,
 ) {
     companion object {
+        /** The home list, in this order. `demo-overlay-top`'s labels make the ad server place its overlay at the top. */
         val all = listOf(
-            Video("demo-pause", "Moonlit Contract", AdFormat.PAUSE, mapOf("stage" to "first_episode", "layout" to "inline"),
-                Color.rgb(63, 81, 181), "Tap to pause: a pause ad shows, tap again to resume"),
-            Video("demo-pause-fullscreen", "The Heir's Return", AdFormat.PAUSE, mapOf("stage" to "first_episode", "layout" to "fullscreen"),
-                Color.rgb(0, 150, 136), "Tap to pause: a full-screen pause ad shows, its Resume plays on"),
             Video("demo-overlay", "Revenge of the Heiress", AdFormat.OVERLAY, mapOf("stage" to "free_episodes"),
                 Color.rgb(255, 87, 34), "An overlay after 3 s of playing; pausing ends it"),
+            Video("demo-overlay-top", "Midnight Vows", AdFormat.OVERLAY, mapOf("stage" to "free_episodes", "layout" to "top"),
+                Color.rgb(255, 152, 0), "An overlay at the top after 3 s of playing; pausing ends it"),
             Video("demo-linear", "The CEO's Secret", AdFormat.LINEAR, mapOf("stage" to "unlock"),
                 Color.rgb(156, 39, 176), "A linear ad after 3 s of playing"),
+            Video("demo-pause-fullscreen", "The Heir's Return", AdFormat.PAUSE, mapOf("stage" to "first_episode", "layout" to "fullscreen"),
+                Color.rgb(0, 150, 136), "Tap to pause: a full-screen pause ad shows, its Resume plays on"),
+            Video("demo-pause", "Moonlit Contract", AdFormat.PAUSE, mapOf("stage" to "first_episode", "layout" to "inline"),
+                Color.rgb(63, 81, 181), "Tap to pause: a pause ad shows, tap again to resume"),
         )
+
+        /**
+         * The video an id opens: a video's own id, or a format's name (`overlay`, `linear`, `pause`), which opens
+         * its `demo-<format>` video, so `pause` is the pause card. `null` when none matches.
+         */
+        fun find(id: String): Video? = all.firstOrNull { it.id == id || it.id == "demo-$id" }
+            ?: all.firstOrNull { it.format.name.equals(id, ignoreCase = true) }
     }
 }

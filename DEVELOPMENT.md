@@ -33,7 +33,7 @@ sdk-kotlin-video/
 │   ├── media3/                               #   :video-media3, VideoAds.track(Player) for a Media3 player
 │   └── ttsdk/                                #   :video-ttsdk, VideoAds.track(TTVideoEngine) for a TTSDK engine
 ├── integrations/compose/                     # :video-compose, rememberVideoAds and VideoAdHost for Jetpack Compose
-├── example/                                  # classic-View demo app, four videos (see its README)
+├── example/                                  # classic-View demo app, five videos (see its README)
 ├── extras/release-check/                     # a publisher's app built from the published SDK (see its README)
 ├── detekt.yml                                # lint rules
 ├── AGENTS.md                                 # guidance for coding agents (CLAUDE.md imports it)
@@ -127,7 +127,7 @@ compileSdk 35. The older minimums above follow from the metadata and are not bui
 
 ## Running the example app
 
-The example talks to the production ad server, whose demo routes answer any token: four videos, one per
+The example talks to the production ad server, whose demo routes answer any token: five videos, one per
 situation, each with its labels.
 
 ```bash
