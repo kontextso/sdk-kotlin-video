@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,9 +28,10 @@ import so.kontext.video.VideoAds
 
 /**
  * The `VideoAds` of one episode, for as long as this composition shows it: created for [content] (a new one when
- * its `id` changes), [setUp] run once on it (`ads.track(player)`), and destroyed when the composition leaves
- * or the episode changes. Destroying ends the ad on screen, a linear ad too: move to the next episode after a
- * post-roll's `onEnded`.
+ * its `id` changes), [setUp] run once on it (`ads.track(player)`) once the composition is applied, and destroyed
+ * when the composition leaves, the episode changes, or the composition is abandoned before it was applied.
+ * [labels] and [setUp] are read when the episode's `VideoAds` is made. Destroying ends the ad on screen, a linear
+ * ad too: move to the next episode after a post-roll's `onEnded`.
  *
  * For ads that must survive a rotation, keep the `VideoAds` in a `ViewModel` instead and destroy it in
  * `onCleared()`.
@@ -40,9 +42,26 @@ public fun rememberVideoAds(
     labels: Map<String, String> = emptyMap(),
     setUp: (VideoAds) -> Unit = {},
 ): VideoAds {
-    val ads = remember(content.id) { VideoAds(content, labels).also(setUp) }
-    DisposableEffect(ads) { onDispose { ads.destroy() } }
-    return ads
+    return remember(content.id) { EpisodeAds(VideoAds(content, labels), setUp) }.ads
+}
+
+/**
+ * Owns one episode's `VideoAds` in a composition: [setUp] runs once it is remembered, and the `VideoAds` is
+ * destroyed when it is forgotten or when the composition that made it is abandoned (cancelled or failed before it
+ * was applied), where no effect would ever run. A `VideoAds` registers with the application as it is made.
+ */
+internal class EpisodeAds(val ads: VideoAds, private val setUp: (VideoAds) -> Unit) : RememberObserver {
+    private var isSetUp = false
+
+    override fun onRemembered() {
+        if (isSetUp) return
+        isSetUp = true
+        setUp(ads)
+    }
+
+    override fun onForgotten() = ads.destroy()
+
+    override fun onAbandoned() = ads.destroy()
 }
 
 /**

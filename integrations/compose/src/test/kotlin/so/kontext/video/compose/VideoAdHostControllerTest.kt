@@ -201,6 +201,21 @@ class VideoAdHostControllerTest {
         assertEquals("its end still reaches the app", listOf(VideoAd.EndReason.COMPLETED), recorder.reasons)
     }
 
+    @Test fun anEpisodesAdsAreSetUpOnceRememberedAndDestroyedWhenForgottenOrAbandoned() {
+        var setUps = 0
+        val remembered = EpisodeAds(VideoAds(KontextVideo.Content("ep", "en")).also { owners += it }) { setUps += 1 }
+        assertEquals("not before the composition applies", 0, setUps)
+        remembered.onRemembered()
+        remembered.onRemembered()
+        assertEquals(1, setUps)
+        remembered.onForgotten()
+        assertTrue(remembered.ads.isDestroyed)
+        val abandoned = EpisodeAds(VideoAds(KontextVideo.Content("ep", "en")).also { owners += it }) { setUps += 1 }
+        abandoned.onAbandoned()
+        assertTrue("a composition abandoned before it applied leaves nothing registered", abandoned.ads.isDestroyed)
+        assertEquals(1, setUps)
+    }
+
     /** Runs the layout pass Android makes after `show` added the ad. */
     private fun laidOut() = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
 
