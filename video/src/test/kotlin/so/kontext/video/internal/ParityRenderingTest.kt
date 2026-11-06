@@ -588,7 +588,7 @@ class ParityRenderingTest : SdkTest() {
         empty.start()
         assertEquals("a view never laid out with an area has had no first measurement", emptyList<Double>(), emptySink.exposures)
         empty.stop()
-        assertEquals(ViewabilityMeter.Verdict.NOT_VIEWABLE, emptySink.verdict)
+        assertEquals("never measured: nobody can say", ViewabilityMeter.Verdict.VIEW_UNDETERMINED, emptySink.verdict)
         val view = view()
         view.rootView.alpha = 0f
         val (meter, sink) = frozenMeter(view)

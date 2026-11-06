@@ -99,11 +99,23 @@ class VideoAdLifecycleTest : SdkTest() {
         assertEquals("unplayed and unbilled: no notViewable", listOf("creativeView"), events)
         // An image overlay counted at its first layout and dismissed before 1 s owes its notViewable.
         beacons.clear()
-        val image = overlay(tracking = tracking("creativeView", "impression", "notViewable"))
+        val image = overlay(tracking = tracking("creativeView", "impression", "notViewable", "viewUndetermined"))
         image.show(container())
         laidOut()
+        // Robolectric measures a WebView at no size: a real one is drawn where the host placed it.
+        val webView = image.loadedBridge!!.webView
+        ReflectionHelpers.setField(webView, "mRight", 300)
+        ReflectionHelpers.setField(webView, "mBottom", 200)
+        image.meter!!.tick()
         image.dismiss()
         assertEquals(listOf("creativeView", "impression", "notViewable"), events)
+        // One never measured (its page never laid out with an area) owes viewUndetermined, not notViewable.
+        beacons.clear()
+        val unmeasured = overlay(tracking = tracking("creativeView", "impression", "notViewable", "viewUndetermined"))
+        unmeasured.show(container())
+        laidOut()
+        unmeasured.dismiss()
+        assertEquals(listOf("creativeView", "impression", "viewUndetermined"), events)
     }
 
     @Test fun anInvalidationIsReportedByItsWireName() {

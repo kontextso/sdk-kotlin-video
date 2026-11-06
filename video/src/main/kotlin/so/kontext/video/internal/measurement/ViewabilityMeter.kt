@@ -22,7 +22,7 @@ import java.lang.ref.WeakReference
  *   │             any of it seen? changed: onSeen(bool)  → OnScreenTimeClock
  *   ├─ off-screen: nothing seen for 1 s while the app is in front: onOffScreen  → the ad ends
  *   └─ dwell:     ≥ 50 % without a break for the required time: onVerdict(VIEWABLE), once
- * stop() at the ad's end: no verdict yet? NOT_VIEWABLE (VIEW_UNDETERMINED when the view is gone)
+ * stop() at the ad's end: no verdict yet? NOT_VIEWABLE (VIEW_UNDETERMINED when never measured or the view is gone)
  * ```
  *
  * Outputs: [onVerdict] (the beacon), [onExposure] (`ad.exposure` to the page), [onSeen] / [isSeen] (the clock),
@@ -118,12 +118,15 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
         tick()
     }
 
-    /** The ad ended: a verdict is still owed when none was reached. */
+    /**
+     * The ad ended: a verdict is still owed when none was reached. A view never laid out in a window was never
+     * measured, so nobody can say it was not viewable: `viewUndetermined`, as for a view that is gone.
+     */
     fun stop() {
         isStopped = true
         isRunning = false
         handler.removeCallbacks(tickRunnable)
-        if (verdict == null) decide(if (view.get() == null) Verdict.VIEW_UNDETERMINED else Verdict.NOT_VIEWABLE)
+        if (verdict == null) decide(if (!isMeasured || view.get() == null) Verdict.VIEW_UNDETERMINED else Verdict.NOT_VIEWABLE)
     }
 
     /** One measurement. Internal so tests can drive it with a frozen clock. */
