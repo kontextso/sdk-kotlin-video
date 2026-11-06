@@ -296,6 +296,33 @@ class PartsTest : SdkTest() {
         }
     }
 
+    @Test fun aHealthyTrackerIsNotHeldBehindOneThatNeverAnswers() {
+        // One tracker black-holes its beacons (it reads the request, never answers); another tracker's beacon of
+        // the same moment still goes out at once, and its deadline counts from when it is sent, not queued.
+        val hung = MockWebServer().apply { start() }
+        val healthy = MockWebServer().apply { start() }
+        BeaconClient.timeoutMillis = 3_000
+        try {
+            repeat(8) { hung.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)) }
+            healthy.enqueue(MockResponse().setResponseCode(204))
+            repeat(8) { BeaconClient.send(hung.url("/beacon?e=$it").toString(), "ad: impression") }
+            idle(10)
+            val started = System.currentTimeMillis()
+            BeaconClient.send(healthy.url("/beacon?e=impression").toString(), "other: impression")
+            var request: okhttp3.mockwebserver.RecordedRequest? = null
+            while (request == null && System.currentTimeMillis() - started < 2_500) {
+                idle(10)
+                request = healthy.takeRequest(10, TimeUnit.MILLISECONDS)
+            }
+            assertEquals("GET /beacon?e=impression HTTP/1.1", request?.requestLine)
+            assertTrue("sent at once, not after the hung ones' deadline", System.currentTimeMillis() - started < 1_500)
+        } finally {
+            BeaconClient.timeoutMillis = 10_000
+            hung.shutdown()
+            healthy.shutdown()
+        }
+    }
+
     @Test fun aBeaconReadsTheStatusAndNeverTheBody() {
         // A 6 MiB answer to one beacon: the SDK reads the status line and closes, so the server cannot write it all.
         val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())

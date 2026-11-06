@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import java.util.concurrent.atomic.AtomicReference
 
@@ -32,6 +33,8 @@ internal object HttpTransport {
     /** Only web addresses are followed: never a redirect to another scheme (`file:`, an app's own). */
     private val FOLLOWED_SCHEMES = setOf("http", "https")
 
+    private const val NANOS_PER_MILLI = 1_000_000L
+
     /** How much of a body is read at a time. */
     private const val BUFFER_BYTES = 16 * 1024
 
@@ -51,7 +54,8 @@ internal object HttpTransport {
     class Answer(val status: Int, val body: String?)
 
     /**
-     * Sends a POST of [body] to [start], or a GET when [body] is `null`, and follows redirects by [redirects].
+     * Sends a POST of [body] to [start], or a GET when [body] is `null`, and follows redirects by [redirects]; each
+     * hop's socket timeouts are what is left of [timeoutMillis] for the whole exchange.
      * [maxBodyBytes]: the final body is read up to it ([ResponseTooLarge] past it); `null` reads no body at all, and
      * disconnecting drops whatever the server still sends. [current] holds the open connection, so a caller can
      * disconnect it from another thread to stop a blocked read; [isActive] is asked before each hop and again before its answer is read.
@@ -67,14 +71,19 @@ internal object HttpTransport {
     ): Answer {
         var url = start
         var post = body != null
+        val deadline = System.nanoTime() + timeoutMillis * NANOS_PER_MILLI
         repeat(MAX_REDIRECTS + 1) {
             // 1. Open the hop's connection, unless the caller has gone.
             if (!isActive()) throw IOException("cancelled")
+            // Each hop's socket timeouts are what is left of the whole exchange's: a silent reconnect after the
+            // caller's disconnect (see 2) then cannot outlive the caller's deadline either.
+            val left = (deadline - System.nanoTime()) / NANOS_PER_MILLI
+            if (left <= 0) throw SocketTimeoutException("no complete answer within $timeoutMillis ms")
             val connection = url.openConnection() as HttpURLConnection
             current?.set(connection)
             try {
                 // 2. Send the request: the POST's body, or a GET.
-                send(connection, if (post) body else null, timeoutMillis)
+                send(connection, if (post) body else null, left.toInt())
                 // A disconnect between the send and the read would not stop the read: the JDK reconnects and
                 // waits on the new connection until the timeout. A caller gone by now ends the exchange here.
                 if (!isActive()) throw IOException("cancelled")
