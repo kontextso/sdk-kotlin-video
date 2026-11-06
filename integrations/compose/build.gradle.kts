@@ -158,4 +158,7 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     // A payload parsed as the SDK parses the server's answer.
     testImplementation(libs.kotlinx.serialization.json)
+    // VideoAdHost in a real composition: the test rule, and the Activity it hosts the composition in.
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

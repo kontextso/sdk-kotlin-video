@@ -91,6 +91,9 @@ androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "medi
 # Compose: the floor :video-compose compiles against
 androidx-compose-ui-floor = { module = "androidx.compose.ui:ui", version.ref = "compose-floor" }
 androidx-compose-foundation-layout-floor = { module = "androidx.compose.foundation:foundation-layout", version.ref = "compose-floor" }
+# Compose UI tests of :video-compose, at the same floor: a real composition on Robolectric
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "compose-floor" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "compose-floor" }
 
 # TTSDK player (the BytePlus repository): compileOnly in :video-ttsdk
 ttsdk-ttplayer-floor = { module = "com.bytedanceapi:ttsdk-ttplayer", version.ref = "ttsdk-floor" }
