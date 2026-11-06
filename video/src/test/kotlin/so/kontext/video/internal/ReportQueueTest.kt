@@ -80,4 +80,44 @@ class ReportQueueTest {
         assertTrue(queue.isEmpty())
         assertEquals(0, queue.dropped)
     }
+
+    @Test fun aReportThatFitsAloneButNotInItsEnvelopeIsDroppedAndCountedInTheNextBatch() {
+        val queue = ReportQueue()
+        // Within the batch limit alone, over it once the envelope wraps it.
+        val big = report(1, ReportQueue.MAX_BATCH_BYTES - 20)
+        assertTrue(big.toString().toByteArray().size <= ReportQueue.MAX_BATCH_BYTES)
+        assertTrue(queue.add(big))
+        queue.add(report(2))
+        val batch = queue.makeBatch(::envelope)!!
+        assertEquals(listOf(2), numbers(batch))
+        assertEquals(1, dropped(batch))
+        assertTrue(queue.isEmpty())
+    }
+
+    @Test fun aQueueOfOnlyReportsTooBigForTheEnvelopeMakesNoBatchAndKeepsTheirCount() {
+        val queue = ReportQueue()
+        queue.add(report(1, ReportQueue.MAX_BATCH_BYTES - 20))
+        assertNull(queue.makeBatch(::envelope))
+        assertEquals(1, queue.dropped, "said by the next batch")
+        queue.add(report(2))
+        assertEquals(1, dropped(queue.makeBatch(::envelope)!!))
+    }
+
+    @Test fun aReportAtTheBatchLimitIsQueuedAndOneByteOverIsNot() {
+        fun sized(bytes: Int): JsonObject {
+            val empty = report(1, 1).toString().toByteArray().size - 1
+            return report(1, bytes - empty)
+        }
+        assertEquals(ReportQueue.MAX_BATCH_BYTES, sized(ReportQueue.MAX_BATCH_BYTES).toString().toByteArray().size)
+        assertTrue(ReportQueue().add(sized(ReportQueue.MAX_BATCH_BYTES)))
+        assertFalse(ReportQueue().add(sized(ReportQueue.MAX_BATCH_BYTES + 1)))
+    }
+
+    @Test fun aBatchHoldsAtMostMaxBatchReportsAndTheRestFollowInOrder() {
+        val queue = ReportQueue()
+        repeat(ReportQueue.MAX_BATCH * 2 + 1) { queue.add(report(it)) }
+        val sizes = generateSequence { queue.makeBatch(::envelope) }.map { numbers(it) }.toList()
+        assertEquals(listOf(ReportQueue.MAX_BATCH, ReportQueue.MAX_BATCH, 1), sizes.map { it.size })
+        assertEquals((0..ReportQueue.MAX_BATCH * 2).toList(), sizes.flatten())
+    }
 }

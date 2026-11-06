@@ -141,6 +141,29 @@ class VideoAdsTest {
         ads.destroy()
     }
 
+    @Test fun formatWithACallbackDeliversTheAdOnTheMainThread() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val ads = VideoAds(Content("ep", "en"))
+        var delivered: VideoAd? = null
+        var thread: Thread? = null
+        ads.format(
+            AdFormat.PAUSE,
+            object : VideoAdCallback {
+                override fun onAd(ad: VideoAd) {
+                    delivered = ad
+                    thread = Thread.currentThread()
+                }
+
+                override fun onError(error: VideoAdException) = fail("$error")
+            },
+        )
+        await { delivered != null }
+        assertEquals("ad-2", delivered!!.id)
+        assertSame(Looper.getMainLooper().thread, thread)
+        ads.destroy()
+    }
+
     @Test fun aNoFillSaysWhy() {
         initialize()
         adsAnswer = MockResponse().setBody(

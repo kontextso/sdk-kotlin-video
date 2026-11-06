@@ -216,13 +216,62 @@ class VideoAdHostControllerTest {
         assertEquals(1, setUps)
     }
 
+    @Test fun clicksAndFailuresOfTheAdShownReachTheAppsListener() {
+        val slot = slot()
+        val ad = pause()
+        slot.set(ad)
+        laidOut()
+        ad.loadedBridge!!.noteTouch()
+        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.click","url":"https://brand.test"}""", Origin.of(ad.payload.frameUrl), true)
+        assertEquals(listOf(VideoAd.Click.Area.Creative), recorder.clicks)
+        page(ad, "ad.error")
+        assertTrue(recorder.failures.single() is VideoAdException.CreativeFailed)
+        assertEquals(listOf(VideoAd.EndReason.FAILED), recorder.reasons)
+        assertNull(slot.ad)
+    }
+
+    @Test fun withoutAListenerTheAdStillEndsAndLeavesTheSlot() {
+        val slot = slot().also { it.listener = null }
+        val ad = pause()
+        slot.set(ad)
+        laidOut()
+        ad.loadedBridge!!.noteTouch()
+        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.click","url":"https://brand.test"}""", Origin.of(ad.payload.frameUrl), true)
+        page(ad, "ad.error")
+        assertTrue(ad.hasEnded)
+        assertNull(slot.ad)
+        assertNull(ScreenSlot.current)
+    }
+
+    @Test fun aLinearAdFindsItsActivityThroughWrappersAndFailsWithoutOne() {
+        val activity = activity()
+        val wrapped = container(android.view.ContextThemeWrapper(activity, 0), activity)
+        val found = VideoAdHostController(wrapped).also { it.onShowFailed = { _, error -> failures += error } }
+        val ad = linear()
+        found.set(ad)
+        laidOut()
+        assertTrue("an Activity behind a wrapper", ad.wasShown)
+        ad.end(VideoAd.EndReason.COMPLETED)
+        val orphan = container(android.view.ContextThemeWrapper(ApplicationProvider.getApplicationContext(), 0), activity())
+        val none = VideoAdHostController(orphan).also { it.onShowFailed = { _, error -> failures += error } }
+        val second = linear()
+        none.set(second)
+        laidOut()
+        assertFalse(second.wasShown)
+        assertTrue(failures.single() is VideoAdException.CannotShowNow)
+        assertNull(none.ad)
+    }
+
     /** Runs the layout pass Android makes after `show` added the ad. */
     private fun laidOut() = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
 
     /** A container in a visible window: Robolectric's plain Activity reports its window GONE even after setup. */
-    private fun container(): FrameLayout {
-        val activity = activity()
-        val view = FrameLayout(activity)
+    private fun container(): FrameLayout = activity().let { container(it, it) }
+
+    /** A container made with [context], in [host]'s window. */
+    private fun container(context: android.content.Context, host: Activity): FrameLayout {
+        val activity = host
+        val view = FrameLayout(context)
         activity.setContentView(view)
         view.layout(0, 0, 320, 400)
         shadowOf(Looper.getMainLooper()).idle()
@@ -269,6 +318,16 @@ class VideoAdHostControllerTest {
 
     private class Recorder : VideoAdListener {
         val reasons = mutableListOf<VideoAd.EndReason>()
+        val clicks = mutableListOf<VideoAd.Click.Area>()
+        val failures = mutableListOf<VideoAdException>()
+
+        override fun onAdClicked(ad: VideoAd, click: VideoAd.Click) {
+            clicks += click.area
+        }
+
+        override fun onAdFailed(ad: VideoAd, error: VideoAdException) {
+            failures += error
+        }
 
         override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
             reasons += reason

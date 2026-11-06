@@ -175,4 +175,13 @@ class ModelsTest {
         assertEquals(AdFormat.PAUSE, AdFormat.fromWire("pause"))
         assertNull(AdFormat.fromWire("banner"))
     }
+
+    @Test fun anOutbidReasonIsEqualToItselfAndHashesWithItsEquals() {
+        val outbid = { price: Double? -> VideoAd.RejectReason.Outbid(price, "net") }
+        assertEquals(outbid(Double.NaN), outbid(Double.NaN))
+        assertEquals(outbid(0.0), outbid(-0.0))
+        assertEquals(outbid(0.0).hashCode(), outbid(-0.0).hashCode())
+        assertEquals(setOf(outbid(Double.NaN)), setOf(outbid(Double.NaN)))
+        assertTrue(outbid(1.0) != outbid(2.0) && outbid(null) == outbid(null))
+    }
 }

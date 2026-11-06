@@ -163,4 +163,47 @@ class Media3AdapterTest : SdkTest() {
         assertTrue("$assertions", assertions.single().startsWith("KontextVideo: VideoAds.track() must be called on the main thread"))
         verify(exactly = 0) { strict.addListener(any()) }
     }
+
+    @Test fun theSpeedIsThePlayersAndAnInfiniteOneIsUnknown() {
+        var speed = 1.5f
+        val player = player().also { every { it.playbackParameters } answers { androidx.media3.common.PlaybackParameters(speed) } }
+        val (owner, _) = tracked(player)
+        assertEquals(1.5f, owner.playback.playbackSpeed)
+        speed = 0.5f
+        assertEquals(0.5f, owner.playback.playbackSpeed)
+        speed = Float.POSITIVE_INFINITY
+        assertEquals("not a speed: unknown", null, owner.playback.playbackSpeed)
+    }
+
+    @Test fun aDestroyedVideoAdsTracksNothingAndReadsNothing() {
+        val owner = owner()
+        owner.destroy()
+        val player = player()
+        owner.track(player)
+        assertFalse(owner.playback.isTracking)
+        verify(exactly = 0) { player.addListener(any()) }
+        verify(exactly = 0) { player.currentMediaItem }
+    }
+
+    @Test fun aNewPlaylistWithAnItemIsAChangeOfContent() {
+        val (owner, heard) = tracked()
+        val next = MediaItem.fromUri("https://v.test/ep2.mp4")
+        item = next
+        listener.captured.onMediaItemTransition(next, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
+        assertEquals(listOf("content"), heard)
+        assertTrue(owner.playback.playsAnotherEpisode)
+    }
+
+    @Test fun anEndedOrPausedPlayerIsNotPlaying() {
+        val (owner, heard) = tracked()
+        state = Player.STATE_ENDED
+        listener.captured.onPlaybackStateChanged(state)
+        assertEquals(listOf("playing=false"), heard)
+        state = Player.STATE_READY
+        listener.captured.onPlaybackStateChanged(state)
+        playWhenReady = false
+        listener.captured.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        assertEquals(listOf("playing=false", "playing=true", "playing=false"), heard)
+        assertFalse(owner.playback.isPlaying)
+    }
 }

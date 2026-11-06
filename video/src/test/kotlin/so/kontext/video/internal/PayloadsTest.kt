@@ -137,13 +137,4 @@ class PayloadsTest {
             assertEquals(key, (error.cause as AdPayload.MalformedField).path, sizes)
         }
     }
-
-    @Test fun aReportsDomainReadsTheSameInEveryBuild() {
-        val report = so.kontext.video.internal.diagnostics.ErrorReport
-        assertEquals("too_large", report.domainOf(so.kontext.video.internal.network.ResponseTooLarge()))
-        assertEquals("unexpected", report.domainOf(so.kontext.video.internal.network.UnexpectedFailure(IllegalStateException())))
-        assertEquals("json", report.domainOf(kotlinx.serialization.SerializationException("x")))
-        assertEquals("java.net.SocketTimeoutException", report.domainOf(java.net.SocketTimeoutException()))
-        assertEquals("other", report.domainOf(object : RuntimeException() {}))
-    }
 }

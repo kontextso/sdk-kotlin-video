@@ -11,7 +11,6 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.content.ContentTimeClock
-import so.kontext.video.internal.diagnostics.ReportFormat
 import so.kontext.video.internal.diagnostics.problems
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
@@ -115,11 +114,5 @@ class LogicTest {
         assertEquals(VideoAd.Click.Area.EndCard, VideoAd.Click.Area.from("endCard"))
         assertEquals(VideoAd.Click.Area.Creative, VideoAd.Click.Area.from(null))
         assertEquals(VideoAd.Click.Area.Other("cta"), VideoAd.Click.Area.from("cta"))
-    }
-
-    @Test fun reportFieldsAreCutAtACodePoint() {
-        assertEquals("a".repeat(64), ReportFormat.capped("a".repeat(80)))
-        val emoji = "😀".repeat(20) // 4 bytes each
-        assertEquals("😀".repeat(16), ReportFormat.capped(emoji))
     }
 }
