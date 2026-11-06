@@ -1,10 +1,15 @@
 package so.kontext.video.example
 
+import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -55,7 +60,12 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
     private lateinit var status: TextView
     private lateinit var titleBlock: LinearLayout
     private var ad: VideoAd? = null
+    private lateinit var playIcon: PlayIcon
     private var isPaused = false
+        set(value) {
+            field = value
+            playIcon.visibility = if (value) View.VISIBLE else View.GONE
+        }
     private var isLeaving = false
     private var startJob: Job? = null
 
@@ -75,6 +85,9 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
             player = this@PlayerActivity.player
             setOnClickListener { toggle() }
         }, match())
+        // While the content is paused, a play icon in the middle, as iOS shows; taps go through it to the player.
+        playIcon = PlayIcon(this).apply { visibility = View.GONE }
+        root.addView(playIcon, FrameLayout.LayoutParams(dp(PLAY_ICON_DP), dp(PLAY_ICON_DP), Gravity.CENTER))
         status = TextView(this).apply {
             setTextColor(Color.argb(204, 255, 255, 255))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
@@ -253,5 +266,24 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
         /** The gap between the back button and an ad at the top. */
         private const val OVERLAY_GAP_DP = 24
         private const val PAUSE_CARD_GAP_DP = 16
+        /** The paused content's play icon, as large as iOS's (56 pt). */
+        private const val PLAY_ICON_DP = 56
+    }
+}
+
+/** A filled play triangle in 80 % white, iOS's `play.fill` over the paused content. */
+private class PlayIcon(context: Context) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(204, 255, 255, 255) }
+    private val path = Path()
+
+    override fun onDraw(canvas: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        path.reset()
+        path.moveTo(w * 0.22f, h * 0.12f)
+        path.lineTo(w * 0.88f, h * 0.5f)
+        path.lineTo(w * 0.22f, h * 0.88f)
+        path.close()
+        canvas.drawPath(path, paint)
     }
 }
