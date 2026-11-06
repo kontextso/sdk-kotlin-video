@@ -248,4 +248,113 @@ class FrameProtocolTableTest {
         assertEquals("drop", describe(protocol.send("ad.open", link)), "too late")
         assertEquals("ignore", describe(protocol.send("ad.click", "\"url\": \"javascript:x\"")), "a link that may not open")
     }
+
+    /** Shown, its touch fresh: what a click or an open needs. */
+    private fun touched() = protocol().apply {
+        send("ad.loaded")
+        show()
+        touchGate.noteTouch(now)
+    }
+
+    @Test fun anErrorCodeIsTheVastRangeAtItsEdgesAnd900Outside() {
+        fun code(sent: String): Int = ((touched().send("ad.error", "\"code\": $sent") as Step.EndThenDeliver).event as FrameEvent.Error).code
+        val table = listOf("100" to 100, "999" to 999, "99" to 900, "1000" to 900, "0" to 900, "-400" to 900, "1e300" to 900, "1e400" to 900)
+        for ((sent, expected) in table) assertEquals(expected, code(sent), sent)
+        assertEquals(405, ((touched().send("ad.error", "\"code\": \"402\"") as Step.EndThenDeliver).event as FrameEvent.Error).code, "a string code is none: the failure's")
+    }
+
+    @Test fun aClickTakesItsFallbackWhenItsLinkMayNotOpen() {
+        fun click(fields: String): String = when (val step = touched().send("ad.click", fields)) {
+            is Step.Deliver -> (step.event as FrameEvent.Click).let { "${it.url} | ${it.fallbackUrl}" }
+            else -> describe(step)
+        }
+        val table = listOf(
+            "\"url\": \"https://a.test\", \"fallbackUrl\": \"https://b.test\"" to "https://a.test | https://b.test",
+            "\"url\": \"javascript:x\", \"fallbackUrl\": \"https://b.test\"" to "https://b.test | null",
+            "\"fallbackUrl\": \"https://b.test\"" to "https://b.test | null",
+            "\"url\": \"https://a.test\", \"fallbackUrl\": \"javascript:x\"" to "https://a.test | null",
+            "\"url\": \"javascript:x\", \"fallbackUrl\": \"javascript:y\"" to "ignore",
+            "" to "ignore",
+            "\"url\": 7" to "ignore",
+        )
+        for ((fields, expected) in table) assertEquals(expected, click(fields), fields)
+    }
+
+    @Test fun anOpenHasNoFallbackAndItsPurposeIsUnknownWhenLeftOut() {
+        val noLink = touched().send("ad.open", "\"url\": \"javascript:x\", \"fallbackUrl\": \"https://b.test\"")
+        assertEquals("ignore", describe(noLink), "an open never takes a fallback")
+        val open = (touched().send("ad.open", "\"url\": \"https://a.test\"") as Step.Deliver).event as FrameEvent.Open
+        assertEquals("unknown", open.purpose)
+        val choices = (touched().send("ad.open", "\"url\": \"https://a.test\", \"purpose\": \"adChoices\"") as Step.Deliver).event as FrameEvent.Open
+        assertEquals("adChoices", choices.purpose)
+    }
+
+    @Test fun aClickLandsOnItsArea() {
+        fun area(fields: String) = ((touched().send("ad.click", "\"url\": \"https://a.test\"$fields") as Step.Deliver).event as FrameEvent.Click).area
+        assertEquals(so.kontext.video.VideoAd.Click.Area.Creative, area(""))
+        assertEquals(so.kontext.video.VideoAd.Click.Area.Creative, area(", \"area\": \"creative\""))
+        assertEquals(so.kontext.video.VideoAd.Click.Area.EndCard, area(", \"area\": \"endCard\""))
+        assertEquals(so.kontext.video.VideoAd.Click.Area.Other("logo"), area(", \"area\": \"logo\""))
+        assertEquals(so.kontext.video.VideoAd.Click.Area.Creative, area(", \"area\": 3"), "an area that is not text is the creative")
+    }
+
+    @Test fun aCloseReasonTheSdkDoesNotKnowIsAClose() {
+        fun reason(fields: String) = ((touched().send("ad.close", fields) as Step.EndThenDeliver).event as FrameEvent.Close).reason
+        val table = listOf(
+            "" to FrameEvent.CloseReason.CLOSE,
+            "\"reason\": \"close\"" to FrameEvent.CloseReason.CLOSE,
+            "\"reason\": \"resume\"" to FrameEvent.CloseReason.RESUME,
+            "\"reason\": \"complete\"" to FrameEvent.CloseReason.COMPLETE,
+            "\"reason\": \"skip\"" to FrameEvent.CloseReason.CLOSE,
+            "\"reason\": \"Resume\"" to FrameEvent.CloseReason.CLOSE,
+            "\"reason\": 1" to FrameEvent.CloseReason.CLOSE,
+        )
+        for ((fields, expected) in table) assertEquals(expected, reason(fields), fields)
+    }
+
+    @Test fun aProgressOffsetAtItsBoundsAndPastADouble() {
+        fun progress(offset: String): String {
+            val protocol = touched().apply { send("video.start") }
+            val step = protocol.send("video.progress", "\"offset\": $offset")
+            return if (step is Step.Deliver) "${(step.event as FrameEvent.Progress).offsetMillis}" else describe(step)
+        }
+        assertEquals("0", progress("0"))
+        assertEquals("0", progress("-0"))
+        assertEquals("86400000", progress("86400000"), "a day exactly")
+        assertEquals("drop!progress.offset", progress("1e400"), "infinite")
+        assertEquals("drop!progress.offset", progress("null"))
+        assertEquals("drop!progress.offset", progress("[1]"))
+    }
+
+    @Test fun aNegativeDurationLeavesTheGraceAsTheBound() {
+        val protocol = protocol(durationMillis = -5_000).apply {
+            send("ad.loaded")
+            show()
+        }
+        val start = (protocol.send("video.start", "\"playhead\": 5000") as Step.Deliver).event as FrameEvent.Video
+        assertEquals(1_000, start.playheadMillis)
+    }
+
+    @Test fun anEndedPageIgnoresEvenAMessageAlreadyRead() {
+        val protocol = protocolIn("ended")
+        val message = FrameMessage.parse("""{"adId":"ad-1","type":"ad.error"}""", "ad-1", 1_000)!!
+        assertEquals("ignore", describe(protocol.accept(message, now)))
+        assertEquals("ignore", describe(protocol.acceptNonText(page, true)))
+        assertEquals(FramePhase.ENDED, protocol.state)
+        assertEquals(false, protocol.show())
+    }
+
+    @Test fun theFailureCodeFollowsTheFramesPhase() {
+        val video = protocol(isVideo = true)
+        assertEquals(400, video.failureCode)
+        video.send("ad.loaded")
+        assertEquals(400, video.failureCode)
+        video.show()
+        assertEquals(405, video.failureCode)
+        val display = protocol(isVideo = false)
+        assertEquals(500, display.failureCode)
+        display.send("ad.loaded")
+        display.show()
+        assertEquals(405, display.failureCode)
+    }
 }

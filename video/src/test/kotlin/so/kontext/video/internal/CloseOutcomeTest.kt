@@ -23,7 +23,10 @@ class CloseOutcomeTest {
             Triple(CloseReason.RESUME, false, false) to CloseOutcome("close", EndReason.RESUMED),
             Triple(CloseReason.COMPLETE, false, false) to CloseOutcome(null, EndReason.COMPLETED, completesAd = true),
             Triple(CloseReason.CLOSE, false, true) to CloseOutcome("close", EndReason.CLOSED),
+            Triple(CloseReason.RESUME, false, true) to CloseOutcome("close", EndReason.RESUMED),
+            Triple(CloseReason.COMPLETE, false, true) to CloseOutcome(null, EndReason.COMPLETED, completesAd = true),
         )
+        assertEquals(CloseReason.entries.size * 2 * 2, table.map { it.first }.toSet().size, "every reason × format × completion")
         for ((given, expected) in table) {
             val (reason, linear, completed) = given
             assertEquals(expected, closeOutcome(reason, linear, completed), "$reason linear=$linear completed=$completed")

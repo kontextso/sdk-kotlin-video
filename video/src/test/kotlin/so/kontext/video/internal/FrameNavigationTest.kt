@@ -58,4 +58,37 @@ class FrameNavigationTest {
         assertEquals("Click", describe(navigation.externalNavigation("https://brand.test", now)))
         assertEquals("drop", describe(navigation.externalNavigation("https://brand.test", now)), "the touch is spent")
     }
+
+    @Test fun anInDocumentMoveNeedsTheCurrentDocument() {
+        phase = FramePhase.SHOWN
+        assertEquals(NavigationDecision.CANCEL, navigation.navigationDecision("$url#card", true, null), "no current URL: not known to be the same document")
+        assertEquals(NavigationDecision.CANCEL, navigation.navigationDecision("https://frames.test/other#card", true, url), "another document of the page's origin")
+        assertEquals(NavigationDecision.EXTERNAL, navigation.navigationDecision("https://brand.test/#card", true, url), "another origin with a fragment")
+        assertEquals(NavigationDecision.ALLOW, navigation.navigationDecision("$url#b", true, "$url#a"), "one fragment to another")
+        assertEquals(NavigationDecision.CANCEL, navigation.navigationDecision(url, true, "$url#a"), "back to the same URL without a fragment reloads it")
+    }
+
+    @Test fun theOriginIsTheSchemeHostAndPortWhateverTheirCase() {
+        val table = listOf(
+            "HTTPS://FRAMES.TEST/x" to NavigationDecision.ALLOW,
+            "https://frames.test:443/x" to NavigationDecision.ALLOW,
+            "http://frames.test/x" to NavigationDecision.FAIL_LOAD,
+            "https://frames.test:8443/x" to NavigationDecision.FAIL_LOAD,
+            "https://sub.frames.test/x" to NavigationDecision.FAIL_LOAD,
+            "javascript:alert(1)" to NavigationDecision.FAIL_LOAD,
+            "data:text/html,x" to NavigationDecision.FAIL_LOAD,
+        )
+        for ((target, expected) in table) assertEquals(expected, navigation.navigationDecision(target, true, url), "loading: $target")
+        assertEquals(NavigationDecision.ALLOW, navigation.navigationDecision("javascript:alert(1)", false, url), "a subframe's, while loading too")
+    }
+
+    @Test fun aNavigationOutBeforeShowIsDroppedAndKeepsTheTouch() {
+        touchGate.noteTouch(now)
+        for (before in listOf(FramePhase.LOADING, FramePhase.LOADED, FramePhase.ENDED)) {
+            phase = before
+            assertEquals("drop", describe(navigation.externalNavigation("https://brand.test", now)), "$before")
+        }
+        phase = FramePhase.SHOWN
+        assertEquals("Click", describe(navigation.externalNavigation("https://brand.test", now)), "the touch was not spent on the refusals")
+    }
 }
