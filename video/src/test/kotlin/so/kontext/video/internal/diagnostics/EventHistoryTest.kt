@@ -1,11 +1,9 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.diagnostics
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.diagnostics.EventHistory
-import so.kontext.video.internal.diagnostics.ReportFormat
 
 /** The recent events an error report carries: the last 30, reduced to the listed keys, strings capped. */
 class EventHistoryTest {

@@ -1,8 +1,7 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.diagnostics
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.ResponseTooLarge
 import so.kontext.video.internal.network.UnexpectedFailure

@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.diagnostics
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.diagnostics.ReportQueue
 
 /** The error reports' queue alone: its bounds, what it drops and counts, and the batches it makes. */
 class ReportQueueTest {

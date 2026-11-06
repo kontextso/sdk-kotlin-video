@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.diagnostics
 
 import android.app.Activity
 import android.net.Uri
@@ -32,12 +32,10 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds
+import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.ParityHarness
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.device.DeviceInfo
-import so.kontext.video.internal.diagnostics.DebugReporter
-import so.kontext.video.internal.diagnostics.ErrorReport
-import so.kontext.video.internal.diagnostics.ErrorReporter
-import so.kontext.video.internal.diagnostics.ReportFormat
-import so.kontext.video.internal.diagnostics.ReportQueue
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment

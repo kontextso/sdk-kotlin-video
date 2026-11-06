@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.state
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.State
-import so.kontext.video.internal.state.SdkState
 
 /** The SDK's facts: the phase moves only as `SdkLifecycle` allows, the rest is recorded once or derived. */
 class SdkStateTest {

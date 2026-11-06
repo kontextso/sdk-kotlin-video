@@ -1,10 +1,9 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.diagnostics
 
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.diagnostics.ReportFormat
 
 /** How the reports write their fields: strings cut at a code point, state values as JSON that stays JSON, the time in UTC. */
 class ReportFormatTest {

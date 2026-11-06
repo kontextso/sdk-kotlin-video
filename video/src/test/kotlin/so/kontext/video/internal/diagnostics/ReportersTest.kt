@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.diagnostics
 
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
@@ -24,11 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.KontextVideo.Configuration
-import so.kontext.video.internal.diagnostics.DebugReporter
-import so.kontext.video.internal.diagnostics.ErrorReport
-import so.kontext.video.internal.diagnostics.ErrorReporter
-import so.kontext.video.internal.diagnostics.EventHistory
-import so.kontext.video.internal.diagnostics.ReportQueue
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.platform.Environment
 import java.io.IOException

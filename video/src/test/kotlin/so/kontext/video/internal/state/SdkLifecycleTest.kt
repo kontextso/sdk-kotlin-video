@@ -1,11 +1,10 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.state
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.video.KontextVideo.State
-import so.kontext.video.internal.state.SdkLifecycle
 
 /** The SDK's rules as a pure table: every move from every state, legal or refused. */
 class SdkLifecycleTest {

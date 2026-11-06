@@ -1,10 +1,9 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.state
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
-import so.kontext.video.internal.state.ShowCheck
 
 /** Whether `show` may go on, as a table: the facts → the first refusal, in the order the checks run. */
 class ShowCheckTest {

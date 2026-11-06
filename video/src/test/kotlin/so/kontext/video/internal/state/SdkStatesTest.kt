@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.state
 
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.SocketPolicy
@@ -14,11 +14,13 @@ import so.kontext.video.KontextVideo
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.State
 import so.kontext.video.VideoAdException
+import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.ParityHarness
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.platform.Environment
-import so.kontext.video.internal.state.SdkState
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 

@@ -1,12 +1,12 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.state
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import so.kontext.video.AdFormat
 import so.kontext.video.VideoAdException.NoFillReason
+import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.AdsResponse
-import so.kontext.video.internal.state.AdStore
 import so.kontext.video.internal.state.AdStore.Step
 
 /** How an answer is followed for one format, as a table: what is held × what the answer says → the steps. */
