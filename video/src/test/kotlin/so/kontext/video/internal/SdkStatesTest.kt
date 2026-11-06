@@ -164,6 +164,21 @@ class SdkStatesTest : ParityHarness() {
         assertEquals(0, requests("/v2/error").size)
     }
 
+    @Test fun anAdsAnswerIsDecodedOffTheMainThread() {
+        var onMain: Boolean? = null
+        so.kontext.video.internal.network.AdsFetcher.decode = {
+            onMain = android.os.Looper.myLooper() == android.os.Looper.getMainLooper()
+            so.kontext.video.internal.payloads.AdsResponse.parse(it)
+        }
+        try {
+            answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+            assertTrue(format(owner(), AdFormat.PAUSE).isSuccess)
+            assertEquals(false, onMain)
+        } finally {
+            so.kontext.video.internal.network.AdsFetcher.decode = { so.kontext.video.internal.payloads.AdsResponse.parse(it) }
+        }
+    }
+
     @Test fun failedMovesToDisabledThroughTheRetry() {
         failingConfig()
         assertEquals(State.Failed, initialize())

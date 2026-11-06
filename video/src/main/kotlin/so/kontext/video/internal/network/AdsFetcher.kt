@@ -1,6 +1,11 @@
 package so.kontext.video.internal.network
 
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonElement
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException
 import so.kontext.video.internal.SdkInitializer
@@ -88,7 +93,10 @@ internal class AdsFetcher(
         DebugReporter.event("ads.request", state = mapOf("held" to adsRequest.held.size, "playhead" to adsRequest.playheadMillis))
         // 3. The answer, parsed and checked against the held ads.
         val response = try {
-            AdsResponse.parse(ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)).also(checkIdsAgainstHeld)
+            val answer = ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)
+            // Decoded off the main thread (every ad validated, up to a 5 MB answer); checked against the held ads
+            // back on it, where they live.
+            withContext(decodeDispatcher) { decode(answer) }.also(checkIdsAgainstHeld)
         } catch (error: CancellationException) {
             throw error
         } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
@@ -136,5 +144,15 @@ internal class AdsFetcher(
                 )
             }
         }
+    }
+
+    companion object {
+        /** Where an answer is decoded; tests see which thread. */
+        @VisibleForTesting
+        var decodeDispatcher: CoroutineDispatcher = Dispatchers.Default
+
+        /** The answer's decoder; tests watch it run. */
+        @VisibleForTesting
+        var decode: (JsonElement?) -> AdsResponse = { AdsResponse.parse(it) }
     }
 }
