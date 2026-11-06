@@ -44,4 +44,32 @@ class PolygonTest {
         assertEquals(0, Polygon.clip(square, FloatArray(0)).size, "a clipper of fewer than three points clips everything")
         assertEquals(0.0, Polygon.area(FloatArray(0)), 1e-9)
     }
+
+    @Test fun aClockwiseClipperCutsAsACounterClockwiseOne() {
+        val clockwise = floatArrayOf(0f, 0f, 0f, 10f, 10f, 10f, 10f, 0f)
+        assertTrue(Polygon.signedArea(clockwise) < 0 && Polygon.signedArea(square) > 0)
+        val shifted = floatArrayOf(5f, 0f, 15f, 0f, 15f, 10f, 5f, 10f)
+        assertEquals(50.0, Polygon.area(Polygon.clip(shifted, clockwise)), 1e-6)
+        assertEquals(100.0, Polygon.area(Polygon.clip(square, clockwise)), 1e-6)
+    }
+
+    @Test fun shapesThatOnlyTouchShareNoArea() {
+        val beside = floatArrayOf(10f, 0f, 20f, 0f, 20f, 10f, 10f, 10f)
+        assertEquals(0.0, Polygon.area(Polygon.clip(beside, square)), 1e-6, "an edge in common")
+        val corner = floatArrayOf(10f, 10f, 20f, 10f, 20f, 20f, 10f, 20f)
+        assertEquals(0.0, Polygon.area(Polygon.clip(corner, square)), 1e-6, "a corner in common")
+    }
+
+    @Test fun aShapeClippedByItselfIsWholeAndAFlatOneHasNoArea() {
+        assertEquals(100.0, Polygon.area(Polygon.clip(square, square)), 1e-6)
+        assertEquals(0.0, Polygon.area(floatArrayOf(0f, 0f, 5f, 5f, 10f, 10f)), 1e-9, "three points on one line")
+        assertEquals(0.0, Polygon.area(floatArrayOf(0f, 0f, 5f, 5f)), 1e-9, "two points")
+        assertEquals(0.0, Polygon.area(Polygon.corners(0f, 10f)), 1e-9, "a view without a width")
+        assertEquals(0.0, Polygon.area(Polygon.clip(square, Polygon.corners(0f, 10f))), 1e-9, "a clipper without a width")
+    }
+
+    @Test fun aSubjectLargerThanTheClipperIsCutToIt() {
+        val large = floatArrayOf(-100f, -100f, 100f, -100f, 100f, 100f, -100f, 100f)
+        assertEquals(100.0, Polygon.area(Polygon.clip(large, square)), 1e-6)
+    }
 }

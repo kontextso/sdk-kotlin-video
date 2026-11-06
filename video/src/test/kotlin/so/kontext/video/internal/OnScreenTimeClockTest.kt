@@ -59,4 +59,95 @@ class OnScreenTimeClockTest {
         now = 9_000
         assertEquals("stopped for good", 600, clock.stop())
     }
+
+    @Test fun aDurationOfZeroOrLessElapsesAtOnceAndOnce() {
+        Environment.now = { android.os.SystemClock.uptimeMillis() }
+        for (duration in listOf(0L, -5_000L)) {
+            var elapsed = 0
+            val clock = OnScreenTimeClock(duration, "ad-1") { elapsed += 1 }
+            clock.start(isVisible = true)
+            idle(0)
+            clock.windowVisibilityChanged(isVisible = false)
+            clock.windowVisibilityChanged(isVisible = true)
+            idle(1_000)
+            assertEquals("duration $duration", 1, elapsed)
+        }
+    }
+
+    @Test fun aPausedClockWaitsOnlyForTheTimeStillMissing() {
+        Environment.now = { android.os.SystemClock.uptimeMillis() }
+        var elapsed = 0
+        val clock = OnScreenTimeClock(1_000, "ad-1") { elapsed += 1 }
+        clock.start(isVisible = true)
+        idle(400)
+        clock.windowVisibilityChanged(isVisible = false)
+        idle(10_000)
+        assertEquals("time in the background does not count", 0, elapsed)
+        clock.windowVisibilityChanged(isVisible = true)
+        clock.seenChanged(false)
+        idle(10_000)
+        assertEquals("nor time unseen", 0, elapsed)
+        clock.seenChanged(true)
+        idle(599)
+        assertEquals(0, elapsed)
+        idle(1)
+        assertEquals(1, elapsed)
+        assertEquals(1_000, clock.elapsedMillis)
+    }
+
+    @Test fun aStoppedClockNeverElapsesAndIgnoresWhatFollows() {
+        Environment.now = { android.os.SystemClock.uptimeMillis() }
+        var elapsed = 0
+        var activations = 0
+        val clock = OnScreenTimeClock(1_000, "ad-1") { elapsed += 1 }
+        clock.onActivate = { activations += 1 }
+        clock.start(isVisible = true)
+        idle(300)
+        assertEquals(300, clock.stop())
+        clock.windowVisibilityChanged(isVisible = false)
+        clock.windowVisibilityChanged(isVisible = true)
+        clock.seenChanged(true)
+        clock.start(isVisible = true)
+        idle(5_000)
+        assertEquals(0, elapsed)
+        assertEquals(0, activations)
+        assertFalse(clock.isCounting)
+        assertEquals(300, clock.elapsedMillis)
+    }
+
+    @Test fun beforeItStartsNothingCountsAndAStartIsTakenOnce() {
+        var now = 0L
+        Environment.now = { now }
+        var activations = 0
+        val clock = OnScreenTimeClock(null, "ad-1") {}
+        clock.onActivate = { activations += 1 }
+        clock.windowVisibilityChanged(isVisible = true)
+        clock.seenChanged(true)
+        now = 500
+        assertEquals(0, clock.elapsedMillis)
+        assertEquals("a window change before the start is no return", 0, activations)
+        clock.start(isVisible = false)
+        clock.start(isVisible = true)
+        now = 1_000
+        assertFalse("the second start changed nothing", clock.isCounting)
+        assertEquals(0, clock.elapsedMillis)
+        clock.windowVisibilityChanged(isVisible = true)
+        assertEquals("the window came back", 1, activations)
+        clock.windowVisibilityChanged(isVisible = true)
+        assertEquals("already visible: no second return", 1, activations)
+        now = 1_250
+        assertEquals(250, clock.elapsedMillis)
+    }
+
+    @Test fun startedUnseenItCountsFromTheFirstSight() {
+        var now = 0L
+        Environment.now = { now }
+        val clock = OnScreenTimeClock(null, "ad-1") {}
+        clock.start(isVisible = true, isSeen = false)
+        now = 700
+        assertFalse(clock.isCounting)
+        clock.seenChanged(true)
+        now = 900
+        assertEquals(200, clock.stop())
+    }
 }

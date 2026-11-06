@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.measurement.TrackingMacros
 
 class TrackingMacrosTest {
@@ -84,5 +85,54 @@ class TrackingMacrosTest {
             Double.fromBits(0x3e70000000000000L) to "5.960464477539063e-08", -Double.fromBits(0x3e70000000000000L) to "-5.960464477539063e-08",
         )
         assertEquals(swift, swift.mapValues { (value, _) -> TrackingMacros.number(value) })
+    }
+
+    @Test fun aMacroWithNoValueIsEmptyAndEachValueIsItsOwn() {
+        val template = "https://t.test/?e=[ERRORCODE]&d=[KONTEXT_VIEWDURATION]&r=[KONTEXT_REASON]&p=[KONTEXT_WINNINGPRICE]&w=[KONTEXT_WINNER]&f=[KONTEXT_FIREID]"
+        fun filled(errorCode: Int?, viewDuration: Long?, notUsed: Tracker.NotUsed?) =
+            TrackingMacros.substitute(template, { 0L }, 0, errorCode, "fid-1", viewDuration, notUsed)
+        assertEquals("https://t.test/?e=&d=&r=&p=&w=&f=fid-1", filled(null, null, null))
+        assertEquals("https://t.test/?e=402&d=0&r=notUsed&p=&w=&f=fid-1", filled(402, 0, Tracker.NotUsed.NotUsedByApp))
+        assertEquals("https://t.test/?e=&d=12345&r=destroyed&p=&w=&f=fid-1", filled(null, 12_345, Tracker.NotUsed.Destroyed))
+        assertEquals("https://t.test/?e=&d=&r=outbid&p=&w=&f=fid-1", filled(null, null, Tracker.NotUsed.Outbid(null, null)), "an outbid with no price or winner")
+        assertEquals("https://t.test/?e=&d=&r=outbid&p=1e%2B20&w=a%26b%3Dc&f=fid-1", filled(null, null, Tracker.NotUsed.Outbid(1e20, "a&b=c")), "each value one query parameter")
+    }
+
+    @Test fun aMacroAppearingTwiceIsFilledEachTimeAndAMacroIsCaseSensitive() {
+        val url = TrackingMacros.substitute("https://t.test/?a=[ERRORCODE]&b=[ERRORCODE]&c=[errorcode]", { 0L }, 0, 400, "f", null, null)
+        assertEquals("https://t.test/?a=400&b=400&c=%5Berrorcode%5D", url)
+    }
+
+    @Test fun theTimestampIsTheDevicesTimeWithItsOffset() {
+        val url = TrackingMacros.substitute("https://t.test/?t=[TIMESTAMP]", { 0L }, 0, null, "f", null, null)
+        assertTrue(Regex("https://t\\.test/\\?t=\\d{4}-\\d{2}-\\d{2}T\\d{2}%3A\\d{2}%3A\\d{2}\\.\\d{3}(Z|%2B\\d{2}%3A\\d{2}|-\\d{2}%3A\\d{2})").matches(url), url)
+    }
+
+    @Test fun playheadsAtTheirBoundaries() {
+        val table = listOf(
+            0L to "00:00:00.000",
+            999L to "00:00:00.999",
+            59_999L to "00:00:59.999",
+            3_599_999L to "00:59:59.999",
+            3_600_000L to "01:00:00.000",
+            360_000_000L to "100:00:00.000",
+            TrackingMacros.MAX_PLAYHEAD_MILLIS to "87600:00:00.000",
+            TrackingMacros.MAX_PLAYHEAD_MILLIS + 1 to "87600:00:00.000",
+            Long.MIN_VALUE to "00:00:00.000",
+        )
+        for ((millis, expected) in table) assertEquals(expected, TrackingMacros.playhead(millis), "$millis")
+    }
+
+    @Test fun aValueKeepsOnlyTheUnreservedCharactersOfAUrl() {
+        val table = listOf(
+            "a b" to "a%20b", "a+b" to "a%2Bb", "a*b" to "a%2Ab", "a~b" to "a~b", "a-b_c.d" to "a-b_c.d", "a/b?c#d" to "a%2Fb%3Fc%23d",
+            "é" to "%C3%A9", "%5B" to "%255B", "" to "",
+        )
+        for ((value, expected) in table) assertEquals(expected, TrackingMacros.encode(value), value)
+    }
+
+    @Test fun aNegativeZeroPriceIsWrittenAsSwiftWritesIt() {
+        assertEquals("-0.0", TrackingMacros.number(-0.0))
+        assertEquals("0.0", TrackingMacros.number(0.0))
     }
 }
