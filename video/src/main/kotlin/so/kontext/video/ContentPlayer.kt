@@ -29,11 +29,12 @@ public interface ContentPlayer {
 
     /**
      * Optional: what the player plays now, any value that stands for this play of the episode (your item, its
-     * id), compared with `equals`; `null` (the default) when the player cannot tell. Show an episode's ads only
-     * in that episode: once it differs from the value at `track` (or, with `null` then, the first one it gave),
-     * an overlay or pause ad of that `VideoAds` throws `Invalidated(ContentChanged)` at `show`. Give a new value
-     * for another episode, and for a loop's next play of the same one. Without it only another `VideoAds`
-     * tracking the same player is checked.
+     * id), compared with `equals`; `null` (the default) when the player cannot tell, now or ever. Show an
+     * episode's ads only in that episode: once it differs from the value at `track` (or, with `null` then, the
+     * first one it gave), an overlay or pause ad of that `VideoAds` throws `Invalidated(ContentChanged)` at
+     * `show`, and one on screen ends (`INTERRUPTED`) at the SDK's next read. A `null` read is never a change.
+     * Give a new value for another episode, and for a loop's next play of the same one. Without it only another
+     * `VideoAds` tracking the same player is checked.
      */
     @get:MainThread
     public val currentItem: Any? get() = null

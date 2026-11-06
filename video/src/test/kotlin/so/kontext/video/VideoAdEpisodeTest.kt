@@ -88,6 +88,57 @@ class VideoAdEpisodeTest : SdkTest() {
         assertEquals(null, so.kontext.video.internal.screen.ScreenSlot.current)
     }
 
+    @Test fun aPlayerThatCannotTellItsItemForAMomentKeepsTheAdOnScreen() {
+        val player = Player(item = "ep-1", reportsItem = true)
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        ad.show(container())
+        player.item = null // between items, or re-preparing the same one: it cannot tell
+        idle(so.kontext.video.internal.content.ContentPlayback.tickIntervalMillis * 2)
+        assertTrue("null is unknown, not another episode: ${recorder.reasons}", recorder.reasons.isEmpty())
+        player.item = "ep-1"
+        idle(so.kontext.video.internal.content.ContentPlayback.tickIntervalMillis * 2)
+        assertTrue(recorder.reasons.isEmpty())
+        player.item = "ep-2"
+        idle(so.kontext.video.internal.content.ContentPlayback.tickIntervalMillis * 2)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun aChangeOfTheOldPlayerNeverReachesAnAdShownFromItsItemRead() {
+        // The old player reports no item at track; its first item read, made as its pause is delivered, is app
+        // code that tracks a new player and shows an overlay over it. The old player's pause must not reach it.
+        val owner = owner()
+        val second = Player(item = "ep-b", reportsItem = true)
+        val next = overlay(owner)
+        val recorder = Recorder().also { next.listener = it }
+        var item: Any? = null
+        val first = object : ContentPlayer {
+            val listeners = mutableListOf<ContentPlayer.Listener>()
+            override val currentPositionMillis: Long = 0
+            override val isPlaying: Boolean = true
+            override val currentItem: Any?
+                get() {
+                    val read = item ?: return null
+                    item = null // once
+                    owner.track(second)
+                    next.show(container())
+                    return read
+                }
+
+            override fun addListener(listener: ContentPlayer.Listener) {
+                listeners += listener
+            }
+        }
+        owner.track(first)
+        item = "ep-a"
+        first.listeners.single().onIsPlayingChanged(false)
+        assertTrue("the overlay is shown over the new player", next.wasShown)
+        assertTrue("the old player's pause is not the new player's: ${recorder.reasons}", recorder.reasons.isEmpty())
+    }
+
     @Test fun aTrackInsideTheFirstItemReadKeepsTheNewBindingsItem() {
         val second = Player(item = "ep-b", reportsItem = true)
         val owner = owner()

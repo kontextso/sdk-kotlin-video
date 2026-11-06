@@ -60,8 +60,8 @@ internal class ContentPlayback {
     /**
      * Whether the tracked content is no longer this `VideoAds`'s episode: another `VideoAds` took its player,
      * or the player moved to another item than this episode's. An overlay or pause ad shown now would be
-     * counted for this episode over another one. Without a player, or for a player that reports no item,
-     * nothing can tell: `false`.
+     * counted for this episode over another one. Without a player, or for a player that reports no item (now
+     * or ever), nothing can tell: `false`.
      */
     val playsAnotherEpisode: Boolean
         get() {
@@ -69,7 +69,9 @@ internal class ContentPlayback {
             val player = player ?: return false
             adoptEpisodeItem()
             if (!hasEpisodeItem) return false
-            return runCatching { player.currentItem != episodeItem }.getOrDefault(false)
+            // `null` is "cannot tell" (between items, re-preparing the same one), not another episode.
+            val item = runCatching { player.currentItem }.getOrNull() ?: return false
+            return item != episodeItem
         }
     private var listener: ContentPlayer.Listener? = null
     private var generation = 0
@@ -196,9 +198,15 @@ internal class ContentPlayback {
 
     private fun deliver(change: Change, generation: Int) {
         if (generation != this.generation) return
-        if (Looper.myLooper() == Looper.getMainLooper()) adoptEpisodeItem()
         // A listener may be called off the main thread by a careless adapter: the change is handled on it.
-        if (Looper.myLooper() == Looper.getMainLooper()) onChange?.invoke(change) else handler.post { deliver(change, generation) }
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post { deliver(change, generation) }
+            return
+        }
+        adoptEpisodeItem()
+        // The item read is the app's code: a track() or destroy() inside it made the change another binding's.
+        if (generation != this.generation) return
+        onChange?.invoke(change)
     }
 
     companion object {
