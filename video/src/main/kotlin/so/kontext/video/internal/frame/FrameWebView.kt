@@ -82,6 +82,9 @@ internal class FrameWebView(context: Context) : WebView(context) {
         override fun onJsConfirm(view: WebView, url: String?, message: String?, result: JsResult): Boolean = true.also { result.cancel() }
         override fun onJsPrompt(view: WebView, url: String?, message: String?, defaultValue: String?, result: JsPromptResult): Boolean =
             true.also { result.cancel() }
+
+        // A beforeunload prompt would show a native dialog and hold the page; the page leaves at once.
+        override fun onJsBeforeUnload(view: WebView, url: String?, message: String?, result: JsResult): Boolean = true.also { result.confirm() }
         override fun onPermissionRequest(request: PermissionRequest) = request.deny()
     }
 

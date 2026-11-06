@@ -138,6 +138,9 @@ class FrameBridgeClientTest {
         verify { alert.cancel() }
         verify { confirm.cancel() }
         verify { prompt.cancel() }
+        val beforeUnload: JsResult = mockk(relaxed = true)
+        assertTrue("no beforeunload dialog", chrome.onJsBeforeUnload(bridge.webView, url, "leave?", beforeUnload))
+        verify { beforeUnload.confirm() }
         val permission: PermissionRequest = mockk(relaxed = true)
         chrome.onPermissionRequest(permission)
         verify { permission.deny() }
