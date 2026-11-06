@@ -588,7 +588,7 @@ public class VideoAd internal constructor(
                 Logger.info { "ad ${id.take(8)}: open (${event.purpose}) ${event.url}" }
                 tracker.record(event)
                 Environment.context?.let { context ->
-                    if (!LinkOpener.open(context, event.url, null)) Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${event.url}" }
+                    if (!LinkOpener.open(context, event.url, null, screen?.inAppBrowser)) Logger.warning { "ad ${id.take(8)}: nothing could open the click-through ${event.url}" }
                 }
             }
             is FrameEvent.Close -> closeByPage(event.reason)
@@ -661,7 +661,8 @@ public class VideoAd internal constructor(
 
     /**
      * The page's `ad.click`, as Swift's `VideoAd+Click`: the `click` beacon, the click-through with the same fire
-     * id (opened by [LinkOpener]), then `onAdClicked`.
+     * id (opened by [LinkOpener]: a web link no app claims in the screen's in-app browser, so the viewer stays in
+     * the app), then `onAdClicked`.
      */
     internal fun click(url: String, fallback: String?, area: Click.Area) {
         Logger.info { "ad ${id.take(8)}: click ($area) $url" }
@@ -672,7 +673,7 @@ public class VideoAd internal constructor(
         val fireId = tracker.fire("click", part = if (isEndCard) "endCard" else null)
         val target = tracker.clickThrough(url, fireId)
         Environment.context?.let { context ->
-            if (!LinkOpener.open(context, target, fallback?.let { tracker.clickThrough(it, fireId) })) {
+            if (!LinkOpener.open(context, target, fallback?.let { tracker.clickThrough(it, fireId) }, screen?.inAppBrowser)) {
                 Logger.warning { "ad ${id.take(8)}: nothing could open the click-through $target" }
             }
         }
@@ -991,7 +992,8 @@ public class VideoAd internal constructor(
         /**
          * The ad's screen disappeared for a reason the SDK did not cause: the container left the window or
          * became too small for the ad, another Activity of the app covered the container's (its Activity stopped
-         * while the app stays in front; the app going to the background only pauses the ad), the container's
+         * while the app stays in front; the app going to the background, or the ad's own click opening the
+         * in-app browser, only pauses the ad), the container's
          * Activity entered picture-in-picture (an inline ad would be counted in a thumbnail), the linear ad's
          * Activity was destroyed under it or the Activity that started it finished. For an overlay with a
          * tracked player, also the content pausing (in the background: still paused a moment after the app's

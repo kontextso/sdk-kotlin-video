@@ -28,6 +28,8 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     var activity: LinearAdActivity? = null
         private set
 
+    override val showingActivity: Activity? get() = activity
+
     /** What the ad runs once its closing Activity is gone. */
     private var onGone: (() -> Unit)? = null
 
@@ -59,7 +61,8 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     }
 
     // Another Activity over the ad's leaves its view in a visible window, measured whole there. No
-    // off-screen rule: a sheet over it after a click is the viewer's own doing.
+    // off-screen rule: a sheet over it after a click is the viewer's own doing. The ad's own in-app browser is
+    // such a cover: the page hears exposure 0 and pauses its video, and plays it on once the tab goes.
     override fun configure() {
         meter?.isCovered = { activity?.isCovered == true }
     }

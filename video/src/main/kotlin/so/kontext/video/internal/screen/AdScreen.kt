@@ -29,17 +29,23 @@ import java.lang.ref.WeakReference
  * show             prepare (checks, variant), then      start: LinearAdActivity started; its
  *                  addHost: InlineAdView into the      attach (these Callbacks) puts the page in
  *                  container                           it; the Activity that started it followed
- * configure()      on-screen rule, seen → clock        covered by another Activity
+ * configure()      on-screen rule, seen → clock        covered by another Activity, or by its own
+ *                                                      in-app browser
  * reachedScreen()  the clock runs, the content rule    nothing: the Activity's own onResume showed it
  *                  starts, the holding Activity
  *                  followed
  * end:
- *   stopFollowing() the Activity's listener removed    the same
+ *   stopFollowing() the Activity's listener removed,   the same
+ *                  the in-app browser's too
  *   tearDown()      clock → meter → host view out;     meter stopped, the Activity's registration
  *                  returns the active time             forgotten; returns 0
  *                  (overlayViewDuration)
  *   close(onGone)  nothing to wait for: false          the Activity finishes; onGone once gone: true
  * ```
+ *
+ * A click's web link opens in the screen's [inAppBrowser], over [showingActivity]: a Custom Tab, which stops
+ * that Activity while the app stays in front. Inline, that stop is not another screen of the app covering the ad
+ * (`InlineScreen.followHoldingActivity`); linear, it covers the ad's Activity as any other does.
  *
  * A screen never ends the ad's life itself: it calls `ad.end(...)`, and `onGone` (the ad's `finish`) is the
  * only way it reaches `onAdEnded`.
@@ -64,6 +70,12 @@ internal sealed class AdScreen(
     /** Decides `viewable` / `notViewable` and reports exposure while the ad is on screen; set when it reaches it. */
     var meter: ViewabilityMeter? = null
 
+    /** The Activity the ad is on screen in: the one holding the container, or a linear ad's own. */
+    abstract val showingActivity: Activity?
+
+    /** The in-app browser the ad's clicks open web links in, over [showingActivity]. */
+    val inAppBrowser = InAppBrowser { showingActivity }
+
     /** Follows the Activity the screen depends on while the ad is on screen; removed when the ad ends. */
     private var activityListener: ((Activity, AppActivities.Event) -> Unit)? = null
 
@@ -85,10 +97,11 @@ internal sealed class AdScreen(
      */
     abstract fun close(onGone: () -> Unit): Boolean
 
-    /** The ad is ending: the Activity it followed is no longer heard. */
+    /** The ad is ending: the Activity it followed, and its in-app browser's return, are no longer heard. */
     fun stopFollowing() {
         activityListener?.let(AppActivities::removeListener)
         activityListener = null
+        inAppBrowser.stop()
     }
 
     /**

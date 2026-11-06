@@ -33,6 +33,11 @@ public interface VideoAdListener {
     /**
      * The viewer tapped the ad and the SDK took the click: it fired the click beacons and is opening the
      * target. Neither which target opened nor whether it did is reported. Once per tap.
+     *
+     * A web link no installed app claims opens in an in-app browser (a Custom Tab) over the ad's screen, so the
+     * viewer stays in your app; Play Store links, an app's own links and web links an app claims open that app.
+     * Under its own in-app browser the ad stays: it is not ended, its time on screen and viewability wait, and a
+     * linear ad's video pauses until the viewer comes back.
      */
     @MainThread
     public fun onAdClicked(ad: VideoAd, click: VideoAd.Click) {}

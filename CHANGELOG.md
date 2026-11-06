@@ -40,6 +40,11 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   transparent.
 * A click whose `url` is missing or unusable (a space, a web link without a host) opens its valid `fallbackUrl`, as on
   iOS.
+* A click's web link no installed app claims opens in an in-app browser (a Custom Tab, through KontextKit) over the
+  ad's screen, so the viewer stays in the app; without a Custom Tabs browser it opens in the default browser, as
+  before. Play Store links and an app's own links open that app, as before; a web link an installed app claims (a
+  verified App Link) opens in it. The same for the AdChoices link. Under its own in-app browser an overlay or pause
+  ad is not ended: its clocks and viewability wait for the return; a linear ad's video pauses and plays on after.
 * Every accepted click fires `click` entries: an `endCard` click on an ad without end-card entries fires the main
   creative's.
 * An overlay or pause ad's time on screen (`overlayViewDuration`, an untracked overlay's duration) counts only while

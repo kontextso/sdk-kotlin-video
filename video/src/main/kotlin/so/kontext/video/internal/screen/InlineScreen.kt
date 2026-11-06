@@ -82,6 +82,8 @@ internal class InlineScreen(
     var holdingActivity: WeakReference<Activity>? = null
         private set
 
+    override val showingActivity: Activity? get() = holdingActivity?.get()
+
     /** Time seen on screen; it also ends an overlay whose wall-clock duration elapsed. From [reachedScreen] to [tearDown]. */
     var onScreenClock: OnScreenTimeClock? = null
         private set
@@ -361,15 +363,17 @@ internal class InlineScreen(
     /**
      * Another Activity of the app covers the one holding the container (it stopped while the app stays in
      * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
-     * its window. The app going to the background only freezes the ad's clock (and an overlay's content
-     * pausing there, see `OverlayRule`); a stop for a configuration change recreates the Activity, and the
-     * container leaving the window ends the ad there.
+     * its window. Not the ad's own in-app browser ([inAppBrowser]): its Custom Tab stops the Activity too, and
+     * the ad waits, frozen, for the viewer's return, as it would in the background. The app going to the
+     * background only freezes the ad's clock (and an overlay's content pausing there, see `OverlayRule`); a stop
+     * for a configuration change recreates the Activity, and the container leaving the window ends the ad there.
      */
     private fun followHoldingActivity(holder: Activity) {
         holdingActivity = WeakReference(holder)
         follow(holder) { activity, event ->
             if (event == AppActivities.Event.RESUMED) ad.contentRule.holdingActivityResumed()
-            if (event == AppActivities.Event.STOPPED && !activity.isChangingConfigurations && Environment.isAppInForeground()) {
+            val isCover = !activity.isChangingConfigurations && Environment.isAppInForeground() && !inAppBrowser.isOpen
+            if (event == AppActivities.Event.STOPPED && isCover) {
                 Logger.warning { "ad ${ad.id.take(8)}: another screen of the app covers the ad's; ended as interrupted" }
                 ad.end(EndReason.INTERRUPTED)
             }

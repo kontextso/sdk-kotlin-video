@@ -65,5 +65,9 @@ time; declare `android:configChanges` for rotation, as the example app does, so 
 `VideoAds` its owner forgot is freed only once nothing holds it (a player it tracks holds it while that player
 lives), and its ad on screen runs until it ends: `destroy()` is the way to end its ads at once.
 
+A click on an ad opens its web link in an in-app browser (a Custom Tab) over your app, so the viewer stays in it;
+Play Store links, app links and web links an installed app claims open that app. The ad stays under its own
+browser and waits: an overlay or pause ad is not ended, a linear ad's video pauses until the viewer comes back.
+
 A linear ad shows with `ad.show(activity)`; resume your content in `onAdEnded`. The [example app](example) shows
 every format. Development: [DEVELOPMENT.md](DEVELOPMENT.md).
