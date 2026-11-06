@@ -69,6 +69,22 @@ class FrameBridgeClientTest {
         assertEquals(500, (events.single() as FrameEvent.Error).code)
     }
 
+    @Test fun aNewWindowOpensTheUrlThePageAskedFor() {
+        loaded()
+        bridge.show()
+        bridge.noteTouch()
+        val webView = bridge.webView
+        val transport = webView.WebViewTransport()
+        val message = android.os.Message.obtain(android.os.Handler(android.os.Looper.getMainLooper())).also { it.obj = transport }
+        assertTrue("the window is granted, to a catcher", webView.webChromeClient!!.onCreateWindow(webView, false, true, message))
+        val catcher = transport.webView!!
+        assertTrue("the catcher loads nothing", catcher.webViewClient.shouldOverrideUrlLoading(catcher, request("https://brand.test/landing")))
+        assertEquals("https://brand.test/landing", (events.last() as FrameEvent.Click).url)
+        // A second navigation of the same window is not a second click.
+        catcher.webViewClient.shouldOverrideUrlLoading(catcher, request("https://brand.test/other"))
+        assertEquals(1, events.count { it is FrameEvent.Click })
+    }
+
     @Test fun aMainFrameErrorWhileLoadingFailsTheAd() {
         val error: WebResourceError = mockk { every { errorCode } returns -2 }
         bridge.webView.webViewClient.onReceivedError(bridge.webView, request(url), error)
