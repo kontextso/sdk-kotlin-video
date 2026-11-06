@@ -40,6 +40,10 @@ internal object Environment {
     @set:VisibleForTesting
     var isAppInForeground: () -> Boolean = defaultIsAppInForeground
 
+    /** When the app last came in front (an Activity started with none before), on [now]'s clock; `Long.MIN_VALUE` before any. */
+    @set:VisibleForTesting
+    var cameToFrontAt: () -> Long = defaultCameToFrontAt
+
     /** Where the SDK's own work runs: the main thread, never blocking it. */
     @set:VisibleForTesting
     var scope: CoroutineScope = newScope()
@@ -81,6 +85,7 @@ internal object Environment {
 
     // The production defaults, each written once: the initializers above and reset() use them.
     private val defaultIsAppInForeground: () -> Boolean get() = { AppActivities.isAppInForeground }
+    private val defaultCameToFrontAt: () -> Long get() = { AppActivities.cameToFrontAt }
     private val defaultNow: () -> Long get() = { SystemClock.elapsedRealtime() }
     private val defaultAssertionFailure: (String) -> Unit get() = ::failInDebuggableApp
     private val defaultUserAgent: suspend () -> String? get() = { context?.let { UserAgent.userAgent(it) } }
@@ -100,6 +105,7 @@ internal object Environment {
         userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
         advertisingId = defaultAdvertisingId
         isAppInForeground = defaultIsAppInForeground
+        cameToFrontAt = defaultCameToFrontAt
         sendBeacon = defaultSendBeacon
         makeBridge = defaultMakeBridge
     }

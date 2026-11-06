@@ -249,6 +249,23 @@ class FrameMessagesTest {
         assertEquals("ten seconds in front are", FrameBridge.FailureCause.LOAD_TIMEOUT, bridge.failureCause)
     }
 
+    @Test fun aStretchInTheBackgroundBetweenTwoTicksInFrontIsNotLoadTime() {
+        // In front at one tick, then in the background and frozen for a minute, back in front before the next
+        // tick: both ticks find the app in front, and only the time since its return counts.
+        Environment.now = { android.os.SystemClock.elapsedRealtime() }
+        var cameToFront = Long.MIN_VALUE
+        Environment.cameToFrontAt = { cameToFront }
+        Environment.isAppInForeground = { true }
+        bridge.load()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(250))
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(Duration.ofMillis(60_000))
+        cameToFront = Environment.now()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(250))
+        assertEquals("a minute in the background is not ten seconds of loading", FramePhase.LOADING, bridge.state)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10_000))
+        assertEquals("ten seconds in front are", FrameBridge.FailureCause.LOAD_TIMEOUT, bridge.failureCause)
+    }
+
     @Test fun showIsIgnoredUnlessThePageIsLoaded() {
         bridge.show()
         assertEquals(FramePhase.LOADING, bridge.state)

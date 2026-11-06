@@ -36,6 +36,10 @@ internal object AppActivities : Application.ActivityLifecycleCallbacks {
 
     val isAppInForeground: Boolean get() = started.isNotEmpty() || wasVisibleAtRegistration
 
+    /** When the app last came in front, on `Environment.now`; `Long.MIN_VALUE` before any return seen. */
+    var cameToFrontAt = Long.MIN_VALUE
+        private set
+
     /** Some Activity of the app is resumed, as far as the events since registration tell. */
     val hasResumedActivity: Boolean get() = resumed.containsValue(true)
 
@@ -101,6 +105,7 @@ internal object AppActivities : Application.ActivityLifecycleCallbacks {
         started.clear()
         resumed.clear()
         wasVisibleAtRegistration = false
+        cameToFrontAt = Long.MIN_VALUE
         listeners.clear()
     }
 
@@ -109,11 +114,13 @@ internal object AppActivities : Application.ActivityLifecycleCallbacks {
     }
 
     override fun onActivityStarted(activity: Activity) {
+        noteIfComingToFront()
         wasVisibleAtRegistration = false
         started[activity] = Unit
     }
 
     override fun onActivityResumed(activity: Activity) {
+        noteIfComingToFront()
         wasVisibleAtRegistration = false
         // Resumed is started: one started before registration is counted from here.
         started[activity] = Unit
@@ -140,6 +147,11 @@ internal object AppActivities : Application.ActivityLifecycleCallbacks {
         started.remove(activity)
         resumed.remove(activity)
         notify(activity, Event.DESTROYED)
+    }
+
+    /** The app is about to be in front after it was not: when that happened, for the clocks counting time in front. */
+    private fun noteIfComingToFront() {
+        if (!isAppInForeground) cameToFrontAt = Environment.now()
     }
 
     // A copy: a listener ends its ad, which removes it from the list.

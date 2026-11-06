@@ -154,7 +154,8 @@ internal class FrameBridge(
             // the step added per tick: a tick that comes late (a busy main thread) counts as long as it really
             // took. A stretch counts only when the app was in front at both its ends: a process frozen in the
             // background (the cached-app freezer) comes back with one long stretch, begun in the background, that
-            // was not time the page had to load.
+            // was not time the page had to load; nor does the time before the app's last return to the front,
+            // when it went to the background and came back between two ticks (both then find it in front).
             val step = minOf(250L, loadTimeoutMillis)
             var waited = 0L
             var last = Environment.now()
@@ -163,7 +164,7 @@ internal class FrameBridge(
                 delay(step)
                 val now = Environment.now()
                 val isInFront = Environment.isAppInForeground()
-                if (isInFront && wasInFront) waited += (now - last).coerceAtLeast(0)
+                if (isInFront && wasInFront) waited += (now - maxOf(last, Environment.cameToFrontAt())).coerceAtLeast(0)
                 last = now
                 wasInFront = isInFront
             }
