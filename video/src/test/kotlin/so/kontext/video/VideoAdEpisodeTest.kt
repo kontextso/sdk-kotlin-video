@@ -74,6 +74,42 @@ class VideoAdEpisodeTest : SdkTest() {
         assertEquals(comment, 0, container.childCount)
     }
 
+    @Test fun aPlayerThatChangesItsItemSilentlyEndsTheAdOnScreenAtTheNextTick() {
+        val player = Player(item = "ep-1", reportsItem = true)
+        val owner = owner()
+        owner.track(player)
+        val recorder = Recorder()
+        val ad = pause(owner)
+        ad.listener = recorder
+        ad.show(container())
+        player.item = "ep-2" // no listener call
+        idle(so.kontext.video.internal.content.ContentPlayback.tickIntervalMillis * 2)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertEquals(null, so.kontext.video.internal.screen.ScreenSlot.current)
+    }
+
+    @Test fun aTrackInsideTheFirstItemReadKeepsTheNewBindingsItem() {
+        val second = Player(item = "ep-b", reportsItem = true)
+        val owner = owner()
+        var nested = true
+        val first = object : ContentPlayer {
+            override val currentPositionMillis: Long = 0
+            override val isPlaying: Boolean = true
+            override val currentItem: Any?
+                get() {
+                    if (nested) {
+                        nested = false
+                        owner.track(second) // the app's getter tracks another player
+                    }
+                    return "ep-a"
+                }
+        }
+        owner.track(first)
+        val ad = pause(owner)
+        ad.show(container()) // B's own item is this episode's: showable
+        assertTrue(ad.wasShown)
+    }
+
     @Test fun aPlayerTrackedByAnotherVideoAdsMakesTheFirstOnesOverlayAndPauseAdThrow() {
         val player = Player()
         val episodeA = owner(Content("ep-a", "en"))

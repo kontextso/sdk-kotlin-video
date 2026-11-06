@@ -77,7 +77,14 @@ internal class ContentPlayback {
     private val tickRunnable = object : Runnable {
         override fun run() {
             if (!isTicking) return
-            adoptEpisodeItem()
+            // A player that changes its item without a word (a custom one using the listener's defaults): the ad
+            // on screen was over this episode, so it hears ContentChanged, as from the player. Its end is app code:
+            // a track or destroy there wins.
+            val generation = generation
+            if (playsAnotherEpisode) {
+                deliver(Change.ContentChanged, generation)
+                if (generation != this@ContentPlayback.generation || !isTicking) return
+            }
             onChange?.invoke(Change.Tick)
             // The tick's own work may have stopped and restarted the ticks (an overlay ended, its onAdEnded
             // showed the next one), which posted a tick already: exactly one stays pending.
@@ -177,7 +184,12 @@ internal class ContentPlayback {
     /** The first item seen from `track` on is this episode's: one there at `track`, or the first the player reported. */
     private fun adoptEpisodeItem() {
         if (hasEpisodeItem) return
-        val item = player?.let { runCatching { it.currentItem }.getOrNull() } ?: return
+        val player = player ?: return
+        val generation = generation
+        // The getter is the app's code: a track() inside it binds another player, whose item must not be
+        // overwritten with this one's. Kept only if nothing changed meanwhile.
+        val item = runCatching { player.currentItem }.getOrNull() ?: return
+        if (generation != this.generation || player !== this.player || hasEpisodeItem) return
         episodeItem = item
         hasEpisodeItem = true
     }
