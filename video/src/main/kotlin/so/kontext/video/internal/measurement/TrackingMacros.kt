@@ -36,12 +36,12 @@ internal object TrackingMacros {
         viewDurationMillis: Long?,
         notUsed: Tracker.NotUsed?,
     ): String {
-        // The authority (`https://[2001:db8::1]:8080`) is left as given: its brackets are an IPv6 host's, not a
-        // macro's, and encoding them would make the URL unroutable.
-        val authority = authorityOf(template)
-        val normalized = decodingBrackets(template.substring(authority.length))
+        // Normalized first, the whole URL (a macro may stand in the host: `https://[CACHEBUSTING].t.test/`), so
+        // detection and substitution see the same string. The end re-encodes whatever brackets are left, except
+        // in the authority, where they are an IPv6 host's (`https://[2001:db8::1]:8080`).
+        val normalized = decodingBrackets(template)
         val content = if (asksForContentPlayhead(normalized)) encode(playhead(contentPlayhead())) else ""
-        return authority + normalized
+        val substituted = normalized
             .replace("[CACHEBUSTING]", "%08d".format(Locale.US, Random.nextInt(100_000_000)))
             .replace("[TIMESTAMP]", encode(timestamp()))
             .replace("[MEDIAPLAYHEAD]", content)
@@ -53,20 +53,24 @@ internal object TrackingMacros {
             .replace("[KONTEXT_REASON]", notUsed?.reason ?: "")
             .replace("[KONTEXT_WINNINGPRICE]", encode(notUsed?.winningPrice?.takeIf { it.isFinite() && it >= 0 }?.let(::number) ?: ""))
             .replace("[KONTEXT_WINNER]", encode(notUsed?.winner ?: ""))
-            .replace("[", "%5B")
-            .replace("]", "%5D")
+        return encodingBrackets(substituted)
     }
 
-    /** `scheme://host:port` at the start of [url], up to its path, query or fragment; empty for a URL with none. */
-    fun authorityOf(url: String): String {
-        val start = url.indexOf("://").takeIf { it > 0 }?.plus(3) ?: return ""
-        val end = url.indexOfAny(charArrayOf('/', '?', '#'), start).takeIf { it >= 0 } ?: url.length
-        return url.substring(0, end)
+    /**
+     * Brackets percent-encoded, as a URL carries them, except in the authority (`scheme://` up to the first `/`,
+     * `?` or `#`): there they delimit an IPv6 literal, which encoded is no longer a host. Without `://` every
+     * bracket is encoded.
+     */
+    fun encodingBrackets(text: String): String {
+        fun encoded(part: String) = part.replace("[", "%5B").replace("]", "%5D")
+        val start = text.indexOf("://").takeIf { it >= 0 }?.plus(3) ?: return encoded(text)
+        val end = text.indexOfAny(charArrayOf('/', '?', '#'), start).takeIf { it >= 0 } ?: text.length
+        return encoded(text.substring(0, start)) + text.substring(start, end) + encoded(text.substring(end))
     }
 
     /** Whether [template] asks for the content playhead (`[MEDIAPLAYHEAD]` or `[CONTENTPLAYHEAD]`), its brackets encoded or not. */
     fun asksForContentPlayhead(template: String): Boolean {
-        val normalized = decodingBrackets(template.substring(authorityOf(template).length))
+        val normalized = decodingBrackets(template)
         return "[MEDIAPLAYHEAD]" in normalized || "[CONTENTPLAYHEAD]" in normalized
     }
 

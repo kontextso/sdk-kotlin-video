@@ -25,7 +25,16 @@ class TrackingMacrosTest {
         assertEquals("http://[::1]:8080/p?e=405&x=%5BUNKNOWN%5D", url)
         val bare = TrackingMacros.substitute("https://[2001:db8::1]?e=[ERRORCODE]", { 0L }, 0, 400, "f", null, null)
         assertEquals("https://[2001:db8::1]?e=400", bare)
-        assertEquals("http://%5B::1%5D/", TrackingMacros.substitute("http://%5B::1%5D/", { 0L }, 0, null, "f", null, null), "an encoded authority stays as given")
+        assertEquals("http://[::1]/", TrackingMacros.substitute("http://%5B::1%5D/", { 0L }, 0, null, "f", null, null), "an encoded IPv6 host is a host")
+        assertEquals("%5BX%5D?a=1", TrackingMacros.substitute("[X]?a=[ERRORCODE]", { 0L }, 0, 1, "f", null, null), "no scheme: every bracket encoded")
+    }
+
+    @Test fun aMacroInTheHostIsSubstituted() {
+        val url = TrackingMacros.substitute("https://[CACHEBUSTING].tracker.test/p?e=[ERRORCODE]", { 0L }, 0, 400, "f", null, null)
+        assertTrue(Regex("https://\\d{8}\\.tracker\\.test/p\\?e=400").matches(url), url)
+        assertEquals("https://f.t.test/", TrackingMacros.substitute("https://%5BKONTEXT_FIREID%5D.t.test/", { 0L }, 0, null, "f", null, null))
+        assertEquals("https://a.test:443/?c=00%3A00%3A02.000", TrackingMacros.substitute("https://a.test:443/?c=[MEDIAPLAYHEAD]", { 2_000L }, 0, null, "f", null, null))
+        assertTrue(TrackingMacros.asksForContentPlayhead("https://[MEDIAPLAYHEAD].t.test/"))
     }
 
     @Test fun theContentPlayheadIsReadOnlyWhenTheUrlAsksForIt() {
