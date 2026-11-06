@@ -83,6 +83,18 @@ internal object ViewExposure {
         return Exposure((seen / whole).coerceIn(0.0, 1.0), box)
     }
 
+    /**
+     * Whether any of [part], a rectangle in [view]'s own pixels, can be seen: its shape cut by the window and by
+     * every ancestor that clips, as [measure] cuts the view's. Exact for a rotated view or ancestor, where the
+     * bounding box of what is seen can overlap a part that is wholly hidden.
+     */
+    fun isAnySeen(view: View, part: Rect): Boolean {
+        if (isHidden(view) || part.isEmpty) return false
+        val outline = rectangle(part).also(transformToRoot(view)::mapPoints)
+        if (Polygon.area(outline) <= 0) return false
+        return Polygon.area(clippedByAncestors(view, outline)) > 0
+    }
+
     /** Not shown, without an area, in a window that is not visible, or transparent: its alpha times its ancestors'. */
     private fun isHidden(view: View): Boolean {
         if (!view.isShown || view.windowVisibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return true

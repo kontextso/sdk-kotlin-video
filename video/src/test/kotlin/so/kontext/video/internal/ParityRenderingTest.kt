@@ -34,6 +34,7 @@ import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
+import so.kontext.video.internal.screen.barsReaching
 import java.lang.ref.WeakReference
 
 /**
@@ -263,7 +264,7 @@ class ParityRenderingTest : SdkTest() {
         assertFalse(settings.allowFileAccess)
         assertFalse(settings.allowContentAccess)
         assertFalse(settings.supportZoom())
-        assertTrue("target=_blank comes to onCreateWindow, where it is refused", settings.supportMultipleWindows())
+        assertTrue("target=_blank comes to onCreateWindow, where a catcher takes its URL", settings.supportMultipleWindows())
     }
 
     // endregion
@@ -589,6 +590,29 @@ class ParityRenderingTest : SdkTest() {
         meter.tick(now + 5_000)
         assertNull("never viewable at a quarter", sink.verdict)
         meter.stop()
+    }
+
+    @Test fun aPartOfARotatedViewClippedAcrossItsDiagonalIsSeenOnlyWhereItsShapeShows() {
+        // A 200×200 square turned 45°, its centre on the bottom edge of a parent that clips: what shows is the
+        // triangle x + y ≤ 200 of the square, whose bounding box is the whole square.
+        val parent = container()
+        val clipping = FrameLayout(parent.context)
+        parent.addView(clipping)
+        clipping.layout(0, 0, 320, 200)
+        val view = view(left = 60, top = 100, width = 200, height = 200, into = clipping)
+        view.rotation = 45f
+        val card = Rect(50, 180, 150, 200) // an overlay's card at the bottom
+        assertTrue("the bounding box overlaps the card", Rect.intersects(ViewExposure.measure(view).visibleBox, card))
+        assertFalse("the card lies wholly in the hidden half", ViewExposure.isAnySeen(view, card))
+        assertTrue("a card at the top shows", ViewExposure.isAnySeen(view, Rect(50, 20, 150, 40)))
+    }
+
+    @Test fun theBarsReachingAHostInsideThePaddingAreCountedOnce() {
+        // A 320×400 window whose nav bar is 24 px; the container fills it and its bottom padding already clears the bar.
+        val bars = Rect(0, 0, 0, 24)
+        assertEquals("the container has the bar in it", Rect(0, 0, 0, 24), barsReaching(bars, 320, 400, Rect(0, 0, 320, 400)))
+        assertEquals("the host, inside the padding, has none", Rect(0, 0, 0, 0), barsReaching(bars, 320, 400, Rect(0, 0, 320, 376)))
+        assertEquals("a padding shorter than the bar leaves the rest", Rect(0, 0, 0, 14), barsReaching(bars, 320, 400, Rect(0, 0, 320, 390)))
     }
 
     @Test fun justUnderHalfRoundsToHalfForThePageButNeverQualifies() {

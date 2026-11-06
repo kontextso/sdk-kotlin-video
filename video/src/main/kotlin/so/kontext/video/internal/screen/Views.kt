@@ -86,21 +86,28 @@ internal fun View.awaitLayout(isReady: () -> Boolean = { true }, onLaidOut: () -
  * of the screen: nothing overlaps, and the ad may use all of it. Not attached yet: all 0. Like CSS
  * `env(safe-area-inset-*)`, but for one view. `place` adds the app's own insets to these.
  */
-internal val View.systemInsets: Rect
-    get() {
-        // 1. How far the bars and the notch reach in from the window's edges.
-        val insets = ViewCompat.getRootWindowInsets(this)
-            ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()) ?: return Rect()
-        // 2. Where this view sits in the window.
-        val root = rootView
-        val location = IntArray(2).also(::getLocationInWindow)
-        val x = location[0]
-        val y = location[1]
-        // 3. How far each of them reaches into this view.
-        return Rect(
-            maxOf(0, insets.left - x),
-            maxOf(0, insets.top - y),
-            maxOf(0, x + width - (root.width - insets.right)),
-            maxOf(0, y + height - (root.height - insets.bottom)),
-        )
-    }
+internal val View.systemInsets: Rect get() = systemInsets(Rect(0, 0, width, height))
+
+/**
+ * How far the bars and the notch reach into [area], a rectangle in this view's own pixels: what a child placed
+ * there (the ad's host inside the container's padding) will read as its [systemInsets]. One calculation for both,
+ * so a frame worked out before the child's layout is where that layout puts it.
+ */
+internal fun View.systemInsets(area: Rect): Rect {
+    // 1. How far the bars and the notch reach in from the window's edges.
+    val insets = ViewCompat.getRootWindowInsets(this)
+        ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()) ?: return Rect()
+    // 2. Where the area sits in the window.
+    val location = IntArray(2).also(::getLocationInWindow)
+    val inWindow = Rect(area).apply { offset(location[0], location[1]) }
+    // 3. How far each of them reaches into it.
+    return barsReaching(Rect(insets.left, insets.top, insets.right, insets.bottom), rootView.width, rootView.height, inWindow)
+}
+
+/** How far [bars] (from the edges of a [rootWidth]×[rootHeight] window) reach into [area], in the window's pixels. */
+internal fun barsReaching(bars: Rect, rootWidth: Int, rootHeight: Int, area: Rect): Rect = Rect(
+    maxOf(0, bars.left - area.left),
+    maxOf(0, bars.top - area.top),
+    maxOf(0, area.right - (rootWidth - bars.right)),
+    maxOf(0, area.bottom - (rootHeight - bars.bottom)),
+)

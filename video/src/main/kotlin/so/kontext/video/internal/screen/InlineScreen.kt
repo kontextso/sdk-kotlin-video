@@ -117,12 +117,13 @@ internal class InlineScreen(
         // Picks the variant, or throws `ContainerTooSmall`, for where the host will be: the container's content
         // area, inside its padding, less the bars that reach into it and the app's insets. In the container's
         // pixels, so the minimum is a container size.
-        val system = container.systemInsets
+        val area = hostArea(container)
+        val bars = container.systemInsets(area)
         val contentArea = Rect(
-            maxOf(container.paddingLeft, system.left),
-            maxOf(container.paddingTop, system.top),
-            maxOf(container.paddingRight, system.right),
-            maxOf(container.paddingBottom, system.bottom),
+            area.left + bars.left,
+            area.top + bars.top,
+            container.width - area.right + bars.right,
+            container.height - area.bottom + bars.bottom,
         )
         chooseSize(container.width, container.height, combinedInsets(contentArea), density)
     }
@@ -181,19 +182,22 @@ internal class InlineScreen(
      * Whether any of the page can be seen where it will be placed, asked at `show` before the ad reaches the
      * screen, as Swift asks at attach: an ad nobody can see (a feed scrolled so the player's top shows, not the
      * ad's card at its bottom) ends with no `creativeView` or `iconView`. Android lays the host out only at the
-     * next pass, so the page's frame is worked out as that pass will (the container inside its padding, [refit])
-     * and compared with the part of the container that is seen. A page given no room is left to the layout
-     * passes (`onUnfit`), as before.
+     * next pass, so the page's frame is worked out as that pass will (the host inside the container's padding,
+     * the bars that reach into the host there, [refit]) and its shape cut by everything that clips the
+     * container ([ViewExposure.isAnySeen]: a rotated container clipped across its diagonal included). A page
+     * given no room is left to the layout passes (`onUnfit`), as before.
      */
     fun isSeenWherePlaced(container: ViewGroup): Boolean {
-        val width = container.width - container.paddingLeft - container.paddingRight
-        val height = container.height - container.paddingTop - container.paddingBottom
-        val frame = refit(width, height, container.systemInsets, density) ?: return true
+        val area = hostArea(container)
+        val frame = refit(area.width(), area.height(), container.systemInsets(area), density) ?: return true
         if (frame.isEmpty) return true
-        frame.offset(container.paddingLeft, container.paddingTop)
-        val seen = ViewExposure.measure(container)
-        return seen.share > 0 && Rect.intersects(seen.visibleBox, frame)
+        frame.offset(area.left, area.top)
+        return ViewExposure.isAnySeen(container, frame)
     }
+
+    /** Where the host goes in [container]: inside its padding, as a FrameLayout lays out a child that fills it. */
+    private fun hostArea(container: ViewGroup) =
+        Rect(container.paddingLeft, container.paddingTop, container.width - container.paddingRight, container.height - container.paddingBottom)
 
     /** `show` made [host] for the container: the screen hears its fit and its window. */
     fun attach(host: InlineAdView) {
