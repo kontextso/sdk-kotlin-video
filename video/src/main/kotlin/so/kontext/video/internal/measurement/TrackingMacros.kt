@@ -51,7 +51,7 @@ internal object TrackingMacros {
             .replace("[KONTEXT_FIREID]", fireId)
             .replace("[KONTEXT_VIEWDURATION]", viewDurationMillis?.toString() ?: "")
             .replace("[KONTEXT_REASON]", notUsed?.reason ?: "")
-            .replace("[KONTEXT_WINNINGPRICE]", encode(notUsed?.winningPrice?.let(::number) ?: ""))
+            .replace("[KONTEXT_WINNINGPRICE]", encode(notUsed?.winningPrice?.takeIf { it.isFinite() && it >= 0 }?.let(::number) ?: ""))
             .replace("[KONTEXT_WINNER]", encode(notUsed?.winner ?: ""))
             .replace("[", "%5B")
             .replace("]", "%5D")

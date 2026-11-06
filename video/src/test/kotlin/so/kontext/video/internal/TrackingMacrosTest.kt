@@ -41,6 +41,23 @@ class TrackingMacrosTest {
         assertEquals(1, reads)
     }
 
+    @Test fun aWinningPriceThatIsNotAPriceIsLeftEmpty() {
+        fun price(value: Double) =
+            TrackingMacros.substitute("https://t.test/?p=[KONTEXT_WINNINGPRICE]", { 0L }, 0, null, "f", null, so.kontext.video.internal.measurement.Tracker.NotUsed.Outbid(value, null))
+        for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, -1.0)) assertEquals("https://t.test/?p=", price(value), "$value")
+        assertEquals("https://t.test/?p=2.5", price(2.5))
+        assertEquals("https://t.test/?p=0.0", price(0.0))
+    }
+
+    @Test fun anOutbidReasonIsEqualToItselfAndHashesWithItsEquals() {
+        val outbid = { price: Double? -> so.kontext.video.VideoAd.RejectReason.Outbid(price, "net") }
+        assertEquals(outbid(Double.NaN), outbid(Double.NaN))
+        assertEquals(outbid(0.0), outbid(-0.0))
+        assertEquals(outbid(0.0).hashCode(), outbid(-0.0).hashCode())
+        assertEquals(setOf(outbid(Double.NaN)), setOf(outbid(Double.NaN)))
+        assertTrue(outbid(1.0) != outbid(2.0) && outbid(null) == outbid(null))
+    }
+
     @Test fun aWinningPriceIsWrittenAsTheSwiftSdkWritesIt() {
         // What Swift's String(Double) printed for each value.
         val swift = mapOf(

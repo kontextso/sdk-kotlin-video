@@ -856,9 +856,14 @@ public class VideoAd internal constructor(
             public val winningPrice: Double? = null,
             public val winner: String? = null,
         ) : RejectReason() {
-            override fun equals(other: Any?): Boolean = other is Outbid && winningPrice == other.winningPrice && winner == other.winner
+            // Equal prices as the app means them: 0.0 and -0.0 are one price and hash alike, and NaN equals NaN, so
+            // an Outbid is equal to itself and works as a key.
+            override fun equals(other: Any?): Boolean =
+                other is Outbid && samePrice(winningPrice, other.winningPrice) && winner == other.winner
 
-            override fun hashCode(): Int = listOf(winningPrice, winner).hashCode()
+            override fun hashCode(): Int = listOf(winningPrice?.let { if (it == 0.0) 0.0 else it }, winner).hashCode()
+
+            private fun samePrice(a: Double?, b: Double?): Boolean = a == b || (a != null && b != null && a.isNaN() && b.isNaN())
 
             override fun toString(): String = "Outbid(winningPrice=$winningPrice, winner=$winner)"
         }
