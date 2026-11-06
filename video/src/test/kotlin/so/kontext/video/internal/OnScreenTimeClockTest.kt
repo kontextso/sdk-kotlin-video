@@ -150,4 +150,25 @@ class OnScreenTimeClockTest {
         now = 900
         assertEquals(200, clock.stop())
     }
+
+    @Test fun theClockCountsOnlyWhileTheWindowShowsAndTellsWhenItComesBack() {
+        var now = 0L
+        Environment.now = { now }
+        var elapsed = false
+        var activations = 0
+        val clock = OnScreenTimeClock(durationMillis = 3_000, adId = "ad-1") { elapsed = true }
+        clock.onActivate = { activations++ }
+        clock.start(isVisible = true)
+        now = 1_000
+        clock.windowVisibilityChanged(false)
+        assertFalse(clock.isCounting)
+        now = 50_000 // hidden time counts nothing
+        clock.windowVisibilityChanged(true)
+        assertEquals(1, activations)
+        now = 51_500
+        assertEquals(2_500, clock.elapsedMillis)
+        assertEquals(2_500, clock.stop())
+        clock.windowVisibilityChanged(true) // stopped: nothing
+        assertFalse(elapsed)
+    }
 }
