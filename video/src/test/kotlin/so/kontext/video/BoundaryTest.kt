@@ -551,15 +551,19 @@ class BoundaryTest {
         }
 
         /**
-         * Waits until the worker reads the answer. The server has the request once the body is sent, a moment
-         * before the read starts; a disconnect in that moment lets the JDK open a new connection and wait on it.
+         * Waits until the worker reads the answer: HttpTransport says so just before the read, and a moment
+         * later it is blocked in it. The server has the request once the body is sent, a moment before the read
+         * starts; a disconnect in that moment lets the connection open again and wait. No JDK internals: the
+         * signal is the SDK's own.
          */
-        fun awaitReading() {
-            val deadline = System.currentTimeMillis() + 5_000
-            while (worker?.stackTrace?.any { it.methodName == "parseHTTP" } != true) {
-                if (System.currentTimeMillis() > deadline) fail("the worker never read the answer")
-                Thread.sleep(1)
-            }
+        fun awaitReading(reading: CountDownLatch) {
+            if (!reading.await(5, TimeUnit.SECONDS)) fail("the worker never read the answer")
+            Thread.sleep(SETTLE_MILLIS)
+        }
+
+        private companion object {
+            /** From the signal to the blocked read: the next line of the worker's, generous for a slow runner. */
+            const val SETTLE_MILLIS = 200L
         }
     }
 
@@ -577,15 +581,18 @@ class BoundaryTest {
         server.start()
         val executor = WatchedExecutor()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val reading = CountDownLatch(1)
+        so.kontext.video.internal.network.HttpTransport.onReading = { reading.countDown() }
         try {
             val job = scope.async { ApiClient(server.url("/").toString(), 10_000, executor).post("config", buildJsonObject {}) }
             assertTrue(arrived.await(5, TimeUnit.SECONDS))
-            executor.awaitReading()
+            executor.awaitReading(reading)
             job.cancel()
             job.join() // the caller is gone while the server still holds the request
             assertTrue("the disconnect ended the blocked read", executor.finished.await(5, TimeUnit.SECONDS))
             assertEquals("the server has not answered yet", 1L, release.count)
         } finally {
+            so.kontext.video.internal.network.HttpTransport.onReading = null
             release.countDown()
             scope.cancel()
             server.shutdown()

@@ -1,5 +1,6 @@
 package so.kontext.video.internal.network
 
+import androidx.annotation.VisibleForTesting
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -41,6 +42,11 @@ internal object HttpTransport {
      */
     class Redirects(val allowsDowngrade: Boolean)
 
+    /** Called on the worker just before it reads an answer; tests wait for it. */
+    @VisibleForTesting
+    @Volatile
+    var onReading: (() -> Unit)? = null
+
     /** The final answer: its status, and its body when one was asked for (`null` otherwise). */
     class Answer(val status: Int, val body: String?)
 
@@ -70,6 +76,7 @@ internal object HttpTransport {
                 // A disconnect between the send and the read would not stop the read: the JDK reconnects and
                 // waits on the new connection until the timeout. A caller gone by now ends the exchange here.
                 if (!isActive()) throw IOException("cancelled")
+                onReading?.invoke()
                 val status = connection.responseCode
                 val next = nextHop(connection, status, url, redirects)
                 if (next == null) {
