@@ -161,6 +161,33 @@ class VideoAdEpisodeTest : SdkTest() {
         assertTrue(ad.wasShown)
     }
 
+    @Test fun aTrackInsideTheItemReadOfShowKeepsTheShowOnTheNewBinding() {
+        // The old player reports no item at track; the read `show` makes is app code that tracks a new player and
+        // returns the old one's item. The new player plays its own episode: the ad is showable.
+        val second = Player(item = "ep-b", reportsItem = true)
+        val owner = owner()
+        var phase = 0 // 0: no item yet; 1: the next read tracks the new player; 2: the old player plays ep-a
+        val first = object : ContentPlayer {
+            override val currentPositionMillis: Long = 0
+            override val isPlaying: Boolean = true
+            override val currentItem: Any?
+                get() {
+                    if (phase == 0) return null
+                    if (phase == 1) {
+                        phase = 2
+                        owner.track(second)
+                    }
+                    return "ep-a"
+                }
+        }
+        owner.track(first)
+        val ad = pause(owner)
+        phase = 1
+        ad.show(container())
+        assertTrue(ad.wasShown)
+        assertNull(ad.invalidationReason)
+    }
+
     @Test fun aPlayerTrackedByAnotherVideoAdsMakesTheFirstOnesOverlayAndPauseAdThrow() {
         val player = Player()
         val episodeA = owner(Content("ep-a", "en"))

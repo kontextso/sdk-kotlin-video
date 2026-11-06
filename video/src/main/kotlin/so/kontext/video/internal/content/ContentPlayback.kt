@@ -67,10 +67,17 @@ internal class ContentPlayback {
         get() {
             if (hasLostPlayer) return true
             val player = player ?: return false
-            adoptEpisodeItem()
-            if (!hasEpisodeItem) return false
+            // App code, read once: a `track` inside the read made a new binding, whose own item is its episode.
+            // This read must not overwrite it, and the player just tracked plays that episode.
+            val generation = generation
+            val read = runCatching { player.currentItem }.getOrNull()
+            if (generation != this.generation) return hasLostPlayer
             // `null` is "cannot tell" (between items, re-preparing the same one), not another episode.
-            val item = runCatching { player.currentItem }.getOrNull() ?: return false
+            val item = read ?: return false
+            if (!hasEpisodeItem) {
+                episodeItem = item
+                hasEpisodeItem = true
+            }
             return item != episodeItem
         }
     private var listener: ContentPlayer.Listener? = null
