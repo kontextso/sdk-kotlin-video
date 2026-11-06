@@ -3,6 +3,5 @@
   "responseFile": "envelope-enabled-twice.raw.json",
   "expect": {
     "result": "malformed"
-  },
-  "knownDifference": "Swift: JSONSerialization keeps the first of two equal keys (here enabled: false, the kill switch); Kotlin refuses the answer, the decided rule. Drop this once Swift refuses duplicate keys."
+  }
 }
