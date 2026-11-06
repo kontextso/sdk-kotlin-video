@@ -2,6 +2,7 @@ package so.kontext.video.internal
 
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import androidx.webkit.WebMessageCompat
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -384,5 +385,24 @@ class FrameMessagesTest {
         shown.show()
         shown.receive("""{"adId":"ad-2","type":"ad.error"}""", page, true)
         assertEquals(405, code)
+    }
+
+    @Test fun aBinaryMessageIsDroppedInEveryStateAndCountsAsOneBrokenEnvelope() {
+        val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = false)
+        val events = mutableListOf<FrameEvent>()
+        bridge.onEvent = { events += it }
+        val page = Origin.of("https://frames.test")
+        val binary = WebMessageCompat(byteArrayOf(1, 2, 3))
+        bridge.receive(binary, Origin.of("https://elsewhere.test"), true)
+        bridge.receive(binary, page, false)
+        assertTrue("from another sender or frame: dropped, not reported", ErrorReporter.bufferedCodes.isEmpty())
+        bridge.receive(binary, page, true) // loading
+        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+        bridge.show()
+        bridge.receive(binary, page, true) // shown
+        bridge.receive(WebMessageCompat("""{"adId":"ad-1","type":"ad.close"}"""), page, true)
+        bridge.receive(binary, page, true) // ended
+        assertEquals("one report for a broken page", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
+        assertEquals("text still goes through", listOf("Loaded", "Close"), events.map { it::class.simpleName })
     }
 }

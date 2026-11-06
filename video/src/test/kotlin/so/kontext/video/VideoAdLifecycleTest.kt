@@ -1,6 +1,10 @@
 package so.kontext.video
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.ContextWrapper
 import android.content.Intent
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -18,20 +22,26 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowSystemClock
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.SdkInitializer
+import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.EventHistory
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameBridge
+import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearAdActivity
+import so.kontext.video.internal.screen.LinearScreen
 import so.kontext.video.internal.screen.ScreenSlot
+import java.time.Duration
 
 /** One ad from show to its end: the page's events, the beacons they fire, and what the listener hears. */
+@Suppress("LargeClass") // one ad's whole life in one suite, by region
 @RunWith(RobolectricTestRunner::class)
 class VideoAdLifecycleTest : SdkTest() {
     private val app get() = ApplicationProvider.getApplicationContext<android.app.Application>()
@@ -223,6 +233,15 @@ class VideoAdLifecycleTest : SdkTest() {
         assertTrue("the click-through carries a fire id", intent.dataString!!.startsWith("https://brand.test/?fid=") && "KONTEXT" !in intent.dataString!!)
     }
 
+    @Test fun aPageThatEndsItselfCompletedMarksTheAdCompleted() {
+        val ad = overlay()
+        val recorder = Recorder().also { ad.listener = it }
+        ad.show(container())
+        page(ad, "ad.close", """"reason": "complete"""")
+        assertEquals(listOf(VideoAd.EndReason.COMPLETED), recorder.reasons)
+        assertTrue(ad.isCompleted)
+    }
+
     // region Click-throughs: which target the page's click opens (how it opens: LinkOpenerTest)
 
     private fun click(ad: VideoAd, url: String, fallback: String? = null) {
@@ -257,6 +276,36 @@ class VideoAdLifecycleTest : SdkTest() {
         click(ad, "https://brand.test/a b")
         assertNull(opened())
         assertEquals(4, events.size)
+    }
+
+    @Test fun aClickOpensItsFallbackWhenNothingHandlesTheTarget() {
+        val started = mutableListOf<String>()
+        val app = Environment.context!!
+        // The SDK keeps the application context: the wrapper stands in as one.
+        Environment.context = object : ContextWrapper(app) {
+            override fun getApplicationContext() = this
+
+            override fun startActivity(intent: Intent) {
+                when (intent.data?.scheme) {
+                    "brandapp" -> throw ActivityNotFoundException()
+                    "locked" -> throw SecurityException()
+                    else -> started += intent.dataString!!
+                }
+            }
+        }
+        val ad = overlay()
+        val recorder = Recorder()
+        ad.listener = recorder
+        ad.show(container())
+        ad.handle(FrameEvent.Click("brandapp://product/1", "https://brand.test/product/1", VideoAd.Click.Area.Creative))
+        assertEquals(1, started.size)
+        assertTrue(started.single().startsWith("https://brand.test/product/1"))
+        ad.handle(FrameEvent.Click("brandapp://product/2", "locked://x", VideoAd.Click.Area.from("cta")))
+        ad.handle(FrameEvent.Click("locked://y", null, VideoAd.Click.Area.Creative))
+        assertEquals("nothing could open those: nothing opened", 1, started.size)
+        assertEquals("the viewer still clicked, each time", 3, recorder.clicks.size)
+        assertEquals(VideoAd.Click.Area.Other("cta"), recorder.clicks[1].area)
+        Environment.context = app
     }
 
     // endregion
@@ -388,6 +437,155 @@ class VideoAdLifecycleTest : SdkTest() {
         assertThrows<VideoAdException.Disabled> { ad.show(container()) }
     }
 
+    /** [container] laid out at 320×400 in a visible window, as `container()` does for a FrameLayout. */
+    private fun <T : android.view.ViewGroup> inWindow(container: T): T {
+        val activity = (container.context as Activity)
+        activity.setContentView(container)
+        container.measure(android.view.View.MeasureSpec.makeMeasureSpec(320, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(400, android.view.View.MeasureSpec.EXACTLY))
+        container.layout(0, 0, 320, 400)
+        idle()
+        container.layout(0, 0, 320, 400)
+        org.robolectric.util.ReflectionHelpers.setField(org.robolectric.util.ReflectionHelpers.getField<Any>(container, "mAttachInfo"), "mWindowVisibility", android.view.View.VISIBLE)
+        return container
+    }
+
+    @Test fun aContainerWhoseAddViewThrowsLeavesTheAdReadyAndTheSlotFree() {
+        val makers = listOf<Pair<String, (Activity) -> android.view.ViewGroup>>(
+            "a ScrollView with its child" to { a -> android.widget.ScrollView(a).apply { addView(android.view.View(a)) } },
+            "a ListView" to { a -> android.widget.ListView(a) },
+            // Added, then the container's own hook throws: the host is in it already.
+            "a hook that throws" to { a ->
+                object : android.widget.FrameLayout(a) {
+                    override fun onViewAdded(child: android.view.View) {
+                        super.onViewAdded(child)
+                        error("not here")
+                    }
+                }
+            },
+        )
+        for ((what, make) in makers) {
+            val owner = owner()
+            val recorder = Recorder()
+            val ad = overlay(owner, tracking = tracking("impression", "creativeView", "overlayViewDuration"))
+            owner.ads[AdFormat.OVERLAY] = ad
+            ad.listener = recorder
+            val refusing = inWindow(make(activity()))
+            val children = refusing.childCount
+            try {
+                ad.show(refusing)
+                org.junit.Assert.fail("$what: shown")
+            } catch (error: VideoAdException) {
+                assertTrue("$what: $error", error is VideoAdException.CannotShowNow)
+            }
+            assertTrue("$what: the ad stays ready", ad.isReady && !ad.wasShown)
+            assertNull("$what: the slot is free", ScreenSlot.current)
+            assertEquals("$what: the owner holds it again", ad, owner.ads[AdFormat.OVERLAY])
+            assertEquals("$what: nothing left in the container", children, refusing.childCount)
+            assertTrue("$what: nothing fired, nothing heard", events.isEmpty() && recorder.heard.isEmpty())
+            // The same ad shows in a good container, and ends once.
+            val good = container()
+            ad.show(good)
+            assertTrue(ad.wasShown)
+            ad.dismiss()
+            assertEquals(what, listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+            beacons.clear()
+        }
+    }
+
+    @Test fun aContainerThatRefusesAFullScreenPauseAdsHostLeavesItReadyAndTheSlotFree() {
+        val owner = owner()
+        val recorder = Recorder()
+        val ad = pause(owner, position = "fullscreen")
+        owner.ads[AdFormat.PAUSE] = ad
+        ad.listener = recorder
+        val activity = activity()
+        val refusing = object : FrameLayout(activity) {
+            override fun addView(child: View, index: Int, params: ViewGroup.LayoutParams) {
+                error("not here")
+            }
+        }
+        activity.setContentView(refusing)
+        refusing.layout(0, 0, 320, 400)
+        idle()
+        refusing.layout(0, 0, 320, 400)
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(refusing, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        try {
+            ad.show(refusing)
+            org.junit.Assert.fail("shown")
+        } catch (error: VideoAdException) {
+            assertTrue("$error", error is VideoAdException.CannotShowNow)
+        }
+        assertNull("the slot is free", ScreenSlot.current)
+        assertTrue("the ad stays ready", ad.isReady && !ad.wasShown)
+        assertEquals("the owner holds it again", ad, owner.ads[AdFormat.PAUSE])
+        assertEquals(0, refusing.childCount)
+        assertTrue("nothing heard", recorder.heard.isEmpty())
+        ad.show(container())
+        assertTrue(ad.wasShown)
+    }
+
+    /** An Activity whose launches fail, as with the SDK's Activity stripped from the merged manifest. */
+    class RefusingActivity : Activity() {
+        var failure: RuntimeException = ActivityNotFoundException()
+
+        override fun startActivity(intent: Intent?) = throw failure
+    }
+
+    @Test fun aLaunchThatThrowsFailsTheAdOnceAndFreesTheSlot() {
+        val failures = listOf(
+            ActivityNotFoundException("stripped"),
+            SecurityException("not allowed"),
+            IllegalStateException("the app's own startActivity refuses"),
+            android.util.AndroidRuntimeException("startActivity from outside an Activity context"),
+        )
+        for (failure in failures) {
+            val recorder = Recorder()
+            val ad = linear(tracking = tracking("impression"))
+            ad.listener = recorder
+            val host = Robolectric.buildActivity(RefusingActivity::class.java).setup().get()
+            host.failure = failure
+            ad.show(host) // accepted: the outcome follows, after show returns
+            assertTrue("nothing before show returns", recorder.heard.isEmpty())
+            idle()
+            assertEquals(failure.javaClass.simpleName, listOf("failed", "ended"), recorder.heard)
+            assertEquals(listOf(VideoAd.EndReason.FAILED), recorder.reasons)
+            assertTrue(recorder.errors.single() is VideoAdException.CannotShowNow)
+            assertTrue("no impression", "impression" !in events)
+            assertNull("the slot is free", ScreenSlot.current)
+            idle(LinearScreen.showTimeoutMillis + 1_000)
+            assertEquals("exactly one outcome", 1, recorder.reasons.size)
+            ErrorReporter.resetForTesting()
+        }
+        // Another ad shows.
+        overlay().show(container())
+    }
+
+    @Test fun anAdThatEndsBeforeShowLetsItsListenerGo() {
+        val rejected = overlay().apply { listener = Recorder() }
+        rejected.reject()
+        assertNull("rejected", rejected.listener)
+
+        val start = Environment.now()
+        var now = start
+        Environment.now = { now }
+        val expired = overlay().apply { listener = Recorder() }
+        now = start + 700_000
+        assertTrue(runCatching { expired.show(container()) }.exceptionOrNull() is VideoAdException.Invalidated)
+        assertNull("expired", expired.listener)
+        Environment.now = { start }
+
+        val failed = overlay().apply { listener = Recorder() }
+        page(failed, "ad.error", """"code": 405""")
+        assertTrue(failed.invalidationReason is VideoAd.InvalidationReason.CreativeFailed)
+        assertNull("its creative failed", failed.listener)
+
+        val owner = owner()
+        val dropped = overlay(owner).apply { listener = Recorder() }
+        owner.ads[AdFormat.OVERLAY] = dropped
+        owner.destroy()
+        assertNull("its VideoAds was destroyed", dropped.listener)
+    }
+
     // endregion
 
     // region Loading
@@ -498,6 +696,73 @@ class VideoAdLifecycleTest : SdkTest() {
         owner.destroy()
         idle()
         assertTrue(result!!.exceptionOrNull() is VideoAdException.Destroyed)
+    }
+
+    @Test fun anAdIsReadyOnlyLoadedUnshownAndValid() {
+        var now = 0L
+        Environment.now = { now }
+        val owner = owner()
+        val unloaded = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), 0, owner)
+        assertFalse("not loaded", unloaded.isReady)
+        val shown = overlay(owner)
+        assertTrue(shown.isReady)
+        shown.show(container())
+        assertFalse("shown", shown.isReady)
+        val rejected = overlay(owner)
+        rejected.reject()
+        assertFalse("rejected", rejected.isReady)
+        val expiring = overlay(owner)
+        now = 600_001
+        assertFalse("expired", expiring.isReady)
+    }
+
+    @Test fun anAdIsNotReadyWhileTheSdkIsSwitchedOff() {
+        val ad = overlay()
+        assertTrue(ad.isReady)
+        SdkInitializer.disable("paused")
+        assertFalse("show would throw Disabled", ad.isReady)
+    }
+
+    @Test fun loadOnAShownAdReturnsEvenOnceItsBidExpired() {
+        var now = Environment.now()
+        Environment.now = { now }
+        val ad = overlay()
+        ad.show(container())
+        now += 365L * 24 * 3_600_000
+        var result: Result<Unit>? = null
+        Environment.scope.launch { result = runCatching { ad.load() } }
+        idle()
+        assertTrue("nothing to load: ${result?.exceptionOrNull()}", result!!.isSuccess)
+    }
+
+    @Test fun aCreativeThatFailedAfterItLoadedMakesLoadThrowCreativeFailed() {
+        val ad = overlay()
+        page(ad, "ad.error", """"code": 405""")
+        assertEquals(VideoAd.InvalidationReason.CreativeFailed(405), ad.invalidationReason)
+        var result: Result<Unit>? = null
+        Environment.scope.launch { result = runCatching { ad.load() } }
+        idle()
+        assertEquals(405, (result!!.exceptionOrNull() as VideoAdException.CreativeFailed).code)
+    }
+
+    @Test fun theLoadTimeoutCountsTheTimeThatPassedNotTheTicks() {
+        FrameBridge.loadTimeoutMillis = 1_000
+        Environment.isAppInForeground = { true }
+        try {
+            val ad = VideoAd(AdPayload.parse(Fixtures.json(Fixtures.overlay())), Environment.now(), owner())
+            var result: Result<Unit>? = null
+            Environment.scope.launch { result = runCatching { ad.load() } }
+            idle()
+            // A busy main thread: the first tick comes 1.2 s late. Counted per tick, that was 250 ms.
+            val before = SystemClock.uptimeMillis()
+            ShadowSystemClock.advanceBy(Duration.ofMillis(1_200))
+            assertTrue(SystemClock.uptimeMillis() - before >= 1_200)
+            idle()
+            assertEquals(500, (result?.exceptionOrNull() as? VideoAdException.CreativeFailed)?.code)
+            assertNull(ad.loadedBridge)
+        } finally {
+            FrameBridge.loadTimeoutMillis = 10_000
+        }
     }
 
     // endregion

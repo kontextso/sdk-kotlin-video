@@ -184,4 +184,38 @@ class ModelsTest {
         assertEquals(setOf(outbid(Double.NaN)), setOf(outbid(Double.NaN)))
         assertTrue(outbid(1.0) != outbid(2.0) && outbid(null) == outbid(null))
     }
+
+    @Test fun theValueTypesDifferByEachField() {
+        val price = VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT)
+        assertNotEquals(price, VideoAd.Price(2.0, "USD", VideoAd.Price.Precision.EXACT))
+        assertNotEquals(price, VideoAd.Price(1.5, "EUR", VideoAd.Price.Precision.EXACT))
+        assertNotEquals(price, "1.5 USD")
+        assertEquals(price.hashCode(), VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT).hashCode())
+        val outbid = VideoAd.RejectReason.Outbid(2.0, "net")
+        assertNotEquals(outbid, VideoAd.RejectReason.Outbid(3.0, "net"))
+        assertNotEquals(outbid, VideoAd.RejectReason.Outbid(2.0, "other"))
+        assertNotEquals(outbid, VideoAd.RejectReason.NotUsed)
+        assertNotEquals(VideoAd.InvalidationReason.CreativeFailed(400), VideoAd.InvalidationReason.CreativeFailed(405))
+        assertNotEquals(VideoAd.InvalidationReason.CreativeFailed(400), VideoAd.InvalidationReason.Expired)
+        assertEquals(VideoAd.Click.Area.Creative, VideoAd.Click.Area.from(null))
+        assertEquals(VideoAd.Click.Area.Creative, VideoAd.Click.Area.from("creative"))
+        assertEquals(VideoAd.Click.Area.EndCard, VideoAd.Click.Area.from("endCard"))
+        assertEquals(VideoAd.Click.Area.Other("logo"), VideoAd.Click.Area.from("logo"))
+        assertNotEquals(VideoAd.Click.Area.Other("logo"), VideoAd.Click.Area.Other("cta"))
+        assertNotEquals(VideoAd.Click.Area.Other("creative"), VideoAd.Click.Area.Creative)
+        assertEquals("logo".hashCode(), VideoAd.Click.Area.Other("logo").hashCode())
+        assertEquals(VideoAd.Click(VideoAd.Click.Area.EndCard), VideoAd.Click(VideoAd.Click.Area.EndCard))
+        assertNotEquals(VideoAd.Click(VideoAd.Click.Area.EndCard), VideoAd.Click(VideoAd.Click.Area.Creative))
+        assertNotEquals(VideoAd.Click(VideoAd.Click.Area.EndCard), VideoAd.Click.Area.EndCard)
+        assertEquals("Click(Other(cta))", VideoAd.Click(VideoAd.Click.Area.Other("cta")).toString())
+    }
+
+    @Test fun equalPricesHashAlikeZeroAndMinusZeroToo() {
+        fun price(value: Double) = VideoAd.Price(value, "USD", VideoAd.Price.Precision.EXACT)
+        assertEquals(price(0.0), price(-0.0))
+        assertEquals(price(0.0).hashCode(), price(-0.0).hashCode())
+        assertEquals(price(2.5).hashCode(), price(2.5).hashCode())
+        assertEquals(1, setOf(price(0.0), price(-0.0)).size)
+        assertNotEquals(price(2.5), price(2.6))
+    }
 }

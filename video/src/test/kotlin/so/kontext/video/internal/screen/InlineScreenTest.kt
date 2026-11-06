@@ -9,10 +9,32 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
+import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.payloads.AdPayload
+import so.kontext.video.internal.platform.Environment
 
 /** An inline ad's screen: the variant it takes for its container, and how its host follows the container's size. */
 @RunWith(RobolectricTestRunner::class)
 class InlineScreenTest : SdkTest() {
+    @Test fun theBiggestVariantThatFitsUnscaledWinsElseTheOneShrunkLeast() {
+        val density = Environment.context!!.resources.displayMetrics.density
+
+        // The container is the screen's width, 320 dp: a wider one would reach under the screen's edge.
+        fun chosen(widthDp: Int, vararg sizes: String): AdPayload.Size? {
+            val ad = loaded(AdPayload.parse(Fixtures.json(Fixtures.overlay(sizes = sizes.joinToString(prefix = "[", postfix = "]")))), owner())
+            ad.show(container((widthDp * density).toInt(), (300 * density).toInt()))
+            return (ad.screen!! as InlineScreen).chosenSize.also { ad.dismiss() }
+        }
+        assertEquals(AdPayload.Size(300, 60), chosen(320, """{"width": 160, "height": 40}""", """{"width": 300, "height": 60}"""))
+        assertEquals("one that fits beats a bigger one shrunk", AdPayload.Size(300, 60), chosen(320, """{"width": 400, "height": 100}""", """{"width": 300, "height": 60}"""))
+        assertEquals("both shrink: the least shrunk", AdPayload.Size(400, 100), chosen(200, """{"width": 480, "height": 60}""", """{"width": 400, "height": 100}"""))
+        assertEquals(
+            "one may not shrink: the other, shrunk",
+            AdPayload.Size(640, 160),
+            chosen(320, """{"width": 480, "height": 80, "scalable": false}""", """{"width": 640, "height": 160}"""),
+        )
+    }
+
     @Test fun theHostRefitsTheAdWhenTheContainerResizesAndEndsItWhenTooSmall() {
         val recorder = Recorder()
         val ad = overlay()

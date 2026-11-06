@@ -137,4 +137,30 @@ class PayloadsTest {
             assertEquals(key, (error.cause as AdPayload.MalformedField).path, sizes)
         }
     }
+
+    @Test fun thePayloadsLastRefusals() {
+        val refused = listOf(
+            Fixtures.overlay().replace("\"creative\": \"image\"", "\"creative\": \"audio\""),
+            Fixtures.overlay().replace("\"precision\": \"exact\"", "\"precision\": \"guess\""),
+            Fixtures.overlay().replace("\"position\": \"bottom\"", "\"position\": \"left\""),
+            Fixtures.pause().replace("\"position\": \"top\"", "\"position\": \"middle\""),
+            Fixtures.overlay().replace("\"kind\": \"frame\"", "\"kind\": \"vast\""),
+            Fixtures.linear().replace("\"duration\": 30000, ", ""),
+            Fixtures.linear().replace("\"skipOffset\": 5000", "\"skipOffset\": -1"),
+            Fixtures.overlay().replace("\"format\": \"overlay\"", "\"format\": \"banner\""),
+            Fixtures.overlay().replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 1}"),
+        )
+        for (text in refused) {
+            try {
+                AdPayload.parse(Fixtures.json(text))
+                org.junit.Assert.fail("accepted: $text")
+            } catch (_: ApiException.Decoding) {
+            }
+        }
+        try {
+            AdPayload.parse(Fixtures.json(Fixtures.overlay().replace("{\"kind\": \"manual\"}", "{\"kind\": \"window\", \"from\": 1, \"to\": 2}")))
+            org.junit.Assert.fail("a window trigger is not supported yet: the ad is dropped")
+        } catch (_: ApiException.Decoding) {
+        }
+    }
 }
