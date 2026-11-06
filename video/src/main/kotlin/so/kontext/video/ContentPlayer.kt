@@ -21,7 +21,8 @@ public interface ContentPlayer {
 
     /**
      * The playback speed (1 is normal), when the player knows it: an overlay's duration counts milliseconds
-     * of video, and the speed tells fast playback from a seek. `null` (the default) allows up to about 4×.
+     * of video, and the speed tells fast playback from a seek. `null` (the default) allows up to about 4×; a value
+     * that is not finite reads as `null`.
      */
     @get:MainThread
     public val playbackSpeed: Float? get() = null

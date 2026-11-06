@@ -30,7 +30,8 @@ internal class ContentTimeClock(val durationMillis: Long, playheadMillis: Long) 
             val real = now - lastMovedAt
             last = playheadMillis
             lastMovedAt = now
-            val allowed = speed?.let { maxOf(abs(it) * RATE_MARGIN, 1.0) } ?: MAX_RATE
+            // A speed that is not finite is unknown: NaN would refuse every step, infinity accept every seek.
+            val allowed = speed?.takeIf { it.isFinite() }?.let { maxOf(abs(it) * RATE_MARGIN, 1.0) } ?: MAX_RATE
             if (isCounting && step > 0 && step <= abs(real) * allowed + SLACK_MILLIS) elapsedMillis += step
         }
         return elapsedMillis >= durationMillis

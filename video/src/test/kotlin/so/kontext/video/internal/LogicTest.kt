@@ -52,6 +52,20 @@ class LogicTest {
         assertEquals(4_000, progress.elapsedMillis)
     }
 
+    @Test fun aNonFiniteSpeedReadsAsUnknown() {
+        Environment.now = { now }
+        for (speed in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            val playing = ContentTimeClock(durationMillis = 10_000, playheadMillis = 0)
+            now += 1_000
+            playing.advance(1_000, isCounting = true, speed = speed)
+            assertEquals(1_000, playing.elapsedMillis, "ordinary playback counts at speed $speed")
+            val seeking = ContentTimeClock(durationMillis = 100_000, playheadMillis = 0)
+            now += 250
+            seeking.advance(60_000, isCounting = true, speed = speed)
+            assertEquals(0, seeking.elapsedMillis, "a minute in a quarter second is a seek at speed $speed")
+        }
+    }
+
     @Test fun theConfigurationSaysWhatIsWrong() {
         assertTrue(Configuration("token").problems.isEmpty())
         assertEquals(listOf("publisherToken is empty"), Configuration("").problems)

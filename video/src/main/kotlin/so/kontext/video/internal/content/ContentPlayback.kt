@@ -90,7 +90,7 @@ internal class ContentPlayback {
     val isPlaying: Boolean get() = if (!isTracking) true else player?.let { runCatching { it.isPlaying }.getOrDefault(false) } ?: false
 
     /** The playback speed, when the player knows it. */
-    val playbackSpeed: Float? get() = player?.let { runCatching { it.playbackSpeed }.getOrNull() }
+    val playbackSpeed: Float? get() = player?.let { runCatching { it.playbackSpeed }.getOrNull() }?.takeIf { it.isFinite() }
 
     /** Content time in milliseconds, read now, or 0. Clamped to ten years. */
     val playheadMillis: Long
