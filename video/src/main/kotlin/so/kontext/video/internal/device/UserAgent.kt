@@ -26,9 +26,10 @@ internal object UserAgent {
 
     /**
      * The blocking read: KontextKit calls `WebSettings.getDefaultUserAgent`, which loads and starts the WebView
-     * (hundreds of ms, over a second on a cold low-end device). Its documentation sets no thread rule, so it runs
-     * on a worker: the caller's main thread stays free, and the request's wait ([requestUserAgent]) can give up on
-     * time. Tests replace it.
+     * (hundreds of ms, over a second on a cold low-end device). Its documentation sets no thread rule, so the
+     * blocking call runs on a worker, not in the caller's frame, and its cost is paid once. The WebView's own
+     * startup may still run on the main thread once, as for any WebView (some versions post it there and wait),
+     * and the request's wait ([requestUserAgent]) cannot give up during that. Tests replace it.
      */
     @set:VisibleForTesting
     var read: (Context) -> String? = { NetworkInfoProvider.collect(it).userAgent }

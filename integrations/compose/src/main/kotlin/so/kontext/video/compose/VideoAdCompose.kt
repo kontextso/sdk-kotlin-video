@@ -72,8 +72,9 @@ internal class EpisodeAds(val ads: VideoAds, private val setUp: (VideoAds) -> Un
  *
  * The host owns the ad's listener: hear the ad through [onImpression], [onClicked] and [onEnded] (set your
  * state's ad back to `null` there). [onShowFailed] means it could not be shown, for the reasons `show` throws
- * (`AnotherAdShowing`, `ContentPaused`, …): nothing was shown, and [onEnded] does not follow. [insets] keep an
- * overlay or pause ad clear of your own controls.
+ * (`AnotherAdShowing`, `ContentPaused`, …): nothing was shown, and [onEnded] does not follow. A failed show is
+ * not retried for the same ad; pass `null`, then the ad again, to retry. [insets] keep an overlay or pause ad
+ * clear of your own controls.
  */
 @Composable
 public fun VideoAdHost(

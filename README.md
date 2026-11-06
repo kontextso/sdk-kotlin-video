@@ -55,7 +55,8 @@ viewModel.pauseAd?.dismiss(); player.play() // dismiss and reject never throw
 `show` (and `format` and `load`) throw `VideoAdException`; Kotlin does not make you catch it, so wrap every `show`
 in a `try`. Nothing is shown and no listener call follows when it throws. `reject` and `dismiss` never throw on the
 main thread. Every call is main-thread (`load`, `format` and `awaitInitialization` may be called from any
-dispatcher); in a debuggable build a call from another thread stops the app, in release it does nothing.
+dispatcher); in a debuggable build a call from another thread stops the app, in release it does nothing (`show`
+throws `CannotShowNow`).
 
 Destroy the `VideoAds` with whatever owns it. Owned by a `ViewModel`, as above: `destroy()` in `onCleared()`, and in
 every new Activity `track` its player and set the ads' listeners again, so the ads survive a rotation. Owned by the
