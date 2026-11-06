@@ -301,30 +301,79 @@ class PartsTest : SdkTest() {
         }
     }
 
-    @Test fun aHealthyTrackerIsNotHeldBehindOneThatNeverAnswers() {
-        // One tracker black-holes its beacons (it reads the request, never answers); another tracker's beacon of
-        // the same moment still goes out at once, and its deadline counts from when it is sent, not queued.
-        val hung = MockWebServer().apply { start() }
-        val healthy = MockWebServer().apply { start() }
-        BeaconClient.timeoutMillis = 3_000
-        try {
-            repeat(8) { hung.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)) }
-            healthy.enqueue(MockResponse().setResponseCode(204))
-            repeat(8) { BeaconClient.send(hung.url("/beacon?e=$it").toString(), "ad: impression") }
-            idle(10)
-            val started = System.currentTimeMillis()
-            BeaconClient.send(healthy.url("/beacon?e=impression").toString(), "other: impression")
-            var request: okhttp3.mockwebserver.RecordedRequest? = null
-            while (request == null && System.currentTimeMillis() - started < 2_500) {
-                idle(10)
-                request = healthy.takeRequest(10, TimeUnit.MILLISECONDS)
+    /** A tracker whose answers wait for [release]; [arrived] counts the requests that reached it. */
+    private class HeldTracker(private val status: Int = 204) {
+        val release = java.util.concurrent.CountDownLatch(1)
+        val arrived = java.util.concurrent.atomic.AtomicInteger()
+        val server = MockWebServer().apply {
+            dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+                override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse {
+                    arrived.incrementAndGet()
+                    release.await(30, TimeUnit.SECONDS)
+                    return MockResponse().setResponseCode(status)
+                }
             }
-            assertEquals("GET /beacon?e=impression HTTP/1.1", request?.requestLine)
-            assertTrue("sent at once, not after the hung ones' deadline", System.currentTimeMillis() - started < 1_500)
+            start()
+        }
+
+        fun shutdown() {
+            release.countDown()
+            server.shutdown()
+        }
+    }
+
+    /**
+     * Runs the main thread's work (no virtual time passes, so no beacon reaches its deadline) until [done], as the
+     * beacon workers on their own threads go on. [guardMillis] of real time only ends a test that would hang.
+     */
+    private fun pumpUntil(guardMillis: Long = 10_000, done: () -> Boolean): Boolean {
+        val end = System.nanoTime() + guardMillis * 1_000_000
+        while (!done()) {
+            if (System.nanoTime() > end) return false
+            idle()
+            Thread.sleep(5)
+        }
+        return true
+    }
+
+    @Test fun aHealthyTrackerIsNotHeldBehindOneThatNeverAnswers() {
+        // More beacons to one tracker that holds them all than there are beacon workers: it gets only its own
+        // share of them, and another tracker's beacon of the same moment still goes out before any is answered.
+        val hung = HeldTracker()
+        val healthy = HeldTracker().also { it.release.countDown() }
+        try {
+            repeat(20) { BeaconClient.send(hung.server.url("/beacon?e=$it").toString(), "ad: impression") }
+            assertTrue("the hung tracker took its turns", pumpUntil { hung.arrived.get() == 4 })
+            BeaconClient.send(healthy.server.url("/beacon?e=impression").toString(), "other: impression")
+            assertTrue("the other tracker's beacon went out while the hung ones wait", pumpUntil { healthy.arrived.get() == 1 })
+            assertEquals("at most four to one host at once", 4, hung.arrived.get())
         } finally {
-            BeaconClient.timeoutMillis = 10_000
             hung.shutdown()
             healthy.shutdown()
+        }
+    }
+
+    @Test fun aBeaconWaitingItsTurnGetsItsWholeDeadlineOnceSent() {
+        // Four beacons hold the host's turns until their deadline; a fifth waits that long, then gets the whole
+        // deadline from when it is sent. Time here is the main looper's: only idle(ms) moves it.
+        val logs = java.util.concurrent.CopyOnWriteArrayList<String>()
+        Logger.sink = { _, message -> logs += message }
+        val tracker = HeldTracker(status = 404)
+        BeaconClient.timeoutMillis = 1_000
+        try {
+            repeat(4) { BeaconClient.send(tracker.server.url("/beacon?e=$it").toString(), "held: impression") }
+            BeaconClient.send(tracker.server.url("/beacon?e=queued").toString(), "queued: impression")
+            assertTrue(pumpUntil { tracker.arrived.get() == 4 })
+            idle(1_100) // the four reach their deadline; the fifth is sent
+            assertTrue("the queued beacon is sent", pumpUntil { tracker.arrived.get() == 5 })
+            assertEquals(4, logs.count { it.startsWith("held: impression beacon gave up") })
+            idle(800) // 1.9 s after it was queued, 0.8 s or more after it was sent
+            assertTrue("within its deadline: $logs", logs.none { it.startsWith("queued:") })
+            tracker.release.countDown()
+            assertTrue("its answer is read: $logs", pumpUntil { logs.any { it == "queued: impression beacon answered 404" } })
+        } finally {
+            BeaconClient.timeoutMillis = 10_000
+            tracker.shutdown()
         }
     }
 
