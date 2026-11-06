@@ -1,0 +1,7 @@
+{
+  "description": "disabledReason holds a raw line break (raw file): control characters must be escaped in JSON, the answer is refused",
+  "responseFile": "disabled-reason-raw-newline.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}
