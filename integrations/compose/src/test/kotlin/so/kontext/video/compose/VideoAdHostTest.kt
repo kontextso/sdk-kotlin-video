@@ -87,6 +87,20 @@ class VideoAdHostTest {
         assertNotNull(ScreenSlot.current)
     }
 
+    @Test fun anAdGivenInTheFirstCompositionIsShown() {
+        // Given before the host is laid out: its first layout pass, the only one of a stable layout, shows it.
+        val ad = pause()
+        setContent {
+            Box(Modifier.fillMaxSize()) {
+                VideoAdHost(ad, Modifier.fillMaxSize(), onShowFailed = { _, error -> failures += error })
+            }
+        }
+        settle()
+        assertTrue(ad.wasShown)
+        assertTrue(failures.isEmpty())
+        assertNotNull(ScreenSlot.current)
+    }
+
     @Test fun theHostLeavingTheCompositionDismissesTheAd() {
         var ad by mutableStateOf<VideoAd?>(null)
         var isHosted by mutableStateOf(true)

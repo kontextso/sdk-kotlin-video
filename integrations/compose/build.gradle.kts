@@ -50,10 +50,10 @@ android {
     }
 }
 
-// The unit tests drive real ads without a server, as :video's own tests do: a loaded ad made from a payload,
-// its page's messages sent by hand. That needs :video's internals, so the test compilation is its friend.
+// The unit and emulator tests drive real ads without a server, as :video's own tests do: a loaded ad made from a
+// payload, its page's messages sent by hand. That needs :video's internals, so the test compilations are its friends.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    if (name.contains("UnitTest")) {
+    if (name.contains("UnitTest") || name.contains("AndroidTest")) {
         val videoBuild = project(":video").layout.buildDirectory.get().asFile
         friendPaths.from(libraries.filter { it.startsWith(videoBuild) })
     }
@@ -161,4 +161,10 @@ dependencies {
     // VideoAdHost in a real composition: the test rule, and the Activity it hosts the composition in.
     testImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Emulator tests: VideoAdHost on a device's real layout passes (`./gradlew :video-compose:connectedDebugAndroidTest`).
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.kotlinx.serialization.json)
 }

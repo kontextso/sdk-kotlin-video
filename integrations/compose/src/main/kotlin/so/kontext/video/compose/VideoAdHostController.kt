@@ -24,7 +24,7 @@ import so.kontext.video.VideoAdListener
  * ```
  *   set(ad) ──▶ adopted (listener = forwarder) ──▶ container attached, laid out, width and height > 0
  *                     │                                   │ (each layout pass until then; a 0×0 pass waits)
- *                     │                                   ▼  posted, out of the layout pass
+ *                     │                                   ▼  checked again once the pass ends (posted)
  *                     │                             shown elsewhere meanwhile? give it up : show(ad)
  *                     ▼                                   │ threw: onShowFailed, given up
  *   set(other or null): the ad shown here is dismissed    ▼
@@ -100,10 +100,14 @@ internal class VideoAdHostController(private val container: ViewGroup) {
             show(ad)
             return
         }
+        // Android marks the container laid out only after its layout listeners ran, and a stable layout makes no
+        // second pass: the check waits for the pass to end. A pass at 0×0 keeps waiting.
         val waiter = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            if (this.ad === ad && canShow(ad)) {
-                stopWaiting()
-                container.post { if (this.ad === ad) show(ad) }
+            container.post {
+                if (this.ad === ad && sizeWaiter != null && canShow(ad)) {
+                    stopWaiting()
+                    show(ad)
+                }
             }
         }
         sizeWaiter = waiter

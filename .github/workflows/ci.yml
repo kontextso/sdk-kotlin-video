@@ -152,8 +152,8 @@ jobs:
           key: ${{ runner.os }}-android-sdk-${{ matrix.api-level }}-google_apis-x86_64-v1
 
       # What needs a real WebView (the frame page's navigations, a frozen renderer, viewability on real views)
-      # and a real ExoPlayer (the Media3 adapter over a playing clip). The two modules' tests one after the other
-      # (--no-parallel): at once, two instrumentations share one emulator. Each line of the script is its own
+      # and a real ExoPlayer (the Media3 adapter over a playing clip), and VideoAdHost on real layout passes. The
+      # modules' tests one after the other (--no-parallel): at once, two instrumentations share one emulator. Each line of the script is its own
       # shell command, so the logcat on a failure is one line; it goes into the uploaded reports.
       - name: Run the emulator tests
         id: emulator
@@ -169,7 +169,7 @@ jobs:
           # The WebView's version first: on API 26 it decides which tests skip.
           script: |
             adb shell dumpsys webviewupdate | grep -iE "current webview package|version" || true
-            ./gradlew --no-parallel :video:connectedDebugAndroidTest :video-media3:connectedDebugAndroidTest || (mkdir -p video/build/reports/androidTests && adb logcat -d > video/build/reports/androidTests/logcat.txt; exit 1)
+            ./gradlew --no-parallel :video:connectedDebugAndroidTest :video-media3:connectedDebugAndroidTest :video-compose:connectedDebugAndroidTest || (mkdir -p video/build/reports/androidTests && adb logcat -d > video/build/reports/androidTests/logcat.txt; exit 1)
 
       # One retry of the whole step, on a fresh emulator: what fails twice is a failure. A retry that passes
       # leaves a warning on the run, and the first attempt's logcat stays in the reports.
@@ -186,14 +186,16 @@ jobs:
           script: |
             echo "::warning::Emulator tests (API ${{ matrix.api-level }}) failed once and were run again"
             adb shell dumpsys webviewupdate | grep -iE "current webview package|version" || true
-            ./gradlew --no-parallel :video:connectedDebugAndroidTest :video-media3:connectedDebugAndroidTest || (mkdir -p video/build/reports/androidTests && adb logcat -d > video/build/reports/androidTests/logcat-retry.txt; exit 1)
+            ./gradlew --no-parallel :video:connectedDebugAndroidTest :video-media3:connectedDebugAndroidTest :video-compose:connectedDebugAndroidTest || (mkdir -p video/build/reports/androidTests && adb logcat -d > video/build/reports/androidTests/logcat-retry.txt; exit 1)
 
       - name: Upload emulator test reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: emulator-test-reports-api-${{ matrix.api-level }}
-          path: video/build/reports/androidTests/
+          path: |
+            video/build/reports/androidTests/
+            integrations/compose/build/reports/androidTests/
           retention-days: 7
 
   release-check:
