@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -46,7 +47,7 @@ internal class FrameWebView(context: Context) : WebView(context) {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
             javaScriptCanOpenWindowsAutomatically = false
-            setSupportMultipleWindows(true) // target=_blank comes to onCreateWindow, where it is refused
+            setSupportMultipleWindows(true) // target=_blank comes to onCreateWindow, where a catcher takes its URL
             allowFileAccess = false
             allowContentAccess = false
             cacheMode = WebSettings.LOAD_NO_CACHE
@@ -108,6 +109,10 @@ internal class FrameWebView(context: Context) : WebView(context) {
                     view.stopLoading()
                     if (url != null && url != "about:blank") caught(url)
                 }
+
+                // A popup of the ad page shares its renderer: `false` here would end the app when that renderer
+                // dies while the catcher waits. Its URL never comes now; it goes without catching anything.
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail?): Boolean = true.also { finish() }
             }
             Handler(Looper.getMainLooper()).postDelayed({ finish() }, LIFETIME_MILLIS)
         }

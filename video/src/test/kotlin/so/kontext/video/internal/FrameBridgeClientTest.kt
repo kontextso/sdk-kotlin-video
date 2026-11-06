@@ -85,6 +85,19 @@ class FrameBridgeClientTest {
         assertEquals(1, events.count { it is FrameEvent.Click })
     }
 
+    @Test fun aCatcherSurvivesARendererCrashAndCatchesNothingAfter() {
+        loaded()
+        bridge.show()
+        val webView = bridge.webView
+        val transport = webView.WebViewTransport()
+        val message = android.os.Message.obtain(android.os.Handler(android.os.Looper.getMainLooper())).also { it.obj = transport }
+        webView.webChromeClient!!.onCreateWindow(webView, false, true, message)
+        val catcher = transport.webView!!
+        assertTrue("the catcher shares the page's renderer: false would stop the app", catcher.webViewClient.onRenderProcessGone(catcher, mockk(relaxed = true)))
+        catcher.webViewClient.shouldOverrideUrlLoading(catcher, request("https://brand.test/landing"))
+        assertTrue("a dead catcher hands nothing on", events.none { it is FrameEvent.Click })
+    }
+
     @Test fun aDeadRendererIsNeverUsedAgainAndTheLeftClientSurvivesAnother() {
         bridge.load()
         val webView = bridge.webView
