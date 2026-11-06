@@ -31,8 +31,10 @@ internal class ApiClient(
      * that trickles bytes would hold the request as long as it likes. A cancelled caller closes the connection,
      * which ends the blocked read: moving blocking I/O to another thread does not make it cancellable. A body
      * over [MAX_BODY_BYTES] is a transport error, read no further; the JSON is parsed on the I/O thread.
+     * [expectsAnswer] `false`: a route that answers nothing the SDK reads (`error`, `debug`), where any 2xx is
+     * delivered, whatever its body (`OK`, a proxy's HTML), and `null` comes back.
      */
-    suspend fun post(path: String, body: JsonObject): JsonElement? {
+    suspend fun post(path: String, body: JsonObject, expectsAnswer: Boolean = true): JsonElement? {
         coroutineContext.ensureActive() // a caller cancelled before this point sends nothing
         val bytes = body.toString().toByteArray()
         val url = try {
@@ -41,7 +43,7 @@ internal class ApiClient(
             throw ApiException.Transport(error)
         }
         return try {
-            withTimeout(timeoutMillis.toLong()) { exchange(url, bytes) }
+            withTimeout(timeoutMillis.toLong()) { exchange(url, bytes, expectsAnswer) }
         } catch (_: TimeoutCancellationException) {
             throw ApiException.Transport(SocketTimeoutException("no complete answer within $timeoutMillis ms"))
         }
@@ -52,7 +54,7 @@ internal class ApiClient(
      * Whatever the exchange throws comes back to the caller as an [ApiException]: an exception left on the
      * worker would kill the app, and the caller would wait for the timeout.
      */
-    private suspend fun exchange(url: URL, bytes: ByteArray): JsonElement? =
+    private suspend fun exchange(url: URL, bytes: ByteArray, expectsAnswer: Boolean): JsonElement? =
         suspendCancellableCoroutine { continuation ->
             val current = AtomicReference<HttpURLConnection?>()
             continuation.invokeOnCancellation { current.get()?.disconnect() }
@@ -64,7 +66,7 @@ internal class ApiClient(
                     val answer = HttpTransport.exchange(url, bytes, REDIRECT_POLICY, timeoutMillis, MAX_BODY_BYTES.toLong(), current) {
                         continuation.isActive
                     }
-                    Result.success(answer(answer.status, answer.body.orEmpty()))
+                    Result.success(answer(answer.status, answer.body.orEmpty(), expectsAnswer))
                 } catch (error: ApiException) {
                     Result.failure(error)
                 } catch (error: IOException) {
@@ -80,9 +82,9 @@ internal class ApiClient(
         }
 
     /** Parses the body where it was read, off the main thread: a large answer must not stall the app's UI. */
-    private fun answer(status: Int, text: String): JsonElement? {
+    private fun answer(status: Int, text: String, expectsAnswer: Boolean): JsonElement? {
         if (status !in 200..299) throw ApiException.Http(status, ErrorResponse.parse(text))
-        if (text.isBlank()) return null
+        if (text.isBlank() || !expectsAnswer) return null
         return parseAnswer(text)
     }
 

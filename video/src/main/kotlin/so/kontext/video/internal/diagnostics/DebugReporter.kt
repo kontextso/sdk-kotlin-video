@@ -103,7 +103,7 @@ internal object DebugReporter {
                 put("sdk", SdkInfo.json())
                 put("events", JsonArray(events))
             }
-            ApiClient(configuration.adServerUrl).post("debug", body)
+            ApiClient(configuration.adServerUrl).post("debug", body, expectsAnswer = false)
         } catch (error: kotlinx.coroutines.CancellationException) {
             throw error
         } catch (error: Exception) {

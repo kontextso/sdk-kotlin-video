@@ -57,7 +57,10 @@ internal object ErrorReporter {
 
     /** The batch being delivered: its finished body, sent unchanged until the server answers it. */
     private var pendingBatch: ReportQueue.Batch? = null
-    private var failures = 0
+
+    /** Failed deliveries in a row, which the retry's backoff grows with; any answer of the server resets it. Tests read it. */
+    var failures = 0
+        private set
     private var flushJob: Job? = null
 
     /** Reports waiting, for tests. */
@@ -179,7 +182,7 @@ internal object ErrorReporter {
             return true
         }
         return try {
-            ApiClient(configuration.adServerUrl).post("error", batch.body)
+            ApiClient(configuration.adServerUrl).post("error", batch.body, expectsAnswer = false)
             pendingBatch = null
             failures = 0
             true
@@ -188,12 +191,15 @@ internal object ErrorReporter {
         } catch (error: ApiException.Http) {
             if (error.status == 410) {
                 Logger.debug { "error reports turned off by the server" }
+                // Any answer of the server ends a streak of failures.
+                failures = 0
                 wasStoppedByServer = true
                 dropAll()
                 true
             } else if (error.status in 400..499 && error.status != 429) {
                 Logger.debug { "error batch of ${batch.count} refused with ${error.status}, dropped" }
                 pendingBatch = null
+                failures = 0
                 true
             } else {
                 failures += 1

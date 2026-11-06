@@ -43,6 +43,9 @@ class ReportersTest {
 
     @Volatile private var errorAnswers: MutableList<Int> = mutableListOf()
 
+    /** The body `/v2/error` answers with, none by default. */
+    @Volatile private var errorBody: String? = null
+
     @Before fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -51,7 +54,7 @@ class ReportersTest {
                 if (path == "/v2/error") errorBodies += bytes
                 received += path to Json.parseToJsonElement(bytes.decodeToString()).jsonObject
                 val status = if (path == "/v2/error") synchronized(this) { errorAnswers.removeFirstOrNull() } ?: 204 else 204
-                return MockResponse().setResponseCode(status)
+                return MockResponse().setResponseCode(status).also { response -> errorBody?.takeIf { path == "/v2/error" }?.let(response::setBody) }
             }
         }
         server.start()
@@ -193,6 +196,27 @@ class ReportersTest {
         report(ErrorReport.Code.LOAD_TIMEOUT)
         await { errorBatches().size == 2 }
         assertEquals("ad.load_timeout", errorBatches()[1]["errors"]!!.jsonArray.single().jsonObject["code"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun any2xxDeliversABatchWhateverItsBody() {
+        SdkInitializer.recordErrorReporting(true)
+        for ((index, body) in listOf("OK", "<html>proxy</html>", "{").withIndex()) {
+            errorBody = body
+            report(detail = body)
+            await { errorBatches().size == index + 1 }
+            settle()
+            assertEquals("delivered once, not retried: $body", index + 1, errorBatches().size)
+            assertEquals(0, ErrorReporter.bufferedCount)
+        }
+    }
+
+    @Test fun aRefusalOrGoneEndsTheFailureStreak() {
+        errorAnswers = mutableListOf(500, 500, 400)
+        SdkInitializer.recordErrorReporting(true)
+        report()
+        await { errorBatches().size == 3 }
+        settle()
+        assertEquals("the 400 was an answer: the next failure waits the base delay", 0, ErrorReporter.failures)
     }
 
     @Test fun beyondTheBufferTheOldestGoAndTheNextBatchSaysHowMany() {
