@@ -105,6 +105,11 @@ class PartsTest : SdkTest() {
         assertFalse(elapsed)
     }
 
+    @Test fun aFramePageOnAHostWithAnUnderscoreHasItsOrigin() {
+        assertEquals(Origin("http", "ads_server", 3002), Origin.of("http://ads_server:3002/v2/frame/ad-1"))
+        assertEquals("http://ads_server:3002", Origin.of("http://ads_server:3002/v2/frame/ad-1")?.rule)
+    }
+
     @Test fun theBridgeIgnoresWhatDoesNotFitItsOrderAndReportsABrokenEnvelopeOnce() {
         val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = true)
         val sent = mutableListOf<String>()

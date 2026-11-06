@@ -6,6 +6,7 @@ import so.kontext.video.AdFormat
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.measurement.TrackingMacros
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.UrlAuthority
 import java.net.URI
 import java.net.URISyntaxException
 
@@ -72,8 +73,8 @@ internal class AdPayload(
                 return "the frame URL is not a URL"
             }
             if (uri.scheme?.lowercase() !in frameSchemes) return "the frame URL must be http or https"
-            if (uri.host.isNullOrEmpty()) return "the frame URL must have a host"
-            if (uri.port != -1 && uri.port !in 1..MAX_PORT) return "the frame URL's port must be from 1 to $MAX_PORT"
+            val authority = UrlAuthority.of(uri) ?: return "the frame URL must have a host"
+            if (authority.port != -1 && authority.port !in 1..MAX_PORT) return "the frame URL's port must be from 1 to $MAX_PORT"
             return null
         }
 

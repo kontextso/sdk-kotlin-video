@@ -314,6 +314,16 @@ class ParityPayloadsTest {
         for (bad in refused) assertThrows<ApiException.Decoding>(bad) { parse(Fixtures.overlay(frameUrl = bad)) }
     }
 
+    /** A host with `_` (a compose service or LAN name, `java.net.URI` gives it no host) is a host, under the same port rule. */
+    @Test fun aFrameUrlHostMayHaveAnUnderscore() {
+        for (ok in listOf("http://ads_server:3002/v2/frame/ad-1", "https://frames_test/a", "http://ads_server/a?x=1")) {
+            assertEquals(ok, parse(Fixtures.overlay(frameUrl = ok)).frameUrl)
+        }
+        for (bad in listOf("http://ads_server:0/a", "http://ads_server:65536/a", "http://ads_server:x/a", "http://ads server/a")) {
+            assertThrows<ApiException.Decoding>(bad) { parse(Fixtures.overlay(frameUrl = bad)) }
+        }
+    }
+
     @Test fun aPriceIsAFiniteCpmNotNegativeInAnIsoCurrency() {
         fun overlay(value: String, currency: String = "USD") =
             Fixtures.overlay().replace(""""value": 8.0, "currency": "USD"""", """"value": $value, "currency": "$currency"""")
