@@ -457,7 +457,8 @@ class ParityContentTest : SdkTest() {
         }
         overlay.show(container)
         player.playing = false
-        assertThrows<VideoAdException.AlreadyShown> { pause.show(container) }
+        // Shown by the app's code this show ran: the show counts as this call's, which returns normally.
+        pause.show(container)
         assertTrue(pause.hasEnded)
         assertEquals(listOf(VideoAd.EndReason.DISMISSED), pauseRecorder.reasons)
         assertNull("an ended ad never takes the slot again", ScreenSlot.current)

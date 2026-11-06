@@ -318,13 +318,16 @@ public class VideoAd internal constructor(
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
      * `WrongShowMethod` (a linear ad). The container must lay the ad over the content, as a `FrameLayout` does: in
      * a `LinearLayout` the ad goes after the player, gets no room and ends `INTERRUPTED` with no impression.
+     *
+     * A show of this same ad made by your own code that this call ran (the ad it ended: its `onAdEnded` showing
+     * this one) counts as this call's: it returns normally.
      */
     @MainThread
     @Throws(VideoAdException::class)
     @JvmOverloads
     public fun show(container: ViewGroup, insets: Insets = Insets.NONE) {
         IntegrationGuard.requireMainThread("VideoAd.show(container)")
-        withContentPlayhead { showInline(container, insets) }
+        acceptingAShowFromInside { withContentPlayhead { showInline(container, insets) } }
     }
 
     private fun showInline(container: ViewGroup, insets: Insets) {
@@ -340,9 +343,8 @@ public class VideoAd internal constructor(
         // 2. Reserved before any of the app's code runs: adding the host calls the container's own hooks. A show
         //    from there finds the slot taken; a destroy there ends this ad. The container may refuse the host (a
         //    ScrollView with its child, a ListView) or its hook may throw: then nothing happened, see below.
-        val bridge = shownBridge()
         val wasHeld = owner.get()?.ads?.get(format) === this
-        reserve(screen)
+        val bridge = reserve { screen }
         // 3. The host goes into the container.
         try {
             if (!screen.addHost(container, bridge)) return
@@ -364,13 +366,29 @@ public class VideoAd internal constructor(
      * nothing happened, or it was accepted and `onAdEnded` follows, at the latest once that Activity is gone.
      * Throws as `show(container)` does; `CannotShowNow` for an Activity that is finishing, destroyed, stopped (not
      * visible) or in picture-in-picture (the ad stays ready; try again once it is visible). A started Activity
-     * that is not resumed yet is fine: `onStart`, a result or permission callback, `onNewIntent`.
+     * that is not resumed yet is fine: `onStart`, a result or permission callback, `onNewIntent`. A show of this
+     * same ad made by your own code that this call ran counts as this call's: it returns normally.
      */
     @MainThread
     @Throws(VideoAdException::class)
     public fun show(activity: Activity) {
         IntegrationGuard.requireMainThread("VideoAd.show(activity)")
-        withContentPlayhead { showLinear(activity) }
+        acceptingAShowFromInside { withContentPlayhead { showLinear(activity) } }
+    }
+
+    /**
+     * Runs a show; `AlreadyShown` for an ad that was not shown when the call began means app code this call ran
+     * showed it (the usual pause flow: the ended overlay's `onAdEnded` shows the pause ad): the show the app asked
+     * for happened, so the call returns normally instead of throwing. As Swift's `acceptingAShowFromInside`.
+     */
+    private inline fun acceptingAShowFromInside(show: () -> Unit) {
+        val wasShownBefore = wasShown
+        try {
+            show()
+        } catch (error: VideoAdException.AlreadyShown) {
+            if (wasShownBefore || !wasShown) throw error
+            Logger.debug { "ad ${id.take(8)}: shown by app code this show ran; accepted as this show" }
+        }
     }
 
     private fun showLinear(activity: Activity) {
@@ -383,10 +401,9 @@ public class VideoAd internal constructor(
         // 1. The Activity must be able to start the ad's own, before anything changes: the ad stays ready otherwise.
         LinearScreen.checkCanStartFrom(activity, id)
         // 2. Reserved, then the ad's Activity starts, watched until it comes.
-        val bridge = shownBridge()
-        val screen = LinearScreen(this, bridge)
-        reserve(screen)
+        reserve { LinearScreen(this, it) }
         if (hasEnded) return
+        val screen = this.screen as? LinearScreen ?: return
         screen.start(activity)
     }
 
@@ -450,10 +467,26 @@ public class VideoAd internal constructor(
     /** Runs [work] with the content playhead read once before it (see [Tracker.withContentPlayhead]). */
     internal fun <T> withContentPlayhead(alsoFor: List<String> = emptyList(), work: () -> T): T = tracker.withContentPlayhead(alsoFor, work)
 
-    private fun reserve(screen: AdScreen) {
-        state.moveTo(Phase.Reserved)
+    /**
+     * `show` committed: the ad takes the app's one slot. The episode check read the app's player and preparing the
+     * screen read the container's overridable getters (`isShown`, `getAlpha`, its Activity's `isFinishing`), all of
+     * which can be the app's code: it may have rejected, destroyed or shown an ad. So the plain checks run once
+     * more over what it left (no app code this time), the phase must move, and the screen is set before the slot is
+     * taken, or `show` throws with nothing changed. As Swift's `reserve`.
+     */
+    private fun reserve(makeScreen: (FrameBridge) -> AdScreen): FrameBridge {
+        val usableError = try {
+            checkUsable()
+            null
+        } catch (error: VideoAdException) {
+            error
+        }
+        ShowCheck.refusal(wasShown, usableError, ScreenSlot.current != null, isLoaded, isContentPaused = false)?.let { throw it }
+        val shown = shownBridge()
+        if (!state.moveTo(Phase.Reserved)) throw VideoAdException.AlreadyShown()
+        this.screen = makeScreen(shown)
         ScreenSlot.take(this, owner.get())
-        this.screen = screen
+        return shown
     }
 
     /** The container refused the host: the reservation is undone, the host and the page released, the ad held again. */

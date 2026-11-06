@@ -1,12 +1,18 @@
 package so.kontext.video
 
+import android.app.Activity
+import android.view.View
+import android.widget.FrameLayout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.measurement.OnScreenTimeClock
@@ -201,5 +207,114 @@ class ReentryTest : SdkTest() {
         endless.start(isVisible = true)
         idle(100_000)
         assertTrue(endless.isCounting)
+    }
+
+    @Test fun aShowWhoseAppCodeShowsTheSameAdReturnsAccepted() {
+        val player = Player()
+        val owner = owner()
+        owner.track(player)
+        val overlay = overlay(owner)
+        val pauseAd = pause(owner)
+        val target = container()
+        overlay.listener = object : VideoAdListener {
+            // The usual pause flow: the overlay ended, its listener shows the pause ad.
+            override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) = pauseAd.show(target)
+        }
+        overlay.show(container())
+        player.playing = false // no listener call: the next show ends the overlay
+        val recorder = Recorder()
+        pauseAd.listener = recorder
+        pauseAd.show(target) // the overlay's onAdEnded showed it: accepted, not AlreadyShown
+        assertTrue(pauseAd.wasShown)
+        assertTrue(ScreenSlot.current === pauseAd)
+        pauseAd.dismiss()
+        assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+    }
+
+    @Test fun aShowOfAnAdAlreadyShownStillThrows() {
+        val ad = overlay()
+        ad.show(container())
+        assertThrows(VideoAdException.AlreadyShown::class.java) { ad.show(container()) }
+    }
+
+    @Test fun aContainerGetterThatRejectsTheAdMakesShowThrowRejected() {
+        val ad = overlay()
+        val target = hookedContainer { ad.reject() }
+        val error = assertThrows(VideoAdException.Invalidated::class.java) { ad.show(target) }
+        assertEquals(VideoAd.InvalidationReason.Rejected, error.reason)
+        assertNull(ScreenSlot.current)
+        assertFalse(ad.wasShown)
+    }
+
+    @Test fun aContainerGetterThatShowsAnotherAdMakesShowThrowAnotherAdShowing() {
+        val owner = owner()
+        val ad = overlay(owner)
+        val other = pause(owner)
+        val elsewhere = container()
+        val target = hookedContainer { other.show(elsewhere) }
+        assertThrows(VideoAdException.AnotherAdShowing::class.java) { ad.show(target) }
+        assertTrue("the other ad keeps the slot", ScreenSlot.current === other)
+        assertFalse(ad.wasShown)
+        assertTrue(ad.isReady)
+        other.dismiss()
+        assertNull(ScreenSlot.current)
+    }
+
+    @Test fun aContainerGetterThatDestroysTheOwnerMakesShowThrowDestroyed() {
+        val owner = owner()
+        val ad = overlay(owner)
+        val target = hookedContainer { owner.destroy() }
+        assertThrows(VideoAdException.Destroyed::class.java) { ad.show(target) }
+        assertNull(ScreenSlot.current)
+    }
+
+    @Test fun anActivityGetterThatDestroysTheOwnerMakesALinearShowThrowDestroyed() {
+        val owner = owner()
+        val ad = linear(owner)
+        HookedActivity.hook = { owner.destroy() }
+        val activity = Robolectric.buildActivity(HookedActivity::class.java).setup().get()
+        try {
+            assertThrows(VideoAdException.Destroyed::class.java) { ad.show(activity) }
+        } finally {
+            HookedActivity.hook = null
+        }
+        assertNull(ScreenSlot.current)
+    }
+
+    /** A container whose `getAlpha`, which show's checks read, runs [hook] once: the app's code inside show. */
+    private fun hookedContainer(hook: () -> Unit): FrameLayout {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        var pending: (() -> Unit)? = null
+        val view = object : FrameLayout(activity) {
+            override fun getAlpha(): Float {
+                pending?.let {
+                    pending = null
+                    it()
+                }
+                return super.getAlpha()
+            }
+        }
+        activity.setContentView(view)
+        view.layout(0, 0, 320, 400)
+        idle()
+        view.layout(0, 0, 320, 400)
+        ReflectionHelpers.setField(ReflectionHelpers.getField<Any>(view, "mAttachInfo"), "mWindowVisibility", View.VISIBLE)
+        pending = hook
+        return view
+    }
+
+    /** An Activity whose `isFinishing`, which a linear show's checks read, runs [hook] once. */
+    class HookedActivity : Activity() {
+        override fun isFinishing(): Boolean {
+            hook?.let {
+                hook = null
+                it()
+            }
+            return super.isFinishing()
+        }
+
+        companion object {
+            var hook: (() -> Unit)? = null
+        }
     }
 }
