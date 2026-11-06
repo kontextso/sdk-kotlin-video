@@ -166,12 +166,12 @@ class ParityRenderingTest : SdkTest() {
         val decide = { target: String -> bridge.navigationDecision(target, true, null) }
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, decide("https://frames.test:443/v2/frame/ad-1/next"))
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, decide("https://frames.test/other"))
-        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, decide("https://frames.test:8443/v2/frame/ad-1"))
-        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, decide("http://frames.test/v2/frame/ad-1"))
-        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, decide("https://evil.test/v2/frame/ad-1"))
+        assertEquals(FrameNavigation.NavigationDecision.FAIL_LOAD, decide("https://frames.test:8443/v2/frame/ad-1"))
+        assertEquals(FrameNavigation.NavigationDecision.FAIL_LOAD, decide("http://frames.test/v2/frame/ad-1"))
+        assertEquals(FrameNavigation.NavigationDecision.FAIL_LOAD, decide("https://evil.test/v2/frame/ad-1"))
         val local = bridge(at = "http://localhost:5175/frame/ad-1")
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, local.navigationDecision("http://localhost:5175/x", true, null))
-        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, local.navigationDecision("http://localhost/x", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.FAIL_LOAD, local.navigationDecision("http://localhost/x", true, null))
     }
 
     @Test fun aTouchTooLongAgoAuthorizesNothing() {

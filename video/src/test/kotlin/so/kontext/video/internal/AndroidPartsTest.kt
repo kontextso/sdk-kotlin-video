@@ -151,7 +151,7 @@ class AndroidPartsTest {
     @Test fun onceReadyThePageMayNotReplaceItself() {
         val bridge = bridge()
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
-        assertEquals(FrameNavigation.NavigationDecision.EXTERNAL, bridge.navigationDecision("https://brand.test", true, null))
+        assertEquals(FrameNavigation.NavigationDecision.FAIL_LOAD, bridge.navigationDecision("https://brand.test", true, null))
         bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://frames.test"), true)
         val current = "https://frames.test/v2/frame/ad-1"
         assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
