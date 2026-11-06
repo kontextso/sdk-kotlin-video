@@ -42,4 +42,40 @@ class JsonParserTest {
         assertEquals("TRUE NaN 01 {\"a\":1,\"a\":2} [", tree["s"]!!.jsonPrimitive.content)
         assertEquals(9, (tree["a"] as kotlinx.serialization.json.JsonArray).size)
     }
+
+    @Test fun aKeyTwiceIsFoundThroughItsEscapes() {
+        val twice = listOf(
+            """{"a": 1, "\u0061": 2}""", """{"\t": 1, "\u0009": 2}""", """{"\n": 1, "\u000a": 2}""", """{"\r": 1, "\u000D": 2}""",
+            """{"\b": 1, "\u0008": 2}""", """{"\f": 1, "\u000c": 2}""", """{"/": 1, "\/": 2}""", """{"\"": 1, "\u0022": 2}""",
+            """{"\\": 1, "\u005c": 2}""", """{"é": 1, "\u00e9": 2}""", """{"ab": 1, "a\u0062": 2}""",
+        )
+        for (text in twice) assertThrows<IllegalArgumentException>(text) { JsonParser.parse(text) }
+        val distinct = JsonParser.parse("""{"\t": 1, "\n": 2, "\b": 3, "\f": 4, "\r": 5, "\/": 6, "\\": 7, "\"": 8, "\u0061b": 9, "a": 10}""").jsonObject
+        assertEquals(10, distinct.size)
+    }
+
+    @Test fun aBrokenEscapeInAKeyIsRefused() {
+        for (text in listOf("""{"\u00zz": 1}""", """{"\u12": 1}""", """{"\u": 1}""", """{"\x": 1}""")) {
+            assertThrows<IllegalArgumentException>(text) { JsonParser.parse(text) }
+        }
+    }
+
+    @Test fun theDepthLimitIsFiveHundredTwelveArraysOrObjects() {
+        val limit = JsonParser.MAX_DEPTH
+        JsonParser.parse("[".repeat(limit) + "]".repeat(limit))
+        assertThrows<IllegalArgumentException> { JsonParser.parse("[".repeat(limit + 1) + "]".repeat(limit + 1)) }
+        val objects = { depth: Int -> "{\"a\":".repeat(depth - 1) + "{}" + "}".repeat(depth - 1) }
+        JsonParser.parse(objects(limit))
+        assertThrows<IllegalArgumentException> { JsonParser.parse(objects(limit + 1)) }
+        // Siblings are not depth: a thousand arrays side by side nest one deep.
+        JsonParser.parse("[" + List(1_000) { "[]" }.joinToString(",") + "]")
+        JsonParser.parse("""["${"[".repeat(limit + 1)}"]""")
+    }
+
+    @Test fun textThatIsNoJsonValueIsRefused() {
+        for (text in listOf("", " ", "\n", "1,2", "{} {}", "{\"a\":1", "[1,]", "{\"a\" 1}", "\"open")) {
+            assertThrows<IllegalArgumentException>("'$text'") { JsonParser.parse(text) }
+        }
+        assertEquals("1", JsonParser.parse(" 1 ").toString(), "a bare number is JSON")
+    }
 }

@@ -54,4 +54,29 @@ class AdStoreTest {
         val steps = AdStore.plan(answer(), emptyMap(), emptySet())
         assertEquals(AdFormat.entries.toList(), steps.map { it.format })
     }
+
+    @Test fun aResultWithNeitherAdNorReasonIsAnUnknownNoFill() {
+        val bare = answer(AdsResponse.FormatResult(pause, emptyList(), null))
+        assertEquals(listOf("NoFill(${NoFillReason.Unknown})"), steps(null, bare))
+        assertEquals(listOf("Drop", "NoFill(${NoFillReason.Unknown})"), steps("x", bare))
+    }
+
+    @Test fun aSpentIdIsIgnoredOnlyWhenItIsNotTheOneHeld() {
+        assertEquals(listOf("Keep"), steps("x", answer(ad("x")), setOf("x")), "the held ad answered again: kept")
+        assertEquals(listOf("IgnoreUsed(y)"), steps(null, answer(ad("y")), setOf("y")))
+    }
+
+    @Test fun onlyTheFirstAdOfAResultCounts() {
+        val two = answer(AdsResponse.FormatResult(pause, listOf(payload("y"), payload("z")), null))
+        assertEquals(listOf("Drop", "Replace(y)"), steps("x", two))
+        assertEquals(listOf("Keep"), steps("y", two))
+        assertEquals(listOf("Drop", "Replace(y)"), steps("z", two), "the held ad second in the list is replaced by the first")
+    }
+
+    @Test fun theKillSwitchAnswersNoFormat() {
+        val disabled = AdsResponse.Disabled("killed")
+        assertEquals(null, disabled.result(pause))
+        assertEquals(listOf("Keep"), steps("x", disabled), "as an answer that leaves the format out")
+        assertEquals(listOf("NoFill(${NoFillReason.Unknown}, unanswered)"), steps(null, disabled))
+    }
 }
