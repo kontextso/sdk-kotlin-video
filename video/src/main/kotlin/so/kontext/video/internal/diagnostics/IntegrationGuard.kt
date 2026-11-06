@@ -9,6 +9,7 @@ import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.SdkState
+import java.net.URI
 
 /**
  * The checks of the app's own mistakes in using the SDK: a call off the main thread or before `initialize`, a
@@ -71,12 +72,30 @@ internal object IntegrationGuard {
     }
 }
 
-/** An absolute http(s) URL with a host. */
-private val AD_SERVER_URL = Regex("^https?://[^/?#\\s]+.*$")
-
 /** What is wrong with the options, one phrase each; empty when they are usable. Checked by `initialize`. */
 internal val Configuration.problems: List<String>
     get() = listOfNotNull(
         if (publisherToken.isEmpty()) "publisherToken is empty" else null,
-        if (!AD_SERVER_URL.matches(adServerUrl)) "adServerUrl $adServerUrl is not absolute" else null,
+        serverUrlProblem(adServerUrl)?.let { "adServerUrl $adServerUrl $it" },
     )
+
+/**
+ * What makes [url] unusable as the ad server's base, or `null`: the routes are appended to it (`<base>/v2/config`),
+ * so it must be an http or https URL (any case) with a host and a valid port, and no credentials, query or
+ * fragment, which would carry or swallow the route. A path is fine.
+ */
+private fun serverUrlProblem(url: String): String? {
+    val uri = runCatching { URI(url) }.getOrNull() ?: return "is not a URL"
+    val scheme = uri.scheme?.lowercase()
+    return when {
+        scheme != "http" && scheme != "https" -> "is not an absolute http or https URL"
+        uri.host.isNullOrEmpty() -> "has no host"
+        uri.port != -1 && uri.port !in 1..MAX_PORT -> "has an invalid port"
+        uri.rawUserInfo != null -> "carries credentials"
+        uri.rawQuery != null -> "has a query"
+        uri.rawFragment != null -> "has a fragment"
+        else -> null
+    }
+}
+
+private const val MAX_PORT = 65_535

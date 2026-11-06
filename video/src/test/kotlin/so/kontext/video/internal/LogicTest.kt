@@ -66,6 +66,13 @@ class LogicTest {
         }
     }
 
+    @Test fun theServerUrlIsAnHttpBaseWithAHostAndNothingElse() {
+        val good = listOf("https://a.b", "HTTPS://a.b", "http://10.0.2.2:3002/", "https://a.b/prefix/", "http://localhost:5175")
+        for (url in good) assertTrue(Configuration("t") { adServerUrl = url }.problems.isEmpty(), url)
+        val bad = listOf("https://", "https://u:p@a.b", "https://a.b:0", "https://a.b:65536", "https://a.b?x=1", "https://a.b#f", "ftp://a.b", "a.b", "", " https://a.b")
+        for (url in bad) assertEquals(1, Configuration("t") { adServerUrl = url }.problems.size, url)
+    }
+
     @Test fun theConfigurationSaysWhatIsWrong() {
         assertTrue(Configuration("token").problems.isEmpty())
         assertEquals(listOf("publisherToken is empty"), Configuration("").problems)
