@@ -32,6 +32,10 @@ class TTVideoEnginePlayerTest {
 
     private val engine = FakeEngine()
     private val player = EnginePlayer(engine)
+
+    /** An adapter whose callbacks wait in a queue, as a callback from another thread waits for the main one. */
+    private val queued = mutableListOf<() -> Unit>()
+    private val late = EnginePlayer(engine) { work -> queued += work }
     private val heard = mutableListOf<String>()
     private val listener = object : ContentPlayer.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -82,10 +86,10 @@ class TTVideoEnginePlayerTest {
     @Test fun aPauseAndAResumeAreEachHeardOnce() {
         player.addListener(listener)
         engine.playbackState = 2
-        engine.events!!.playbackStateChanged()
+        engine.events!!.playbackStateChanged(engine.playbackState)
         engine.playbackState = 1
-        engine.events!!.playbackStateChanged()
-        engine.events!!.playbackStateChanged() // no change
+        engine.events!!.playbackStateChanged(engine.playbackState)
+        engine.events!!.playbackStateChanged(engine.playbackState) // no change
         assertEquals(listOf("playing=false", "playing=true"), heard)
     }
 
@@ -120,5 +124,49 @@ class TTVideoEnginePlayerTest {
         assertNull(player.playbackSpeed, "unknown: TTSDK has no getter")
         player.speed = { 2f }
         assertEquals(2f, player.playbackSpeed)
+    }
+
+    private fun drain() {
+        while (queued.isNotEmpty()) queued.removeAt(0)()
+    }
+
+    @Test fun aPauseAndAResumeQueuedTogetherAreBothHeard() {
+        late.addListener(listener)
+        engine.playbackState = 2
+        engine.events!!.playbackStateChanged(2)
+        engine.playbackState = 1
+        engine.events!!.playbackStateChanged(1)
+        drain() // the main thread runs both once the engine plays again
+        assertEquals(listOf("playing=false", "playing=true"), heard)
+    }
+
+    @Test fun workQueuedBeforeTheLastListenerLeftNeverReachesTheNextBinding() {
+        late.addListener(listener)
+        val old = engine.events!!
+        old.completion()
+        old.prepare()
+        late.removeListener(listener)
+        val next = mutableListOf<String>()
+        late.addListener(object : ContentPlayer.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                next += "playing=$isPlaying"
+            }
+
+            override fun onContentChanged() {
+                next += "content"
+            }
+        })
+        val item = late.currentItem
+        drain()
+        assertTrue(next.isEmpty(), "the old subscription's completion: $next")
+        assertEquals(item, late.currentItem, "not counted as another play of the new binding's video")
+    }
+
+    @Test fun theSpeedGoesWithTheLastListener() {
+        player.addListener(listener)
+        player.speed = { 2f }
+        player.removeListener(listener)
+        assertNull(player.speed, "no closure (and the Activity it holds) kept by the shared adapter")
+        assertFalse(player.isFollowed)
     }
 }

@@ -27,10 +27,18 @@ import java.util.WeakHashMap
 @MainThread
 @JvmOverloads
 public fun VideoAds.track(engine: TTVideoEngine, playbackSpeed: (() -> Float)? = null) {
+    // Off the main thread or destroyed, the shared adapter is not touched: `track` refuses (and says why) with
+    // a throwaway one, and the speed of the VideoAds that does track the engine stays.
+    if (Looper.myLooper() != Looper.getMainLooper() || isDestroyed) {
+        track(EnginePlayer(TTEngine(engine)))
+        return
+    }
     // One adapter per engine: the SDK tells an engine tracked by two `VideoAds` by the adapter it is given.
     val adapter = adapters.getOrPut(engine) { EnginePlayer(TTEngine(engine)) }
-    adapter.speed = playbackSpeed
     track(adapter)
+    // The speed belongs to the binding this call made: set once the adapter is followed, dropped with its last
+    // listener (an Activity the closure holds is not kept by the shared registry).
+    if (adapter.isFollowed) adapter.speed = playbackSpeed
 }
 
 /** The adapter of each engine tracked, for as long as the engine lives. The adapter holds it weakly. */
@@ -55,7 +63,8 @@ internal interface Engine {
     fun stopListening()
 
     interface Events {
-        fun playbackStateChanged()
+        /** [playbackState]: the state the callback carried, not the engine's by the time the main thread reads it. */
+        fun playbackStateChanged(playbackState: Int)
 
         fun prepare()
 
@@ -77,7 +86,7 @@ internal class TTEngine(engine: TTVideoEngine) : Engine {
 
     override fun listen(events: Engine.Events) {
         val callback = object : VideoEngineCallback {
-            override fun onPlaybackStateChanged(engine: TTVideoEngine, playbackState: Int) = events.playbackStateChanged()
+            override fun onPlaybackStateChanged(engine: TTVideoEngine, playbackState: Int) = events.playbackStateChanged(playbackState)
 
             override fun onPrepare(engine: TTVideoEngine) = events.prepare()
 
@@ -100,7 +109,11 @@ internal class TTEngine(engine: TTVideoEngine) : Engine {
  * A new vid on the engine, or the end of the video, is another play. Seeks are not reported by TTSDK; the SDK
  * infers them from the position.
  */
-internal class EnginePlayer(private val engine: Engine) : ContentPlayer {
+internal class EnginePlayer(
+    private val engine: Engine,
+    /** Runs a callback's work on the main thread; tests queue it to see what a late delivery does. */
+    private val onMain: (() -> Unit) -> Unit = ::runOnMain,
+) : ContentPlayer {
     private val listeners = mutableListOf<ContentPlayer.Listener>()
     private var wasPlaying = false
     private var videoId: String? = null
@@ -108,19 +121,18 @@ internal class EnginePlayer(private val engine: Engine) : ContentPlayer {
     /** Ends of the video heard while followed: a replay after the end is another play. */
     private var plays = 0
 
+    /**
+     * Which subscription to the engine is current: each `listen` starts a new one. Work posted by an earlier
+     * subscription (a completion queued before the last listener left) is dropped, so it never reaches the
+     * binding that followed.
+     */
+    private var subscription = 0
+
+    /** The app's playback speed, for the current binding only; dropped with the last listener. */
     var speed: (() -> Float)? = null
 
-    private val events = object : Engine.Events {
-        override fun playbackStateChanged() = onMain { playingMayHaveChanged() }
-
-        override fun prepare() = onMain { videoMayHaveChanged() }
-
-        override fun completion() = onMain {
-            plays += 1
-            listeners.toList().forEach { it.onContentChanged() }
-            playingMayHaveChanged()
-        }
-    }
+    /** Someone follows the engine through this adapter now. */
+    val isFollowed: Boolean get() = listeners.isNotEmpty()
 
     override val currentPositionMillis: Long get() = if (engine.isGone) 0 else engine.position.coerceAtLeast(0).toLong()
 
@@ -138,21 +150,45 @@ internal class EnginePlayer(private val engine: Engine) : ContentPlayer {
         if (listeners.isEmpty() && !engine.isGone) {
             wasPlaying = isPlaying
             videoId = engine.videoId
-            engine.listen(events)
+            subscription += 1
+            engine.listen(events(subscription))
         }
         listeners += listener
     }
 
     override fun removeListener(listener: ContentPlayer.Listener) {
         listeners -= listener
-        if (listeners.isEmpty()) engine.stopListening()
+        if (listeners.isEmpty()) {
+            engine.stopListening()
+            subscription += 1
+            speed = null
+        }
     }
 
-    private fun playingMayHaveChanged() {
-        val isPlayingNow = isPlaying
-        if (isPlayingNow == wasPlaying) return
-        wasPlaying = isPlayingNow
-        listeners.toList().forEach { it.onIsPlayingChanged(isPlayingNow) }
+    /** What one subscription hears: each moment on the main thread, dropped there once the subscription is over. */
+    private fun events(current: Int) = object : Engine.Events {
+        override fun playbackStateChanged(playbackState: Int) = deliver(current) { playingChanged(playbackState == PLAYBACK_STATE_PLAYING) }
+
+        override fun prepare() = deliver(current) { videoMayHaveChanged() }
+
+        override fun completion() = deliver(current) {
+            plays += 1
+            listeners.toList().forEach { it.onContentChanged() }
+            playingChanged(isPlaying)
+        }
+    }
+
+    private fun deliver(current: Int, work: () -> Unit) = onMain { if (current == subscription) work() }
+
+    /**
+     * The callback's own state, as it was: a pause and a resume posted before the main thread runs are each
+     * heard, where reading the engine then would find it playing twice.
+     */
+    private fun playingChanged(isPlayingNow: Boolean) {
+        val isPlaying = isPlayingNow && !engine.isGone
+        if (isPlaying == wasPlaying) return
+        wasPlaying = isPlaying
+        listeners.toList().forEach { it.onIsPlayingChanged(isPlaying) }
     }
 
     // The app gave the engine another video: what was on screen was over the one before.
@@ -163,11 +199,11 @@ internal class EnginePlayer(private val engine: Engine) : ContentPlayer {
         videoId = now
         if (before != null) listeners.toList().forEach { it.onContentChanged() }
     }
+}
 
-    // TTSDK calls back on the engine's looper, the main one unless the app chose another.
-    private fun onMain(work: () -> Unit) {
-        if (Looper.myLooper() == Looper.getMainLooper()) work() else Handler(Looper.getMainLooper()).post(work)
-    }
+// TTSDK calls back on the engine's looper, the main one unless the app chose another.
+private fun runOnMain(work: () -> Unit) {
+    if (Looper.myLooper() == Looper.getMainLooper()) work() else Handler(Looper.getMainLooper()).post(work)
 }
 
 /** `TTVideoEngine.PLAYBACK_STATE_PLAYING`: the viewer has not paused or stopped it. */
