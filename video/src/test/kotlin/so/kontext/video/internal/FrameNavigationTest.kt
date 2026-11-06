@@ -39,7 +39,7 @@ class FrameNavigationTest {
         val table = listOf(
             Triple("https://frames.test/redirect", NavigationDecision.ALLOW, NavigationDecision.CANCEL),
             Triple("about:blank", NavigationDecision.ALLOW, NavigationDecision.CANCEL),
-            Triple("https://brand.test", NavigationDecision.EXTERNAL, NavigationDecision.EXTERNAL),
+            Triple("https://brand.test", NavigationDecision.FAIL_LOAD, NavigationDecision.EXTERNAL),
             Triple("$url#card", NavigationDecision.ALLOW, NavigationDecision.ALLOW),
         )
         for ((target, loading, _) in table) assertEquals(loading, navigation.navigationDecision(target, true, url), "loading: $target")

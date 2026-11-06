@@ -50,6 +50,12 @@ internal class FrameWebViewClient(
                 onExternalLink(target)
                 true
             }
+            FrameNavigation.NavigationDecision.FAIL_LOAD -> {
+                // Shown for the redirects of a loadUrl too: the page's own load went to another origin.
+                Logger.warning { "frame ${adId.take(8)}: the page's load went to another origin; the load fails" }
+                onLoadFailed(ErrorReport.Underlying("navigation", 0))
+                true
+            }
         }
     }
 

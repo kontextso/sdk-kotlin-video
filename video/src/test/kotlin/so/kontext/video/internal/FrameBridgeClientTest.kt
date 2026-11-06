@@ -52,7 +52,6 @@ class FrameBridgeClientTest {
     @Test fun navigationsGoWhereTheStateAllows() {
         val client = bridge.webView.webViewClient
         assertFalse("its own origin while loading", client.shouldOverrideUrlLoading(bridge.webView, request("https://frames.test/next")))
-        assertTrue("elsewhere while loading: an unreported click, refused", client.shouldOverrideUrlLoading(bridge.webView, request("https://brand.test")))
         assertFalse("a subframe navigates freely", client.shouldOverrideUrlLoading(bridge.webView, request("https://cdn.test", mainFrame = false)))
         loaded()
         bridge.show()
@@ -60,6 +59,14 @@ class FrameBridgeClientTest {
         bridge.noteTouch()
         assertTrue(client.shouldOverrideUrlLoading(bridge.webView, request("https://brand.test/landing")))
         assertEquals("a touched navigation out is a click", "https://brand.test/landing", (events.last() as FrameEvent.Click).url)
+    }
+
+    @Test fun aLoadRedirectedToAnotherOriginFailsAtOnce() {
+        val client = bridge.webView.webViewClient
+        assertTrue("refused", client.shouldOverrideUrlLoading(bridge.webView, request("https://other.test/page")))
+        assertEquals("failed now, not at the timeout", FrameBridge.FailureCause.LOAD_FAILED, bridge.failureCause)
+        assertEquals(FramePhase.ENDED, bridge.state)
+        assertEquals(500, (events.single() as FrameEvent.Error).code)
     }
 
     @Test fun aMainFrameErrorWhileLoadingFailsTheAd() {
