@@ -9,7 +9,8 @@ import kotlin.math.floor
 
 /**
  * How much of a view the viewer can see: its corners carried through every ancestor's transform (rotation,
- * scale, scroll), the shape cut by every ancestor that clips its children and by the window; visible area over
+ * scale, scroll), the shape cut by every ancestor that clips its children, by every clip bounds (`View.clipBounds`)
+ * on it and its ancestors, and by the window; visible area over
  * full area is the share. Real shapes, not rectangles, so a rotated view is not over-counted ([Polygon]).
  */
 internal object ViewExposure {
@@ -92,10 +93,14 @@ internal object ViewExposure {
     private fun clippedByAncestors(view: View, outline: FloatArray): FloatArray {
         val root = view.rootView
         var visible = Polygon.clip(outline, Polygon.corners(root.width.toFloat(), root.height.toFloat()))
+        // The view's own clip bounds (View.setClipBounds), which Android applies when it draws it.
+        view.clipBounds?.let { visible = Polygon.clip(visible, rectangle(it).also(transformToRoot(view)::mapPoints)) }
         var child: View = view
         while (visible.size >= 6) {
             val parent = child.parent as? ViewGroup ?: break
             val toRoot by lazy { transformToRoot(parent) }
+            // An ancestor's clip bounds cut everything it draws, its children included, whatever clipChildren says.
+            parent.clipBounds?.let { visible = Polygon.clip(visible, rectangle(it).also(toRoot::mapPoints)) }
             if (parent.clipChildren) {
                 visible = Polygon.clip(visible, Polygon.corners(parent.width.toFloat(), parent.height.toFloat()).also(toRoot::mapPoints))
             }
@@ -106,6 +111,12 @@ internal object ViewExposure {
             child = parent
         }
         return visible
+    }
+
+    /** [rect] as a polygon; an empty one clips everything. */
+    private fun rectangle(rect: Rect): FloatArray {
+        if (rect.isEmpty) return FloatArray(0)
+        return floatArrayOf(rect.left.toFloat(), rect.top.toFloat(), rect.right.toFloat(), rect.top.toFloat(), rect.right.toFloat(), rect.bottom.toFloat(), rect.left.toFloat(), rect.bottom.toFloat())
     }
 
     /** [group]'s area inside its padding, as a polygon in its own coordinates. */

@@ -30,6 +30,7 @@ import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.frame.TouchGate
 import so.kontext.video.internal.measurement.OnScreenTimeClock
+import so.kontext.video.internal.measurement.ViewExposure
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
@@ -384,6 +385,22 @@ class ParityRenderingTest : SdkTest() {
         meter.tick(now + 1_000)
         assertEquals("50 % counts", ViewabilityMeter.Verdict.VIEWABLE, sink.verdict)
         meter.stop()
+    }
+
+    @Test fun clipBoundsOnTheViewOrAnAncestorCutWhatIsSeen() {
+        val host = container()
+        val parent = FrameLayout(host.context)
+        host.addView(parent)
+        parent.layout(0, 0, 320, 400)
+        val view = view(into = parent) // 200×100 at 0,0
+        assertEquals(1.0, ViewExposure.measure(view).share, 0.001)
+        parent.clipBounds = Rect(0, 0, 100, 400) // half of the view's width
+        assertEquals(0.5, ViewExposure.measure(view).share, 0.001)
+        parent.clipBounds = Rect() // clipped away
+        assertEquals(0.0, ViewExposure.measure(view).share, 0.001)
+        parent.clipBounds = null
+        view.clipBounds = Rect(0, 0, 200, 25) // its own: a quarter of its height
+        assertEquals(0.25, ViewExposure.measure(view).share, 0.001)
     }
 
     @Test fun aQuarterOnScreenNeverBecomesViewable() {
