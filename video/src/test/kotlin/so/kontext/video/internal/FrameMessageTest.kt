@@ -76,6 +76,16 @@ class FrameMessageTest {
         for ((fields, expected) in table) assertEquals(expected, message(fields).offset, fields)
     }
 
+    @Test fun riskyInputsReadAsNothingOrTheirBound() {
+        assertEquals(0L, parse("""{"adId":"ad-1","type":"video.pause","playhead":true}""")!!.playheadMillis, "a boolean playhead is none")
+        assertNull(parse("""{"adId":"ad-1","type":"ad.error","code":true}""")!!.code, "a boolean code is none: the failure's code applies")
+        assertEquals(30_000L, parse("""{"adId":"ad-1","type":"video.pause","playhead":1e400}""")!!.playheadMillis, "past a Double: the bound")
+        assertNull(parse("""{"adId":"ad-1","type":"video.pause","playhead":NaN}"""), "a bare NaN is not JSON: a broken envelope")
+        assertNull(parse("""{"adId":"ad-1","type":"video.pause","type":"video.start"}"""), "a key twice: a broken envelope")
+        val big = "https://brand.test/" + "x".repeat(900 * 1024)
+        assertEquals(big, parse("""{"adId":"ad-1","type":"ad.click","url":"$big"}""")!!.url, "900 KB stays under the 1 MB limit")
+    }
+
     @Test fun theFieldsAreTakenAsSent() {
         val click = parse(
             """{"adId":"ad-1","type":"ad.click","url":"https://a.test","fallbackUrl":"https://b.test","area":"endCard"}""",

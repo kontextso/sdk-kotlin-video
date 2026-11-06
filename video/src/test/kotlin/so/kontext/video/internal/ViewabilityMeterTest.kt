@@ -2,9 +2,11 @@ package so.kontext.video.internal
 
 import android.app.Activity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,5 +63,77 @@ class ViewabilityMeterTest {
         meter.tick()
         meter.stop()
         assertEquals(listOf(Verdict.NOT_VIEWABLE), verdicts)
+    }
+
+    @Test fun aStallStartsTheDwellAgain() {
+        ViewabilityMeter.intervalMillis = 250
+        val meter = meter(laidOutView(), requiredMillis = 1_000)
+        meter.start() // a tick at 0
+        now = 250
+        meter.tick()
+        now = 500
+        meter.tick()
+        now = 1_500 // a second with no tick: the app froze, nobody measured
+        meter.tick()
+        for (at in listOf(1_750L, 2_000L, 2_250L)) {
+            now = at
+            meter.tick()
+        }
+        assertTrue("the stretch began again at 1 500", verdicts.isEmpty())
+        now = 2_500
+        meter.tick()
+        assertEquals(listOf(Verdict.VIEWABLE), verdicts)
+        meter.stop()
+        assertEquals("decided once", listOf(Verdict.VIEWABLE), verdicts)
+    }
+
+    @Test fun aViewDetachedForOneTickIsGivenGrace() {
+        val view = laidOutView()
+        var detached = 0
+        val meter = meter(view).apply { onDetached = { detached += 1 } }
+        meter.start()
+        (view.parent as ViewGroup).removeView(view)
+        meter.tick()
+        assertEquals("a view moved within the same moment is not gone", 0, detached)
+        meter.tick()
+        assertEquals(1, detached)
+    }
+
+    @Test fun offScreenCountsOnlyWhileActive() {
+        ViewabilityMeter.offScreenGraceMillis = 1_000
+        val view = laidOutView()
+        var active = false
+        var offScreen = 0
+        val meter = meter(view).apply {
+            isActive = { active }
+            onOffScreen = { offScreen += 1 }
+        }
+        meter.start()
+        view.translationX = 10_000f // scrolled away
+        repeat(10) {
+            now += 500
+            meter.tick()
+        }
+        assertEquals("in the background nothing ends", 0, offScreen)
+        active = true
+        meter.tick()
+        now += 999
+        meter.tick()
+        assertEquals(0, offScreen)
+        now += 1
+        meter.tick()
+        assertEquals(1, offScreen)
+    }
+
+    @Test fun nothingIsReportedBeforeTheFirstLayout() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val view = FrameLayout(activity)
+        activity.setContentView(view) // attached, not laid out yet
+        val exposures = mutableListOf<Double>()
+        val meter = meter(view).apply { onExposure = { share, _ -> exposures += share } }
+        meter.start()
+        meter.tick()
+        assertTrue("a 0 for want of a layout would pause the page's video: $exposures", exposures.isEmpty())
+        meter.stop()
     }
 }
