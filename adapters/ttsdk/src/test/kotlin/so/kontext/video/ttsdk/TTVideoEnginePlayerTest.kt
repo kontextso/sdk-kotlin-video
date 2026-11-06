@@ -169,4 +169,19 @@ class TTVideoEnginePlayerTest {
         assertNull(player.speed, "no closure (and the Activity it holds) kept by the shared adapter")
         assertFalse(player.isFollowed)
     }
+
+    @Test fun aTrackNestedInAnotherKeepsItsOwnSpeed() {
+        val outer = object : ContentPlayer.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) = Unit
+        }
+        // B's track hands the engine over; the ad that ends there tracks it in C, whose binding is the newer.
+        player.bind({ 1f }) { adapter ->
+            adapter.addListener(outer)
+            adapter.removeListener(outer)
+            adapter.bind({ 8f }) { it.addListener(listener) }
+        }
+        assertEquals(8f, player.playbackSpeed, "C's speed, not the outer B call's")
+        player.bind({ 2f }) { }
+        assertEquals(2f, player.playbackSpeed, "a later track that keeps it followed sets its own")
+    }
 }

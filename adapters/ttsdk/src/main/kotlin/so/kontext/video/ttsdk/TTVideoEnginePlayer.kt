@@ -30,11 +30,10 @@ public fun VideoAds.track(engine: TTVideoEngine, playbackSpeed: (() -> Float)? =
         return
     }
     // One adapter per engine: the SDK tells an engine tracked by two `VideoAds` by the adapter it is given.
-    val adapter = adapters.getOrPut(engine) { EnginePlayer(TTEngine(engine)) }
-    track(adapter)
-    // The speed belongs to the binding this call made: set once the adapter is followed, dropped with its last
-    // listener (an Activity the closure holds is not kept by the shared registry).
-    if (adapter.isFollowed) adapter.speed = playbackSpeed
+    // The speed belongs to the binding this call made: set once the adapter is followed and no newer `track` of
+    // the engine won meanwhile, dropped with its last listener (an Activity the closure holds is not kept by the
+    // shared registry).
+    adapters.getOrPut(engine) { EnginePlayer(TTEngine(engine)) }.bind(playbackSpeed) { track(it) }
 }
 
 /** The adapter of each engine tracked, for as long as the engine lives. The adapter holds it weakly. */

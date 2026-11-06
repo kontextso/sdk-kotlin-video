@@ -36,6 +36,9 @@ internal class EnginePlayer(
     /** Someone follows the engine through this adapter now. */
     val isFollowed: Boolean get() = listeners.isNotEmpty()
 
+    /** How many `track` calls have bound this adapter: the latest one's speed is the one that counts. */
+    private var bindings = 0
+
     override val currentPositionMillis: Long get() = if (engine.isGone) 0 else engine.position.coerceAtLeast(0).toLong()
 
     override val isPlaying: Boolean get() = !engine.isGone && engine.playbackState == PLAYBACK_STATE_PLAYING
@@ -47,6 +50,17 @@ internal class EnginePlayer(
 
     /** One play of a video. */
     private data class Play(val videoId: String, val count: Int)
+
+    /**
+     * Runs [track] (the SDK's, with this adapter) and keeps [playbackSpeed] for the binding it made. A `track` of
+     * the same engine nested in it (an ad's `onAdEnded` run by the handover, tracking it in a third `VideoAds`)
+     * made a newer binding, which wins: its speed stays, not this outer call's.
+     */
+    fun bind(playbackSpeed: (() -> Float)?, track: (EnginePlayer) -> Unit) {
+        val binding = ++bindings
+        track(this)
+        if (isFollowed && binding == bindings) speed = playbackSpeed
+    }
 
     override fun addListener(listener: ContentPlayer.Listener) {
         if (listeners.isEmpty() && !engine.isGone) {
