@@ -6,12 +6,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class TrackingMacrosTest {
-    @Test fun playheadsAreFormattedAndClamped() {
-        assertEquals("00:00:00.000", TrackingMacros.playhead(-5))
-        assertEquals("00:01:05.250", TrackingMacros.playhead(65_250))
-        assertEquals("87600:00:00.000", TrackingMacros.playhead(Long.MAX_VALUE))
-    }
-
     @Test fun macrosAreFoundWithTheirBracketsEncodedOrNot() {
         assertEquals("https://t.test/?ph=[MEDIAPLAYHEAD]&x=[OTHER]", TrackingMacros.decodingBrackets("https://t.test/?ph=%5BMEDIAPLAYHEAD%5d&x=%5bOTHER%5D"))
         assertTrue(TrackingMacros.asksForContentPlayhead("https://t.test/?ph=%5BCONTENTPLAYHEAD%5D"))
@@ -68,7 +62,7 @@ class TrackingMacrosTest {
             1e23 to "1e+23", 5e-324 to "5e-324", Double.MAX_VALUE to "1.7976931348623157e+308", 0.1 + 0.2 to "0.30000000000000004",
             9.5367431640625e-07 to "9.5367431640625e-07", 2.2250738585072014e-308 to "2.2250738585072014e-308", 1e22 to "1e+22",
             4.35e-05 to "4.35e-05", 1.23456789e15 to "1234567890000000.0", 2e-4 to "0.0002", 1.0e7 to "10000000.0", 123456.0 to "123456.0",
-            1.1 to "1.1", 100.0 to "100.0", 0.00012345 to "0.00012345",
+            1.1 to "1.1", 100.0 to "100.0", 0.00012345 to "0.00012345", 0.0 to "0.0", -0.0 to "-0.0",
             Double.fromBits(0x43a4dbd1460f41bcL) to "7.515124997460372e+17", // where String.format rounded the last digit up
             // 2^-24: below a power of two the gap is half as wide; the nearest 16-digit decimal misses, its neighbour does not.
             Double.fromBits(0x3e70000000000000L) to "5.960464477539063e-08", -Double.fromBits(0x3e70000000000000L) to "-5.960464477539063e-08",
@@ -97,16 +91,19 @@ class TrackingMacrosTest {
         assertTrue(Regex("https://t\\.test/\\?t=\\d{4}-\\d{2}-\\d{2}T\\d{2}%3A\\d{2}%3A\\d{2}\\.\\d{3}(Z|%2B\\d{2}%3A\\d{2}|-\\d{2}%3A\\d{2})").matches(url), url)
     }
 
-    @Test fun playheadsAtTheirBoundaries() {
+    @Test fun playheadsAreFormattedAndClampedAtTheirBoundaries() {
         val table = listOf(
+            -5L to "00:00:00.000",
             0L to "00:00:00.000",
             999L to "00:00:00.999",
             59_999L to "00:00:59.999",
             3_599_999L to "00:59:59.999",
             3_600_000L to "01:00:00.000",
+            65_250L to "00:01:05.250",
             360_000_000L to "100:00:00.000",
             TrackingMacros.MAX_PLAYHEAD_MILLIS to "87600:00:00.000",
             TrackingMacros.MAX_PLAYHEAD_MILLIS + 1 to "87600:00:00.000",
+            Long.MAX_VALUE to "87600:00:00.000",
             Long.MIN_VALUE to "00:00:00.000",
         )
         for ((millis, expected) in table) assertEquals(expected, TrackingMacros.playhead(millis), "$millis")
@@ -118,10 +115,5 @@ class TrackingMacrosTest {
             "é" to "%C3%A9", "%5B" to "%255B", "" to "",
         )
         for ((value, expected) in table) assertEquals(expected, TrackingMacros.encode(value), value)
-    }
-
-    @Test fun aNegativeZeroPriceIsWrittenAsSwiftWritesIt() {
-        assertEquals("-0.0", TrackingMacros.number(-0.0))
-        assertEquals("0.0", TrackingMacros.number(0.0))
     }
 }

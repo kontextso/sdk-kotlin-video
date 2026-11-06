@@ -88,29 +88,35 @@ class FrameMessagesTest {
         assertEquals("a display page that fails to load: 500", 500, (events.single() as FrameEvent.Error).code)
     }
 
-    @Test fun aVideoPageFailsWithItsOwnCodesBeforeAndAfterShow() {
-        val video = bridge(isVideo = true)
-        send("ad.error", to = video)
-        assertEquals(400, (events.single() as FrameEvent.Error).code)
-        events.clear()
-        val shownVideo = bridge(isVideo = true)
-        shown(shownVideo)
-        send("ad.error", to = shownVideo)
-        assertEquals("a failure on screen: 405", 405, (events.single() as FrameEvent.Error).code)
-        events.clear()
-        val coded = bridge(isVideo = true)
-        send("ad.error", "\"code\": 402", to = coded)
-        assertEquals("the page's own code wins", 402, (events.single() as FrameEvent.Error).code)
-    }
-
-    @Test fun aPageCodeOutsideTheVastRangeGoesAs900() {
-        val cases = listOf("0" to 900, "-1" to 900, "42" to 900, "99" to 900, "100" to 100, "999" to 999, "1000" to 900, "${Int.MAX_VALUE}" to 900, "1e300" to 900)
-        for ((sent, expected) in cases) {
+    /** How a failing page's code is chosen: by how it failed, its kind and how far it got, or the page's own code. */
+    @Test fun aFailingPageCarriesTheCodeOfItsKindAndStageOrItsOwnWithinTheVastRange() {
+        class Case(val why: String, val isVideo: Boolean, val stage: FramePhase, val cause: FrameBridge.FailureCause, val expected: Int, val fail: (FrameBridge) -> Unit)
+        fun error(code: String? = null): (FrameBridge) -> Unit = { send("ad.error", if (code == null) "" else "\"code\": $code", to = it) }
+        val replaced: (FrameBridge) -> Unit = { it.webView.webViewClient.onPageStarted(it.webView, "https://frames.test/replaced", null) }
+        val rendererGone: (FrameBridge) -> Unit = { it.webView.webViewClient.onRenderProcessGone(it.webView, io.mockk.mockk(relaxed = true)) }
+        val page = FrameBridge.FailureCause.PAGE
+        val gone = FrameBridge.FailureCause.PROCESS_TERMINATED
+        val cases = listOf(
+            Case("a display page that fails to load", false, FramePhase.LOADING, page, 500, error()),
+            Case("a display page failing on screen", false, FramePhase.SHOWN, page, 405, error()),
+            Case("a video page that fails to load", true, FramePhase.LOADING, page, 400, error()),
+            Case("a video page failing on screen", true, FramePhase.SHOWN, page, 405, error()),
+            Case("the page's own code wins before show", true, FramePhase.LOADING, page, 402, error("402")),
+            Case("the page's own code wins for a display page", false, FramePhase.LOADING, page, 403, error("403")),
+            Case("a display page replaced once loaded: the load code", false, FramePhase.LOADED, page, 500, replaced),
+            Case("a video renderer gone while loading", true, FramePhase.LOADING, gone, 400, rendererGone),
+            Case("a video renderer gone loaded, never shown: still the load code, not 405", true, FramePhase.LOADED, gone, 400, rendererGone),
+        ) + listOf("0" to 900, "-1" to 900, "42" to 900, "99" to 900, "100" to 100, "999" to 999, "1000" to 900, "${Int.MAX_VALUE}" to 900, "1e300" to 900)
+            .map { (sent, expected) -> Case("a video page on screen sending code $sent", true, FramePhase.SHOWN, page, expected, error(sent)) }
+        for (case in cases) {
+            val bridge = bridge(case.isVideo)
+            if (case.stage != FramePhase.LOADING) send("ad.loaded", to = bridge)
+            if (case.stage == FramePhase.SHOWN) bridge.show()
             events.clear()
-            val video = bridge(isVideo = true)
-            shown(video)
-            send("ad.error", "\"code\": $sent", to = video)
-            assertEquals("code $sent", expected, (events.single() as FrameEvent.Error).code)
+            case.fail(bridge)
+            assertEquals(case.why, case.expected, (events.single() as FrameEvent.Error).code)
+            assertEquals(case.why, case.cause, bridge.failureCause)
+            assertEquals(case.why, FramePhase.ENDED, bridge.state)
         }
     }
 
@@ -125,8 +131,12 @@ class FrameMessagesTest {
         bridge.receive("""{"adId":"ad-1"}""", origin, true)
         send("ad.unknown")
         send("video.rewind")
+        send("video.start")
         assertTrue(events.isEmpty())
         assertEquals(FramePhase.LOADING, bridge.state)
+        send("ad.loaded")
+        assertEquals("the page itself is heard", listOf<FrameEvent>(FrameEvent.Loaded), events)
+        assertEquals(FramePhase.LOADED, bridge.state)
     }
 
     @Test fun aClickNeedsAnAllowedUrlAndOneTouchEach() {
@@ -135,10 +145,12 @@ class FrameMessagesTest {
         assertTrue("no touch before it", events.isEmpty())
         bridge.noteTouch()
         send("ad.click", "\"url\": \"javascript:alert(1)\"")
+        send("ad.click", "\"url\": \"intent://x#Intent;end\"")
         send("ad.click")
         assertTrue("a refused or missing url spends no touch", events.isEmpty())
         send("ad.click", "\"url\": \"https://brand.test\", \"fallbackUrl\": \"intent://x\", \"area\": \"endCard\"")
         val click = events.single() as FrameEvent.Click
+        assertEquals("https://brand.test", click.url)
         assertNull("a refused fallback is left out", click.fallbackUrl)
         assertEquals(VideoAd.Click.Area.EndCard, click.area)
         send("ad.click", "\"url\": \"https://brand.test\"")
@@ -189,24 +201,6 @@ class FrameMessagesTest {
         assertEquals(FrameEvent.CloseReason.RESUME, (events.single() as FrameEvent.Close).reason)
         assertEquals(FrameEvent.CloseReason.COMPLETE, FrameEvent.CloseReason.from("complete"))
         assertEquals(FrameEvent.CloseReason.CLOSE, FrameEvent.CloseReason.from("bored"))
-    }
-
-    @Test fun aReplacedPageBeforeShowAndADeadRendererBeforeShowFailWithTheLoadCode() {
-        send("ad.loaded")
-        events.clear()
-        bridge.webView.webViewClient.onPageStarted(bridge.webView, "https://frames.test/replaced", null)
-        assertEquals(500, (events.single() as FrameEvent.Error).code)
-        events.clear()
-        val loading = bridge(isVideo = true)
-        loading.webView.webViewClient.onRenderProcessGone(loading.webView, io.mockk.mockk(relaxed = true))
-        assertEquals(400, (events.single() as FrameEvent.Error).code)
-        events.clear()
-        val loaded = bridge(isVideo = true)
-        send("ad.loaded", to = loaded)
-        events.clear()
-        loaded.webView.webViewClient.onRenderProcessGone(loaded.webView, io.mockk.mockk(relaxed = true))
-        assertEquals("loaded, never shown: still the load error code, not 405", 400, (events.single() as FrameEvent.Error).code)
-        assertEquals(FramePhase.ENDED, loaded.state)
     }
 
     @Test fun theLoadTimeoutCountsOnlyTimeInFrontAndSparesALoadedPage() {
@@ -364,21 +358,6 @@ class FrameMessagesTest {
         val (overlay, overlayEvents) = shownBridge(null)
         overlay.receive("""{"adId":"ad-1","type":"video.complete","playhead":1e12}""", page, true)
         assertEquals("without a duration: a day", 86_400_000L, (overlayEvents.last() as FrameEvent.Complete).playheadMillis)
-    }
-
-    @Test fun aPageErrorAfterShowDefaultsTo405AndBeforeToTheLoadCode() {
-        val page = Origin.of("https://frames.test")
-        val video = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/a", isVideo = true)
-        var code = 0
-        video.onEvent = { if (it is FrameEvent.Error) code = it.code }
-        video.receive("""{"adId":"ad-1","type":"ad.error"}""", page, true)
-        assertEquals("a video's load code", 400, code)
-        val shown = FrameBridge(Environment.context!!, "ad-2", "https://frames.test/b", isVideo = false)
-        shown.onEvent = { if (it is FrameEvent.Error) code = it.code }
-        shown.receive("""{"adId":"ad-2","type":"ad.loaded"}""", page, true)
-        shown.show()
-        shown.receive("""{"adId":"ad-2","type":"ad.error"}""", page, true)
-        assertEquals(405, code)
     }
 
     @Test fun aBinaryMessageIsDroppedInEveryStateAndCountsAsOneBrokenEnvelope() {

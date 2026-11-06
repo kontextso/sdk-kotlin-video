@@ -14,15 +14,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameNavigation
-import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.AdGeometry
 
-/** The parts that need Android classes: player tracking, placement arithmetic, the frame bridge's checks. */
+/** The parts that need Android classes: player tracking, placement arithmetic, a ready page that may not replace itself. */
 @RunWith(RobolectricTestRunner::class)
 class AndroidPartsTest {
     @After fun restore() = Environment.reset()
@@ -113,40 +111,6 @@ class AndroidPartsTest {
 
     private fun bridge() = FrameBridge(ApplicationProvider.getApplicationContext(), "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = false)
 
-    @Test fun theBridgeAcceptsOnlyItsOwnPageAndOrder() {
-        val bridge = bridge()
-        val events = mutableListOf<FrameEvent>()
-        bridge.onEvent = { events += it }
-        val page = Origin.of("https://frames.test")
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://evil.test"), isMainFrame = true)
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, isMainFrame = false)
-        bridge.receive("""{"adId":"other","type":"ad.loaded"}""", page, isMainFrame = true)
-        bridge.receive("""{"adId":"ad-1","type":"video.start"}""", page, isMainFrame = true)
-        assertTrue("another origin, a subframe, another ad, a video event before show", events.isEmpty())
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, isMainFrame = true)
-        assertEquals(listOf<FrameEvent>(FrameEvent.Loaded), events)
-        assertEquals(FramePhase.LOADED, bridge.state)
-    }
-
-    @Test fun aClickNeedsATouchAndAnAllowedScheme() {
-        val bridge = bridge()
-        val events = mutableListOf<FrameEvent>()
-        bridge.onEvent = { events += it }
-        val page = Origin.of("https://frames.test:443")
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
-        bridge.show()
-        val click = """{"adId":"ad-1","type":"ad.click","url":"https://brand.test","area":"endCard"}"""
-        bridge.receive(click, page, true)
-        assertEquals("no touch", 1, events.size)
-        bridge.noteTouch()
-        bridge.receive("""{"adId":"ad-1","type":"ad.click","url":"intent://x#Intent;end"}""", page, true)
-        bridge.receive(click, page, true)
-        val opened = events.last() as FrameEvent.Click
-        assertEquals("https://brand.test", opened.url)
-        bridge.receive(click, page, true)
-        assertEquals("one touch, one click", 2, events.size)
-    }
-
     @Test fun onceReadyThePageMayNotReplaceItself() {
         val bridge = bridge()
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("https://frames.test/redirect", true, null))
@@ -156,15 +120,5 @@ class AndroidPartsTest {
         assertEquals(FrameNavigation.NavigationDecision.CANCEL, bridge.navigationDecision(current, true, current))
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("$current#card", true, current))
         assertEquals(FrameNavigation.NavigationDecision.ALLOW, bridge.navigationDecision("https://cdn.test/x", false, current))
-    }
-
-    @Test fun aPageErrorBeforeShowFailsWithItsCode() {
-        val bridge = bridge()
-        val events = mutableListOf<FrameEvent>()
-        bridge.onEvent = { events += it }
-        bridge.receive("""{"adId":"ad-1","type":"ad.error","code":403}""", Origin.of("https://frames.test"), true)
-        assertEquals(403, (events.single() as FrameEvent.Error).code)
-        assertEquals(FrameBridge.FailureCause.PAGE, bridge.failureCause)
-        assertEquals(FramePhase.ENDED, bridge.state)
     }
 }

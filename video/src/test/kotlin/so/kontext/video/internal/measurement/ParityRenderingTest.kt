@@ -76,25 +76,23 @@ class ParityRenderingTest : SdkTest() {
 
     private fun FrameBridge.navigate(target: String) = webView.webViewClient.shouldOverrideUrlLoading(webView, request(target))
 
-    @Test fun anotherSchemeIsAnotherOrigin() {
-        val bridge = bridge()
-        bridge.send("ad.loaded", from = Origin.of("http://frames.test"))
-        assertTrue(received.isEmpty())
-        assertEquals(FramePhase.LOADING, bridge.state)
-    }
-
-    @Test fun theDefaultPortIsTheSameOriginAndAnyOtherIsNot() {
-        bridge().send("ad.loaded", from = Origin.of("https://frames.test:8443"))
-        assertTrue("another port", received.isEmpty())
-        bridge().send("ad.loaded", from = Origin.of("https://frames.test:443"))
-        assertEquals("the default port spelled out", 1, received.size)
-        val local = bridge(at = "http://localhost:5175/frame/ad-1")
-        local.send("ad.loaded", from = Origin.of("http://localhost"))
-        assertEquals("localhost without its port is another origin", 1, received.size)
-        local.send("ad.loaded", from = Origin.of("http://localhost:5175"))
-        assertEquals(2, received.size)
-        bridge(at = "kontext-test://frames/frame/ad-1").send("ad.loaded", from = Origin.of("kontext-test://frames"))
-        assertEquals("a custom scheme without a port", 3, received.size)
+    @Test fun aMessageCountsOnlyFromThePagesOwnSchemeHostAndPort() {
+        val local = "http://localhost:5175/frame/ad-1"
+        val cases = listOf(
+            Triple(url, "http://frames.test", false), // another scheme
+            Triple(url, "https://frames.test:8443", false), // another port
+            Triple(url, "https://frames.test:443", true), // the default port spelled out
+            Triple(local, "http://localhost", false), // localhost without its port
+            Triple(local, "http://localhost:5175", true),
+            Triple("kontext-test://frames/frame/ad-1", "kontext-test://frames", true), // a custom scheme without a port
+        )
+        for ((page, sender, counts) in cases) {
+            received.clear()
+            val bridge = bridge(at = page)
+            bridge.send("ad.loaded", from = Origin.of(sender))
+            assertEquals("$sender to $page", counts, received.isNotEmpty())
+            assertEquals("$sender to $page", if (counts) FramePhase.LOADED else FramePhase.LOADING, bridge.state)
+        }
     }
 
     @Test fun everyVideoMomentCarriesItsNameAndPlayhead() {
