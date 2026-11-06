@@ -62,7 +62,9 @@ class UserAgentTest {
     @Test fun anAdvertisingIdThatNeverAnswersIsNoneAfterTheWait() {
         val release = java.util.concurrent.CountDownLatch(1)
         val original = so.kontext.video.internal.device.DeviceInfo.readAdvertisingId
+        val reads = java.util.concurrent.atomic.AtomicInteger()
         so.kontext.video.internal.device.DeviceInfo.readAdvertisingId = {
+            reads.incrementAndGet()
             release.await(10, java.util.concurrent.TimeUnit.SECONDS)
             "late"
         }
@@ -72,6 +74,8 @@ class UserAgentTest {
             val id = kotlinx.coroutines.runBlocking { so.kontext.video.internal.device.DeviceInfo.advertisingId(context) }
             assertEquals(null, id)
             assertTrue("it did not wait for Play services", System.currentTimeMillis() - started < 5_000)
+            assertEquals(null, kotlinx.coroutines.runBlocking { so.kontext.video.internal.device.DeviceInfo.advertisingId(context) })
+            assertEquals("the next request shares the hung read, no second IO thread", 1, reads.get())
         } finally {
             release.countDown()
             so.kontext.video.internal.device.DeviceInfo.advertisingIdWaitMillis = 1_000

@@ -2,6 +2,7 @@ package so.kontext.video.internal.device
 
 import android.content.Context
 import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeoutOrNull
@@ -36,8 +37,11 @@ internal object DeviceInfo {
         AdvertisingIdProvider.collect(context).takeUnless { it.isLimitAdTrackingEnabled }?.advertisingId
     }
 
+    /** The advertising id read in flight; a finished one is not reused, so each request after it reads afresh. */
+    private var advertisingIdRead: Deferred<String?>? = null
+
     /** Identifies this installation of the app; kept until the app is uninstalled. */
-    fun installId(context: Context): String = InstallIdProvider.getOrCreate(context)
+    fun installId(context: Context): String = synchronized(this) { InstallIdProvider.getOrCreate(context) }
 
     fun app(context: Context): JsonObject {
         val info = AppInfoProvider.collect(context)
@@ -99,10 +103,14 @@ internal object DeviceInfo {
      * The advertising id, `null` when the viewer limited ad tracking, Play services cannot tell, or it did not
      * answer within [advertisingIdWaitMillis]: Play services' call blocks and documents no time limit, and a
      * request must not wait for it. The read goes on by itself (a blocked call cannot be stopped); waiting for it
-     * stops at once when the caller is cancelled (its `VideoAds` destroyed), never swallowed.
+     * stops at once when the caller is cancelled (its `VideoAds` destroyed), never swallowed. Requests made while
+     * one read hangs share it: a hung Play services holds one IO thread, not one per request.
      */
     suspend fun advertisingId(context: Context): String? {
-        val read = Environment.scope.async(Dispatchers.IO) { runCatching { readAdvertisingId(context) }.getOrNull() }
+        val read = synchronized(this) {
+            advertisingIdRead?.takeIf { it.isActive }
+                ?: Environment.scope.async(Dispatchers.IO) { runCatching { readAdvertisingId(context) }.getOrNull() }.also { advertisingIdRead = it }
+        }
         return withTimeoutOrNull(advertisingIdWaitMillis) { read.await() }
     }
 }
