@@ -194,7 +194,8 @@ internal class AdPayload(
                 val width = size.long("width") ?: invalidAt("sizes.width", "ad $id: size.width")
                 val height = size.long("height") ?: invalidAt("sizes.height", "ad $id: size.height")
                 // Positive, and no larger than any screen could be.
-                if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) invalidAt("sizes.width", "ad $id: a size must be positive and at most $MAX_SIDE")
+                if (width !in 1..MAX_SIDE) invalidAt("sizes.width", "ad $id: a size's width must be positive and at most $MAX_SIDE")
+                if (height !in 1..MAX_SIDE) invalidAt("sizes.height", "ad $id: a size's height must be positive and at most $MAX_SIDE")
                 // Absent is scalable; a flag of the wrong type is a malformed size, not a guess.
                 val isScalable = if (size.has("scalable")) size.bool("scalable") ?: invalidAt("sizes.scalable", "ad $id: size.scalable") else true
                 Size(width.toInt(), height.toInt(), isScalable)

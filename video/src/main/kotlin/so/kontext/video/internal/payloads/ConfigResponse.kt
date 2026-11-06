@@ -27,7 +27,7 @@ internal sealed class ConfigResponse {
             return if (isEnabled) {
                 Enabled(body.bool("reportDebug") ?: false, body.bool("reportErrors") ?: false)
             } else {
-                Disabled(body.str("disabledReason") ?: UNKNOWN_REASON)
+                Disabled(body.str("disabledReason")?.takeIf { it.isNotBlank() } ?: UNKNOWN_REASON)
             }
         }
     }

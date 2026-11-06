@@ -5,6 +5,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.network.ResponseTooLarge
+import so.kontext.video.internal.network.UnexpectedFailure
+import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.putIfNotNull
 import java.util.UUID
 
@@ -56,10 +59,27 @@ internal object ErrorReport {
         // A Java exception has no code of its own: 0.
         val underlying: Underlying? = when (error) {
             is ApiException.Http -> null
-            is ApiException.Transport, is ApiException.Decoding -> error.cause?.javaClass?.name?.let { Underlying(it, 0) }
-            else -> Underlying(error.javaClass.name, 0)
+            is ApiException.Transport, is ApiException.Decoding -> error.cause?.let { Underlying(domainOf(it), 0) }
+            else -> Underlying(domainOf(error), 0)
         }
         val detail: String? = if (error is ApiException.Transport) "network" else null
+    }
+
+    /**
+     * A failure's domain that reads the same in every build: a platform exception's class name (`java.`, `javax.`,
+     * `android.`, never renamed), and a stable word for the SDK's own and its libraries' exceptions, whose class
+     * names R8 renames in a publisher's release build (`a.b.c` would group nothing).
+     */
+    internal fun domainOf(error: Throwable): String {
+        val name = error.javaClass.name
+        return when {
+            error is ResponseTooLarge -> "too_large"
+            error is UnexpectedFailure -> "unexpected"
+            error is AdPayload.MalformedField -> "malformed_field"
+            error is kotlinx.serialization.SerializationException -> "json"
+            name.startsWith("java.") || name.startsWith("javax.") || name.startsWith("android.") -> name
+            else -> "other"
+        }
     }
 
     /** One report's JSON, its strings capped, with the recent events of [EventHistory]. */

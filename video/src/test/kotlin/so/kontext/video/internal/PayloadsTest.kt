@@ -119,4 +119,31 @@ class PayloadsTest {
         assertTrue(ErrorResponse.parse(deep).isEmpty(), "past JsonParser.MAX_DEPTH: no StackOverflowError, no items")
         assertTrue(ErrorResponse.parse("[".repeat(100_000)).isEmpty())
     }
+
+    @Test fun anEmptyOrBlankReasonIsUnknown() {
+        for (reason in listOf("\"\"", "\"   \"")) {
+            val config = ConfigResponse.parse(Fixtures.json("""{"enabled": false, "disabledReason": $reason}"""))
+            assertEquals(UNKNOWN_REASON, (config as ConfigResponse.Disabled).reason)
+            val ads = AdsResponse.parse(Fixtures.json("""{"enabled": false, "disabledReason": $reason}"""))
+            assertEquals(UNKNOWN_REASON, (ads as AdsResponse.Disabled).reason)
+        }
+        assertEquals(NoFillReason.Unknown, so.kontext.video.internal.payloads.noFillReasonFrom(""))
+        assertEquals(NoFillReason.Unknown, so.kontext.video.internal.payloads.noFillReasonFrom("  "))
+    }
+
+    @Test fun aSizeOutOfRangeIsReportedAtItsOwnKey() {
+        for ((sizes, key) in listOf("""[{"width": 320, "height": 0}]""" to "sizes.height", """[{"width": 0, "height": 50}]""" to "sizes.width", """[{"width": 320, "height": 10001}]""" to "sizes.height")) {
+            val error = assertThrows<ApiException.Decoding> { AdPayload.parse(Fixtures.json(Fixtures.overlay(sizes = sizes))) }
+            assertEquals(key, (error.cause as AdPayload.MalformedField).path, sizes)
+        }
+    }
+
+    @Test fun aReportsDomainReadsTheSameInEveryBuild() {
+        val report = so.kontext.video.internal.diagnostics.ErrorReport
+        assertEquals("too_large", report.domainOf(so.kontext.video.internal.network.ResponseTooLarge()))
+        assertEquals("unexpected", report.domainOf(so.kontext.video.internal.network.UnexpectedFailure(IllegalStateException())))
+        assertEquals("json", report.domainOf(kotlinx.serialization.SerializationException("x")))
+        assertEquals("java.net.SocketTimeoutException", report.domainOf(java.net.SocketTimeoutException()))
+        assertEquals("other", report.domainOf(object : RuntimeException() {}))
+    }
 }

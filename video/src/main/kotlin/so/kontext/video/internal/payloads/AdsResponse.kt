@@ -39,7 +39,7 @@ internal sealed class AdsResponse {
         fun parse(json: JsonElement?): AdsResponse {
             val body = json?.obj() ?: invalid("not an object")
             val isEnabled = body.bool("enabled") ?: invalid("enabled is missing")
-            if (!isEnabled) return Disabled(body.str("disabledReason") ?: UNKNOWN_REASON)
+            if (!isEnabled) return Disabled(body.str("disabledReason")?.takeIf { it.isNotBlank() } ?: UNKNOWN_REASON)
             val results = body["formats"]?.arr()?.mapNotNull(::entry) ?: invalid("formats is missing")
             // One entry per format: with two, which one counts would depend on their order.
             if (results.map { it.format }.toSet().size != results.size) invalid("a format is listed twice")
@@ -96,7 +96,8 @@ private val knownNoFillReasons by lazy {
 }
 
 /** A no-fill reason from the wire; `null` (left out or malformed) is [NoFillReason.Unknown], one this SDK does not know [NoFillReason.Other]. */
-internal fun noFillReasonFrom(raw: String?): NoFillReason = when (raw) {
-    null -> NoFillReason.Unknown
+internal fun noFillReasonFrom(raw: String?): NoFillReason = when {
+    // Missing, empty or blank: no reason given, as Swift reads it.
+    raw.isNullOrBlank() -> NoFillReason.Unknown
     else -> knownNoFillReasons.firstOrNull { it.wireName == raw } ?: NoFillReason.Other(raw)
 }
