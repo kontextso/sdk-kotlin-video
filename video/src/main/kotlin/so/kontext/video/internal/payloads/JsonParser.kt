@@ -19,6 +19,7 @@ import so.kontext.video.internal.network.ApiException
  *   outside strings, a bare token is   true | false | null | -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
  *   {"enabled": TRUE}  {"a": NaN}  {"a": 01}  {"a": abc}       refused: not JSON
  *   {"enabled": false, "enabled": true}                         refused: a key twice in one object
+ *   {"a": "x<a raw newline>y"}                                  refused: a control character not escaped
  * ```
  *
  * Why the depth guard: the parser is recursive, one call per level. A text like `[[[[…]]]]` nested 100 000 deep
@@ -100,11 +101,17 @@ internal object JsonParser {
         }
     }
 
-    /** The index of the quote that closes the string opened at [start]; the text's end for one never closed (the parser refuses it). */
+    /**
+     * The index of the quote that closes the string opened at [start]; the text's end for one never closed (the
+     * parser refuses it). Throws for a raw control character (U+0000 to U+001F) inside: JSON allows them only
+     * escaped (`\\n`), kotlinx's parser takes them, iOS's decoder refuses them.
+     */
     private fun stringEnd(text: String, start: Int): Int {
         var index = start + 1
         while (index < text.length) {
-            when (text[index]) {
+            val char = text[index]
+            require(char >= ' ') { "a raw control character (U+%04X) in a string".format(char.code) }
+            when (char) {
                 '\\' -> index++
                 '"' -> return index
             }
