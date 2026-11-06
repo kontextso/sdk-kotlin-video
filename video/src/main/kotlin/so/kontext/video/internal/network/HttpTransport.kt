@@ -68,23 +68,28 @@ internal object HttpTransport {
         var url = start
         var post = body != null
         repeat(MAX_REDIRECTS + 1) {
+            // 1. Open the hop's connection, unless the caller has gone.
             if (!isActive()) throw IOException("cancelled")
             val connection = url.openConnection() as HttpURLConnection
             current?.set(connection)
             try {
+                // 2. Send the request: the POST's body, or a GET.
                 send(connection, if (post) body else null, timeoutMillis)
                 // A disconnect between the send and the read would not stop the read: the JDK reconnects and
                 // waits on the new connection until the timeout. A caller gone by now ends the exchange here.
                 if (!isActive()) throw IOException("cancelled")
                 onReading?.invoke()
+                // 3. Read the status; a redirect it may follow names the next hop.
                 val status = connection.responseCode
                 val next = nextHop(connection, status, url, redirects)
+                // 4. The last answer: its body, read up to the cap (or not at all for a beacon).
                 if (next == null) {
                     if (maxBodyBytes == null) return Answer(status, null)
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                     if (connection.contentLengthLong > maxBodyBytes) throw ResponseTooLarge()
                     return Answer(status, stream?.use { readCapped(it, maxBodyBytes) } ?: "")
                 }
+                // 5. The next hop: a 307 or 308 keeps the POST, the others continue as a GET.
                 if (status !in KEEP_METHOD) post = false
                 url = next
             } finally {

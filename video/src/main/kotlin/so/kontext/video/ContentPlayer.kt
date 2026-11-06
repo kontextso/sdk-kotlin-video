@@ -3,7 +3,7 @@ package so.kontext.video
 import androidx.annotation.MainThread
 
 /**
- * The content player, for a player that is not supported out of the box (Media3 is, in `so.kontext:video-media3`).
+ * The content player, for a player that is not supported out of the box (Media3 and TTSDK are, in `so.kontext:video-media3` and `so.kontext:video-ttsdk`).
  * Give it to `VideoAds.track(player)`. The SDK reads it on the main thread and holds it until
  * `VideoAds.destroy()` or the next `track`; an adapter should hold your player weakly.
  */

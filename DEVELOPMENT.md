@@ -110,13 +110,15 @@ after **Publish SDK** succeeds (it waits for the release to reach Maven Central,
 From the build files and the artifacts' dependencies:
 
 - **minSdk 26**, Android 8 (every module).
-- **compileSdk 34** for `so.kontext:video`, **35** with `so.kontext:video-media3`: AndroidX Core 1.13.1, Activity
-  1.8.2 and WebKit 1.12.1 require 34 in their AAR metadata, Media3 1.6.0 requires 35. AGP refuses a lower one.
-- **Android Gradle Plugin 8.1.1+** for compileSdk 34, **8.6+** for 35 (the first versions that support those API
-  levels), with the Gradle version that AGP requires (8.0+ and 8.7+), and **JDK 17** (what AGP 8 runs on; the
-  artifacts are Java 17 bytecode, `jvmToolchain(17)`).
-- **Kotlin 2.0+** for a Kotlin app: the artifacts are compiled with Kotlin 2.1.0, and a Kotlin compiler reads
-  metadata at most one version newer than its own. A Java app needs no Kotlin plugin.
+- **compileSdk 34**: AndroidX Core 1.13.1, Activity 1.8.2 and WebKit 1.12.1 require it in their AAR metadata;
+  AGP refuses a lower one. `so.kontext:video-media3` depends on Media3 1.1.1 or newer (`media3-common`, the
+  floor it compiles against); the app's own Media3 sets what it needs beyond that (Media3 1.6.0 requires
+  compileSdk 35).
+- **Android Gradle Plugin 8.1.1+** for compileSdk 34 (8.6+ for 35), with the Gradle version that AGP requires,
+  and **JDK 17** to build (what AGP 8 runs on). The artifacts are **Java 11** bytecode (`jvmTarget` 11, the
+  toolchain is 17), so a Java 11 app reads them.
+- **Kotlin 1.9+** for a Kotlin app: the artifacts are compiled with Kotlin 2.1.0 but with `apiVersion` and
+  `languageVersion` 1.9, so their metadata is 1.9's. A Java app needs no Kotlin plugin.
 - R8 needs nothing from the app: the consumer rules ship in the AAR.
 
 What CI builds a publisher's app with (`extras/release-check`): AGP 8.7.3, Gradle 8.11.1, Kotlin 2.1.0, JDK 17,

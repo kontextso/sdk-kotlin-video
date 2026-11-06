@@ -95,7 +95,12 @@ public class VideoAd internal constructor(
     /** `load()` finished: the creative is rendered off screen. */
     public val isLoaded: Boolean get() = state.isLoaded
 
-    /** Loaded and still usable: `show` will not throw `NotLoaded`, `Invalidated` or `Disabled`. */
+    /**
+     * Loaded and still usable as far as the ad itself can tell: loaded, not shown, not ended, not expired, the
+     * SDK on. A hint, not a promise: `show` still checks what only the moment can tell, and may throw
+     * `Invalidated(ContentChanged)` (the player moved to another episode), `Destroyed`, `AnotherAdShowing`,
+     * `ContentPaused`, `ContainerTooSmall` or `CannotShowNow`.
+     */
     public val isReady: Boolean get() = isLoaded && !wasShown && invalidationReason == null && !isExpired && SdkState.current.disabledReason == null
 
     /** Why the ad ended before it was shown, once it did. */
@@ -110,7 +115,8 @@ public class VideoAd internal constructor(
     /** The creative ran to its end: an overlay's duration elapsed, a linear video played through. */
     public val isCompleted: Boolean get() = state.isCompleted
 
-    /** The moments on screen. Held until `onAdEnded` has run. */
+    /** The moments on screen, heard on the main thread. Held until `onAdEnded` has run. */
+    @set:MainThread
     public var listener: VideoAdListener? = null
 
     internal val owner = WeakReference(owner)
@@ -869,7 +875,7 @@ public class VideoAd internal constructor(
         }
     }
 
-    /** Why an ad ended before it was shown. Found out at the next call (`format`, `load`, `show`, `reject`), which throws it. */
+    /** Why an ad ended before it was shown. `load` and `show` throw it from then on; `reject` does nothing and logs it. */
     public sealed class InvalidationReason {
         /** The name reports carry, the same on iOS: `expired`, `rejected`, `destroyed`, `contentChanged`, `creativeFailed`. */
         internal val wireName: String

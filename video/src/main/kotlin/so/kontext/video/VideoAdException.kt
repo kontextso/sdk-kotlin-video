@@ -3,7 +3,7 @@ package so.kontext.video
 /**
  * Why the SDK could not do its job, reached two ways.
  *
- * - Thrown by a call (`format`, `load`, `show`, `reject`): that call did not happen. Nothing is
+ * - Thrown by a call (`format`, `load`, `show`; `reject` and `dismiss` never throw): that call did not happen. Nothing is
  *   shown. Whether the ad stays usable is said per case.
  * - Delivered through [VideoAdListener.onAdFailed], after a `show` that was accepted: the ad broke on
  *   screen ([CreativeFailed]), or the linear ad's Activity never started ([CannotShowNow]).
@@ -48,7 +48,7 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
      */
     public class CreativeFailed(public val code: Int) : VideoAdException("the creative failed (VAST error $code)")
 
-    /** The ad was already shown: it cannot be shown again, nor rejected. */
+    /** The ad was already shown: it cannot be shown again (and `reject()` on it does nothing). */
     public class AlreadyShown : VideoAdException("the ad was already shown")
 
     /** Another ad is on screen, from any `VideoAds`: at most one in the whole app. This ad is untouched and still ready. */

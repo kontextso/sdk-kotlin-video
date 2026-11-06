@@ -317,13 +317,6 @@ internal class InlineScreen(
     }
 
     /**
-     * Another Activity of the app covers the one holding the container (it stopped while the app stays in
-     * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
-     * its window. The app going to the background only freezes the ad's clock (and an overlay's content
-     * pausing there, see `OverlayRule`); a stop for a configuration change recreates the Activity, and the
-     * container leaving the window ends the ad there.
-     */
-    /**
      * A list that makes and recycles its own children: an `AdapterView` (ListView, GridView), which refuses a child,
      * or a RecyclerView, which takes it and then crashes the app at its next layout, outside `show`, on a child
      * with no ViewHolder. Found by class name, so the SDK needs no RecyclerView dependency (its consumer rules keep
@@ -361,6 +354,13 @@ internal class InlineScreen(
         return false
     }
 
+    /**
+     * Another Activity of the app covers the one holding the container (it stopped while the app stays in
+     * front): the ad ends, interrupted, as on iOS, where a full-screen cover takes the presenter's view out of
+     * its window. The app going to the background only freezes the ad's clock (and an overlay's content
+     * pausing there, see `OverlayRule`); a stop for a configuration change recreates the Activity, and the
+     * container leaving the window ends the ad there.
+     */
     private fun followHoldingActivity(holder: Activity) {
         holdingActivity = WeakReference(holder)
         follow(holder) { activity, event ->

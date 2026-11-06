@@ -1,5 +1,7 @@
 package so.kontext.video
 
+import androidx.annotation.MainThread
+
 /**
  * The moments of an ad on screen, delivered on the main thread. Every method has an empty default, so
  * implement the ones you need (from Java too).
@@ -25,20 +27,24 @@ public interface VideoAdListener {
      * `show` returns; at the first frame for a video.
      * It may never come: the ad can end before.
      */
+    @MainThread
     public fun onAdImpression(ad: VideoAd) {}
 
     /**
      * The viewer tapped the ad and the SDK took the click: it fired the click beacons and is opening the
      * target. Neither which target opened nor whether it did is reported. Once per tap.
      */
+    @MainThread
     public fun onAdClicked(ad: VideoAd, click: VideoAd.Click) {}
 
     /**
      * The ad broke after `show` returned: the creative failed or stalled, or the linear ad's Activity never
      * started ([VideoAdException.CannotShowNow]). [onAdEnded] with [VideoAd.EndReason.FAILED] follows.
      */
+    @MainThread
     public fun onAdFailed(ad: VideoAd, error: VideoAdException) {}
 
     /** The ad's time on screen is over. Exactly once per successful `show`. */
+    @MainThread
     public fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {}
 }

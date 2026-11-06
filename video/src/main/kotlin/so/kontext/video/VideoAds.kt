@@ -37,7 +37,9 @@ import java.util.UUID
  * life. They are sent as given: use the names and values Kontext gives you. They describe the screen, never the
  * viewer: no personal data.
  */
-public class VideoAds @JvmOverloads constructor(
+public class VideoAds
+@MainThread @JvmOverloads
+constructor(
     /** The video the ads are for; every request carries it. */
     public val content: Content,
     labels: Map<String, String> = emptyMap(),

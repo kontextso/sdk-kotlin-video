@@ -24,12 +24,12 @@ import so.kontext.video.internal.state.SdkState
  * every public call on `KontextVideo` that starts the SDK forwards here. Main thread only. The entry point of
  * the internals; everything else lives in a folder named by its topic.
  *
- * Why not in `KontextVideo` itself: a JVM quirk. Kotlin's `internal` means "visible only inside this module", but
- * the JVM has no such level: an `internal` member of a public class compiles as public, with a slightly mangled
- * name, so a Java app could see and call it. Were the SDK's machinery (`initJob`, `disable()`) internal members of
- * the public `KontextVideo`, Java code could reach into it. An `internal object` of its own keeps all of it out
- * of reach. Swift needs no such split: its `internal` is truly invisible outside the module, and the same state
- * lives in `KontextVideo.swift`.
+ * Why not in `KontextVideo` itself: so the public object holds the public API and nothing else. Its members are
+ * what an app sees, from Kotlin and from Java; the machinery (`initJob`, `disable()`, the test resets) lives here.
+ * This is organization, not a wall: Kotlin's `internal` has no JVM equivalent, so this object is a public class
+ * in the bytecode (`SdkInitializer.INSTANCE`), and Java code that names it can call it, as it could an internal
+ * member of `KontextVideo`. Swift's `internal` is truly invisible outside the module, and the same state lives in
+ * `KontextVideo.swift`.
  */
 internal object SdkInitializer {
     /** The [State.Disabled] reason in a process other than the app's main one. */

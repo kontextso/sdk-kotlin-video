@@ -65,6 +65,7 @@ public object KontextVideo {
      */
     public fun interface InitializationListener {
         /** `/config` answered or failed: [state] is where the SDK is now. */
+        @MainThread
         public fun onInitialized(state: State)
     }
 

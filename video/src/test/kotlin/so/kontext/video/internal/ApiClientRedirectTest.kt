@@ -63,10 +63,10 @@ class ApiClientRedirectTest {
         }
     }
 
-    @Test fun moreThanFiveRedirectsFailAsATransportError() {
+    @Test fun moreThanMaxRedirectsFailAsATransportError() {
         repeat(HttpTransport.MAX_REDIRECTS + 1) { server.enqueue(redirect(307, "/v2/again")) }
         assertThrows<ApiException.Transport> { post() }
-        assertEquals(HttpTransport.MAX_REDIRECTS + 1, server.requestCount, "the first request and five hops, no more")
+        assertEquals(HttpTransport.MAX_REDIRECTS + 1, server.requestCount, "the first request and MAX_REDIRECTS hops, no more")
     }
 
     @Test fun aRedirectWithoutATargetIsTheAnswer() {
