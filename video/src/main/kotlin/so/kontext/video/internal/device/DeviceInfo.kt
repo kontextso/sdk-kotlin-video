@@ -1,6 +1,10 @@
 package so.kontext.video.internal.device
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -13,6 +17,7 @@ import so.kontext.kit.deviceinfo.InstallIdProvider
 import so.kontext.kit.deviceinfo.OSInfoProvider
 import so.kontext.kit.deviceinfo.ScreenInfoProvider
 import so.kontext.video.internal.payloads.putIfNotNull
+import so.kontext.video.internal.platform.Environment
 import kotlin.math.roundToInt
 
 /**
@@ -21,6 +26,16 @@ import kotlin.math.roundToInt
  * physical pixels). As the Swift SDK does.
  */
 internal object DeviceInfo {
+    /** How long a request waits for the advertising id. A constant in spirit; tests shorten it. */
+    @VisibleForTesting
+    var advertisingIdWaitMillis = 1_000L
+
+    /** Play services, through KontextKit; tests replace it. */
+    @VisibleForTesting
+    var readAdvertisingId: suspend (Context) -> String? = { context ->
+        AdvertisingIdProvider.collect(context).takeUnless { it.isLimitAdTrackingEnabled }?.advertisingId
+    }
+
     /** Identifies this installation of the app; kept until the app is uninstalled. */
     fun installId(context: Context): String = InstallIdProvider.getOrCreate(context)
 
@@ -80,8 +95,14 @@ internal object DeviceInfo {
         }
     }
 
-    /** The advertising id, `null` when the viewer limited ad tracking or Play services cannot tell. */
-    suspend fun advertisingId(context: Context): String? = runCatching {
-        AdvertisingIdProvider.collect(context).takeUnless { it.isLimitAdTrackingEnabled }?.advertisingId
-    }.getOrNull()
+    /**
+     * The advertising id, `null` when the viewer limited ad tracking, Play services cannot tell, or it did not
+     * answer within [advertisingIdWaitMillis]: Play services' call blocks and documents no time limit, and a
+     * request must not wait for it. The read goes on by itself (a blocked call cannot be stopped); waiting for it
+     * stops at once when the caller is cancelled (its `VideoAds` destroyed), never swallowed.
+     */
+    suspend fun advertisingId(context: Context): String? {
+        val read = Environment.scope.async(Dispatchers.IO) { runCatching { readAdvertisingId(context) }.getOrNull() }
+        return withTimeoutOrNull(advertisingIdWaitMillis) { read.await() }
+    }
 }

@@ -2,6 +2,8 @@ package so.kontext.video.internal.network
 
 import android.content.Context
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
@@ -24,7 +26,9 @@ internal object ConfigFetcher {
         // which may throw (a wrong-typed stored id). Whatever fails, `/config` reaches an outcome and the SDK
         // moves to `Failed`, never staying `Initializing` for the launch.
         return try {
-            val request = ConfigRequest.make(context, configuration)
+            // Off the main thread: the install id's first read loads its SharedPreferences file from disk, often
+            // from Application.onCreate.
+            val request = withContext(Dispatchers.IO) { ConfigRequest.make(context, configuration) }
             requestId = request.requestId
             ConfigResponse.parse(ApiClient(configuration.adServerUrl).post("config", request.body))
         } catch (error: CancellationException) {

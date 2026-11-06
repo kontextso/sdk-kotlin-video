@@ -58,4 +58,24 @@ class UserAgentTest {
             Environment.reset()
         }
     }
+
+    @Test fun anAdvertisingIdThatNeverAnswersIsNoneAfterTheWait() {
+        val release = java.util.concurrent.CountDownLatch(1)
+        val original = so.kontext.video.internal.device.DeviceInfo.readAdvertisingId
+        so.kontext.video.internal.device.DeviceInfo.readAdvertisingId = {
+            release.await(10, java.util.concurrent.TimeUnit.SECONDS)
+            "late"
+        }
+        so.kontext.video.internal.device.DeviceInfo.advertisingIdWaitMillis = 100
+        try {
+            val started = System.currentTimeMillis()
+            val id = kotlinx.coroutines.runBlocking { so.kontext.video.internal.device.DeviceInfo.advertisingId(context) }
+            assertEquals(null, id)
+            assertTrue("it did not wait for Play services", System.currentTimeMillis() - started < 5_000)
+        } finally {
+            release.countDown()
+            so.kontext.video.internal.device.DeviceInfo.advertisingIdWaitMillis = 1_000
+            so.kontext.video.internal.device.DeviceInfo.readAdvertisingId = original
+        }
+    }
 }
