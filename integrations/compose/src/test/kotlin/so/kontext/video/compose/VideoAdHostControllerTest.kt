@@ -133,6 +133,52 @@ class VideoAdHostControllerTest {
         assertNull(slot.ad)
     }
 
+    @Test fun anAdShownElsewhereAfterItWasGivenIsLeftAlone() {
+        val slot = VideoAdHostController(FrameLayout(activity())) // not laid out yet
+        val ad = pause()
+        slot.set(ad)
+        ad.show(container()) // the app shows it elsewhere before the slot's layout
+        slot.set(null)
+        assertFalse("not dismissed by a slot that did not show it", ad.hasEnded)
+        assertNull(slot.ad)
+    }
+
+    @Test fun aFailedShowIsNotTriedAgainForTheSameAd() {
+        val elsewhere = pause()
+        elsewhere.show(container()) // the app's one slot is taken
+        val slot = slot()
+        val ad = pause()
+        slot.set(ad)
+        laidOut()
+        // A recomposition passes the same ad again (an onShowFailed that changed the app's state): no new try.
+        slot.set(ad)
+        laidOut()
+        slot.set(ad)
+        laidOut()
+        assertEquals(1, failures.size)
+        // Another ad, or the same one after another, is a new request.
+        elsewhere.dismiss()
+        slot.set(null)
+        slot.set(ad)
+        laidOut()
+        assertTrue(ad.wasShown)
+    }
+
+    @Test fun aContainerLaidOutWithNoSizeWaitsForOne() {
+        val container = container()
+        container.layout(0, 0, 0, 0)
+        val slot = VideoAdHostController(container).also { it.onShowFailed = { _, error -> failures += error } }
+        val ad = pause()
+        slot.set(ad)
+        laidOut()
+        assertTrue("a 0×0 pass is not a failure", failures.isEmpty())
+        assertFalse(ad.wasShown)
+        container.layout(0, 0, 320, 400)
+        laidOut()
+        assertTrue(ad.wasShown)
+        assertTrue(failures.isEmpty())
+    }
+
     @Test fun anAdTakenAwayBeforeLayoutIsNeverShown() {
         val slot = VideoAdHostController(android.widget.FrameLayout(activity())) // not laid out yet
         val ad = pause()
