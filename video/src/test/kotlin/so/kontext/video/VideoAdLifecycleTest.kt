@@ -611,6 +611,7 @@ class VideoAdLifecycleTest : SdkTest() {
         val ad = linear(tracking = progress)
         ad.listener = recorder
         val screen = openScreen(ad)
+        page(ad, "video.start", """"playhead": 0""")
         page(ad, "video.progress", """"offset": 5000, "playhead": 5000""")
         page(ad, "video.skip", """"playhead": 12000""")
         screen.pause().stop().destroy()

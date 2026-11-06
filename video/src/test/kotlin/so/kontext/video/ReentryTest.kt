@@ -117,6 +117,20 @@ class ReentryTest : SdkTest() {
         assertFalse("the video is over: nothing counts towards its dwell", ad.meter?.countsTime ?: false)
     }
 
+    @Test fun noProgressCheckpointBeforeTheVideoStarted() {
+        val progress = """{"event": "progress", "url": "https://t.test/b?e=progress", "offset": 5000}"""
+        val ad = linear(tracking = tracking("mute", "unmute", "skip").dropLast(1) + ", $progress]")
+        val host = activity()
+        ad.show(host)
+        Robolectric.buildActivity(LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).create().start().resume().visible()
+        idle()
+        page(ad, "video.mute", """"playhead": 6000""")
+        page(ad, "video.unmute", """"playhead": 6000""")
+        assertEquals("a video that never started passed no checkpoint", listOf("mute", "unmute"), events)
+        page(ad, "video.start", """"playhead": 6000""")
+        assertEquals(listOf("mute", "unmute", "progress"), events)
+    }
+
     @Test fun anAdEndedBeforeShowIgnoresItsPage() {
         val owner = owner()
         val ad = overlay(owner)

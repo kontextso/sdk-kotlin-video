@@ -28,6 +28,12 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
 
     private val fired = mutableSetOf<Int>()
 
+    /**
+     * `video.start` was recorded: progress checkpoints count only from then. A mute, unmute or skip may come
+     * before it, at a playhead the video never played to.
+     */
+    private var hasVideoStarted = false
+
     /** Why the SDK did not use a bid, for the `notUsed` beacon. */
     sealed class NotUsed(val reason: String, val winningPrice: Double? = null, val winner: String? = null) {
         object NotUsedByApp : NotUsed("notUsed")
@@ -95,27 +101,33 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
             is FrameEvent.Open -> if (event.purpose == "adChoices") fire("iconClick")
             is FrameEvent.Skip -> {
                 adPlayheadMillis = event.playheadMillis
-                fireProgress(event.playheadMillis)
+                catchUpProgress(event.playheadMillis)
                 fire("skip")
             }
             is FrameEvent.Video -> {
                 adPlayheadMillis = event.playheadMillis
+                if (event.event == FrameEvent.VideoEvent.START) hasVideoStarted = true
                 fire(event.event.wire)
-                fireProgress(event.playheadMillis)
+                catchUpProgress(event.playheadMillis)
             }
             is FrameEvent.Progress -> {
                 adPlayheadMillis = event.playheadMillis
-                fireProgress(maxOf(event.offsetMillis, event.playheadMillis))
+                catchUpProgress(maxOf(event.offsetMillis, event.playheadMillis))
             }
             is FrameEvent.Complete -> {
                 adPlayheadMillis = event.playheadMillis
-                fireProgress(event.playheadMillis)
+                catchUpProgress(event.playheadMillis)
                 fire("complete")
                 // The end card, when there is one, becomes visible now.
                 fire("creativeView", part = "endCard")
             }
             is FrameEvent.Click, is FrameEvent.Close -> Unit
         }
+    }
+
+    /** The progress checkpoints up to [millis], once the video started (as Swift's `catchUpProgress`). */
+    private fun catchUpProgress(millis: Long) {
+        if (hasVideoStarted) fireProgress(millis)
     }
 
     /** The click-through with the beacon macros substituted, `[KONTEXT_FIREID]` with the click's own fire id. */
