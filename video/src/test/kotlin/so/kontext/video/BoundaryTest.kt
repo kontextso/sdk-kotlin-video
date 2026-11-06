@@ -508,7 +508,12 @@ class BoundaryTest {
             gdprConsent = "consent-string"
         }
         userAgent.complete("test-agent")
-        shadowOf(Looper.getMainLooper()).idle()
+        // The stored consent is read off the main thread: the request is built once that read is back.
+        val deadline = System.currentTimeMillis() + 5_000
+        while (body == null && System.currentTimeMillis() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(5)
+        }
         val sent = body!!
         assertEquals("00000000-0000-0000-0000-000000000002", sent["ifa"]!!.jsonObject["id"]!!.jsonPrimitive.content)
         assertEquals("after", sent["user"]!!.jsonObject["id"]!!.jsonPrimitive.content)

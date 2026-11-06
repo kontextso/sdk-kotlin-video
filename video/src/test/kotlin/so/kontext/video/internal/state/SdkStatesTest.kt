@@ -181,6 +181,23 @@ class SdkStatesTest : ParityHarness() {
         }
     }
 
+    @Test fun theStoredConsentIsReadOffTheMainThread() {
+        // The default SharedPreferences' first read loads its file from disk: never on the main thread, where
+        // format() builds the request.
+        var onMain: Boolean? = null
+        so.kontext.video.internal.device.Consent.collect = {
+            onMain = android.os.Looper.myLooper() == android.os.Looper.getMainLooper()
+            so.kontext.kit.privacy.ConsentDataProvider.collect(it)
+        }
+        try {
+            answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+            assertTrue(format(owner(), AdFormat.PAUSE).isSuccess)
+            assertEquals(false, onMain)
+        } finally {
+            so.kontext.video.internal.device.Consent.collect = so.kontext.kit.privacy.ConsentDataProvider::collect
+        }
+    }
+
     @Test fun failedMovesToDisabledThroughTheRetry() {
         failingConfig()
         assertEquals(State.Failed, initialize())

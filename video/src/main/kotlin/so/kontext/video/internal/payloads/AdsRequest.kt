@@ -38,11 +38,12 @@ internal class AdsRequest private constructor(
             val requestId = UUID.randomUUID().toString()
             // The slow prerequisite first: the viewer may reset the ad id, or the consent and the user may change,
             // while it is read. What identifies the viewer and what they allow is read last, just before the body
-            // (consent and the user inside it, with nothing suspending between).
+            // (the stored consent off the main thread; the publisher's consent and the user after it, with nothing
+            // suspending between them and the body).
             val userAgent = UserAgent.requestUserAgent(context)
             val ifa = Environment.advertisingId()
             // A usable CMP value wins per field; the publisher fills in the rest. COPPA comes only from the publisher.
-            val regulatory = Consent.read(context, SdkState.current.regulatory)
+            val regulatory = Consent.read(context) { SdkState.current.regulatory }
             // The ads held now, after the waits: one shown, rejected or expired meanwhile is not listed.
             val heldIds = held()
             val body = buildJsonObject {

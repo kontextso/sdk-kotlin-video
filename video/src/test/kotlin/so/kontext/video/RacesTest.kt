@@ -118,7 +118,7 @@ class RacesTest {
         val ads = VideoAds(Content("ep", "en"))
         val leaving = format(ads)
         val staying = format(ads)
-        assertTrue(adsArrived.await(5, TimeUnit.SECONDS))
+        await { adsArrived.count == 0L } // the main thread runs: the request is built there, the consent read off it
         leaving.job.cancel()
         adsGate!!.countDown()
         await { staying.result != null }
@@ -162,7 +162,7 @@ class RacesTest {
         adsGate = CountDownLatch(1)
         val ads = VideoAds(Content("ep", "en"))
         val call = format(ads)
-        assertTrue(adsArrived.await(5, TimeUnit.SECONDS))
+        await { adsArrived.count == 0L } // the main thread runs: the request is built there, the consent read off it
         ads.destroy()
         await { call.result != null }
         assertTrue(call.result!!.exceptionOrNull() is VideoAdException.Destroyed)
@@ -177,7 +177,7 @@ class RacesTest {
         adsGate = CountDownLatch(1)
         val first = VideoAds(Content("ep-1", "en"))
         val call = format(first)
-        assertTrue(adsArrived.await(5, TimeUnit.SECONDS))
+        await { adsArrived.count == 0L } // the main thread runs: the request is built there, the consent read off it
         SdkInitializer.disable("killed") // another video's response switched the SDK off meanwhile
         adsGate!!.countDown()
         await { call.result != null }
@@ -207,7 +207,7 @@ class RacesTest {
         adsAnswer = MockResponse().setResponseCode(500)
         val ads = VideoAds(Content("ep", "en"))
         val call = format(ads)
-        assertTrue(adsArrived.await(5, TimeUnit.SECONDS))
+        await { adsArrived.count == 0L } // the main thread runs: the request is built there, the consent read off it
         SdkInitializer.disable("killed")
         adsGate!!.countDown()
         await { call.result != null }

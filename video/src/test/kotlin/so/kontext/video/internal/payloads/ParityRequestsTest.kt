@@ -68,6 +68,9 @@ class ParityRequestsTest : SdkTest() {
 
     private fun preferences() = context.getSharedPreferences(context.packageName + "_preferences", Context.MODE_PRIVATE)
 
+    /** What an ads request sends as `regulatory` for the stored CMP values and [publisher]'s. */
+    private fun consent(publisher: Regulatory?) = runBlocking { Consent.read(context) { publisher } }
+
     @Test fun theAdsRequestBodyHasEveryField() {
         Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
         KontextVideo.user = User { id = "u1" }
@@ -187,7 +190,7 @@ class ParityRequestsTest : SdkTest() {
     @Test fun consentReadsTheIabKeysAndCoppaOnlyFromThePublisher() {
         preferences().edit().putInt("IABTCF_gdprApplies", 1).putString("IABTCF_TCString", "TC-STRING").putString("IABGPP_HDR_GppString", "GPP-STRING")
             .putString("IABGPP_GppSID", "2_7").putString("IABUSPrivacy_String", "1YNN").commit()
-        val regulatory = Consent.read(context, null)!!
+        val regulatory = consent(null)!!
         assertEquals(true, regulatory.gdpr)
         assertEquals("TC-STRING", regulatory.gdprConsent)
         assertEquals("GPP-STRING", regulatory.gpp)
@@ -197,7 +200,7 @@ class ParityRequestsTest : SdkTest() {
     }
 
     @Test fun consentPrecedenceForEveryField() {
-        assertEquals("absent CMP values: the publisher's, false kept as false", publisher, Consent.read(context, publisher))
+        assertEquals("absent CMP values: the publisher's, false kept as false", publisher, consent(publisher))
         preferences().edit().putInt("IABTCF_gdprApplies", 1).putString("IABTCF_TCString", "CMP-TC").putString("IABGPP_HDR_GppString", "CMP-GPP")
             .putString("IABGPP_GppSID", "2_7").putString("IABUSPrivacy_String", "1YNN").commit()
         val cmp = Regulatory {
@@ -208,7 +211,7 @@ class ParityRequestsTest : SdkTest() {
             gppSid = listOf(2, 7)
             usPrivacy = "1YNN"
         }
-        assertEquals("each CMP value wins; coppa stays the publisher's", cmp, Consent.read(context, publisher))
+        assertEquals("each CMP value wins; coppa stays the publisher's", cmp, consent(publisher))
         assertEquals(
             Regulatory {
                 gdpr = true
@@ -217,13 +220,13 @@ class ParityRequestsTest : SdkTest() {
                 gppSid = listOf(2, 7)
                 usPrivacy = "1YNN"
             },
-            Consent.read(context, null),
+            consent(null),
         )
         preferences().edit().putString("IABTCF_gdprApplies", "yes").putString("IABTCF_TCString", "").putString("IABGPP_HDR_GppString", "")
             .putString("IABGPP_GppSID", "x_y").putString("IABUSPrivacy_String", "").commit()
-        assertEquals("unusable CMP values: the publisher's", publisher, Consent.read(context, publisher))
+        assertEquals("unusable CMP values: the publisher's", publisher, consent(publisher))
         preferences().edit().putInt("IABTCF_gdprApplies", 0).putString("IABGPP_GppSID", "3").commit()
-        val changed = Consent.read(context, publisher)!!
+        val changed = consent(publisher)!!
         assertEquals(false, changed.gdpr)
         assertEquals(listOf(3), changed.gppSid)
     }
@@ -240,23 +243,23 @@ class ParityRequestsTest : SdkTest() {
                 else -> editor.putString(key, raw.toString())
             }
             editor.commit()
-            assertEquals("$raw", expected, Consent.read(context, null)?.gdpr)
+            assertEquals("$raw", expected, consent(null)?.gdpr)
         }
     }
 
     @Test fun consentIsNullWhenNothingIsKnown() {
         preferences().edit().putString("IABTCF_TCString", "").putString("IABGPP_GppSID", "").commit()
-        assertNull("empty strings count as absent", Consent.read(context, null))
+        assertNull("empty strings count as absent", consent(null))
     }
 
     @Test fun gppSectionsAreReadSingleUnderscoredCommaSeparatedOrAsANumber() {
         // Parts that are not numbers are skipped, as KontextKit reads them on both platforms.
         for ((raw, expected) in listOf("7" to listOf(7), "8,10" to listOf(8, 10), "2_7" to listOf(2, 7), "2_x_7" to listOf(2, 7), "x_y" to null)) {
             preferences().edit().putString("IABGPP_GppSID", raw).commit()
-            assertEquals(raw, expected, Consent.read(context, null)?.gppSid)
+            assertEquals(raw, expected, consent(null)?.gppSid)
         }
         preferences().edit().remove("IABGPP_GppSID").putInt("IABGPP_GppSID", 7).commit()
-        assertEquals("a CMP writing one section as a number", listOf(7), Consent.read(context, null)?.gppSid)
+        assertEquals("a CMP writing one section as a number", listOf(7), consent(null)?.gppSid)
     }
 
     @Test fun everyFormatThrowsNotInitializedBeforeInitialize() {
