@@ -1,5 +1,10 @@
 package so.kontext.video.internal.screen
 
+import android.view.View
+import android.view.WindowInsets
+import android.widget.FrameLayout
+import androidx.core.graphics.Insets
+import androidx.core.view.WindowInsetsCompat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -81,5 +86,30 @@ class InlineScreenTest : SdkTest() {
         host.layout(0, 0, 100, 300)
         idle(InlineAdView.unfitGraceMillis * 2)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
+    @Test fun thePageReadsNoSystemInsetsForTheHostPlacedItClearOfThem() {
+        // The bars as the window hands them down: a 55 dp status bar and a 24 dp navigation bar, in pixels.
+        val bars = WindowInsetsCompat.Builder()
+            .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 144, 0, 63))
+            .build().toWindowInsets()!!
+        val page = InsetsRecorder()
+        val host = InlineAdView(activity(), page, coversWhole = true)
+        host.dispatchApplyWindowInsets(WindowInsets(bars))
+        assertEquals("the page is told of no bars", Insets.NONE, page.systemBars)
+        // A view outside the host still reads them: nothing else in the app loses its insets.
+        val outside = InsetsRecorder()
+        FrameLayout(activity()).apply { addView(outside) }.dispatchApplyWindowInsets(WindowInsets(bars))
+        assertEquals(Insets.of(0, 144, 0, 63), outside.systemBars)
+    }
+
+    /** A page stand-in: records the system bars it was told of, as a WebView turns them into `env(safe-area-inset-*)`. */
+    private class InsetsRecorder : View(Environment.context) {
+        var systemBars: Insets? = null
+
+        override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+            systemBars = WindowInsetsCompat.toWindowInsetsCompat(insets).getInsets(WindowInsetsCompat.Type.systemBars())
+            return insets
+        }
     }
 }

@@ -306,9 +306,9 @@ internal class InlineScreen(
 
     fun refit(width: Int, height: Int, system: Rect, density: Float): Rect? {
         val payload = ad.payload
-        // A full-screen pause ad clears the system bars and the cutout: Android's WebView gives the page no
-        // safe-area insets, so a page laid out edge to edge would put its controls under the clock. The host
-        // still covers the whole container behind the bars.
+        // A full-screen pause ad clears the system bars and the cutout, as on iOS: the page is placed inside
+        // them and reads no safe-area insets (InlineAdView), so its own padding is all it adds. The host still
+        // covers the whole container behind the bars.
         if (payload.position == AdPayload.Position.FULLSCREEN) return clearOfBars(width, height, system)
         val size = chosenSize ?: return Rect(0, 0, width, height)
         return AdGeometry.frame(size, payload.position, width, height, combinedInsets(system), density)

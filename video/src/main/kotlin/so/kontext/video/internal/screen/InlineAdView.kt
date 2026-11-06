@@ -7,6 +7,8 @@ import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 /**
  * What an overlay or pause ad puts into the player's container: a transparent layer over the whole
@@ -27,6 +29,11 @@ import android.widget.FrameLayout
  *
  * The WebView is only as big as the ad (its size from the server, shrunk at most to half when it does not fit),
  * placed by [place] at every layout pass, so it follows a resize or a rotation.
+ *
+ * [place] already keeps the creative clear of the bars and the cutout, so the page is told of none: Android's
+ * WebView would report the window's whole bars as CSS `env(safe-area-inset-*)` wherever it sits, and a page
+ * that pads by them (a full-screen pause ad's badge and close button) would count them twice. As on iOS, where
+ * a web view inside the safe area reads 0 there.
  */
 @SuppressLint("ViewConstructor")
 internal class InlineAdView(context: Context, val content: View, coversWhole: Boolean = false) : FrameLayout(context) {
@@ -57,6 +64,12 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
         if (coversWhole) {
             setBackgroundColor(Color.BLACK)
             isClickable = true
+        }
+        // The page sees no system insets: it is already placed clear of them (see the class comment). Handed the
+        // consumed insets rather than none, so a WebView that read the bars before forgets them.
+        ViewCompat.setOnApplyWindowInsetsListener(content) { view, _ ->
+            ViewCompat.onApplyWindowInsets(view, WindowInsetsCompat.CONSUMED)
+            WindowInsetsCompat.CONSUMED
         }
         addView(content, LayoutParams(0, 0))
     }
