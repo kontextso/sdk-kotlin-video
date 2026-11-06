@@ -26,13 +26,20 @@ import java.util.WeakHashMap
  */
 @MainThread
 public fun VideoAds.track(player: Player) {
-    // Off the main thread or destroyed, the shared registry is not touched: `track` refuses (and says why).
+    // Off the main thread or destroyed, neither the player (its getters throw off its looper) nor the shared
+    // registry is touched: `track` refuses (and says why) with a stand-in.
     if (Looper.myLooper() != Looper.getMainLooper() || isDestroyed) {
-        track(Media3Player(player))
+        track(Refused)
         return
     }
     // One adapter per player: the SDK tells a player tracked by two `VideoAds` by the adapter it is given.
     track(adapters.getOrPut(player) { Media3Player(player) })
+}
+
+/** What an off-main or destroyed `track` is given: `track` refuses it without reading anything. */
+private object Refused : ContentPlayer {
+    override val currentPositionMillis: Long get() = 0
+    override val isPlaying: Boolean get() = false
 }
 
 /** The adapter of each player tracked, for as long as the player lives. The adapter holds it weakly. */

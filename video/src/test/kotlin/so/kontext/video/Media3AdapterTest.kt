@@ -17,7 +17,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.content.ContentPlayback.Change
+import so.kontext.video.internal.platform.Environment
 import so.kontext.video.media3.track
+import kotlin.concurrent.thread
 
 /**
  * The Media3 adapter's rules, over a mocked Player whose callbacks the test makes: what each callback tells the
@@ -139,5 +141,26 @@ class Media3AdapterTest : SdkTest() {
         } finally {
             thread.quitSafely()
         }
+    }
+
+    @Test fun trackFromAWorkerNeverReadsThePlayer() {
+        val assertions = mutableListOf<String>()
+        Environment.assertionFailure = { synchronized(assertions) { assertions += it } }
+        val owner = owner()
+        // ExoPlayer checks the calling thread on its getters: off its looper they throw.
+        val strict = mockk<Player>(relaxed = true).also { player ->
+            every { player.applicationLooper } returns Looper.getMainLooper()
+            fun <T> onMain(value: T): T = value.also { check(Looper.myLooper() == Looper.getMainLooper()) { "Player is accessed on the wrong thread" } }
+            every { player.playWhenReady } answers { onMain(true) }
+            every { player.playbackState } answers { onMain(Player.STATE_READY) }
+            every { player.playbackSuppressionReason } answers { onMain(Player.PLAYBACK_SUPPRESSION_REASON_NONE) }
+            every { player.isPlayingAd } answers { onMain(false) }
+            every { player.currentMediaItem } answers { onMain(episode) }
+        }
+        var thrown: Throwable? = null
+        thread { thrown = runCatching { owner.track(strict) }.exceptionOrNull() }.join()
+        assertEquals(null, thrown)
+        assertTrue("$assertions", assertions.single().startsWith("KontextVideo: VideoAds.track() must be called on the main thread"))
+        verify(exactly = 0) { strict.addListener(any()) }
     }
 }
