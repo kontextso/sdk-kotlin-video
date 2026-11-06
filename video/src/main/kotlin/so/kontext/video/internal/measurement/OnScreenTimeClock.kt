@@ -108,17 +108,25 @@ internal class OnScreenTimeClock(
     private fun startTimer() {
         val duration = durationMillis ?: return
         if (timer != null || hasElapsed) return
-        val remaining = (duration - elapsedMillis).coerceIn(0, MAX_TIMER_MILLIS)
+        val left = (duration - elapsedMillis).coerceAtLeast(0)
+        val remaining = minOf(left, longestWaitMillis)
         timer = Environment.scope.launch {
             delay(remaining)
             if (isStopped || hasElapsed) return@launch
+            // One wait is at most a day: a longer duration waits again for the rest, it does not end early.
+            if (remaining < left) {
+                timer = null
+                startTimer()
+                return@launch
+            }
             hasElapsed = true
             onElapsed()
         }
     }
 
-    private companion object {
-        /** The longest wait one timer takes, a day: a duration past it is a server mistake, not an ad to wait out. */
-        const val MAX_TIMER_MILLIS = 86_400_000L
+    companion object {
+        /** The longest one wait takes, a day; a longer duration waits again for the rest. A constant in spirit; tests shorten it. */
+        @androidx.annotation.VisibleForTesting
+        var longestWaitMillis = 86_400_000L
     }
 }

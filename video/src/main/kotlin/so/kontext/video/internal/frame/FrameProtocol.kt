@@ -42,7 +42,7 @@ internal class FrameProtocol(
     /** The page's own origin, the one sender whose messages count; `null` for a URL with none (none count). */
     val origin: Origin?,
     isVideo: Boolean,
-    /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
+    /** The video's length when the server gives one (a linear ad), the playhead's bound with a grace; without it a day. */
     videoDurationMillis: Long?,
     /** Whether a link may open (`LinkOpener.isAllowed`). */
     private val isAllowed: (String) -> Boolean,
@@ -88,7 +88,7 @@ internal class FrameProtocol(
     private var isVideoCompleted = false
 
     /** The highest playhead a page may report, in milliseconds: the video's duration and the grace, or a day. */
-    private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
+    private val playheadLimitMillis = videoDurationMillis?.let { it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS } ?: DAY_MILLIS
 
     /**
      * Checks the sender of one text message from the page, reads it ([FrameMessage.parse]: a broken envelope is
@@ -204,7 +204,7 @@ internal class FrameProtocol(
         if (!isVideoStarted) return beforeStart(message.type)
         if (isVideoCompleted) return Step.Ignore
         val offset = message.offset
-        if (offset == null || offset !in 0.0..DAY_MILLIS.toDouble()) {
+        if (offset == null || offset !in 0.0..maxOf(DAY_MILLIS, playheadLimitMillis).toDouble()) {
             return drop("video.progress with a malformed offset dropped", "progress.offset")
         }
         return Step.Deliver(FrameEvent.Progress(minOf(Math.round(offset), playheadLimitMillis), message.playheadMillis))

@@ -78,6 +78,25 @@ class FrameProtocolTableTest {
         }
     }
 
+    @Test fun aVideoLongerThanADayHasItsProgressPastADay() {
+        val day = 86_400_000L
+        val protocol = protocol(durationMillis = 2 * day).apply {
+            send("ad.loaded")
+            show()
+            send("video.start")
+        }
+        val step = protocol.send("video.progress", "\"offset\": ${day + day / 2}, \"playhead\": ${day + day / 2}")
+        val progress = (step as Step.Deliver).event as FrameEvent.Progress
+        assertEquals(day + day / 2, progress.offsetMillis)
+        // Without a duration, a day is still the bound.
+        val unknown = protocol().apply {
+            send("ad.loaded")
+            show()
+            send("video.start")
+        }
+        assertEquals("drop!progress.offset", describe(unknown.send("video.progress", "\"offset\": ${day + 1}")))
+    }
+
     @Test fun afterTheVideoCompletedOnlyMuteAndUnmuteCount() {
         val protocol = protocolIn("completed")
         for (type in listOf("video.resume", "video.start", "video.pause", "video.firstQuartile", "video.complete")) {
