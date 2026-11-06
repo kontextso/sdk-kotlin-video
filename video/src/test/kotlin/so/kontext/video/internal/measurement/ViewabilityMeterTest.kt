@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.measurement
 
 import android.app.Activity
 import android.view.View
@@ -13,7 +13,6 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.util.ReflectionHelpers
-import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.measurement.ViewabilityMeter.Verdict
 import so.kontext.video.internal.platform.Environment
 

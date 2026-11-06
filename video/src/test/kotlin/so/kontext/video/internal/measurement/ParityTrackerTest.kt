@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.measurement
 
 import okhttp3.mockwebserver.MockResponse
 import org.junit.Assert.assertEquals
@@ -7,7 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import so.kontext.video.internal.measurement.Tracker
+import so.kontext.video.internal.Fixtures
+import so.kontext.video.internal.ParityHarness
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.Environment

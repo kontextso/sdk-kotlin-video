@@ -1,14 +1,8 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.frame
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.FrameMessage
-import so.kontext.video.internal.frame.FramePhase
-import so.kontext.video.internal.frame.FrameProtocol
 import so.kontext.video.internal.frame.FrameProtocol.Step
-import so.kontext.video.internal.frame.Origin
-import so.kontext.video.internal.frame.TouchGate
 import java.net.URI
 
 /** The frame protocol as tables, with no WebView: message × state → step, the envelope, the order, the bounds. */

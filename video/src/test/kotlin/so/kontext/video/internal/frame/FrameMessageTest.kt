@@ -1,10 +1,9 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.frame
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.frame.FrameMessage
 
 /** Reading a page message, as a table, with no protocol rule: the envelope, the limit, the fields, the playhead. */
 class FrameMessageTest {

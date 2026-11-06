@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.measurement
 
 import android.os.Looper
 import org.junit.After
@@ -9,7 +9,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.platform.Environment
 import java.time.Duration
 

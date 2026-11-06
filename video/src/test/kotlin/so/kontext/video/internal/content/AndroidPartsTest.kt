@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.content
 
 import android.graphics.Rect
 import android.os.Looper
@@ -13,7 +13,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.ContentPlayer
-import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.frame.FrameNavigation

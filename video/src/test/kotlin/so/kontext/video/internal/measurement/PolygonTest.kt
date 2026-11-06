@@ -1,9 +1,8 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.measurement
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.measurement.Polygon
 
 class PolygonTest {
     private val square = Polygon.corners(10f, 10f)

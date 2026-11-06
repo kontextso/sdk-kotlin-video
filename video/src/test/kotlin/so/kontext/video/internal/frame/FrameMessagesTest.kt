@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.frame
 
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
@@ -15,12 +15,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.VideoAd
 import so.kontext.video.internal.diagnostics.ErrorReporter
-import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.FrameNavigation
-import so.kontext.video.internal.frame.FramePhase
-import so.kontext.video.internal.frame.Origin
-import so.kontext.video.internal.frame.TouchGate
 import so.kontext.video.internal.platform.Environment
 import java.time.Duration
 

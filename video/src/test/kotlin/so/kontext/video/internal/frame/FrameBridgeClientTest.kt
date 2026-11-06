@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.frame
 
 import android.net.Uri
 import android.webkit.JsPromptResult
@@ -21,10 +21,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.internal.diagnostics.ErrorReport
-import so.kontext.video.internal.frame.FrameBridge
-import so.kontext.video.internal.frame.FrameEvent
-import so.kontext.video.internal.frame.FramePhase
-import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.platform.Environment
 
 /** What only a WebView calls on the bridge: navigation decisions, load errors, a dead renderer, dialogs. */

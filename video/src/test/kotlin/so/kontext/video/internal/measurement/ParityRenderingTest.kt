@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.measurement
 
 import android.graphics.Rect
 import android.net.Uri
@@ -29,9 +29,6 @@ import so.kontext.video.internal.frame.FrameNavigation
 import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.Origin
 import so.kontext.video.internal.frame.TouchGate
-import so.kontext.video.internal.measurement.OnScreenTimeClock
-import so.kontext.video.internal.measurement.ViewExposure
-import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.InlineAdView
 import so.kontext.video.internal.screen.barsReaching

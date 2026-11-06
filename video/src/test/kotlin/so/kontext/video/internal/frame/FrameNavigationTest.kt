@@ -1,14 +1,10 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.frame
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.frame.FrameNavigation
 import so.kontext.video.internal.frame.FrameNavigation.NavigationDecision
-import so.kontext.video.internal.frame.FramePhase
 import so.kontext.video.internal.frame.FrameProtocol.Step
-import so.kontext.video.internal.frame.Origin
-import so.kontext.video.internal.frame.TouchGate
 import java.net.URI
 
 /** The page's navigations as tables, with no WebView: target × phase → decision, and a navigation out as a click. */

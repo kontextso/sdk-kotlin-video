@@ -1,8 +1,7 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.frame
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.frame.TouchGate
 import so.kontext.video.internal.frame.TouchGate.Companion.TOUCH_WINDOW_MILLIS
 
 /** One touch opens one URL within its window, on any clock: one that starts at 0, or far along. */

@@ -1,11 +1,9 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.measurement
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.measurement.Tracker
-import so.kontext.video.internal.measurement.TrackingMacros
 
 class TrackingMacrosTest {
     @Test fun playheadsAreFormattedAndClamped() {
