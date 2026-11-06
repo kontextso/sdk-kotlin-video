@@ -131,6 +131,7 @@ class ParityRenderingTest : SdkTest() {
     @Test fun aVideoPagesLoadTimeoutFailsWithTheLinearGeneralCode() {
         FrameBridge.loadTimeoutMillis = 500
         Environment.isAppInForeground = { true }
+        Environment.now = { android.os.SystemClock.uptimeMillis() } // the wait is measured on the SDK's clock
         val bridge = bridge(isVideo = true)
         bridge.load()
         idle(1_000)

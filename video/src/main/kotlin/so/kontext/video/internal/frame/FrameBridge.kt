@@ -2,7 +2,6 @@ package so.kontext.video.internal.frame
 
 import android.content.Context
 import android.content.MutableContextWrapper
-import android.os.SystemClock
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.JavaScriptReplyProxy
@@ -143,16 +142,22 @@ internal class FrameBridge(
         Logger.debug { "frame ${adId.take(8)}: loading $url" }
         webView.loadUrl(url)
         loadTimeoutJob = Environment.scope.launch {
-            // The time that passed while the app was in front, measured, not the step added per tick: a tick that
-            // comes late (a busy main thread) counts as long as it really took.
+            // The time that passed while the app was in front, measured on the SDK's clock (Environment.now), not
+            // the step added per tick: a tick that comes late (a busy main thread) counts as long as it really
+            // took. A stretch counts only when the app was in front at both its ends: a process frozen in the
+            // background (the cached-app freezer) comes back with one long stretch, begun in the background, that
+            // was not time the page had to load.
             val step = minOf(250L, loadTimeoutMillis)
             var waited = 0L
-            var last = SystemClock.uptimeMillis()
+            var last = Environment.now()
+            var wasInFront = Environment.isAppInForeground()
             while (waited < loadTimeoutMillis) {
                 delay(step)
-                val now = SystemClock.uptimeMillis()
-                if (Environment.isAppInForeground()) waited += now - last
+                val now = Environment.now()
+                val isInFront = Environment.isAppInForeground()
+                if (isInFront && wasInFront) waited += (now - last).coerceAtLeast(0)
                 last = now
+                wasInFront = isInFront
             }
             if (state != FramePhase.LOADING) return@launch
             Logger.warning { "frame ${adId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }

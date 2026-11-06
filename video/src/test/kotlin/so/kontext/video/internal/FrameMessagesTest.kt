@@ -213,13 +213,15 @@ class FrameMessagesTest {
 
     @Test fun theLoadTimeoutCountsOnlyTimeInFrontAndSparesALoadedPage() {
         FrameBridge.loadTimeoutMillis = 500
+        Environment.now = { android.os.SystemClock.uptimeMillis() } // Robolectric's clock moves with the looper
         var inFront = false
         Environment.isAppInForeground = { inFront }
         bridge.load()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(2_000))
         assertTrue("in the background the wait does not run", events.isEmpty())
         inFront = true
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
+        // The stretch across the return does not count (in front at one end only); the next 500 ms do.
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(800))
         assertEquals(FrameBridge.FailureCause.LOAD_TIMEOUT, bridge.failureCause)
         events.clear()
         val ready = bridge(isVideo = false)
@@ -227,6 +229,24 @@ class FrameMessagesTest {
         send("ad.loaded", to = ready)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
         assertEquals(listOf<FrameEvent>(FrameEvent.Loaded), events)
+    }
+
+    @Test fun aFrozenStretchIsNotLoadTime() {
+        // In front, then in the background, frozen for a minute (the cached-app freezer), then in front again.
+        Environment.now = { android.os.SystemClock.elapsedRealtime() }
+        var inFront = true
+        Environment.isAppInForeground = { inFront }
+        bridge.load()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(250))
+        inFront = false
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(250))
+        // Frozen: no tick runs, the clocks move on.
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(Duration.ofMillis(60_000))
+        inFront = true
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(250))
+        assertEquals("a minute begun in the background is not ten seconds of loading", FramePhase.LOADING, bridge.state)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10_500))
+        assertEquals("ten seconds in front are", FrameBridge.FailureCause.LOAD_TIMEOUT, bridge.failureCause)
     }
 
     @Test fun showIsIgnoredUnlessThePageIsLoaded() {
