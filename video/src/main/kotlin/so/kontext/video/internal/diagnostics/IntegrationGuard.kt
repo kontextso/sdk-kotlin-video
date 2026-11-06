@@ -87,14 +87,41 @@ internal val Configuration.problems: List<String>
 private fun serverUrlProblem(url: String): String? {
     val uri = runCatching { URI(url) }.getOrNull() ?: return "is not a URL"
     val scheme = uri.scheme?.lowercase()
+    if (scheme != "http" && scheme != "https") return "is not an absolute http or https URL"
+    val authority = if (uri.host.isNullOrEmpty()) Authority.of(uri.rawAuthority) else Authority(uri.host, uri.port, uri.rawUserInfo)
     return when {
-        scheme != "http" && scheme != "https" -> "is not an absolute http or https URL"
-        uri.host.isNullOrEmpty() -> "has no host"
-        uri.port != -1 && uri.port !in 1..MAX_PORT -> "has an invalid port"
-        uri.rawUserInfo != null -> "carries credentials"
+        authority == null -> "has no host"
+        authority.port != -1 && authority.port !in 1..MAX_PORT -> "has an invalid port"
+        authority.userInfo != null -> "carries credentials"
         uri.rawQuery != null -> "has a query"
         uri.rawFragment != null -> "has a fragment"
         else -> null
+    }
+}
+
+/** A URL's host, port (`-1`: none given) and user info. */
+private class Authority(val host: String, val port: Int, val userInfo: String?) {
+    companion object {
+        private val registryHost = Regex("[A-Za-z0-9._-]+")
+
+        /**
+         * `java.net.URI` gives no host for a name with `_` (`http://ads_server:3002`, a compose service or LAN
+         * name), which the connection reaches and Swift's `URL` accepts: read here from the raw authority.
+         */
+        fun of(raw: String?): Authority? {
+            if (raw.isNullOrEmpty()) return null
+            val userInfo = if ('@' in raw) raw.substringBeforeLast('@') else null
+            val hostAndPort = raw.substringAfterLast('@')
+            val host = hostAndPort.substringBefore(':')
+            if (!registryHost.matches(host)) return null
+            val portText = hostAndPort.substringAfter(':', "")
+            val port = when {
+                portText.isEmpty() -> -1
+                portText.all(Char::isDigit) -> portText.toIntOrNull() ?: 0
+                else -> 0
+            }
+            return Authority(host, port, userInfo)
+        }
     }
 }
 
