@@ -2,6 +2,7 @@ package so.kontext.video.internal
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -9,10 +10,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import kotlinx.coroutines.launch
-import so.kontext.video.internal.platform.Environment
 import org.robolectric.annotation.Config
 import so.kontext.video.internal.device.UserAgent
+import so.kontext.video.internal.platform.Environment
 
 /** The fallback user agent: the shape of an Android WebView's, `Mobile` on a phone only. The wait is ParityAdsTest's. */
 @RunWith(RobolectricTestRunner::class)
@@ -36,7 +36,10 @@ class UserAgentTest {
 
     @Test fun aSlowLookupLeavesTheMainThreadFreeAndTheRequestTakesTheFallback() {
         val release = java.util.concurrent.CountDownLatch(1)
-        UserAgent.read = { release.await(5, java.util.concurrent.TimeUnit.SECONDS); "the real one" }
+        UserAgent.read = {
+            release.await(5, java.util.concurrent.TimeUnit.SECONDS)
+            "the real one"
+        }
         Environment.userAgentWaitMillis = 200
         Environment.context = context
         try {

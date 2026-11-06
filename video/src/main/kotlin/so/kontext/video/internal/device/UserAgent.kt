@@ -24,15 +24,6 @@ internal object UserAgent {
     /** The one user-agent lookup in flight or done: KontextKit makes a WebView until it has cached the answer. */
     private var userAgentLookup: Deferred<String?>? = null
 
-    /** The WebView's default user agent; `null` when WebKit could not answer, and the next caller tries again. */
-    @Suppress("MemberNameEqualsClassName") // the name its callers had on DeviceInfo, and Swift's
-    suspend fun userAgent(context: Context): String? {
-        val lookup = userAgentLookup ?: Environment.scope.lookUpUserAgent(context).also { userAgentLookup = it }
-        val agent = lookup.await()
-        if (agent == null && userAgentLookup === lookup) userAgentLookup = null
-        return agent
-    }
-
     /**
      * The blocking read: KontextKit calls `WebSettings.getDefaultUserAgent`, which loads and starts the WebView
      * (hundreds of ms, over a second on a cold low-end device). Its documentation sets no thread rule, so it runs
@@ -41,6 +32,15 @@ internal object UserAgent {
      */
     @set:VisibleForTesting
     var read: (Context) -> String? = { NetworkInfoProvider.collect(it).userAgent }
+
+    /** The WebView's default user agent; `null` when WebKit could not answer, and the next caller tries again. */
+    @Suppress("MemberNameEqualsClassName") // the name its callers had on DeviceInfo, and Swift's
+    suspend fun userAgent(context: Context): String? {
+        val lookup = userAgentLookup ?: Environment.scope.lookUpUserAgent(context).also { userAgentLookup = it }
+        val agent = lookup.await()
+        if (agent == null && userAgentLookup === lookup) userAgentLookup = null
+        return agent
+    }
 
     private fun CoroutineScope.lookUpUserAgent(context: Context): Deferred<String?> =
         async(Dispatchers.IO) { runCatching { read(context) }.getOrNull() }
