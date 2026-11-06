@@ -1,0 +1,7 @@
+{
+  "description": "the overlay id is unquoted, o1 (raw file): not JSON, the whole answer is refused",
+  "responseFile": "id-unquoted.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}

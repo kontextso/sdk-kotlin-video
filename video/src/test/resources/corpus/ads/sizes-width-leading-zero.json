@@ -1,0 +1,7 @@
+{
+  "description": "an overlay size width has a leading zero, 0320 (raw file): not JSON, the whole answer is refused",
+  "responseFile": "sizes-width-leading-zero.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "description": "the overlay price value is the bare token NaN (raw file): not JSON, the whole answer is refused",
+  "responseFile": "price-NaN.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "description": "enabled is the bare token TRUE (raw file): not JSON, the whole answer is refused",
+  "responseFile": "envelope-enabled-uppercase-true.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}

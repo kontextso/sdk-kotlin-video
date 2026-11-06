@@ -1,0 +1,8 @@
+{
+  "description": "enabled twice, false then true (raw file): a key twice in one object, the answer is refused",
+  "responseFile": "enabled-twice.raw.json",
+  "expect": {
+    "result": "malformed"
+  },
+  "knownDifference": "Swift: JSONSerialization keeps the first of two equal keys (enabled: false, so disabled); Kotlin refuses the answer, the decided rule. Drop this once Swift refuses duplicate keys."
+}

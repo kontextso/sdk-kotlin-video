@@ -1,0 +1,7 @@
+{
+  "description": "a progress offset is the bare token NaN (raw file): not JSON, the whole answer is refused",
+  "responseFile": "tracking-offset-NaN.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}

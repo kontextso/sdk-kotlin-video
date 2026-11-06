@@ -1,0 +1,7 @@
+{
+  "description": "enabled is the bare token True (raw file): not JSON, the answer is refused",
+  "responseFile": "enabled-capitalized-true.raw.json",
+  "expect": {
+    "result": "malformed"
+  }
+}
