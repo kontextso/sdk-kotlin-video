@@ -143,7 +143,12 @@ constructor(
         }
         // 3. The format's held ad, or its no-fill reason.
         checkStillUsable()
-        return store.ad(format) ?: throw VideoAdException.NoFill(noFill[format] ?: NoFillReason.Unknown)
+        store.ad(format)?.let { return it }
+        val reason = noFill[format] ?: NoFillReason.Unknown
+        // The answer covers every format, so its no-fills are logged quietly; a format the app asks for and the
+        // dashboard does not configure is a setup mistake the developer must see.
+        if (reason == NoFillReason.FormatNotEnabled) Logger.warning { notEnabledMessage(format, reason) }
+        throw VideoAdException.NoFill(reason)
     }
 
     /** [format] for callers without coroutines: [callback] gets the ad, or the exception, on the main thread. */
@@ -299,14 +304,18 @@ constructor(
     }
 
     private fun logNoFill(format: AdFormat, reason: NoFillReason) {
+        // Every format's answer, asked for or not: quiet here; format() warns for the one the app asks for.
         if (reason == NoFillReason.FormatNotEnabled) {
-            Logger.error { "$format for ${content.id}: no configuration for this format in the Kontext dashboard ($reason)" }
+            Logger.info { notEnabledMessage(format, reason) }
         } else {
             Logger.info { "$format for ${content.id}: no fill ($reason)" }
         }
         val known = if (reason is NoFillReason.Other) "other" else reason.toString()
         DebugReporter.event("ads.response", state = mapOf("format" to format.wireName, "filled" to false, "reason" to known))
     }
+
+    private fun notEnabledMessage(format: AdFormat, reason: NoFillReason) =
+        "$format for ${content.id}: no configuration for this format in the Kontext dashboard ($reason)"
 
     /** Every valid held ad gets its `notUsed` beacon and ends; the ad on screen ends. */
     private fun endAll() {

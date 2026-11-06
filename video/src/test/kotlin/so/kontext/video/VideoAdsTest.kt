@@ -29,6 +29,7 @@ import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.SdkInitializer
+import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -179,6 +180,33 @@ class VideoAdsTest {
         assertEquals(NoFillReason.FormatNotEnabled, (format(ads, AdFormat.OVERLAY).exceptionOrNull() as VideoAdException.NoFill).reason)
         assertEquals("a reason this SDK does not know yet", NoFillReason.Other("somethingNew"), (format(ads, AdFormat.LINEAR).exceptionOrNull() as VideoAdException.NoFill).reason)
         ads.destroy()
+    }
+
+    /** One request answers every format: a format the app never asks for is not an error in its log. */
+    @Test fun anUnaskedFormatNotEnabledIsQuietAndAnAskedOneWarnsOnce() {
+        initialize()
+        adsAnswer = MockResponse().setBody(
+            Fixtures.ads(Fixtures.entry("pause", Fixtures.pause()), Fixtures.entry("overlay", noFill = "formatNotEnabled")).toString(),
+        )
+        val logged = mutableListOf<Pair<Configuration.LogLevel, String>>()
+        Logger.level = Configuration.LogLevel.DEBUG
+        Logger.sink = { level, message -> logged += level to message }
+        try {
+            val ads = VideoAds(Content("ep", "en"))
+            format(ads, AdFormat.PAUSE).getOrThrow()
+            val loud = listOf(Configuration.LogLevel.ERROR, Configuration.LogLevel.WARNING)
+            assertTrue("no warning or error at fetch: $logged", logged.none { it.first in loud })
+            assertTrue("logged quietly at fetch", logged.any { it.first == Configuration.LogLevel.INFO && "OVERLAY for ep: no configuration" in it.second })
+            logged.clear()
+            assertEquals(NoFillReason.FormatNotEnabled, (format(ads, AdFormat.OVERLAY).exceptionOrNull() as VideoAdException.NoFill).reason)
+            val warnings = logged.filter { it.first in loud }
+            assertEquals(Configuration.LogLevel.WARNING, warnings.single().first)
+            assertEquals("OVERLAY for ep: no configuration for this format in the Kontext dashboard (formatNotEnabled)", warnings.single().second)
+            ads.destroy()
+        } finally {
+            Logger.sink = null
+            Logger.level = Configuration.LogLevel.WARNING
+        }
     }
 
     @Test fun aFailedRequestReturnsTheHeldAdAndOtherwiseThrows() {
