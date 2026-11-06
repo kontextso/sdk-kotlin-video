@@ -15,9 +15,13 @@ internal object EventHistory {
     /** One event in the history an error report carries. */
     class Moment(val createdAt: String, val name: String, val adId: String?, val state: Map<String, Any>?)
 
-    /** Keeps one event; the oldest goes past [HISTORY_LENGTH]. */
+    /**
+     * Keeps one event; the oldest goes past [HISTORY_LENGTH]. Its strings are capped as it is kept, not only when
+     * a report reads them: an ad id has no length limit on the wire, and 30 of them must not hold megabytes.
+     */
     fun record(createdAt: String, name: String, adId: String?, state: Map<String, Any>?) {
-        moments.addLast(Moment(createdAt, name, adId, state))
+        val kept = state?.mapValues { (_, value) -> if (value is String) ReportFormat.capped(value) else value }
+        moments.addLast(Moment(createdAt, ReportFormat.capped(name), adId?.let(ReportFormat::capped), kept))
         while (moments.size > HISTORY_LENGTH) moments.removeFirst()
     }
 

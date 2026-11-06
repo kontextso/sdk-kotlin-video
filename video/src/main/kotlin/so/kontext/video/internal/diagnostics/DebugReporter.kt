@@ -42,12 +42,16 @@ internal object DebugReporter {
         val createdAt = ReportFormat.timestamp()
         EventHistory.record(createdAt, name, adId, state)
         if (!isEnabled) return
+        // Every string capped as the event is kept, as an error report's are: an ad id has no length limit on the
+        // wire, and the buffer (500 events) and its batch must stay small.
         buffer += buildJsonObject {
             put("createdAt", createdAt)
-            put("name", name)
-            putIfNotNull("adId", adId)
+            put("name", ReportFormat.capped(name))
+            adId?.let { put("adId", ReportFormat.capped(it)) }
             putIfNotNull("level", level?.name?.lowercase())
-            putIfNotNull("state", state)
+            state?.let { values ->
+                put("state", JsonObject(values.mapValues { (_, value) -> ReportFormat.json(if (value is String) ReportFormat.capped(value) else value) }))
+            }
         }
         while (buffer.size > MAX_BUFFERED) buffer.removeAt(0)
         scheduleFlush()

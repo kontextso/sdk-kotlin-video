@@ -260,6 +260,20 @@ class ReportersTest {
         assertEquals(1, received.count { it.first == "/v2/debug" })
     }
 
+    @Test fun debugEventsAndTheHistoryKeepEveryStringCapped() {
+        SdkInitializer.recordDebugReporting(true)
+        val huge = "x".repeat(100_000)
+        repeat(3) { DebugReporter.event("ad.shown", adId = huge, state = mapOf("reason" to huge, "e" to so.kontext.video.AdFormat.OVERLAY, "n" to Double.NaN)) }
+        assertTrue("kept capped", EventHistory.recent().all { (it.adId?.length ?: 0) <= 64 })
+        await { received.any { it.first == "/v2/debug" } }
+        val bodies = received.filter { it.first == "/v2/debug" }.map { it.second }
+        val events = bodies.flatMap { it["events"]!!.jsonArray.map { event -> event.jsonObject } }
+        assertTrue(events.all { it["adId"]!!.jsonPrimitive.content.toByteArray().size <= 64 })
+        assertTrue(events.all { it["state"]!!.jsonObject["reason"]!!.jsonPrimitive.content.toByteArray().size <= 64 })
+        // Strict JSON: the NaN went as text, the enum by its name.
+        bodies.forEach { so.kontext.video.internal.payloads.JsonParser.parse(it.toString()) }
+    }
+
     @Test fun theHistoryKeepsTheLastThirty() {
         repeat(40) { DebugReporter.event("e$it") }
         val history = EventHistory.recent()

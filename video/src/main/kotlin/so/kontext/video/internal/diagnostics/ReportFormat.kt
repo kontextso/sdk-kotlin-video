@@ -36,6 +36,9 @@ internal object ReportFormat {
 
     /** A state value as JSON. */
     fun json(value: Any): JsonPrimitive = when (value) {
+        // A NaN or infinite number has no JSON form: written as text, so the body stays JSON.
+        is Double -> if (value.isFinite()) JsonPrimitive(value) else JsonPrimitive(value.toString())
+        is Float -> if (value.isFinite()) JsonPrimitive(value) else JsonPrimitive(value.toString())
         is Number -> JsonPrimitive(value)
         is Boolean -> JsonPrimitive(value)
         else -> JsonPrimitive(value.toString())
