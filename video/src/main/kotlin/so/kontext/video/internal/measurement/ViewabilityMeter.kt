@@ -71,6 +71,9 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
     /** Whether the ad's window is in front: the off-screen rule counts only then. */
     var isActive: () -> Boolean = { true }
 
+    /** Runs first on every tick: a check of the ad's screen that has no event of its own (picture-in-picture). */
+    var onTick: (() -> Unit)? = null
+
     /**
      * Nothing of the ad was seen for [offScreenGraceMillis] while [isActive], after the first measurement: a view
      * scrolled or paged away while it stays in its window. On every tick from then.
@@ -131,6 +134,9 @@ internal class ViewabilityMeter(view: View, private val requiredMillis: Long) {
 
     /** One measurement. Internal so tests can drive it with a frozen clock. */
     fun tick() {
+        // 0. The screen's own check, which may end the ad.
+        onTick?.invoke()
+        if (isStopped) return
         // 1. Did the loop stall (more than two ticks, and at least 500 ms, since the last: the app froze or slept)?
         //    Then the 50 % stretch cannot be called continuous, and countDwell starts it again.
         val now = Environment.now()

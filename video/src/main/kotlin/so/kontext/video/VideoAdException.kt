@@ -79,8 +79,8 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
 
     /**
      * Nothing on screen can hold the ad: the container is not attached to a window, is not shown, has no area
-     * or lies wholly outside its window, its Activity is stopped or the app is in the background; for a linear ad
-     * the Activity is finishing, destroyed, stopped or in picture-in-picture. The ad stays ready. Delivered through
+     * or lies wholly outside its window, its Activity is stopped or in picture-in-picture, or the app is in the
+     * background; for a linear ad the Activity is finishing, destroyed, stopped or in picture-in-picture. The ad stays ready. Delivered through
      * `onAdFailed` when `show` was accepted but the linear ad's Activity never started; the ad is over then.
      */
     public class CannotShowNow : VideoAdException("nothing on screen can hold the ad now")

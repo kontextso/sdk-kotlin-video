@@ -313,8 +313,8 @@ public class VideoAd internal constructor(
      * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
      * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `CannotShowNow` (the container is not attached, not shown,
-     * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or
-     * the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
+     * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or in
+     * picture-in-picture, or the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
      * `WrongShowMethod` (a linear ad). The container must lay the ad over the content, as a `FrameLayout` does: in
      * a `LinearLayout` the ad goes after the player, gets no room and ends `INTERRUPTED` with no impression.
@@ -970,7 +970,8 @@ public class VideoAd internal constructor(
         /**
          * The ad's screen disappeared for a reason the SDK did not cause: the container left the window or
          * became too small for the ad, another Activity of the app covered the container's (its Activity stopped
-         * while the app stays in front; the app going to the background only pauses the ad), the linear ad's
+         * while the app stays in front; the app going to the background only pauses the ad), the container's
+         * Activity entered picture-in-picture (an inline ad would be counted in a thumbnail), the linear ad's
          * Activity was destroyed under it or the Activity that started it finished. For an overlay with a
          * tracked player, also the content pausing (in the background: still paused a moment after the app's
          * return), ending or moving to another item; for a pause ad with a

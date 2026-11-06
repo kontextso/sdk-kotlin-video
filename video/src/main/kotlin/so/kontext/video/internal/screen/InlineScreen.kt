@@ -192,6 +192,14 @@ internal class InlineScreen(
         val meter = meter ?: return
         meter.onSeen = { seen -> onScreenClock?.seenChanged(seen) }
         meter.isActive = { Environment.isAppInForeground() && hostView?.windowVisibility == View.VISIBLE }
+        // Android has no lifecycle event for picture-in-picture: the meter's tick asks. An inline ad in a
+        // thumbnail would count its viewability and time there; it ends, as at show it would be refused.
+        meter.onTick = {
+            if (!ad.hasEnded && holdingActivity?.get()?.isInPictureInPictureMode == true) {
+                Logger.warning { "ad ${ad.id.take(8)}: its Activity entered picture-in-picture; ended as interrupted" }
+                ad.end(EndReason.INTERRUPTED)
+            }
+        }
         meter.onOffScreen = {
             if (!ad.hasEnded) {
                 Logger.warning { "ad ${ad.id.take(8)}: nothing of it seen for ${ViewabilityMeter.offScreenGraceMillis} ms; ended as interrupted" }
@@ -304,6 +312,7 @@ internal class InlineScreen(
             ViewExposure.measure(container).share <= 0 -> "no part of the container is inside its window (a neighbour page, scrolled away)"
             !Environment.isAppInForeground() -> "the app is not in front"
             container.activity?.let { it.isFinishing || it.isDestroyed || AppActivities.isStarted(it) == false } == true -> "its Activity is not visible"
+            container.activity?.isInPictureInPictureMode == true -> "its Activity is in picture-in-picture"
             else -> return true
         }
         Logger.warning { "ad ${ad.id.take(8)}: cannot show, $why; the ad stays ready" }

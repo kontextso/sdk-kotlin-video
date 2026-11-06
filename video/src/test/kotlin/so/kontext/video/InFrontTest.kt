@@ -228,6 +228,28 @@ class InFrontTest : SdkTest() {
         assertRefused(linear(), screen)
     }
 
+    @Test fun anInlineAdIsRefusedInAnActivityInPictureInPicture() {
+        val container = container()
+        @Suppress("DEPRECATION")
+        (container.context as Activity).enterPictureInPictureMode()
+        val ad = pause()
+        org.junit.Assert.assertThrows(VideoAdException.CannotShowNow::class.java) { ad.show(container) }
+        assertTrue("it stays ready", ad.isReady)
+    }
+
+    @Test fun anInlineAdEndsWhenItsActivityEntersPictureInPicture() {
+        val recorder = Recorder()
+        val ad = pause()
+        ad.listener = recorder
+        val container = container()
+        ad.show(container)
+        laidOut()
+        @Suppress("DEPRECATION")
+        (container.context as Activity).enterPictureInPictureMode()
+        idle(so.kontext.video.internal.measurement.ViewabilityMeter.intervalMillis * 2)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+    }
+
     @Test fun anActivityTheTrackerHasNotSeenFallsBackToItsLifecycle() {
         val screen = Robolectric.buildActivity(androidx.activity.ComponentActivity::class.java).setup()
         AppActivities.resetForTesting() // the SDK listens from now on: it has seen nothing of this Activity
