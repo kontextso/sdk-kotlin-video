@@ -1,5 +1,7 @@
 package so.kontext.video
 
+import android.app.Application
+import android.content.ComponentCallbacks2
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.launch
@@ -31,6 +33,7 @@ import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.platform.Environment
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /** `KontextVideo` and `VideoAds` against a local HTTP server: the SDK's own requests run unchanged. */
@@ -183,6 +186,30 @@ class VideoAdsTest {
     }
 
     /** One request answers every format: a format the app never asks for is not an error in its log. */
+    @Suppress("ExplicitGarbageCollectionCall") // The test is that the object can be collected.
+    @Test
+    fun aVideoAdsNobodyDestroysIsFreed() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val freed = abandonedVideoAds()
+        val deadline = System.currentTimeMillis() + 10_000
+        while (freed.get() != null) {
+            System.gc()
+            shadowOf(Looper.getMainLooper()).idle()
+            if (System.currentTimeMillis() > deadline) fail("a VideoAds nobody destroys was never freed")
+            Thread.sleep(10)
+        }
+        // Its memory callback, still registered with the application, unregisters itself and does nothing else.
+        ApplicationProvider.getApplicationContext<Application>().onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW)
+    }
+
+    /** A `VideoAds` that fetched its ads and was then dropped without `destroy()`, seen only weakly. */
+    private fun abandonedVideoAds(): WeakReference<VideoAds> {
+        val ads = VideoAds(Content("video-gc", "en"))
+        format(ads, AdFormat.PAUSE).getOrThrow()
+        return WeakReference(ads)
+    }
+
     @Test fun anUnaskedFormatNotEnabledIsQuietAndAnAskedOneWarnsOnce() {
         initialize()
         adsAnswer = MockResponse().setBody(

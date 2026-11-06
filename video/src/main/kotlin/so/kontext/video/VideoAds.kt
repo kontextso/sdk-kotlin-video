@@ -24,6 +24,7 @@ import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.AdStore
 import so.kontext.video.internal.state.SdkState
+import java.lang.ref.WeakReference
 import java.util.UUID
 
 /**
@@ -88,13 +89,7 @@ constructor(
     )
 
     /** Under memory pressure an expired ad's WebView goes at once; valid ads stay loaded, so `show` stays instant. */
-    private val memoryCallbacks = object : ComponentCallbacks2 {
-        override fun onTrimMemory(level: Int) = dropExpiredAds()
-        override fun onConfigurationChanged(newConfig: Configuration) = Unit
-
-        @Deprecated("Deprecated in Java")
-        override fun onLowMemory() = dropExpiredAds()
-    }
+    private val memoryCallbacks = MemoryCallbacks(this)
 
     /** Content time in milliseconds, read now, or 0. */
     internal val playheadMillis: Long get() = playback.playheadMillis
@@ -203,7 +198,8 @@ constructor(
      * `track` its player and set the ads' listeners again, so the ads survive a rotation. An Activity, a
      * Fragment or a Compose `DisposableEffect`: in its `onDestroy()` (`onDispose`), every time, with
      * `android:configChanges` declared for rotation so a rotation does not recreate it. A `VideoAds` nobody
-     * destroys is never released.
+     * destroys is freed once nothing holds it (a player it tracks holds it while that player lives); its ad on
+     * screen then runs until it ends. Only `destroy()` ends its ads at once.
      */
     @MainThread
     public fun destroy() {
@@ -244,6 +240,25 @@ constructor(
         if (showing !== ad) return
         showing = null
         playback.isTicking = false
+    }
+
+    /**
+     * Registered with the application, which outlives every `VideoAds`: it holds its `VideoAds` weakly, so one
+     * nobody destroys can be collected, and unregisters itself at the first callback after that.
+     */
+    private class MemoryCallbacks(ads: VideoAds) : ComponentCallbacks2 {
+        private val ads = WeakReference(ads)
+
+        override fun onTrimMemory(level: Int) = dropExpiredAds()
+        override fun onConfigurationChanged(newConfig: Configuration) = Unit
+
+        @Deprecated("Deprecated in Java")
+        override fun onLowMemory() = dropExpiredAds()
+
+        private fun dropExpiredAds() {
+            val owner = ads.get()
+            if (owner == null) Environment.context?.unregisterComponentCallbacks(this) else owner.dropExpiredAds()
+        }
     }
 
     private fun dropExpiredAds() {
