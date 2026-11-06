@@ -595,6 +595,49 @@ class ParityAdsTest {
         assertTrue("no notices: the server switched the SDK off, it knows", fired("notUsed").isEmpty())
     }
 
+    @Test fun theKillSwitchEndsTheUnshownAdsOfEveryVideoAdsSilently() {
+        initialize()
+        serve(Fixtures.entry("pause", ad("img-k1")), Fixtures.entry("linear", ad("vid-k1", "linear")))
+        val ads = videoAds()
+        val next = videoAds("next-episode")
+        val held = ok(ads)
+        val loaded = ok(next)
+        load(loaded)
+        val unloaded = ok(next, AdFormat.LINEAR)
+        adsAnswer = MockResponse().setBody("""{"enabled": false, "disabledReason": "publisherDisabled"}""")
+        format(ads).failure<VideoAdException.Disabled>()
+        for (ad in listOf(held, loaded, unloaded)) {
+            assertEquals("${ad.id} of ${ad.format}", VideoAd.InvalidationReason.Destroyed, ad.invalidationReason)
+        }
+        assertNull("the other VideoAds' WebView is released", loaded.loadedBridge)
+        assertTrue("the other VideoAds holds nothing", next.ads.isEmpty())
+        ads.destroy()
+        next.destroy()
+        assertTrue("no notUsed, now or at destroy: the server switched the SDK off, it knows", fired("notUsed").isEmpty())
+    }
+
+    @Test fun theKillSwitchLetsTheAdOnScreenPlayOn() {
+        initialize()
+        serve(Fixtures.entry("pause", ad("img-k2")), Fixtures.entry("linear", ad("vid-k2", "linear")))
+        val ads = videoAds()
+        val playing = videoAds("playing")
+        ok(ads)
+        val showing = ok(playing)
+        load(showing)
+        val unshown = ok(playing, AdFormat.LINEAR)
+        val recorder = Recorder()
+        showing.listener = recorder
+        val container = container()
+        showing.show(container)
+        adsAnswer = MockResponse().setBody("""{"enabled": false, "disabledReason": "publisherDisabled"}""")
+        format(ads).failure<VideoAdException.Disabled>()
+        assertTrue("the ad on screen plays on", showing.wasShown && !showing.hasEnded)
+        assertTrue("no end heard", recorder.reasons.isEmpty())
+        assertEquals("still on screen", 1, container.childCount)
+        assertSame(showing, playing.showing)
+        assertEquals("its unshown sibling ends", VideoAd.InvalidationReason.Destroyed, unshown.invalidationReason)
+    }
+
     @Test fun aKillSwitchDuringALoadMakesItThrowDisabled() {
         initialize()
         serveAd("dead-p16b")

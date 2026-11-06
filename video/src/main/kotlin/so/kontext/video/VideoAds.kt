@@ -23,6 +23,7 @@ import so.kontext.video.internal.network.AdsFetcher
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.AdStore
+import so.kontext.video.internal.state.LiveVideoAds
 import so.kontext.video.internal.state.SdkState
 import java.lang.ref.WeakReference
 import java.util.UUID
@@ -85,7 +86,6 @@ constructor(
         checkIdsAgainstHeld = store::checkIdsAgainstHeld,
         holdsAds = { store.holdsAds },
         checkStillUsable = ::checkStillUsable,
-        onDisabled = { ads.values.toList().forEach { it.invalidate(VideoAd.InvalidationReason.Destroyed) } },
     )
 
     /** Under memory pressure an expired ad's WebView goes at once; valid ads stay loaded, so `show` stays instant. */
@@ -98,6 +98,8 @@ constructor(
         IntegrationGuard.requireInitialized("VideoAds(content)")
         // What the publisher passed wrong, said once here rather than as a server 400 later.
         IntegrationGuard.checkContent(content, sessionId)
+        // Held weakly: the kill switch reaches its unshown ads; it does not keep a forgotten one alive.
+        LiveVideoAds.add(this)
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
         // The ad on screen hears of the player: an overlay ends when the content stops, and counts its time.
         playback.onChange = { change -> showing?.contentRule?.contentDidChange(change) }
@@ -209,6 +211,7 @@ constructor(
         scope.cancel()
         request = null
         endAll()
+        LiveVideoAds.remove(this)
         Environment.context?.unregisterComponentCallbacks(memoryCallbacks)
         playback.stop()
         Logger.debug { "VideoAds destroyed for video ${content.id}" }

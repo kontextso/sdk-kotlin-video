@@ -28,8 +28,8 @@ import so.kontext.video.internal.state.SdkState
  *    before the body, so an ad shown, rejected or expired meanwhile is not listed.
  * 3. POST `video/ads` and parse the answer; an id held under another format makes it malformed. A failure is
  *    reported and thrown as `VideoAdException.Request`.
- * 4. The kill switch in an answer switches the whole SDK off (the held ads dropped by [onDisabled]) and throws
- *    `Disabled`; otherwise each malformed ad left out of its format is reported, and the answer is returned.
+ * 4. The kill switch in an answer switches the whole SDK off (`SdkInitializer.disable` drops the unshown ads of
+ *    every live `VideoAds`) and throws `Disabled`; otherwise each malformed ad left out of its format is reported, and the answer is returned.
  */
 internal class AdsFetcher(
     private val content: Content,
@@ -45,8 +45,6 @@ internal class AdsFetcher(
     private val holdsAds: () -> Boolean,
     /** Throws `Destroyed` or `Disabled` once the `VideoAds` may no longer use an answer. */
     private val checkStillUsable: () -> Unit,
-    /** The answer switched the SDK off: every held ad goes. */
-    private val onDisabled: () -> Unit,
 ) {
     /** The id of the latest ads request, `null` before the first. */
     var lastRequestId: String? = null
@@ -114,10 +112,9 @@ internal class AdsFetcher(
             )
             throw VideoAdException.Request(error.toRequestFailure())
         }
-        // 4. The kill switch switches the whole SDK off and drops every ad, with no notices.
+        // 4. The kill switch switches the whole SDK off and drops the unshown ads of every `VideoAds`, with no notices.
         if (response is AdsResponse.Disabled) {
             SdkInitializer.disable(response.reason)
-            onDisabled()
             throw VideoAdException.Disabled(response.reason)
         }
         checkStillUsable()

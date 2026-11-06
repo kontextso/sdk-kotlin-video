@@ -16,6 +16,7 @@ import so.kontext.video.internal.network.ConfigFetcher
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.ScreenSlot
+import so.kontext.video.internal.state.LiveVideoAds
 import so.kontext.video.internal.state.SdkState
 
 /**
@@ -89,10 +90,15 @@ internal object SdkInitializer {
         return state.phase == State.Enabled
     }
 
-    /** An ads response said `enabled: false`: the same kill switch as `/config`. */
+    /**
+     * An ads response said `enabled: false`: the same kill switch as `/config`. Every unshown ad of every live
+     * `VideoAds` ends now, silently; an ad on screen plays on. `/config`'s own kill switch needs no such step: it
+     * comes only before the SDK was ever enabled (`SdkLifecycle`), when no ad is held.
+     */
     fun disable(reason: String) {
         if (!state.moveTo(State.Disabled(reason))) return
         Logger.warning { "Disabled by the server: $reason" }
+        LiveVideoAds.sdkWasDisabled()
     }
 
     /** `/config`'s `reportErrors`, recorded in the state; [ErrorReporter] sends, keeps or drops its reports by it. */
@@ -122,6 +128,7 @@ internal object SdkInitializer {
         ErrorReporter.resetForTesting()
         UserAgent.resetForTesting()
         PlayerOwnership.resetForTesting()
+        LiveVideoAds.resetForTesting()
         Logger.level = Configuration.LogLevel.WARNING
     }
 

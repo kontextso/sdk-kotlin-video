@@ -203,6 +203,29 @@ class VideoAdsTest {
         ApplicationProvider.getApplicationContext<Application>().onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW)
     }
 
+    /** The kill switch reaches every live `VideoAds` through a weak registry: a forgotten one is still freed. */
+    @Suppress("ExplicitGarbageCollectionCall") // The test is that the object can be collected.
+    @Test
+    fun theKillSwitchRegistryKeepsNoVideoAdsAlive() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val freed = abandonedVideoAds()
+        val deadline = System.currentTimeMillis() + 10_000
+        while (freed.get() != null) {
+            System.gc()
+            shadowOf(Looper.getMainLooper()).idle()
+            if (System.currentTimeMillis() > deadline) fail("the kill switch's registry kept a forgotten VideoAds alive")
+            Thread.sleep(10)
+        }
+        // The kill switch afterwards reaches the live one and steps over the freed one.
+        val live = VideoAds(Content("video-live", "en"))
+        val held = format(live, AdFormat.PAUSE).getOrThrow()
+        adsAnswer = MockResponse().setBody("""{"enabled": false, "disabledReason": "killed"}""")
+        assertTrue(format(live, AdFormat.PAUSE).exceptionOrNull() is VideoAdException.Disabled)
+        assertEquals(VideoAd.InvalidationReason.Destroyed, held.invalidationReason)
+        live.destroy()
+    }
+
     /** A `VideoAds` that fetched its ads and was then dropped without `destroy()`, seen only weakly. */
     private fun abandonedVideoAds(): WeakReference<VideoAds> {
         val ads = VideoAds(Content("video-gc", "en"))
