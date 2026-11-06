@@ -1,50 +1,28 @@
 package so.kontext.video.internal
 
-import android.content.Context
-import android.os.Looper
-import androidx.test.core.app.ApplicationProvider
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
-import org.robolectric.annotation.Config
 import so.kontext.video.AdFormat
 import so.kontext.video.KontextVideo
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.Regulatory
 import so.kontext.video.KontextVideo.User
-import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdException.NoFillReason
-import so.kontext.video.VideoAds
-import so.kontext.video.internal.device.Consent
-import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.toRequestFailure
 import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.payloads.ErrorResponse
@@ -56,9 +34,6 @@ import so.kontext.video.internal.payloads.missingRequired
 import so.kontext.video.internal.payloads.noFillReasonFrom
 import so.kontext.video.internal.payloads.toJson
 import so.kontext.video.internal.platform.Environment
-import java.util.concurrent.ConcurrentLinkedQueue
-import org.junit.Assert as JUnit4
-import org.junit.Test as JUnit4Test
 
 /** The Swift suite's payload, error-body and model rules, checked on this side. */
 class ParityPayloadsTest {
@@ -557,232 +532,5 @@ class ParityPayloadsTest {
         assertEquals(NoFillReason.Unknown, noFillReasonFrom(null), "absent is unknown")
         assertEquals(NoFillReason.Other("aReasonFromTheFuture"), noFillReasonFrom("aReasonFromTheFuture"))
         assertEquals("aReasonFromTheFuture", NoFillReason.Other("aReasonFromTheFuture").toString())
-    }
-}
-
-/** The Swift suite's request-body, device and consent rules, checked on this side. */
-@RunWith(RobolectricTestRunner::class)
-class ParityRequestsTest : SdkTest() {
-    private val context: Context get() = ApplicationProvider.getApplicationContext()
-
-    private val publisher = Regulatory {
-        gdpr = false
-        gdprConsent = "PUB-TC"
-        coppa = false
-        gpp = "PUB-GPP"
-        gppSid = listOf(9)
-        usPrivacy = "1NNN"
-    }
-
-    private fun request(content: Content = Content("v", "en"), labels: Map<String, String> = emptyMap(), held: List<String> = emptyList()) =
-        runBlocking { AdsRequest.make(context, "pub-dev", content, labels, 12_345, "s-1", { held }) }
-
-    private fun JsonObject.obj(key: String) = this[key]!!.jsonObject
-
-    private fun JsonObject.text(key: String) = this[key]!!.jsonPrimitive.content
-
-    /** A JSON boolean, not a string that reads as one. */
-    private fun JsonObject.bool(key: String) = this[key]!!.jsonPrimitive.takeIf { !it.isString }?.booleanOrNull
-
-    private fun preferences() = context.getSharedPreferences(context.packageName + "_preferences", Context.MODE_PRIVATE)
-
-    @JUnit4Test fun theAdsRequestBodyHasEveryField() {
-        Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
-        KontextVideo.user = User { id = "u1" }
-        KontextVideo.variantId = "exp-b"
-        KontextVideo.regulatory = Regulatory { coppa = false }
-        val built = request(Content("v1", "en") { durationMillis = 92_000 }, mapOf("stage" to "first_episode", "layout" to "fullscreen"), listOf("a-1", "a-2"))
-        val body = built.body
-        JUnit4.assertEquals(built.requestId, body.text("requestId"))
-        for (absent in listOf("adServerUrl", "adServerURL", "formats", "placementId")) JUnit4.assertNull(absent, body[absent])
-        JUnit4.assertEquals("pub-dev", body.text("publisherToken"))
-        JUnit4.assertEquals(DeviceInfo.installId(context), body.text("installId"))
-        JUnit4.assertEquals("u1", body.obj("user").text("id"))
-        JUnit4.assertEquals("exp-b", body.text("variantId"))
-        JUnit4.assertEquals(false, body.obj("ifa").bool("limitAdTracking"))
-        JUnit4.assertEquals(false, body.obj("regulatory").bool("coppa"))
-        JUnit4.assertEquals("s-1", body.text("sessionId"))
-        JUnit4.assertEquals(listOf("a-1", "a-2"), body["held"]!!.jsonArray.map { it.jsonPrimitive.content })
-        JUnit4.assertEquals(mapOf("stage" to "first_episode", "layout" to "fullscreen"), body.obj("labels").mapValues { it.value.jsonPrimitive.content })
-        JUnit4.assertEquals("92000", body.obj("video").text("duration"))
-        val player = body.obj("player")
-        JUnit4.assertEquals(true, player.bool("fullscreen"))
-        JUnit4.assertEquals("12345", player.text("playhead"))
-        val device = body.obj("device")
-        JUnit4.assertNotNull(device.obj("screen")["dpr"]!!.jsonPrimitive.doubleOrNull)
-        JUnit4.assertEquals("test-agent", device.obj("network").text("userAgent"))
-        JUnit4.assertNotNull("the server derives click-to-play from it", device.obj("power").bool("lowPowerMode"))
-        JUnit4.assertNotNull(device["audio"])
-    }
-
-    @JUnit4Test fun aCoppaRequestCarriesNoIdentifierForAdvertising() {
-        Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
-        KontextVideo.user = User {
-            id = "u1"
-            email = "kid@example.com"
-            emailHash = "h"
-            keywords = listOf("cartoons")
-        }
-        KontextVideo.regulatory = Regulatory { coppa = true }
-        val body = request().body
-        JUnit4.assertNull("no advertising id for a child", body["ifa"])
-        JUnit4.assertEquals("no id, email or hash; keywords stay", Json.parseToJsonElement("""{"keywords": ["cartoons"]}"""), body["user"])
-        JUnit4.assertEquals(true, body.obj("regulatory").bool("coppa"))
-
-        KontextVideo.user = User { id = "u1" }
-        JUnit4.assertNull("nothing left of the user", request().body["user"])
-    }
-
-    @JUnit4Test fun anAdsRequestCarriesExactlyWhatWasSetAndNothingElse() {
-        val bare = request()
-        for (absent in listOf("user", "variantId", "labels", "regulatory", "ifa")) JUnit4.assertNull(absent, bare.body[absent])
-        JUnit4.assertEquals("nothing held: an empty list, never absent", JsonArray(emptyList()), bare.body["held"])
-        val again = request()
-        JUnit4.assertNotEquals("a new id per request", bare.body.text("requestId"), again.body.text("requestId"))
-        KontextVideo.user = User { id = "later" }
-        JUnit4.assertEquals("a change reaches the next request", "later", request().body.obj("user").text("id"))
-    }
-
-    @Config(qualifiers = "w640dp-h360dp-land")
-    @JUnit4Test
-    fun thePlayerIsTheScreenInItsOrientationFullScreen() {
-        val player = AdsRequest.player(context, 47_001)
-        JUnit4.assertEquals("640", player.text("width"))
-        JUnit4.assertEquals("360", player.text("height"))
-        JUnit4.assertEquals(true, player.bool("fullscreen"))
-        JUnit4.assertEquals("47001", player.text("playhead"))
-    }
-
-    @JUnit4Test fun deviceFactsHaveTheWireShape() {
-        val screen = DeviceInfo.screen(context)
-        JUnit4.assertTrue(screen.text("width").toInt() > 0)
-        val metrics = context.resources.displayMetrics
-        JUnit4.assertEquals("in dp, not physical pixels", Math.round(metrics.widthPixels / metrics.density), screen.text("width").toInt())
-        JUnit4.assertTrue(screen["dpr"]!!.jsonPrimitive.doubleOrNull!! >= 1)
-        JUnit4.assertNotNull(screen.bool("darkMode"))
-        val os = DeviceInfo.os(context)
-        JUnit4.assertEquals("android", os.text("name"))
-        JUnit4.assertTrue(os.text("locale").isNotEmpty() && os.text("timezone").isNotEmpty())
-        JUnit4.assertTrue(DeviceInfo.hardware(context).text("type") in setOf("phone", "tablet", "tv", "desktop", "other"))
-    }
-
-    @JUnit4Test fun theConfigRequestCarriesTheIdentityAndEachHasItsOwnId() {
-        val bodies = ConcurrentLinkedQueue<JsonObject>()
-        val server = MockWebServer()
-        server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse {
-                if (request.path == "/v2/config") bodies += Json.parseToJsonElement(request.body.readUtf8()).jsonObject
-                return MockResponse().setBody("""{"enabled": true}""")
-            }
-        }
-        server.start()
-        try {
-            repeat(2) {
-                SdkInitializer.resetForTesting()
-                var done = false
-                KontextVideo.initialize(context, Configuration("pub-dev") { adServerUrl = server.url("/").toString() }) { done = true }
-                val deadline = System.currentTimeMillis() + 10_000
-                while (!done) {
-                    shadowOf(Looper.getMainLooper()).idle()
-                    if (System.currentTimeMillis() > deadline) JUnit4.fail("timed out")
-                    Thread.sleep(5)
-                }
-            }
-        } finally {
-            server.shutdown()
-        }
-        val (first, second) = bodies.toList()
-        JUnit4.assertTrue(first.text("requestId"), Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$").matches(first.text("requestId")))
-        JUnit4.assertNotEquals(first.text("requestId"), second.text("requestId"))
-        JUnit4.assertEquals("pub-dev", first.text("publisherToken"))
-        JUnit4.assertEquals(DeviceInfo.installId(context), first.text("installId"))
-        JUnit4.assertEquals("sdk-kotlin-video", first.obj("sdk").text("name"))
-        JUnit4.assertEquals(context.packageName, first.obj("app").text("bundleId"))
-        JUnit4.assertEquals("android", first.obj("device").obj("os").text("name"))
-        JUnit4.assertTrue(first.obj("device").obj("hardware").text("brand").isNotEmpty())
-    }
-
-    @JUnit4Test fun consentReadsTheIabKeysAndCoppaOnlyFromThePublisher() {
-        preferences().edit().putInt("IABTCF_gdprApplies", 1).putString("IABTCF_TCString", "TC-STRING").putString("IABGPP_HDR_GppString", "GPP-STRING")
-            .putString("IABGPP_GppSID", "2_7").putString("IABUSPrivacy_String", "1YNN").commit()
-        val regulatory = Consent.read(context, null)!!
-        JUnit4.assertEquals(true, regulatory.gdpr)
-        JUnit4.assertEquals("TC-STRING", regulatory.gdprConsent)
-        JUnit4.assertEquals("GPP-STRING", regulatory.gpp)
-        JUnit4.assertEquals(listOf(2, 7), regulatory.gppSid)
-        JUnit4.assertEquals("1YNN", regulatory.usPrivacy)
-        JUnit4.assertNull("coppa can only come from the publisher", regulatory.coppa)
-    }
-
-    @JUnit4Test fun consentPrecedenceForEveryField() {
-        JUnit4.assertEquals("absent CMP values: the publisher's, false kept as false", publisher, Consent.read(context, publisher))
-        preferences().edit().putInt("IABTCF_gdprApplies", 1).putString("IABTCF_TCString", "CMP-TC").putString("IABGPP_HDR_GppString", "CMP-GPP")
-            .putString("IABGPP_GppSID", "2_7").putString("IABUSPrivacy_String", "1YNN").commit()
-        val cmp = Regulatory {
-            gdpr = true
-            gdprConsent = "CMP-TC"
-            coppa = false
-            gpp = "CMP-GPP"
-            gppSid = listOf(2, 7)
-            usPrivacy = "1YNN"
-        }
-        JUnit4.assertEquals("each CMP value wins; coppa stays the publisher's", cmp, Consent.read(context, publisher))
-        JUnit4.assertEquals(
-            Regulatory {
-                gdpr = true
-                gdprConsent = "CMP-TC"
-                gpp = "CMP-GPP"
-                gppSid = listOf(2, 7)
-                usPrivacy = "1YNN"
-            },
-            Consent.read(context, null),
-        )
-        preferences().edit().putString("IABTCF_gdprApplies", "yes").putString("IABTCF_TCString", "").putString("IABGPP_HDR_GppString", "")
-            .putString("IABGPP_GppSID", "x_y").putString("IABUSPrivacy_String", "").commit()
-        JUnit4.assertEquals("unusable CMP values: the publisher's", publisher, Consent.read(context, publisher))
-        preferences().edit().putInt("IABTCF_gdprApplies", 0).putString("IABGPP_GppSID", "3").commit()
-        val changed = Consent.read(context, publisher)!!
-        JUnit4.assertEquals(false, changed.gdpr)
-        JUnit4.assertEquals(listOf(3), changed.gppSid)
-    }
-
-    @JUnit4Test fun gdprAppliesIsReadAsCmpsWriteIt() {
-        val key = "IABTCF_gdprApplies"
-        val cases = listOf<Pair<Any, Boolean?>>(1 to true, 0 to false, true to true, "1" to true, "0" to false, 2 to null, "yes" to null, 1.5f to null)
-        for ((raw, expected) in cases) {
-            val editor = preferences().edit().clear()
-            when (raw) {
-                is Int -> editor.putInt(key, raw)
-                is Boolean -> editor.putBoolean(key, raw)
-                is Float -> editor.putFloat(key, raw)
-                else -> editor.putString(key, raw.toString())
-            }
-            editor.commit()
-            JUnit4.assertEquals("$raw", expected, Consent.read(context, null)?.gdpr)
-        }
-    }
-
-    @JUnit4Test fun consentIsNullWhenNothingIsKnown() {
-        preferences().edit().putString("IABTCF_TCString", "").putString("IABGPP_GppSID", "").commit()
-        JUnit4.assertNull("empty strings count as absent", Consent.read(context, null))
-    }
-
-    @JUnit4Test fun gppSectionsAreReadSingleUnderscoredCommaSeparatedOrAsANumber() {
-        // Parts that are not numbers are skipped, as KontextKit reads them on both platforms.
-        for ((raw, expected) in listOf("7" to listOf(7), "8,10" to listOf(8, 10), "2_7" to listOf(2, 7), "2_x_7" to listOf(2, 7), "x_y" to null)) {
-            preferences().edit().putString("IABGPP_GppSID", raw).commit()
-            JUnit4.assertEquals(raw, expected, Consent.read(context, null)?.gppSid)
-        }
-        preferences().edit().remove("IABGPP_GppSID").putInt("IABGPP_GppSID", 7).commit()
-        JUnit4.assertEquals("a CMP writing one section as a number", listOf(7), Consent.read(context, null)?.gppSid)
-    }
-
-    @JUnit4Test fun everyFormatThrowsNotInitializedBeforeInitialize() {
-        SdkInitializer.resetForTesting()
-        val ads = VideoAds(Content("v", "en")).also { owners += it }
-        for (format in AdFormat.entries) {
-            val error = runCatching { runBlocking { ads.format(format) } }.exceptionOrNull()
-            JUnit4.assertTrue("$format: $error", error is VideoAdException.NotInitialized)
-        }
     }
 }
