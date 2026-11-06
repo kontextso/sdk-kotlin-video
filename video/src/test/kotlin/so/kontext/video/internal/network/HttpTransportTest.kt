@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.network
 
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import so.kontext.video.internal.network.HttpTransport
 import java.net.URL
 import java.net.URLConnection
 import java.net.URLStreamHandler

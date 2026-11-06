@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.network
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
@@ -14,8 +14,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import so.kontext.video.internal.network.ApiClient
-import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.payloads.JsonParser
 import java.net.SocketTimeoutException
 import java.util.Collections

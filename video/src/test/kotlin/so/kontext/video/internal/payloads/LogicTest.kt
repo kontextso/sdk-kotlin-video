@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.payloads
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -12,10 +12,6 @@ import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.content.ContentTimeClock
 import so.kontext.video.internal.diagnostics.problems
-import so.kontext.video.internal.payloads.leftOut
-import so.kontext.video.internal.payloads.missingRequired
-import so.kontext.video.internal.payloads.noFillReasonFrom
-import so.kontext.video.internal.payloads.toJson
 import so.kontext.video.internal.platform.Environment
 
 /** The pure rules: the overlay's video-time count, the models and the request body. */

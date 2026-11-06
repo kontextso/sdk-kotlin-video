@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.network
 
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -17,9 +17,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.internal.ParityHarness
 import so.kontext.video.internal.diagnostics.Logger
-import so.kontext.video.internal.network.ApiClient
-import so.kontext.video.internal.network.ApiException
 import java.net.CacheRequest
 import java.net.CacheResponse
 import java.net.ResponseCache

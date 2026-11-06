@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.payloads
 
 import android.content.Context
 import android.os.Looper
@@ -36,9 +36,9 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.SdkTest
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAds
+import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.device.Consent
 import so.kontext.video.internal.device.DeviceInfo
-import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.platform.Environment
 import java.util.concurrent.ConcurrentLinkedQueue
 

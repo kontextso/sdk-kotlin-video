@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -18,21 +18,11 @@ import so.kontext.video.KontextVideo.User
 import so.kontext.video.VideoAd
 import so.kontext.video.VideoAdException
 import so.kontext.video.VideoAdException.NoFillReason
+import so.kontext.video.internal.Fixtures
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.ApiException
 import so.kontext.video.internal.network.BeaconClient
 import so.kontext.video.internal.network.toRequestFailure
-import so.kontext.video.internal.payloads.AdPayload
-import so.kontext.video.internal.payloads.AdsResponse
-import so.kontext.video.internal.payloads.ConfigResponse
-import so.kontext.video.internal.payloads.ErrorResponse
-import so.kontext.video.internal.payloads.SdkInfo
-import so.kontext.video.internal.payloads.UNKNOWN_REASON
-import so.kontext.video.internal.payloads.emptyFields
-import so.kontext.video.internal.payloads.leftOut
-import so.kontext.video.internal.payloads.missingRequired
-import so.kontext.video.internal.payloads.noFillReasonFrom
-import so.kontext.video.internal.payloads.toJson
 import so.kontext.video.internal.platform.Environment
 
 /** The Swift suite's payload, error-body and model rules, checked on this side. */

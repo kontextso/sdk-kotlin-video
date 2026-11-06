@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.platform
 
 import android.app.Application
 import android.content.ComponentName
@@ -13,7 +13,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import so.kontext.video.internal.platform.LinkOpener
 
 /** Which links an ad may open, and how they open: a BROWSABLE intent with no component, the fallback after it. */
 @RunWith(RobolectricTestRunner::class)

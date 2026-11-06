@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -23,8 +23,6 @@ import org.junit.jupiter.api.TestFactory
 import so.kontext.video.AdFormat
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.payloads.AdsResponse
-import so.kontext.video.internal.payloads.ConfigResponse
 import java.io.File
 
 /**

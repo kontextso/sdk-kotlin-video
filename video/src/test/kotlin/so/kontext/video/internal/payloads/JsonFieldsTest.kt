@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -9,13 +9,6 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import so.kontext.video.internal.payloads.JsonParser
-import so.kontext.video.internal.payloads.bool
-import so.kontext.video.internal.payloads.double
-import so.kontext.video.internal.payloads.has
-import so.kontext.video.internal.payloads.long
-import so.kontext.video.internal.payloads.putIfNotNull
-import so.kontext.video.internal.payloads.str
 
 /** The lenient readers as a table: every kind of JSON value under each reader, and what the request writer leaves out. */
 class JsonFieldsTest {

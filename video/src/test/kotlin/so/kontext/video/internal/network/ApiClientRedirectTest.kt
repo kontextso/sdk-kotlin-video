@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.network
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
@@ -12,9 +12,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import so.kontext.video.internal.network.ApiClient
-import so.kontext.video.internal.network.ApiException
-import so.kontext.video.internal.network.HttpTransport
 
 /** Redirects are followed as the Swift SDK follows them: 307 and 308 keep the POST and its body, 301 to 303 become a GET. */
 class ApiClientRedirectTest {

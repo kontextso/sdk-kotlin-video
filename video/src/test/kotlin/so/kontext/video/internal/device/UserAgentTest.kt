@@ -1,4 +1,4 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.device
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -11,7 +11,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.platform.Environment
 
 /** The fallback user agent: the shape of an Android WebView's, `Mobile` on a phone only. The wait is ParityAdsTest's. */

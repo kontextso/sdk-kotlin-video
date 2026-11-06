@@ -1,11 +1,10 @@
-package so.kontext.video.internal
+package so.kontext.video.internal.payloads
 
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import so.kontext.video.internal.payloads.JsonParser
 
 /** Strict JSON, as iOS's decoder reads it: what kotlinx's lenient parser would take is refused. */
 class JsonParserTest {
