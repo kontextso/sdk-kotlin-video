@@ -2,9 +2,11 @@ package so.kontext.video.internal.device
 
 import android.content.Context
 import android.os.Build
+import androidx.annotation.VisibleForTesting
 import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.kit.deviceinfo.NetworkInfoProvider
@@ -12,8 +14,9 @@ import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.platform.Environment
 
 /**
- * The user agent an ads request carries: the WebView's `navigator.userAgent`, read once through KontextKit and
- * shared by every caller, waited for at most [Environment.userAgentWaitMillis], else a fallback of the same shape.
+ * The user agent an ads request carries: the WebView's default one (`WebSettings.getDefaultUserAgent`, the
+ * `navigator.userAgent` of a WebView left as it is), read once through KontextKit on a worker and shared by every
+ * caller, waited for at most [Environment.userAgentWaitMillis], else a fallback of the same shape.
  */
 internal object UserAgent {
     private const val TABLET_WIDTH_DP = 600
@@ -21,7 +24,7 @@ internal object UserAgent {
     /** The one user-agent lookup in flight or done: KontextKit makes a WebView until it has cached the answer. */
     private var userAgentLookup: Deferred<String?>? = null
 
-    /** `navigator.userAgent` of a WebView; `null` when WebKit could not answer, and the next caller tries again. */
+    /** The WebView's default user agent; `null` when WebKit could not answer, and the next caller tries again. */
     @Suppress("MemberNameEqualsClassName") // the name its callers had on DeviceInfo, and Swift's
     suspend fun userAgent(context: Context): String? {
         val lookup = userAgentLookup ?: Environment.scope.lookUpUserAgent(context).also { userAgentLookup = it }
@@ -30,8 +33,17 @@ internal object UserAgent {
         return agent
     }
 
+    /**
+     * The blocking read: KontextKit calls `WebSettings.getDefaultUserAgent`, which loads and starts the WebView
+     * (hundreds of ms, over a second on a cold low-end device). Its documentation sets no thread rule, so it runs
+     * on a worker: the caller's main thread stays free, and the request's wait ([requestUserAgent]) can give up on
+     * time. Tests replace it.
+     */
+    @set:VisibleForTesting
+    var read: (Context) -> String? = { NetworkInfoProvider.collect(it).userAgent }
+
     private fun CoroutineScope.lookUpUserAgent(context: Context): Deferred<String?> =
-        async { runCatching { NetworkInfoProvider.collect(context).userAgent }.getOrNull() }
+        async(Dispatchers.IO) { runCatching { read(context) }.getOrNull() }
 
     /**
      * The user agent an ads request carries: the WebView's ([Environment.userAgent]), waited for at most
@@ -65,5 +77,6 @@ internal object UserAgent {
 
     fun resetForTesting() {
         userAgentLookup = null
+        read = { NetworkInfoProvider.collect(it).userAgent }
     }
 }
