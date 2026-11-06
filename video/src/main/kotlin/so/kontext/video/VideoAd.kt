@@ -46,7 +46,9 @@ import java.lang.ref.WeakReference
 /**
  * One ad, from the server's answer to the end of its time on screen. Look at its facts ([price], [format],
  * [durationMillis]), then [load] or [reject], then `show`, then exactly one [VideoAdListener.onAdEnded].
- * Shown at most once. Every call is main-thread, except [load], which may be called from any dispatcher.
+ * Shown at most once. Every call is main-thread, except [load], which may be called from any dispatcher. Called
+ * from another thread, a call does nothing (`show` throws `CannotShowNow`); in a debuggable build that mistake
+ * stops the app.
  */
 public class VideoAd internal constructor(
     internal val payload: AdPayload,
@@ -191,14 +193,15 @@ public class VideoAd internal constructor(
     }
 
     /**
-     * You won't use the ad; the server tells the advertiser why. Works until `show`, loaded or not. It never
-     * throws: on an ad that was shown, has already ended (expired, rejected, its `VideoAds` destroyed, its
-     * creative failed) or expires now, it does nothing and logs a line.
+     * You won't use the ad; the server tells the advertiser why. Works until `show`, loaded or not. It does not
+     * throw on the main thread: on an ad that was shown, has already ended (expired, rejected, its `VideoAds`
+     * destroyed, its creative failed) or expires now, it does nothing and logs a line. Called from another thread
+     * it does nothing; in a debuggable build that mistake stops the app.
      */
     @MainThread
     @JvmOverloads
     public fun reject(reason: RejectReason = RejectReason.NotUsed) {
-        IntegrationGuard.requireMainThread("VideoAd.reject()")
+        if (!IntegrationGuard.requireMainThread("VideoAd.reject()")) return
         withContentPlayhead {
             if (wasShown) {
                 Logger.warning { "$format ad ${id.take(8)}: reject() after show does nothing; the ad was shown" }
@@ -326,7 +329,7 @@ public class VideoAd internal constructor(
     @Throws(VideoAdException::class)
     @JvmOverloads
     public fun show(container: ViewGroup, insets: Insets = Insets.NONE) {
-        IntegrationGuard.requireMainThread("VideoAd.show(container)")
+        if (!IntegrationGuard.requireMainThread("VideoAd.show(container)")) throw VideoAdException.CannotShowNow()
         acceptingAShowFromInside { withContentPlayhead { showInline(container, insets) } }
     }
 
@@ -372,7 +375,7 @@ public class VideoAd internal constructor(
     @MainThread
     @Throws(VideoAdException::class)
     public fun show(activity: Activity) {
-        IntegrationGuard.requireMainThread("VideoAd.show(activity)")
+        if (!IntegrationGuard.requireMainThread("VideoAd.show(activity)")) throw VideoAdException.CannotShowNow()
         acceptingAShowFromInside { withContentPlayhead { showLinear(activity) } }
     }
 
@@ -409,12 +412,13 @@ public class VideoAd internal constructor(
 
     /**
      * Ends an overlay or pause ad because you say so; `onAdEnded(DISMISSED)` follows, synchronously. Before
-     * `show` and after the end it does nothing. It never throws: on a linear ad, which ends by itself or by the
-     * viewer (`VideoAds.destroy()` forces it off), it stops a debuggable build and does nothing in release.
+     * `show` and after the end it does nothing. It does not throw on the main thread: on a linear ad, which ends by
+     * itself or by the viewer (`VideoAds.destroy()` forces it off), and from another thread, it stops a debuggable
+     * build and does nothing in release.
      */
     @MainThread
     public fun dismiss() {
-        IntegrationGuard.requireMainThread("VideoAd.dismiss()")
+        if (!IntegrationGuard.requireMainThread("VideoAd.dismiss()")) return
         // A fact of the linear format, not of its screen: it ends by itself or by the viewer.
         if (format == AdFormat.LINEAR) {
             Environment.assertionFailure("VideoAd.dismiss() on a linear ad; it ends by itself, VideoAds.destroy() forces it off")

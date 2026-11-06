@@ -21,6 +21,30 @@ class MainSafetyTest : SdkTest() {
         override val isPlaying: Boolean = true
     }
 
+    @Test fun aDismissOffTheMainThreadDoesNothingAndTheAdEndsOnTheMainThreadLater() {
+        val ad = overlay()
+        val recorder = Recorder()
+        ad.listener = recorder
+        ad.show(container())
+        var thrown: Throwable? = null
+        thread { thrown = runCatching { ad.dismiss() }.exceptionOrNull() }.join()
+        assertEquals("nothing thrown in release", null, thrown)
+        assertTrue("nothing done off the main thread: still on screen", !ad.hasEnded && so.kontext.video.internal.screen.ScreenSlot.current === ad)
+        ad.dismiss()
+        assertEquals(listOf(VideoAd.EndReason.DISMISSED), recorder.reasons)
+        assertEquals(null, so.kontext.video.internal.screen.ScreenSlot.current)
+    }
+
+    @Test fun aShowOffTheMainThreadThrowsCannotShowNowWithNothingChanged() {
+        val ad = overlay()
+        val container = container()
+        var thrown: Throwable? = null
+        thread { thrown = runCatching { ad.show(container) }.exceptionOrNull() }.join()
+        assertTrue("$thrown", thrown is VideoAdException.CannotShowNow)
+        assertTrue(ad.isReady)
+        assertEquals(0, container.childCount)
+    }
+
     @Test fun aPublicCallOffTheMainThreadIsAnIntegrationError() {
         val assertions = mutableListOf<String>()
         Environment.assertionFailure = { synchronized(assertions) { assertions += it } }

@@ -11,7 +11,8 @@ import so.kontext.video.internal.state.SdkState
 
 /**
  * The SDK's one entry point. Call [initialize] once, in `Application.onCreate`; then create a [VideoAds]
- * per episode. Every call is main-thread.
+ * per episode. [initialize] and every setter are main-thread (from another thread they do nothing; in a
+ * debuggable build that mistake stops the app); [awaitInitialization] may be called from any dispatcher.
  */
 public object KontextVideo {
     /**
@@ -80,7 +81,7 @@ public object KontextVideo {
     public var user: User?
         get() = SdkState.current.user
         set(value) {
-            IntegrationGuard.requireMainThread("KontextVideo.user")
+            if (!IntegrationGuard.requireMainThread("KontextVideo.user")) return
             SdkState.current.recordUser(value)
             IntegrationGuard.checkUser(value)
         }
@@ -94,7 +95,7 @@ public object KontextVideo {
     public var regulatory: Regulatory?
         get() = SdkState.current.regulatory
         set(value) {
-            IntegrationGuard.requireMainThread("KontextVideo.regulatory")
+            if (!IntegrationGuard.requireMainThread("KontextVideo.regulatory")) return
             SdkState.current.recordRegulatory(value)
         }
 
@@ -104,7 +105,7 @@ public object KontextVideo {
     public var variantId: String?
         get() = SdkState.current.variantId
         set(value) {
-            IntegrationGuard.requireMainThread("KontextVideo.variantId")
+            if (!IntegrationGuard.requireMainThread("KontextVideo.variantId")) return
             SdkState.current.recordVariantId(value)
         }
 
@@ -121,7 +122,7 @@ public object KontextVideo {
     @JvmStatic
     @JvmOverloads
     public fun initialize(context: Context, configuration: Configuration, listener: InitializationListener? = null) {
-        IntegrationGuard.requireMainThread("KontextVideo.initialize()")
+        if (!IntegrationGuard.requireMainThread("KontextVideo.initialize()")) return
         SdkInitializer.initialize(context, configuration, listener?.let { it::onInitialized })
     }
 

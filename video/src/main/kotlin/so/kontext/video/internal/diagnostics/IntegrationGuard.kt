@@ -13,18 +13,20 @@ import so.kontext.video.internal.state.SdkState
 /**
  * The checks of the app's own mistakes in using the SDK: a call off the main thread or before `initialize`, a
  * configuration, content or user that cannot work. Each stops a debuggable app at the mistake (an assertion),
- * logs it, and reports it where it is reported; a release build carries on.
+ * logs it, and reports it where it is reported; a release build carries on (a call off the main thread does nothing).
  */
 internal object IntegrationGuard {
     /**
-     * Guards a public call that must run on the main thread, as `@MainThread` says. Off it, the WebViews and
-     * the SDK's state would be touched from two threads: a mistake in the app's code, so it stops a debuggable
-     * app at the call; a release build logs it and carries on, as it does for the other integration mistakes.
+     * Guards a public call that must run on the main thread, as `@MainThread` says: `false` off it, and the call
+     * then does nothing. Off it, the WebViews, the views and the SDK's state would be touched from two threads (a
+     * view removed there throws halfway through an ad's end, leaving the app's one ad slot taken for good): a
+     * mistake in the app's code, so it stops a debuggable app at the call; a release build logs it and refuses.
      */
-    fun requireMainThread(call: String) {
-        if (Looper.myLooper() == Looper.getMainLooper()) return
+    fun requireMainThread(call: String): Boolean {
+        if (Looper.myLooper() == Looper.getMainLooper()) return true
         Environment.assertionFailure("KontextVideo: $call must be called on the main thread")
-        Logger.error { "$call called on the thread ${Thread.currentThread().name}, not the main thread; call it on the main thread" }
+        Logger.error { "$call called on the thread ${Thread.currentThread().name}, not the main thread; it does nothing, call it on the main thread" }
+        return false
     }
 
     /**

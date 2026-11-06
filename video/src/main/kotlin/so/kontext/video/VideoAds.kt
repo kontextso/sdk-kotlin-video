@@ -182,7 +182,7 @@ public class VideoAds @JvmOverloads constructor(
      */
     @MainThread
     public fun track(player: ContentPlayer) {
-        IntegrationGuard.requireMainThread("VideoAds.track()")
+        if (!IntegrationGuard.requireMainThread("VideoAds.track()")) return
         if (isDestroyed) return
         playback.track(player)
     }
@@ -200,7 +200,7 @@ public class VideoAds @JvmOverloads constructor(
      */
     @MainThread
     public fun destroy() {
-        IntegrationGuard.requireMainThread("VideoAds.destroy()")
+        if (!IntegrationGuard.requireMainThread("VideoAds.destroy()")) return
         if (isDestroyed) return
         isDestroyed = true
         scope.cancel()
