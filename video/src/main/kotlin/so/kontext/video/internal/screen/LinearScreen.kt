@@ -99,13 +99,17 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     override fun close(onGone: () -> Unit): Boolean {
         val screen = activity
         activity = null
-        if (screen == null || screen.isFinishing || screen.isDestroyed) return false
-        // 1. The Activity finishes, marked as ended by the ad, with a fade.
+        if (screen == null || screen.isDestroyed) return false
+        // 1. The Activity finishes, marked as ended by the ad, with a fade. One already finishing (finished by
+        //    the system or the app, not stopped yet) is still on screen: it is not finished again, but the ad
+        //    waits for it to be gone all the same.
         this.onGone = onGone
         screen.isEndingByAd = true
-        screen.finish()
-        @Suppress("DEPRECATION")
-        screen.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        if (!screen.isFinishing) {
+            screen.finish()
+            @Suppress("DEPRECATION")
+            screen.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
         // 2. Its own signal, once it is gone, runs onGone (onScreenGone). 3. Or, past the cap, the timeout does.
         Environment.scope.launch {
             delay(dismissalTimeoutMillis)

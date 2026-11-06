@@ -913,6 +913,25 @@ class ParityLifecycleTest : SdkTest() {
         assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
     }
 
+    @Test fun aLinearScreenAlreadyFinishingIsWaitedForBeforeOnAdEnded() {
+        val recorder = Recorder()
+        val ad = linear()
+        ad.listener = recorder
+        val screen = openScreen(ad, activity())
+        page(ad, "video.start", """"playhead": 0""")
+        // Something else finished the screen; it is still up (not stopped) when the ad ends.
+        screen.get().finish()
+        page(ad, "video.skip", """"playhead": 1000""")
+        assertTrue("the ad has ended", ad.hasEnded)
+        assertTrue("onAdEnded waits for the screen to be gone", recorder.reasons.isEmpty())
+        assertSame("the slot stays taken until then", ad, ScreenSlot.current)
+        screen.pause().stop()
+        assertEquals(listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
+        assertNull(ScreenSlot.current)
+        screen.destroy()
+        assertEquals("once", listOf(VideoAd.EndReason.SKIPPED), recorder.reasons)
+    }
+
     /** A player screen the test drives, and a container in its window, as `container()` makes one. */
     private fun playerScreen(): Pair<ActivityController<Activity>, FrameLayout> {
         val controller = Robolectric.buildActivity(Activity::class.java).setup()
