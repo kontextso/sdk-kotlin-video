@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import so.kontext.video.VideoAd
@@ -97,6 +98,13 @@ internal class InlineScreen(
      * Throws `CannotShowNow` or `ContainerTooSmall`; the ad stays ready.
      */
     fun prepare(container: ViewGroup) {
+        if (isRecycling(container)) {
+            Logger.warning {
+                "ad ${ad.id.take(8)}: cannot show in a ${container.javaClass.name}, a list that owns its children (its next layout would " +
+                    "crash on a child it did not make); show in the item's or the player's FrameLayout; the ad stays ready"
+            }
+            throw VideoAdException.CannotShowNow()
+        }
         if (!ViewExposure.canBeSeen(container)) {
             Logger.warning { "ad ${ad.id.take(8)}: cannot show, the container is not on screen or is hidden" }
             throw VideoAdException.CannotShowNow()
@@ -315,6 +323,22 @@ internal class InlineScreen(
      * pausing there, see `OverlayRule`); a stop for a configuration change recreates the Activity, and the
      * container leaving the window ends the ad there.
      */
+    /**
+     * A list that makes and recycles its own children: an `AdapterView` (ListView, GridView), which refuses a child,
+     * or a RecyclerView, which takes it and then crashes the app at its next layout, outside `show`, on a child
+     * with no ViewHolder. Found by class name, so the SDK needs no RecyclerView dependency (its consumer rules keep
+     * that name in a minified app).
+     */
+    private fun isRecycling(container: ViewGroup): Boolean {
+        if (container is AdapterView<*>) return true
+        var type: Class<*>? = container.javaClass
+        while (type != null) {
+            if (type.name == RECYCLER_VIEW) return true
+            type = type.superclass
+        }
+        return false
+    }
+
     /** A container that lays its children out one after another gives the ad no room over the player. */
     private fun warnIfNotOverlaying(container: ViewGroup) {
         if (container !is LinearLayout && container !is GridLayout) return
@@ -346,5 +370,9 @@ internal class InlineScreen(
                 ad.end(EndReason.INTERRUPTED)
             }
         }
+    }
+
+    private companion object {
+        const val RECYCLER_VIEW = "androidx.recyclerview.widget.RecyclerView"
     }
 }

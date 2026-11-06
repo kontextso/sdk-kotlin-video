@@ -317,7 +317,7 @@ public class VideoAd internal constructor(
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
      * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `CannotShowNow` (the container is not attached, not shown,
      * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or in
-     * picture-in-picture, or the app is in the background, or it refuses a child: a ScrollView that has one, a ListView),
+     * picture-in-picture, or the app is in the background, or it refuses a child or owns its children: a ScrollView with one, a ListView, a RecyclerView),
      * `ContainerTooSmall`, `ContentPaused` (an overlay over paused content; the ad stays ready in these three),
      * `WrongShowMethod` (a linear ad). The container must lay the ad over the content, as a `FrameLayout` does: in
      * a `LinearLayout` the ad goes after the player, gets no room and ends `INTERRUPTED` with no impression.

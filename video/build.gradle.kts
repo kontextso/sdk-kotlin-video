@@ -199,6 +199,7 @@ dependencies {
     api(libs.androidx.annotation)
 
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.androidx.recyclerview) // a container show must refuse
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
     // Robolectric runs on JUnit 4: the vintage engine runs those tests on the JUnit Platform.

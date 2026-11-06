@@ -656,4 +656,30 @@ class BoundaryTest {
         owner.destroy()
         return ad to java.lang.ref.WeakReference(owner)
     }
+
+    @Test fun aRecyclerViewContainerIsRefusedAndNeverCrashesItsLayout() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val list = androidx.recyclerview.widget.RecyclerView(activity)
+        list.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(activity)
+        list.adapter = object : androidx.recyclerview.widget.RecyclerView.Adapter<androidx.recyclerview.widget.RecyclerView.ViewHolder>() {
+            override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int) =
+                object : androidx.recyclerview.widget.RecyclerView.ViewHolder(android.widget.FrameLayout(parent.context).apply { minimumHeight = 100 }) {}
+
+            override fun onBindViewHolder(holder: androidx.recyclerview.widget.RecyclerView.ViewHolder, position: Int) = Unit
+
+            override fun getItemCount() = 3
+        }
+        activity.setContentView(list)
+        list.layout(0, 0, 320, 400)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        org.robolectric.util.ReflectionHelpers.setField(org.robolectric.util.ReflectionHelpers.getField<Any>(list, "mAttachInfo"), "mWindowVisibility", android.view.View.VISIBLE)
+        val ad = overlay(owner())
+        val thrown = runCatching { ad.show(list) }.exceptionOrNull()
+        // Whatever show said, the list's next layout must not crash the app.
+        list.requestLayout()
+        list.measure(android.view.View.MeasureSpec.makeMeasureSpec(320, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(400, android.view.View.MeasureSpec.EXACTLY))
+        list.layout(0, 0, 320, 400)
+        assertTrue("$thrown", thrown is VideoAdException.CannotShowNow)
+        assertTrue("it stays ready", ad.isReady)
+    }
 }
