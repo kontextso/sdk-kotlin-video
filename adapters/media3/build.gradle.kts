@@ -43,13 +43,12 @@ kotlin {
     // Every public declaration must spell out its visibility, so nothing
     // leaks to consumers by accident.
     explicitApi()
-    // Built with JDK 17; the bytecode is Java 11 and the metadata Kotlin 1.9, so apps on an older toolchain
-    // (Kotlin 1.9 or later, Java 11 or later) can use the SDK.
+    // Built with JDK 17; the bytecode is Java 11, so a Java 11 app reads it. A Kotlin app needs Kotlin 2.0 or later:
+    // the dependencies (KontextKit, coroutines, serialization) bring kotlin-stdlib 2.x, whose metadata a 1.9
+    // compiler refuses, so the SDK's own metadata is the compiler's (2.1, which Kotlin 2.0 reads).
     jvmToolchain(17)
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
-        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
         // Interface methods with a body compile to Java default methods: a Java listener implements
         // only the callbacks it needs.
         freeCompilerArgs.add("-Xjvm-default=all")

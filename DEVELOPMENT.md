@@ -117,8 +117,9 @@ From the build files and the artifacts' dependencies:
 - **Android Gradle Plugin 8.1.1+** for compileSdk 34 (8.6+ for 35), with the Gradle version that AGP requires,
   and **JDK 17** to build (what AGP 8 runs on). The artifacts are **Java 11** bytecode (`jvmTarget` 11, the
   toolchain is 17), so a Java 11 app reads them.
-- **Kotlin 1.9+** for a Kotlin app: the artifacts are compiled with Kotlin 2.1.0 but with `apiVersion` and
-  `languageVersion` 1.9, so their metadata is 1.9's. A Java app needs no Kotlin plugin.
+- **Kotlin 2.0+** for a Kotlin app: the artifacts depend on `kotlin-stdlib` 2.1.0 (KontextKit requires it;
+  coroutines 1.9 and serialization 1.7 require 2.0), and a Kotlin 1.9 compiler refuses its metadata. The
+  artifacts are compiled with Kotlin 2.1.0, whose metadata Kotlin 2.0 reads. A Java app needs no Kotlin plugin.
 - R8 needs nothing from the app: the consumer rules ship in the AAR.
 
 What CI builds a publisher's app with (`extras/release-check`): AGP 8.7.3, Gradle 8.11.1, Kotlin 2.1.0, JDK 17,
