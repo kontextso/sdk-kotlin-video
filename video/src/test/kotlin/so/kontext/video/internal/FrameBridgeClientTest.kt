@@ -85,6 +85,24 @@ class FrameBridgeClientTest {
         assertEquals(1, events.count { it is FrameEvent.Click })
     }
 
+    @Test fun aDeadRendererIsNeverUsedAgainAndTheLeftClientSurvivesAnother() {
+        bridge.load()
+        val webView = bridge.webView
+        val client = webView.webViewClient
+        assertTrue(client.onRenderProcessGone(webView, mockk(relaxed = true)))
+        assertEquals("nothing loaded into the dead WebView", url, org.robolectric.Shadows.shadowOf(webView).lastLoadedUrl)
+        assertTrue("a second crash before the destroy is survived", webView.webViewClient.onRenderProcessGone(webView, mockk(relaxed = true)))
+    }
+
+    @Test fun aHiddenPagesClientSurvivesARendererCrash() {
+        loaded()
+        bridge.hide()
+        val webView = bridge.webView
+        assertEquals("about:blank", org.robolectric.Shadows.shadowOf(webView).lastLoadedUrl)
+        assertTrue("all WebViews share a renderer: false would stop the app", webView.webViewClient.onRenderProcessGone(webView, mockk(relaxed = true)))
+        assertTrue("it loads nothing", webView.webViewClient.shouldOverrideUrlLoading(webView, request("https://brand.test")))
+    }
+
     @Test fun aMainFrameErrorWhileLoadingFailsTheAd() {
         val error: WebResourceError = mockk { every { errorCode } returns -2 }
         bridge.webView.webViewClient.onReceivedError(bridge.webView, request(url), error)

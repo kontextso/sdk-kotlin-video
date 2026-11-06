@@ -2,6 +2,8 @@ package so.kontext.video.internal.frame
 
 import android.content.Context
 import android.content.MutableContextWrapper
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.JavaScriptReplyProxy
@@ -88,6 +90,9 @@ internal class FrameBridge(
     private val origin = protocol.origin
     private var loadTimeoutJob: Job? = null
 
+    /** The WebView's renderer died: the WebView can't be used, only removed and destroyed (see [tearDown]). */
+    private var isRendererGone = false
+
     /** The SDK's own client of the WebView; tests wrap it (WebView.getWebViewClient() exists only from Android 8). */
     internal lateinit var client: WebViewClient
         private set
@@ -103,7 +108,10 @@ internal class FrameBridge(
             onExternalLink = ::externalNavigation,
             onPageReplaced = { fail(FrameEvent.Error(protocol.failureCode), FailureCause.PAGE) },
             onLoadFailed = ::loadFailed,
-            onProcessGone = { fail(FrameEvent.Error(protocol.failureCode), FailureCause.PROCESS_TERMINATED) },
+            onProcessGone = {
+                isRendererGone = true
+                fail(FrameEvent.Error(protocol.failureCode), FailureCause.PROCESS_TERMINATED)
+            },
         ).also { client = it }
         // 2. A page whose renderer stops answering (a script in an endless loop) can no longer close itself, and a
         // linear ad has no other way out: Back is consumed and dismiss() refuses it. The ad ends, failed.
@@ -287,17 +295,24 @@ internal class FrameBridge(
         if (protocol.end()) tearDown()
     }
 
-    /** The page goes: stopped, unhooked, blanked, and destroyed after the callback that ended it returns. */
+    /**
+     * The page goes: stopped, unhooked, blanked, and destroyed after the callback that ended it returns. After its
+     * renderer died the WebView "can't be used" (onRenderProcessGone): it is only removed and destroyed. Either way
+     * the client left on it answers a renderer crash with `true` until the destroy: all of the app's WebViews share
+     * one renderer, and a `false` there (the default client's) would take the app down.
+     */
     private fun tearDown() {
         loadTimeoutJob?.cancel()
         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-        webView.stopLoading()
-        runCatching {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) WebViewCompat.removeWebMessageListener(webView, "KontextAndroid")
+        if (!isRendererGone) {
+            webView.stopLoading()
+            runCatching {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) WebViewCompat.removeWebMessageListener(webView, "KontextAndroid")
+            }
+            webView.webChromeClient = null
+            webView.webViewClient = InertClient()
+            webView.loadUrl("about:blank")
         }
-        webView.webChromeClient = null
-        webView.webViewClient = WebViewClient()
-        webView.loadUrl("about:blank")
         // Not from inside the WebView's own callback (a message, a render-process notice): after it returns.
         android.os.Handler(android.os.Looper.getMainLooper()).post { webView.destroy() }
     }
@@ -308,6 +323,13 @@ internal class FrameBridge(
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)
+    }
+
+    /** The client of a page that is gone: it survives a renderer crash and lets nothing load but the blank page. */
+    private class InertClient : WebViewClient() {
+        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = request.url.toString() != "about:blank"
+
+        override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean = true
     }
 
     companion object {
