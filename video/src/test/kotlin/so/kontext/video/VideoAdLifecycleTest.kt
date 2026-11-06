@@ -83,6 +83,7 @@ class VideoAdLifecycleTest : SdkTest() {
         ad.show(column)
         assertTrue("said at show", warnings.any { "LinearLayout" in it })
         laidOut()
+        idle(so.kontext.video.internal.screen.InlineAdView.unfitGraceMillis)
         assertEquals(listOf("ended"), recorder.heard)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals("never drawn: no impression, so no verdict", listOf("creativeView"), events)

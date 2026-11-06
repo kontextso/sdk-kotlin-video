@@ -473,7 +473,7 @@ class ParityLifecycleTest : SdkTest() {
         val host = host(container)
         host.forceLayout()
         host.layout(0, 0, 200, 390)
-        idle()
+        idle(InlineAdView.unfitGraceMillis)
         assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
         assertEquals(0, container.childCount)
     }

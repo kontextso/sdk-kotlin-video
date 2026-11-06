@@ -33,8 +33,15 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
     /** The creative's frame for the container's size and insets, in this view's pixels; `null` when it no longer fits. */
     var place: ((width: Int, height: Int, insets: Rect) -> Rect?)? = null
 
-    /** The container became too small for the creative. Once. */
+    /**
+     * The container became too small for the creative, and still was [unfitGraceMillis] later: a single pass
+     * (a split-screen or keyboard resize, an animated size, a rotation's intermediate pass) does not end the ad.
+     * Once.
+     */
     var onUnfit: (() -> Unit)? = null
+
+    /** The check, after the grace, of a pass where the creative did not fit; cleared by a pass where it fits. */
+    private var unfitCheck: Runnable? = null
 
     /** A layout pass has placed the creative in a frame with an area. */
     var hasPlacedContent = false
@@ -58,16 +65,29 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         // 1. Ask VideoAd: for this size and the system bars, where does the ad go?
         val frame = place?.invoke(right - left, bottom - top, systemInsets)
-        // 2. It no longer fits: tell VideoAd, once (it ends the ad). Posted, not called inside the layout pass:
-        //    ending removes the view being laid out.
+        // 2. It no longer fits: asked again after the grace, with the size then; still too small, VideoAd hears it,
+        //    once (it ends the ad). Never inside the layout pass: ending removes the view being laid out.
         if (frame == null) {
-            onUnfit?.let { unfit ->
-                onUnfit = null
-                post(unfit)
+            if (onUnfit != null && unfitCheck == null) {
+                val check = Runnable {
+                    unfitCheck = null
+                    if (place?.invoke(width, height, systemInsets) != null) {
+                        requestLayout()
+                        return@Runnable
+                    }
+                    onUnfit?.let { unfit ->
+                        onUnfit = null
+                        unfit()
+                    }
+                }
+                unfitCheck = check
+                postDelayed(check, unfitGraceMillis)
             }
             return
         }
-        // 3. It fits: give the WebView exactly that size, and put it there.
+        // 3. It fits (again): a pending check is dropped; the WebView gets exactly that size, and goes there.
+        unfitCheck?.let(::removeCallbacks)
+        unfitCheck = null
         measureContent(frame)
         content.layout(frame.left, frame.top, frame.right, frame.bottom)
         // 4. The ad now has a place with a size: awaitLayout waits for this before the impression counts.
@@ -88,5 +108,10 @@ internal class InlineAdView(context: Context, val content: View, coversWhole: Bo
     /** The WebView gets exactly the size of its [frame]. */
     private fun measureContent(frame: Rect) {
         content.measure(MeasureSpec.makeMeasureSpec(frame.width(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(frame.height(), MeasureSpec.EXACTLY))
+    }
+
+    companion object {
+        /** How long the creative may not fit before the ad ends: Swift's grace. A constant in spirit; tests set it. */
+        var unfitGraceMillis = 500L
     }
 }
