@@ -272,6 +272,30 @@ class PartsTest : SdkTest() {
         }
     }
 
+    @Test fun aBeaconHasOneDeadlineForItsWholeRedirectChain() {
+        val server = MockWebServer().apply { start() }
+        BeaconClient.timeoutMillis = 500
+        try {
+            // Each hop answers in 200 ms, under any idle timeout: only a deadline for the whole chain stops it.
+            repeat(HttpTransport.MAX_REDIRECTS + 1) {
+                server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/again").setHeadersDelay(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+            }
+            BeaconClient.send(server.url("/beacon").toString(), "ad: impression")
+            val started = System.currentTimeMillis()
+            while (BeaconClient.inFlight.get() == 0 && System.currentTimeMillis() - started < 2_000) Thread.sleep(5)
+            while (BeaconClient.inFlight.get() > 0 && System.currentTimeMillis() - started < 5_000) {
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(20))
+                Thread.sleep(20)
+            }
+            assertEquals("the worker is free", 0, BeaconClient.inFlight.get())
+            assertTrue("given up near the deadline, not after every hop", System.currentTimeMillis() - started < 1_800)
+            assertTrue("not every hop was followed", server.requestCount < HttpTransport.MAX_REDIRECTS)
+        } finally {
+            BeaconClient.timeoutMillis = 10_000
+            server.shutdown()
+        }
+    }
+
     @Test fun aBeaconReadsTheStatusAndNeverTheBody() {
         // A 6 MiB answer to one beacon: the SDK reads the status line and closes, so the server cannot write it all.
         val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())
