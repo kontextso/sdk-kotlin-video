@@ -88,6 +88,19 @@ class OffScreenTest : SdkTest() {
         assertNull(ScreenSlot.current)
     }
 
+    @Test fun anAdPlacedWhollyOffScreenAtShowFiresNoViewBeacons() {
+        Environment.isAppInForeground = { true }
+        val ad = overlay(tracking = tracking("creativeView", "iconView", "impression", "overlayViewDuration"))
+        val recorder = Recorder().also { ad.listener = it }
+        // Only the player's top 100 px show (clipped as by a scrolled parent); the overlay goes at its bottom.
+        val container = container()
+        container.clipBounds = android.graphics.Rect(0, 0, 320, 100)
+        ad.show(container)
+        assertEquals(listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
+        assertTrue("never on screen: no creativeView, iconView or overlayViewDuration: $events", events.isEmpty())
+        assertNull(ScreenSlot.current)
+    }
+
     @Test fun inTheBackgroundAnUnseenAdOnlyFreezes() {
         val (ad, container) = shown()
         Environment.isAppInForeground = { false }

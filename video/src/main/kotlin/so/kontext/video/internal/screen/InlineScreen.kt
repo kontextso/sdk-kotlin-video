@@ -169,6 +169,24 @@ internal class InlineScreen(
         return true
     }
 
+    /**
+     * Whether any of the page can be seen where it will be placed, asked at `show` before the ad reaches the
+     * screen, as Swift asks at attach: an ad nobody can see (a feed scrolled so the player's top shows, not the
+     * ad's card at its bottom) ends with no `creativeView` or `iconView`. Android lays the host out only at the
+     * next pass, so the page's frame is worked out as that pass will (the container inside its padding, [refit])
+     * and compared with the part of the container that is seen. A page given no room is left to the layout
+     * passes (`onUnfit`), as before.
+     */
+    fun isSeenWherePlaced(container: ViewGroup): Boolean {
+        val width = container.width - container.paddingLeft - container.paddingRight
+        val height = container.height - container.paddingTop - container.paddingBottom
+        val frame = refit(width, height, container.systemInsets, density) ?: return true
+        if (frame.isEmpty) return true
+        frame.offset(container.paddingLeft, container.paddingTop)
+        val seen = ViewExposure.measure(container)
+        return seen.share > 0 && Rect.intersects(seen.visibleBox, frame)
+    }
+
     /** `show` made [host] for the container: the screen hears its fit and its window. */
     fun attach(host: InlineAdView) {
         hostView = host

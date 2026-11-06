@@ -358,8 +358,14 @@ public class VideoAd internal constructor(
             if (hasEnded) return
             throw VideoAdException.CannotShowNow()
         }
-        // 4. Still there after the container's hooks, it reached the screen.
+        // 4. Still there after the container's hooks, and seen where it is placed, it reached the screen. Off
+        //    screen there, it ends with no view beacons, as in Swift.
         if (!screen.isStillOnScreen(container)) return
+        if (!screen.isSeenWherePlaced(container)) {
+            Logger.warning { "ad ${id.take(8)}: nothing of the ad is on screen where it was placed; ended as interrupted" }
+            end(EndReason.INTERRUPTED)
+            return
+        }
         contentRule.endIfContentStopped()
         reachedScreen()
     }
