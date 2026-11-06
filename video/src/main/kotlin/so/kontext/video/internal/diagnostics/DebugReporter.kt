@@ -95,13 +95,14 @@ internal object DebugReporter {
         if (!isEnabled || buffer.isEmpty()) return
         val events = buffer.toList()
         buffer.clear()
-        val body = buildJsonObject {
-            put("publisherToken", configuration.publisherToken)
-            put("installId", DeviceInfo.installId(context))
-            put("sdk", SdkInfo.json())
-            put("events", JsonArray(events))
-        }
         try {
+            // Built inside the boundary: the install id read may throw (a wrong-typed stored value).
+            val body = buildJsonObject {
+                put("publisherToken", configuration.publisherToken)
+                put("installId", DeviceInfo.installId(context))
+                put("sdk", SdkInfo.json())
+                put("events", JsonArray(events))
+            }
             ApiClient(configuration.adServerUrl).post("debug", body)
         } catch (error: kotlinx.coroutines.CancellationException) {
             throw error

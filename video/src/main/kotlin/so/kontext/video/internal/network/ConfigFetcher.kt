@@ -19,9 +19,13 @@ internal object ConfigFetcher {
      * the failure is logged and reported (`CONFIG_FAILED`).
      */
     suspend fun fetch(context: Context, configuration: Configuration, onFailure: () -> Unit): ConfigResponse? {
-        val request = ConfigRequest.make(context, configuration)
-        val requestId = request.requestId
+        var requestId: String? = null
+        // Building the body is inside the boundary too: it reads the install id, the package and KontextKit, any of
+        // which may throw (a wrong-typed stored id). Whatever fails, `/config` reaches an outcome and the SDK
+        // moves to `Failed`, never staying `Initializing` for the launch.
         return try {
+            val request = ConfigRequest.make(context, configuration)
+            requestId = request.requestId
             ConfigResponse.parse(ApiClient(configuration.adServerUrl).post("config", request.body))
         } catch (error: CancellationException) {
             throw error

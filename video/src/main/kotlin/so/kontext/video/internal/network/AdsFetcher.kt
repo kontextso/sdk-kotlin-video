@@ -60,7 +60,27 @@ internal class AdsFetcher(
         // 2. The request, `held` read now.
         val configuration = SdkState.current.configuration ?: throw VideoAdException.NotInitialized()
         val context = Environment.context ?: throw VideoAdException.NotInitialized()
-        val adsRequest = AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis(), sessionId, heldIds)
+        val adsRequest = try {
+            AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis(), sessionId, heldIds)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: VideoAdException) {
+            throw error
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+            // The device facts, the stored ids or KontextKit threw: the app hears a failed request, never a raw
+            // exception (format() throws only VideoAdException).
+            checkStillUsable()
+            Logger.error { "${content.id}: the request could not be built, ${error.message}" }
+            ErrorReporter.report(
+                ErrorReport.Code.ADS_REQUEST_FAILED,
+                ErrorReport.Stage.REQUEST,
+                requestId = null,
+                sessionId = sessionId,
+                failure = ErrorReport.FailedRequest(error),
+                recovery = if (holdsAds()) ErrorReport.Recovery.HELD_ADS_KEPT else ErrorReport.Recovery.NO_AD,
+            )
+            throw VideoAdException.Request(VideoAdException.RequestFailure.BadResponse)
+        }
         // Another video's response may have switched the SDK off meanwhile: nothing leaves.
         checkStillUsable()
         lastRequestId = adsRequest.requestId

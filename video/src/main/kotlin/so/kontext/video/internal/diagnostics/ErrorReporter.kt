@@ -104,11 +104,11 @@ internal object ErrorReporter {
         if (mode == Mode.ON) scheduleFlush(intervalMillis)
     }
 
-    /** A failed ads or `/config` request. */
+    /** A failed ads or `/config` request; [requestId] is `null` for one whose body could not be built. */
     fun report(
         code: ErrorReport.Code,
         stage: ErrorReport.Stage,
-        requestId: String,
+        requestId: String?,
         sessionId: String? = null,
         failure: ErrorReport.FailedRequest,
         recovery: ErrorReport.Recovery? = null,
@@ -166,7 +166,18 @@ internal object ErrorReporter {
         val configuration = SdkState.current.configuration ?: return true
         val context = Environment.context ?: return true
         if (mode != Mode.ON) return true
-        val batch = pendingBatch ?: makeBatch(configuration, context) ?: return true
+        val batch = try {
+            pendingBatch ?: makeBatch(configuration, context) ?: return true
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            // The envelope could not be built (the install id read threw, say): nothing can be sent this launch,
+            // and a throw here would escape the flush's coroutine and stop the app.
+            Logger.debug { "error reports dropped, the batch could not be built: ${error.message}" }
+            queue.clear()
+            pendingBatch = null
+            return true
+        }
         return try {
             ApiClient(configuration.adServerUrl).post("error", batch.body)
             pendingBatch = null

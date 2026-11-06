@@ -132,6 +132,38 @@ class SdkStatesTest : ParityHarness() {
         assertEquals(3, requests("/v2/config").size)
     }
 
+    /** A stored install id of the wrong type: KontextKit's `getString` throws while a request body is built. */
+    private fun corruptInstallId() =
+        Environment.context!!.getSharedPreferences("kontextso", android.content.Context.MODE_PRIVATE).edit().putInt("installId", 7).commit()
+
+    @Test fun aConfigBodyThatCannotBeBuiltMovesToFailedNotInitializing() {
+        corruptInstallId()
+        assertEquals("one outcome, heard by the listener", State.Failed, initialize())
+        assertEquals(0, requests("/v2/config").size)
+        // The next ads request tries /config again, and hears a typed failure.
+        val call = startFormat(owner(), AdFormat.PAUSE)
+        await { call.result != null }
+        assertTrue("${call.result}", call.result!!.exceptionOrNull() is VideoAdException.InitializationFailed)
+        assertEquals(State.Failed, KontextVideo.state)
+    }
+
+    @Test fun anAdsBodyThatCannotBeBuiltIsARequestFailure() {
+        corruptInstallId()
+        val call = startFormat(owner(), AdFormat.PAUSE)
+        await { call.result != null }
+        val error = call.result!!.exceptionOrNull()
+        assertTrue("$error", error is VideoAdException.Request && error.failure == VideoAdException.RequestFailure.BadResponse)
+        assertEquals(0, requests("/v2/video/ads").size)
+    }
+
+    @Test fun aReportBatchThatCannotBeBuiltIsDroppedWithoutStoppingTheApp() {
+        assertEquals(State.Enabled, initialize(reportsOn))
+        corruptInstallId()
+        report()
+        settle()
+        assertEquals(0, requests("/v2/error").size)
+    }
+
     @Test fun failedMovesToDisabledThroughTheRetry() {
         failingConfig()
         assertEquals(State.Failed, initialize())
