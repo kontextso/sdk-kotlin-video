@@ -21,8 +21,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.util.ReflectionHelpers
+import so.kontext.video.ContentPlayer
 import so.kontext.video.SdkTest
 import so.kontext.video.VideoAd
+import so.kontext.video.VideoAdListener
+import so.kontext.video.internal.content.OverlayRule
 import so.kontext.video.internal.measurement.ViewabilityMeter
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.platform.LinkSystem
@@ -105,6 +108,60 @@ class InAppBrowserTest : SdkTest() {
             player.destroy()
         }
         assertTrue("nothing opened outside the app", system.started.isEmpty())
+    }
+
+    /** A player the test pauses and plays, reporting it to the SDK's listener. */
+    private class Player : ContentPlayer {
+        var playing = true
+        override val currentPositionMillis = 0L
+        override val isPlaying: Boolean get() = playing
+        val listeners = mutableListOf<ContentPlayer.Listener>()
+
+        override fun addListener(listener: ContentPlayer.Listener) {
+            listeners += listener
+        }
+
+        override fun removeListener(listener: ContentPlayer.Listener) {
+            listeners -= listener
+        }
+
+        fun set(isPlaying: Boolean) {
+            playing = isPlaying
+            listeners.toList().forEach { it.onIsPlayingChanged(isPlaying) }
+        }
+    }
+
+    @Test fun anOverlayWhoseAppPausesTheContentInOnAdClickedWaitsForTheTabToClose() {
+        Environment.isAppInForeground = { true }
+        system.browser(customTabs = true)
+        val content = Player()
+        val owner = owner()
+        owner.track(content)
+        val ad = overlay(owner, duration = "60000", tracking = tracking("click"))
+        val reasons = mutableListOf<VideoAd.EndReason>()
+        ad.listener = object : VideoAdListener {
+            // The app pauses its player as the click opens the tab: its Activity is still resumed.
+            override fun onAdClicked(ad: VideoAd, click: VideoAd.Click) = content.set(isPlaying = false)
+
+            override fun onAdEnded(ad: VideoAd, reason: VideoAd.EndReason) {
+                reasons += reason
+            }
+        }
+        val (player, container) = playerScreen()
+        ad.show(container)
+        click(ad)
+        assertFalse(content.playing)
+        assertFalse("its own tab's pause does not end it", ad.hasEnded)
+        player.pause().stop()
+        idle(OverlayRule.returnGraceMillis * 5)
+        assertFalse("frozen while the tab is up", ad.hasEnded)
+        // Back from the tab: the app plays the content again.
+        player.restart().start().resume()
+        content.set(isPlaying = true)
+        idle(OverlayRule.returnGraceMillis * 2)
+        assertTrue("it goes on", reasons.isEmpty())
+        assertEquals(1, container.childCount)
+        player.pause().stop().destroy()
     }
 
     @Test fun anOverlaysClocksFreezeWhileItsTabIsUpAndRunOnAfter() {

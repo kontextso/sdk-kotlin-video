@@ -20,12 +20,16 @@ import so.kontext.video.internal.screen.InAppBrowser
  * Each target goes where its [LinkRoute] says, and the fallback the same way when the first opened nothing:
  * ```
  * refused        nothing opens
- * APP, STORE     ACTION_VIEW: the app it names, the Play Store
+ * APP            ACTION_VIEW: the app it names
+ * STORE          ACTION_VIEW in the Play Store app, else as APP
  * WEB            the app that claims it (openInClaimingApp), else the ad's in-app browser (a Custom Tab), else
  *                ACTION_VIEW: the default browser (no Custom Tabs browser, or no Activity to open it over)
  * ```
  */
 internal object LinkOpener {
+    /** The Play Store app's package. */
+    private const val PLAY_STORE = "com.android.vending"
+
     private val refusedSchemes = setOf(
         "intent", "javascript", "data", "file", "blob", "about", "content",
         "tel", "sms", "smsto", "mms", "mmsto",
@@ -61,7 +65,9 @@ internal object LinkOpener {
         }
         val uri = Uri.parse(url)
         return when (LinkRoute.of(uri.scheme, uri.host, uri.path)) {
-            LinkRoute.APP, LinkRoute.STORE -> startView(context, viewIntent(uri))
+            LinkRoute.APP -> startView(context, viewIntent(uri))
+            // The Play Store by name first: a browser set to open the store's web links would take a plain view.
+            LinkRoute.STORE -> startView(context, viewIntent(uri).setPackage(PLAY_STORE)) || startView(context, viewIntent(uri))
             LinkRoute.WEB -> openInClaimingApp(context, uri) || browser?.open(url) == true || startView(context, viewIntent(uri))
         }
     }
@@ -85,6 +91,8 @@ internal object LinkOpener {
         val browserPackages = packageManager.queryIntentActivities(browsers, PackageManager.MATCH_DEFAULT_ONLY).map { it.activityInfo.packageName }.toSet()
         val claiming = packageManager.queryIntentActivities(viewIntent(uri), PackageManager.MATCH_DEFAULT_ONLY).map { it.activityInfo.packageName }.distinct() - browserPackages
         // One app: straight to it, as Android 11 opens a verified link. Several: the system's chooser among them.
+        // With several apps claiming the link, the system chooser may also offer a browser. Not handled: old
+        // Android versions, rare.
         val intent = viewIntent(uri)
         when (claiming.size) {
             0 -> return false

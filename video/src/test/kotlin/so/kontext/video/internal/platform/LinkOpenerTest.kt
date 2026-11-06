@@ -131,6 +131,33 @@ class LinkOpenerTest {
         assertNull("never the in-app browser", tab())
     }
 
+    @Test fun storeLinksOpenInThePlayStoreAppByNameWhenItIsInstalled() {
+        val system = LinkSystem(app)
+        system.browser(customTabs = true)
+        // A browser that also claims the store's web links: a plain view could open in it.
+        system.appLink("com.browser.test", "play.google.com")
+        system.scheme("com.android.vending", "market")
+        system.appLink("com.android.vending", "play.google.com")
+        for (url in listOf("market://details?id=x", "https://play.google.com/store/apps/details?id=x")) {
+            assertTrue(url, LinkOpener.open(system, url, null, browser))
+            val intent = system.started.removeAt(0)
+            assertEquals(url, intent.dataString)
+            assertEquals("the Play Store app by name", "com.android.vending", intent.`package`)
+        }
+        assertNull(tab())
+    }
+
+    @Test fun storeLinksWithoutThePlayStoreAppOpenAsAPlainView() {
+        val system = LinkSystem(app)
+        system.browser(customTabs = true)
+        val url = "https://play.google.com/store/apps/details?id=x"
+        assertTrue(LinkOpener.open(system, url, null, browser))
+        val intent = system.started.single()
+        assertEquals(url, intent.dataString)
+        assertNull("no package: whatever opens it", intent.`package`)
+        assertNull("never the in-app browser", tab())
+    }
+
     @Test fun anAppsCustomSchemeOpensThatAppAsBefore() {
         val system = LinkSystem(app)
         system.browser(customTabs = true)

@@ -17,7 +17,8 @@ import so.kontext.video.internal.screen.InlineScreen
  * milliseconds of video; and it cannot be shown over paused content. Without a tracked player it runs on
  * its own time (the clock's duration). A pause while the app is in the background (apps pause their player in
  * `onStop`) only freezes it, as the background freezes its clock: back in front, it goes on if the content
- * plays again within [returnGraceMillis], and ends as INTERRUPTED otherwise. Another Activity of the
+ * plays again within [returnGraceMillis], and ends as INTERRUPTED otherwise. A pause while the in-app browser of
+ * its own click is open is the same: the return is the browser's close. Another Activity of the
  * app over it is not the background: it ends the overlay (see `InlineScreen.followHoldingActivity`), and so does a
  * pause there.
  */
@@ -42,12 +43,13 @@ internal class OverlayRule(private val ad: VideoAd) : ContentRule() {
     /**
      * The overlay is away: the app is in the background, or on its way there (the Activity holding it paused
      * and no Activity of the app resumed: a player paused in `onStop`, or at the lifecycle's ON_STOP, pauses
-     * before the SDK hears the stop). Another Activity of the app over it is resumed, so a pause then is no
-     * pause away.
+     * before the SDK hears the stop), or the in-app browser of its own click is open (a player paused in
+     * `onAdClicked` pauses while the Activity is still resumed). Another Activity of the app over it is
+     * resumed, so a pause then is no pause away.
      */
     private val isAway: Boolean
         get() {
-            if (!Environment.isAppInForeground()) return true
+            if (!Environment.isAppInForeground() || ad.screen?.inAppBrowser?.isOpen == true) return true
             val holder = (ad.screen as? InlineScreen)?.holdingActivity?.get() ?: return false
             return AppActivities.isResumed(holder) == false && !AppActivities.hasResumedActivity
         }
@@ -144,7 +146,7 @@ internal class OverlayRule(private val ad: VideoAd) : ContentRule() {
      */
     private fun waitsOutPause(): Boolean {
         if (isAway) {
-            if (!isContentPausedAway) Logger.info { "ad ${ad.id.take(8)}: the content paused in the background; the overlay waits for the return" }
+            if (!isContentPausedAway) Logger.info { "ad ${ad.id.take(8)}: the content paused while away (the background, or the click's browser open); the overlay waits for the return" }
             isContentPausedAway = true
             return true
         }

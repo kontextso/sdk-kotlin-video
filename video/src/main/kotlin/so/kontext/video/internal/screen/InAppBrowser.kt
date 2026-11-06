@@ -64,7 +64,12 @@ internal class InAppBrowser(
         isOpen = false
     }
 
-    /** The Activity the tab opened over resumes (the viewer came back) or is destroyed: the tab is no longer over it. */
+    /**
+     * The Activity the tab opened over resumes (the viewer came back) or is destroyed: the tab is no longer over it.
+     * A Custom Tab the viewer minimizes into Chrome's floating window resumes this Activity: the ad counts as
+     * uncovered again although the floating window may cover part of it. Not handled: rare, and views covering the
+     * ad are not measured (as on iOS).
+     */
     private fun follow(opener: Activity) {
         listener?.let(AppActivities::removeListener)
         // Weak: the SDK never keeps an Activity.
@@ -76,6 +81,10 @@ internal class InAppBrowser(
         AppActivities.addListener(listener)
     }
 
+    /**
+     * Any installed browser with Custom Tabs. When the default browser has no Custom Tabs but another installed one
+     * does, the link opens in the default browser outside the app, as before. Not handled here.
+     */
     private fun hasCustomTabsBrowser(activity: Activity): Boolean = runCatching {
         activity.packageManager.queryIntentServices(Intent(CUSTOM_TABS_SERVICE), 0).isNotEmpty()
     }.getOrDefault(false)
