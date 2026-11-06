@@ -20,6 +20,14 @@ class TrackingMacrosTest {
         assertFalse(TrackingMacros.asksForContentPlayhead("https://t.test/?ph=[ADPLAYHEAD]"))
     }
 
+    @Test fun anIpv6HostKeepsItsBrackets() {
+        val url = TrackingMacros.substitute("http://[::1]:8080/p?e=[ERRORCODE]&x=[UNKNOWN]", { 0L }, 0, 405, "f", null, null)
+        assertEquals("http://[::1]:8080/p?e=405&x=%5BUNKNOWN%5D", url)
+        val bare = TrackingMacros.substitute("https://[2001:db8::1]?e=[ERRORCODE]", { 0L }, 0, 400, "f", null, null)
+        assertEquals("https://[2001:db8::1]?e=400", bare)
+        assertEquals("http://%5B::1%5D/", TrackingMacros.substitute("http://%5B::1%5D/", { 0L }, 0, null, "f", null, null), "an encoded authority stays as given")
+    }
+
     @Test fun theContentPlayheadIsReadOnlyWhenTheUrlAsksForIt() {
         var reads = 0
         val playhead = {

@@ -36,9 +36,12 @@ internal object TrackingMacros {
         viewDurationMillis: Long?,
         notUsed: Tracker.NotUsed?,
     ): String {
-        val normalized = decodingBrackets(template)
+        // The authority (`https://[2001:db8::1]:8080`) is left as given: its brackets are an IPv6 host's, not a
+        // macro's, and encoding them would make the URL unroutable.
+        val authority = authorityOf(template)
+        val normalized = decodingBrackets(template.substring(authority.length))
         val content = if (asksForContentPlayhead(normalized)) encode(playhead(contentPlayhead())) else ""
-        return normalized
+        return authority + normalized
             .replace("[CACHEBUSTING]", "%08d".format(Locale.US, Random.nextInt(100_000_000)))
             .replace("[TIMESTAMP]", encode(timestamp()))
             .replace("[MEDIAPLAYHEAD]", content)
@@ -54,9 +57,16 @@ internal object TrackingMacros {
             .replace("]", "%5D")
     }
 
+    /** `scheme://host:port` at the start of [url], up to its path, query or fragment; empty for a URL with none. */
+    fun authorityOf(url: String): String {
+        val start = url.indexOf("://").takeIf { it > 0 }?.plus(3) ?: return ""
+        val end = url.indexOfAny(charArrayOf('/', '?', '#'), start).takeIf { it >= 0 } ?: url.length
+        return url.substring(0, end)
+    }
+
     /** Whether [template] asks for the content playhead (`[MEDIAPLAYHEAD]` or `[CONTENTPLAYHEAD]`), its brackets encoded or not. */
     fun asksForContentPlayhead(template: String): Boolean {
-        val normalized = decodingBrackets(template)
+        val normalized = decodingBrackets(template.substring(authorityOf(template).length))
         return "[MEDIAPLAYHEAD]" in normalized || "[CONTENTPLAYHEAD]" in normalized
     }
 
