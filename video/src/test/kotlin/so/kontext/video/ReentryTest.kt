@@ -12,11 +12,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.util.ReflectionHelpers
 import so.kontext.video.internal.content.ContentPlayback
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.measurement.OnScreenTimeClock
 import so.kontext.video.internal.platform.Environment
+import so.kontext.video.internal.screen.LinearAdActivity
 import so.kontext.video.internal.screen.ScreenSlot
 
 /**
@@ -98,6 +100,21 @@ class ReentryTest : SdkTest() {
         ad.recordImpression()
         assertEquals(before, events)
         assertEquals(listOf("ended"), recorder.heard)
+    }
+
+    @Test fun aVideoThatCompletedFiresNoPauseOrResumeAndCountsNoMoreTime() {
+        val ad = linear(tracking = tracking("start", "complete", "pause", "resume", "mute"))
+        val host = activity()
+        ad.show(host)
+        Robolectric.buildActivity(LinearAdActivity::class.java, shadowOf(host).nextStartedActivity).create().start().resume().visible()
+        idle()
+        page(ad, "video.start")
+        page(ad, "video.complete")
+        page(ad, "video.resume")
+        page(ad, "video.pause")
+        page(ad, "video.mute")
+        assertEquals(listOf("start", "complete", "mute"), events)
+        assertFalse("the video is over: nothing counts towards its dwell", ad.meter?.countsTime ?: false)
     }
 
     @Test fun anAdEndedBeforeShowIgnoresItsPage() {

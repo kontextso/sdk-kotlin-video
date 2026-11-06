@@ -42,29 +42,30 @@ class FrameProtocolTableTest {
 
     private fun protocolIn(column: String) = protocol().apply {
         if (column != "loading") send("ad.loaded")
-        if (column == "shown" || column == "started") show()
-        if (column == "started") send("video.start")
+        if (column == "shown" || column == "started" || column == "completed") show()
+        if (column == "started" || column == "completed") send("video.start")
+        if (column == "completed") send("video.complete")
         if (column == "ended") end()
     }
 
     @Test fun everyMessageInEveryState() {
-        val columns = listOf("loading", "loaded", "shown", "started", "ended")
+        val columns = listOf("loading", "loaded", "shown", "started", "completed", "ended")
         val link = "\"url\": \"https://brand.test\""
         val table = listOf(
-            listOf("ad.loaded", "", "loaded", "ignore", "ignore", "ignore", "ignore"),
-            listOf("ad.click", link, "ignore", "ignore", "Click", "Click", "ignore"),
-            listOf("ad.open", link, "ignore", "ignore", "Open", "Open", "ignore"),
-            listOf("ad.close", "", "ignore", "ignore", "end+Close", "end+Close", "ignore"),
-            listOf("video.skip", "", "ignore", "ignore", "end+Skip", "end+Skip", "ignore"),
-            listOf("video.start", "", "ignore", "ignore", "Video", "Video", "ignore"),
-            listOf("video.firstQuartile", "", "ignore", "ignore", "drop!video.beforeStart", "Video", "ignore"),
-            listOf("video.pause", "", "ignore", "ignore", "drop!video.beforeStart", "Video", "ignore"),
-            listOf("video.mute", "", "ignore", "ignore", "Video", "Video", "ignore"),
-            listOf("video.unmute", "", "ignore", "ignore", "Video", "Video", "ignore"),
-            listOf("video.progress", "\"offset\": 1000", "ignore", "ignore", "drop!video.beforeStart", "Progress", "ignore"),
-            listOf("video.complete", "", "ignore", "ignore", "drop!video.beforeStart", "Complete", "ignore"),
-            listOf("ad.error", "", "end+Error", "end+Error", "end+Error", "end+Error", "ignore"),
-            listOf("ad.unknown", "", "drop", "drop", "drop", "drop", "ignore"),
+            listOf("ad.loaded", "", "loaded", "ignore", "ignore", "ignore", "ignore", "ignore"),
+            listOf("ad.click", link, "ignore", "ignore", "Click", "Click", "Click", "ignore"),
+            listOf("ad.open", link, "ignore", "ignore", "Open", "Open", "Open", "ignore"),
+            listOf("ad.close", "", "ignore", "ignore", "end+Close", "end+Close", "end+Close", "ignore"),
+            listOf("video.skip", "", "ignore", "ignore", "end+Skip", "end+Skip", "end+Skip", "ignore"),
+            listOf("video.start", "", "ignore", "ignore", "Video", "Video", "ignore", "ignore"),
+            listOf("video.firstQuartile", "", "ignore", "ignore", "drop!video.beforeStart", "Video", "ignore", "ignore"),
+            listOf("video.pause", "", "ignore", "ignore", "drop!video.beforeStart", "Video", "ignore", "ignore"),
+            listOf("video.mute", "", "ignore", "ignore", "Video", "Video", "Video", "ignore"),
+            listOf("video.unmute", "", "ignore", "ignore", "Video", "Video", "Video", "ignore"),
+            listOf("video.progress", "\"offset\": 1000", "ignore", "ignore", "drop!video.beforeStart", "Progress", "ignore", "ignore"),
+            listOf("video.complete", "", "ignore", "ignore", "drop!video.beforeStart", "Complete", "ignore", "ignore"),
+            listOf("ad.error", "", "end+Error", "end+Error", "end+Error", "end+Error", "end+Error", "ignore"),
+            listOf("ad.unknown", "", "drop", "drop", "drop", "drop", "drop", "ignore"),
         )
         for (row in table) {
             val (type, fields) = row
@@ -75,6 +76,16 @@ class FrameProtocolTableTest {
             }
             assertEquals(row.drop(2), actual, type)
         }
+    }
+
+    @Test fun afterTheVideoCompletedOnlyMuteAndUnmuteCount() {
+        val protocol = protocolIn("completed")
+        for (type in listOf("video.resume", "video.start", "video.pause", "video.firstQuartile", "video.complete")) {
+            assertEquals("ignore", describe(protocol.send(type)), type)
+        }
+        assertEquals("ignore", describe(protocol.send("video.progress", "\"offset\": 1000")))
+        assertEquals("Video", describe(protocol.send("video.mute")))
+        assertEquals("Video", describe(protocol.send("video.unmute")))
     }
 
     @Test fun theStatesMoveOnlyForward() {

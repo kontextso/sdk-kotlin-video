@@ -27,6 +27,8 @@ import so.kontext.video.internal.diagnostics.Logger
  *   video.start          ignore          ignore          deliver                     ignore
  *   video.mute, unmute   ignore          ignore          deliver                     ignore
  *   other video.*        ignore          ignore          deliver after video.start   ignore
+ *                                                        (and before video.complete:
+ *                                                        after it only mute, unmute)
  *   ad.error             endThenDeliver  endThenDeliver  endThenDeliver              ignore
  *                        (400 video, 500 display; 405 on screen; the page's own code wins)
  *   unknown type         drop            drop            drop                        ignore
@@ -79,6 +81,12 @@ internal class FrameProtocol(
     /** `video.start` arrived: the video's progress, quartiles, pause, resume and complete count only after it. */
     private var isVideoStarted = false
 
+    /**
+     * `video.complete` was delivered: the video is over, and only the viewer's mute and unmute still count. A late
+     * resume or start would restart the video's dwell and fire pause and resume beacons for a video that ended.
+     */
+    private var isVideoCompleted = false
+
     /** The highest playhead a page may report, in milliseconds: the video's duration and the grace, or a day. */
     private val playheadLimitMillis = videoDurationMillis?.let { minOf(it.coerceAtLeast(0) + PLAYHEAD_GRACE_MILLIS, DAY_MILLIS) } ?: DAY_MILLIS
 
@@ -116,7 +124,11 @@ internal class FrameProtocol(
             "video.complete" -> when {
                 state != FramePhase.SHOWN -> Step.Ignore
                 !isVideoStarted -> beforeStart(type)
-                else -> Step.Deliver(FrameEvent.Complete(playhead))
+                isVideoCompleted -> Step.Ignore
+                else -> {
+                    isVideoCompleted = true
+                    Step.Deliver(FrameEvent.Complete(playhead))
+                }
             }
             "video.progress" -> progress(message)
             "ad.error" -> {
@@ -190,6 +202,7 @@ internal class FrameProtocol(
     private fun progress(message: FrameMessage): Step {
         if (state != FramePhase.SHOWN) return Step.Ignore
         if (!isVideoStarted) return beforeStart(message.type)
+        if (isVideoCompleted) return Step.Ignore
         val offset = message.offset
         if (offset == null || offset !in 0.0..DAY_MILLIS.toDouble()) {
             return drop("video.progress with a malformed offset dropped", "progress.offset")
@@ -202,6 +215,10 @@ internal class FrameProtocol(
      * rest need the start before them.
      */
     private fun video(event: FrameEvent.VideoEvent, type: String, playhead: Long): Step {
+        when (event) {
+            FrameEvent.VideoEvent.MUTE, FrameEvent.VideoEvent.UNMUTE -> Unit
+            else -> if (isVideoCompleted) return Step.Ignore
+        }
         when (event) {
             FrameEvent.VideoEvent.START -> isVideoStarted = true
             FrameEvent.VideoEvent.MUTE, FrameEvent.VideoEvent.UNMUTE -> Unit
