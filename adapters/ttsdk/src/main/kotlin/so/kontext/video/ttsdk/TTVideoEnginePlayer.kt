@@ -14,7 +14,9 @@ import java.util.WeakHashMap
  *
  * In a feed, where each page has its own engine (or takes a pre-rendered one), track the page's engine with that
  * page's `VideoAds` once it has its source. TTSDK has no getter for the playback speed: pass [playbackSpeed] when
- * the app plays faster or slower than 1×; without it the SDK accepts up to about 4×.
+ * the app plays faster or slower than 1×; without it the SDK accepts up to about 4×. The engine keeps
+ * [playbackSpeed] while it is tracked: one that captures what holds this `VideoAds` (an Activity's property) keeps
+ * that alive as long as the engine, until `destroy()`.
  *
  * Show an episode's ads only in that episode: the same engine tracked by another `VideoAds` is let go of here,
  * and this one's overlay and pause ads then throw `Invalidated(ContentChanged)` at `show`; so do they once the
