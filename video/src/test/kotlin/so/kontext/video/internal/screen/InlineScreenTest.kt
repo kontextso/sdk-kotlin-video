@@ -59,7 +59,9 @@ class InlineScreenTest : SdkTest() {
         host.layout(0, 0, 100, 300)
         idle()
         assertTrue("one pass is not enough", recorder.reasons.isEmpty())
-        idle(InlineAdView.unfitGraceMillis)
+        idle(InlineAdView.unfitGraceMillis - 1)
+        assertTrue("just before the grace ends", recorder.reasons.isEmpty())
+        idle(1)
         assertEquals("still too small after the grace", listOf(VideoAd.EndReason.INTERRUPTED), recorder.reasons)
     }
 
