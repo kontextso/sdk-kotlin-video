@@ -2,8 +2,6 @@
 
 ## 0.1.0
 
-In progress.
-
 The first release: an SDK on the v2 contract, the Android twin of sdk-swift-video 0.2.0.
 
 * Android 8.0 (API 26) and later.
@@ -51,6 +49,9 @@ The first release: an SDK on the v2 contract, the Android twin of sdk-swift-vide
   some of it is seen, as the viewability meter measures; one nobody can see for a second while the app is in front
   (a feed cell swiped away) ends `INTERRUPTED` and frees the app's one slot.
 * `isReady` is `false` while the SDK is switched off, for every `VideoAds`.
+* A `VideoAds` nobody destroys can be collected even while the app's player lives on (a feed's shared player, a
+  neighbour page): the listener `track` registers with the player holds it weakly. `destroy()` is still what ends
+  its ads at once.
 * `load()` throws `CreativeFailed` whenever the creative failed, also when it failed right after it reported ready;
   on an ad already shown it returns at once.
 * The first `track()` while an overlay is on screen leaves it there; only a change from one tracked player to another
