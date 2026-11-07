@@ -60,7 +60,6 @@ public final class so/kontext/video/KontextVideo$Configuration$Builder {
 	public final fun logLevel (Lso/kontext/video/KontextVideo$Configuration$LogLevel;)Lso/kontext/video/KontextVideo$Configuration$Builder;
 	public final fun setAdServerUrl (Ljava/lang/String;)V
 	public final fun setLogLevel (Lso/kontext/video/KontextVideo$Configuration$LogLevel;)V
-	public final fun setPublisherToken (Ljava/lang/String;)V
 }
 
 public final class so/kontext/video/KontextVideo$Configuration$Companion {
@@ -127,9 +126,7 @@ public final class so/kontext/video/KontextVideo$Content$Builder {
 	public final fun setDurationMillis (Ljava/lang/Long;)V
 	public final fun setEpisodeNumber (Ljava/lang/Integer;)V
 	public final fun setGenre (Ljava/lang/String;)V
-	public final fun setId (Ljava/lang/String;)V
 	public final fun setKeywords (Ljava/util/List;)V
-	public final fun setLanguage (Ljava/lang/String;)V
 	public final fun setMediaRating (Lso/kontext/video/KontextVideo$Content$Rating;)V
 	public final fun setSeries (Lso/kontext/video/KontextVideo$Content$Series;)V
 	public final fun setTitle (Ljava/lang/String;)V
@@ -174,7 +171,6 @@ public final class so/kontext/video/KontextVideo$Content$Series$Builder {
 	public final fun getTitle ()Ljava/lang/String;
 	public final fun setDescription (Ljava/lang/String;)V
 	public final fun setEpisodeCount (Ljava/lang/Integer;)V
-	public final fun setId (Ljava/lang/String;)V
 	public final fun setTitle (Ljava/lang/String;)V
 	public final fun title (Ljava/lang/String;)Lso/kontext/video/KontextVideo$Content$Series$Builder;
 }
