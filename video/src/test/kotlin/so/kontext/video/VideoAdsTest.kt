@@ -226,6 +226,50 @@ class VideoAdsTest {
         live.destroy()
     }
 
+    /**
+     * The app keeps its player (a shared one, a neighbour page) and drops the `VideoAds` that tracked it without
+     * `destroy()`: the player's listener holds it weakly, so it is still freed, and a later callback is harmless.
+     */
+    @Suppress("ExplicitGarbageCollectionCall") // The test is that the object can be collected.
+    @Test
+    fun aVideoAdsNobodyDestroysIsFreedWhileItsPlayerLives() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val player = ListeningPlayer()
+        val freed = abandonedVideoAds(player)
+        val deadline = System.currentTimeMillis() + 10_000
+        while (freed.get() != null) {
+            System.gc()
+            shadowOf(Looper.getMainLooper()).idle()
+            if (System.currentTimeMillis() > deadline) fail("a tracked player kept a VideoAds nobody destroys alive")
+            Thread.sleep(10)
+        }
+        assertEquals("the listener stays with the player", 1, player.listeners.size)
+        player.listeners.forEach {
+            it.onIsPlayingChanged(false)
+            it.onSeek()
+            it.onContentChanged()
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    /** A player that keeps its listeners, as Media3's does. */
+    private class ListeningPlayer : ContentPlayer {
+        val listeners = mutableListOf<ContentPlayer.Listener>()
+        override val currentPositionMillis: Long = 0
+        override val isPlaying: Boolean = true
+        override fun addListener(listener: ContentPlayer.Listener) { listeners += listener }
+        override fun removeListener(listener: ContentPlayer.Listener) { listeners -= listener }
+    }
+
+    /** Like [abandonedVideoAds], tracking [player] first. */
+    private fun abandonedVideoAds(player: ContentPlayer): WeakReference<VideoAds> {
+        val ads = VideoAds(Content("video-gc-tracked", "en"))
+        ads.track(player)
+        format(ads, AdFormat.PAUSE).getOrThrow()
+        return WeakReference(ads)
+    }
+
     /** A `VideoAds` that fetched its ads and was then dropped without `destroy()`, seen only weakly. */
     private fun abandonedVideoAds(): WeakReference<VideoAds> {
         val ads = VideoAds(Content("video-gc", "en"))

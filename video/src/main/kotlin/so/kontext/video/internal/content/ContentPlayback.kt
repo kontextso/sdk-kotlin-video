@@ -5,6 +5,7 @@ import android.os.Looper
 import so.kontext.video.ContentPlayer
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.TrackingMacros
+import java.lang.ref.WeakReference
 
 /**
  * The content player of one `VideoAds`: its playhead for requests and beacons, and its playing state for an
@@ -141,11 +142,7 @@ internal class ContentPlayback {
         isTicking = inlineAdWasShown
         this.player = player
         val generation = generation
-        val listener = object : ContentPlayer.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) = deliver(Change.PlayingChanged(isPlaying), generation)
-            override fun onSeek() = deliver(Change.Seeked, generation)
-            override fun onContentChanged() = deliver(Change.ContentChanged, generation)
-        }
+        val listener = WeakListener(this, generation)
         this.listener = listener
         // The player's code: a destroy() or another track() inside it wins, and this listener is dropped.
         runCatching { player.addListener(listener) }
@@ -214,6 +211,24 @@ internal class ContentPlayback {
         // The item read is the app's code: a track() or destroy() inside it made the change another binding's.
         if (generation != this.generation) return
         onChange?.invoke(change)
+    }
+
+    /**
+     * Registered with the app's player, which may outlive this playback (a feed's shared player, a neighbour page):
+     * it holds the playback weakly, so a `VideoAds` nobody destroys can still be collected. Once it is, this small
+     * listener stays registered until the player goes and does nothing; removing it from inside the player's own
+     * callback is not something every adapter allows.
+     */
+    private class WeakListener(playback: ContentPlayback, private val generation: Int) : ContentPlayer.Listener {
+        private val playback = WeakReference(playback)
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) = forward(Change.PlayingChanged(isPlaying))
+        override fun onSeek() = forward(Change.Seeked)
+        override fun onContentChanged() = forward(Change.ContentChanged)
+
+        private fun forward(change: Change) {
+            playback.get()?.deliver(change, generation)
+        }
     }
 
     companion object {
