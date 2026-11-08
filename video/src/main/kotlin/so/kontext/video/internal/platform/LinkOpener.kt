@@ -76,7 +76,7 @@ internal object LinkOpener {
      * Opens a web link in the installed app that claims it, if one does; `false` when only browsers would open it.
      *
      * Android 11 and later: the system decides, with `FLAG_ACTIVITY_REQUIRE_NON_BROWSER` (the start throws when
-     * a browser would take the link). Android 8 to 10 have no such flag: the apps that open this link, less those
+     * a browser would take the link). Android 7 to 10 have no such flag: the apps that open this link, less those
      * that open any web link (the browsers), are the ones that claim it; one of them opens it, else nothing does
      * here (those versions cannot tell a verified claim from another). They let the SDK see every app, so the
      * comparison needs no `<queries>`. From Android 12 a link no app verified, or one the viewer set to open in a

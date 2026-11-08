@@ -6,7 +6,7 @@ This guide is for contributors working on the Kontext Kotlin Video SDK locally.
 
 - **JDK 17** (Temurin recommended) — `brew install --cask temurin@17`
 - **Android SDK** with platform 35 installed (Android Studio, or `sdkmanager "platforms;android-35"`)
-- **An Android emulator or physical device** running API 26+ (Android 8) for the example app
+- **An Android emulator or physical device** running API 24+ (Android 7) for the example app
 
 Gradle 8.11 is downloaded by the wrapper on first build.
 
@@ -94,8 +94,8 @@ Swift has the same field, the name is the same.
 
 - **Lint**: `spotlessCheck` and `detekt`.
 - **Build and Test**: `assembleDebug`, `apiCheck` and the unit tests.
-- **Emulator Tests (API 26)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 26 (the minSdk) and 34.
-  API 26's emulator image may have a WebView older than the message listener (WebView 83) and nothing updates it,
+- **Emulator Tests (API 24)**, **(API 26)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 24 (the minSdk), 26 and 34.
+  The older emulator images may have a WebView older than the message listener (WebView 83) and nothing updates it,
   so the two tests that need the page's own messages skip there; the job prints the WebView's version first.
 - **Release check (R8)**: the artifacts published to mavenLocal, then `extras/release-check` built from them,
   minified.
@@ -109,7 +109,7 @@ after **Publish SDK** succeeds (it waits for the release to reach Maven Central,
 
 From the build files and the artifacts' dependencies:
 
-- **minSdk 26**, Android 8 (every module).
+- **minSdk 24**, Android 7 (every module).
 - **compileSdk 34**: AndroidX Core 1.13.1, Activity 1.8.2 and WebKit 1.12.1 require it in their AAR metadata;
   AGP refuses a lower one. `so.kontext:video-media3` depends on Media3 1.1.1 or newer (`media3-common`, the
   floor it compiles against); the app's own Media3 sets what it needs beyond that (Media3 1.6.0 requires

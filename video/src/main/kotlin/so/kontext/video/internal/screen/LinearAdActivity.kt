@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -52,6 +53,12 @@ internal class LinearAdActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 7 ignores `screenOrientation="behind"` for this screen: a player fixed in landscape would get its ad
+        // in portrait. There the ad asks for the player's own fixed orientation; from Android 8 `behind` does it.
+        val starterOrientation = intent.getIntExtra(EXTRA_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && starterOrientation !in unfixedOrientations) {
+            requestedOrientation = starterOrientation
+        }
         val token = intent.getStringExtra(EXTRA_TOKEN)
         val callbacks = token?.let { callbacksByToken[it] }
         // 1. Find the ad this screen was started for; none (restored after the process died, or started twice): close.
@@ -123,6 +130,18 @@ internal class LinearAdActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_TOKEN = "so.kontext.video.token"
+        private const val EXTRA_ORIENTATION = "so.kontext.video.orientation"
+
+        /** Orientations that fix nothing: the screen keeps `behind`. */
+        private val unfixedOrientations = setOf(
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
+            ActivityInfo.SCREEN_ORIENTATION_BEHIND,
+            ActivityInfo.SCREEN_ORIENTATION_USER,
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR,
+            ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR,
+            ActivityInfo.SCREEN_ORIENTATION_FULL_USER,
+            ActivityInfo.SCREEN_ORIENTATION_NOSENSOR,
+        )
         private val callbacksByToken = mutableMapOf<String, Callbacks>()
 
         /** Starts the screen for [callbacks] from [from]; the token finds them again in `onCreate`. */
@@ -140,6 +159,7 @@ internal class LinearAdActivity : ComponentActivity() {
             // The app started the ad break, the viewer did not leave: without the flag the host hears
             // onUserLeaveHint(), where apps enter picture-in-picture or note that the user left.
             val intent = Intent(from, LinearAdActivity::class.java).putExtra(EXTRA_TOKEN, token)
+                .putExtra(EXTRA_ORIENTATION, from.requestedOrientation)
                 .addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
             from.startActivity(intent)
             @Suppress("DEPRECATION")
