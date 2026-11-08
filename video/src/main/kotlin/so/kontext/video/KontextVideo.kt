@@ -133,7 +133,7 @@ public object KontextVideo {
     // The models below (Configuration, Content, User, Regulatory) share one shape, the builder pattern:
     //
     //   class Model private constructor(builder: Builder)   read-only `val`s, fixed once built
-    //   class Builder(required…)                            a mutable draft: `var`s with defaults
+    //   class Builder(required…)                            a mutable draft: the required `val`s, `var`s with defaults
     //     fun field(value): Builder = apply { … }           a chainable setter: sets, returns the builder (for Java)
     //     fun build(): Model                                freezes the draft
     //   companion object { operator fun invoke(…) }         Kotlin's `Model(required) { field = … }`: it makes a
@@ -193,7 +193,7 @@ public object KontextVideo {
          * Only `publisherToken` is required.
          * @property publisherToken [Configuration.publisherToken].
          */
-        public class Builder(public var publisherToken: String) {
+        public class Builder(public val publisherToken: String) {
             /** [Configuration.logLevel]. */
             public var logLevel: LogLevel = LogLevel.WARNING
 
@@ -284,9 +284,9 @@ public object KontextVideo {
         /** Sets what you know about the video; only `id` and `language` are required. */
         public class Builder(
             /** [Content.id]. */
-            public var id: String,
+            public val id: String,
             /** [Content.language]. */
-            public var language: String,
+            public val language: String,
         ) {
             /** [Content.mediaRating]. */
             public var mediaRating: Rating? = null
@@ -370,7 +370,7 @@ public object KontextVideo {
              * Only `id` is required.
              * @property id [Series.id].
              */
-            public class Builder(public var id: String) {
+            public class Builder(public val id: String) {
                 /** [Series.title]. */
                 public var title: String? = null
 

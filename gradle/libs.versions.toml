@@ -5,9 +5,8 @@
 [versions]
 
 # ---- SDK version ----
-# Default published version. Override at publish time via
-# `./gradlew :video:publish -PsdkVersion=X.Y.Z` so CI can cut patch
-# releases without bumping this file. Read at runtime as
+# The published version: the release workflow publishes this value, after checking
+# that the tag equals it (`-PsdkVersion=X.Y.Z` overrides it for a local build only). Read at runtime as
 # `KontextVideo.VERSION`, from a generated internal source (see video/build.gradle.kts).
 sdk-kotlin-video = "0.1.0"
 
