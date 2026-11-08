@@ -10,6 +10,7 @@ dependencies {
     implementation("so.kontext:video:0.1.0")
     implementation("so.kontext:video-media3:0.1.0")  // optional: ads.track(exoPlayer)
     implementation("so.kontext:video-ttsdk:0.1.0")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
+    implementation("so.kontext:video-txplayer:0.1.0") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
     implementation("so.kontext:video-compose:0.1.0") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
 }
 ```

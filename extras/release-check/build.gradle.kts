@@ -19,7 +19,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Installable without a keystore; this app is never shipped.
             signingConfig = signingConfigs.getByName("debug")
         }
@@ -37,4 +37,7 @@ dependencies {
     implementation("so.kontext:video-media3:$sdkVersion")
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+    // The Tencent Cloud Player adapter, with the Player SDK an app brings: R8 runs over both.
+    implementation("so.kontext:video-txplayer:$sdkVersion")
+    implementation(libs.liteav.player)
 }

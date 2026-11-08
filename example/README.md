@@ -44,4 +44,4 @@ It talks to the production ad server, whose demo routes answer any token (`examp
 publisher token in `ExampleApp.kt` to see your own ads. An emulator needs 4 GB of RAM or more for ExoPlayer and a
 WebView at once.
 
-For Jetpack Compose, see `integrations/compose`; for a TTSDK player, `adapters/ttsdk`.
+For Jetpack Compose, see `integrations/compose`; for a TTSDK player, `adapters/ttsdk`; for a Tencent Cloud Player, `adapters/txplayer`.

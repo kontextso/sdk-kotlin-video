@@ -15,7 +15,7 @@ The release is cut from `main`: the release's changelog can come in a release PR
    emulator tests and the minified release check).
 2. Run CI's checks locally and make sure everything is green (the release workflow runs them before it publishes):
    ```bash
-   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-compose:testDebugUnitTest
+   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-txplayer:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-txplayer:testDebugUnitTest :video-compose:testDebugUnitTest
    ```
 3. Run the example against the ad server on a device: each of the five videos shows its ad, and the status line
    shows the impression, then the one end.
@@ -73,7 +73,7 @@ git push origin 1.0.0
 
 ## 6. Verify
 
-1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0` and
-   `so.kontext:video-media3:1.0.0` on Maven Central, then builds `extras/release-check` from them, minified by
+1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0`,
+   `so.kontext:video-media3:1.0.0` and `so.kontext:video-txplayer:1.0.0` on Maven Central, then builds `extras/release-check` from them, minified by
    R8. It must be green; rerun it by hand (Actions → Release consumer → Run workflow) with the version.
 2. Integrate the new version into the example app and confirm it builds and runs.

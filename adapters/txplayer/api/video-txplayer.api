@@ -1,0 +1,12 @@
+public final class so/kontext/video/txplayer/KontextTXVodPlayer {
+	public static final field INSTANCE Lso/kontext/video/txplayer/KontextTXVodPlayer;
+	public static final fun onPlayEvent (Lcom/tencent/rtmp/TXVodPlayer;I)V
+}
+
+public final class so/kontext/video/txplayer/TXVodPlayers {
+	public static final fun track (Lso/kontext/video/VideoAds;Lcom/tencent/rtmp/TXVodPlayer;)V
+	public static final fun track (Lso/kontext/video/VideoAds;Lcom/tencent/rtmp/TXVodPlayer;Lkotlin/jvm/functions/Function0;)V
+	public static final fun track (Lso/kontext/video/VideoAds;Lcom/tencent/rtmp/TXVodPlayer;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;)V
+	public static synthetic fun track$default (Lso/kontext/video/VideoAds;Lcom/tencent/rtmp/TXVodPlayer;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)V
+}
+

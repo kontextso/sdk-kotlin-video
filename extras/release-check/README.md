@@ -1,12 +1,13 @@
 # Release check
 
-A small app that uses the SDK the way a publisher's app does: it gets `so.kontext:video` and
-`so.kontext:video-media3` as published artifacts, not from this repo's source, and builds a release with R8
-minification. It catches what the SDK's own build cannot see: a public API the integration guide uses that the
+A small app that uses the SDK the way a publisher's app does: it gets `so.kontext:video`,
+`so.kontext:video-media3` and `so.kontext:video-txplayer` (with the Tencent Cloud Player SDK an app brings) as
+published artifacts, not from this repo's source, and builds a release with R8 minification. It catches what the SDK's own build cannot see: a public API the integration guide uses that the
 release lost, an artifact that does not resolve, or shrinking rules that strip code the SDK needs at runtime.
 
-It is never shipped. It has one screen with a player that loads and shows an overlay; its log tag is
-`ReleaseCheck`.
+It is never shipped. Its launch screen has a Media3 player that loads and shows an overlay; a second screen,
+`TXPlayerEpisodeActivity`, tracks a `TXVodPlayer` and hands its play events on (it plays only with a Player SDK
+license, which this app does not have). Its log tag is `ReleaseCheck`.
 
 ## When it runs
 
@@ -17,7 +18,7 @@ It is never shipped. It has one screen with a player that loads and shows an ove
 ## Run it locally
 
 ```bash
-./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal
+./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal :video-txplayer:publishToMavenLocal
 ./gradlew -p extras/release-check assembleRelease          # or installRelease, on a running emulator
 
 # A released version, from Maven Central

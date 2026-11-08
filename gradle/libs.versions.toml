@@ -37,6 +37,13 @@ compose-floor = "1.6.8"
 # it: the app brings its own, licensed TTSDK.
 ttsdk-floor = "1.40.1.5"
 
+# ---- Tencent Cloud Player SDK (LiteAV) ----
+# :video-txplayer compiles against the oldest Player SDK it supports and does not ship it: the app brings its own,
+# licensed one. The adapter uses only TXVodPlayer's isPlaying and getCurrentPlaybackTime, unchanged since long before.
+liteav-player-floor = "11.0.0.13110"
+# The release check's and the adapter's emulator tests': a recent one, as an app has.
+liteav-player = "13.3.0.20247"
+
 # ---- Kontext ----
 # Device info, install id, advertising id, TCF consent. 0.1.0 moved Open Measurement to its own artifact,
 # which this SDK does not use: no OMSDK binary ships with it.
@@ -96,6 +103,10 @@ androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-mani
 
 # TTSDK player (the BytePlus repository): compileOnly in :video-ttsdk
 ttsdk-ttplayer-floor = { module = "com.bytedanceapi:ttsdk-ttplayer", version.ref = "ttsdk-floor" }
+
+# Tencent Cloud Player SDK (Maven Central): compileOnly in :video-txplayer
+liteav-player-floor = { module = "com.tencent.liteav:LiteAVSDK_Player", version.ref = "liteav-player-floor" }
+liteav-player = { module = "com.tencent.liteav:LiteAVSDK_Player", version.ref = "liteav-player" }
 
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
