@@ -31,7 +31,8 @@ sdk-kotlin-video/
 ├── video/api/video.api                       # the public API, checked by apiCheck
 ├── adapters/                                 # player adapters, one module each (see adapters/README.md)
 │   ├── media3/                               #   :video-media3, VideoAds.track(Player) for a Media3 player
-│   └── ttsdk/                                #   :video-ttsdk, VideoAds.track(TTVideoEngine) for a TTSDK engine
+│   ├── ttsdk/                                #   :video-ttsdk, VideoAds.track(TTVideoEngine) for a TTSDK engine
+│   └── txplayer/                             #   :video-txplayer, VideoAds.track(TXVodPlayer) for a Tencent Cloud Player
 ├── integrations/compose/                     # :video-compose, rememberVideoAds and VideoAdHost for Jetpack Compose
 ├── example/                                  # classic-View demo app, five videos (see its README)
 ├── extras/release-check/                     # a publisher's app built from the published SDK (see its README)
@@ -49,7 +50,7 @@ sdk-kotlin-video/
 ./gradlew apiCheck                            # the public API against video/api and adapters/media3/api
 ./gradlew :video:createDebugUnitTestCoverageReport   # JaCoCo over the unit tests: video/build/reports/coverage/
 ./gradlew :video:connectedDebugAndroidTest    # emulator tests (a real WebView), on a running emulator
-./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-compose:testDebugUnitTest   # what CI runs, with the two below
+./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-txplayer:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-txplayer:testDebugUnitTest :video-compose:testDebugUnitTest   # what CI runs, with the two below
 ```
 
 `internal/CorpusTest` runs the malformed-answer corpus the Swift SDK runs too: `video/src/test/resources/corpus/`
@@ -61,7 +62,7 @@ artifacts, as a publisher's app does, and minifies them with R8. Its log (tag `R
 loaded and shown:
 
 ```bash
-./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal :video-ttsdk:publishToMavenLocal :video-compose:publishToMavenLocal
+./gradlew :video:publishToMavenLocal :video-media3:publishToMavenLocal :video-ttsdk:publishToMavenLocal :video-txplayer:publishToMavenLocal :video-compose:publishToMavenLocal
 ./gradlew -p extras/release-check assembleRelease   # or installRelease, on a running emulator
 ```
 

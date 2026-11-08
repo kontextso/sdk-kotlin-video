@@ -15,7 +15,7 @@ The release is cut from `main`: the release's changelog can come in a release PR
    emulator tests and the minified release check).
 2. Run CI's checks locally and make sure everything is green (the release workflow runs them before it publishes):
    ```bash
-   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-compose:testDebugUnitTest
+   ./gradlew spotlessCheck detekt :video:lintRelease :video-media3:lintRelease :video-ttsdk:lintRelease :video-txplayer:lintRelease :video-compose:lintRelease assembleDebug apiCheck :video:testDebugUnitTest :video-media3:testDebugUnitTest :video-ttsdk:testDebugUnitTest :video-txplayer:testDebugUnitTest :video-compose:testDebugUnitTest
    ```
 3. Run the example against the ad server on a device: each of the five videos shows its ad, and the status line
    shows the impression, then the one end.

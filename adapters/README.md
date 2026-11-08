@@ -8,6 +8,7 @@ implements it for one player, so an app writes `ads.track(player)` and nothing e
 |---|---|---|---|
 | [`media3/`](media3) | `so.kontext:video-media3` | Media3 / ExoPlayer (any `Player`, 1.1+) | `ads.track(exoPlayer)` |
 | [`ttsdk/`](ttsdk) | `so.kontext:video-ttsdk` | TTSDK `TTVideoEngine` (1.40+) | `ads.track(engine)` |
+| [`txplayer/`](txplayer) | `so.kontext:video-txplayer` | Tencent Cloud Player SDK `TXVodPlayer` (11.0+) | `ads.track(player)` |
 
 Each adapter is optional and ships separately, so an app gets only the player it uses, and never a player it does
 not: an adapter compiles against the oldest player version it supports and leaves the app's own version in charge.

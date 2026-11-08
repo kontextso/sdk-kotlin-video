@@ -55,10 +55,11 @@ dependencyResolutionManagement {
     }
 }
 
-include(":video", ":video-media3", ":video-ttsdk", ":video-compose", ":example")
+include(":video", ":video-media3", ":video-ttsdk", ":video-txplayer", ":video-compose", ":example")
 
 // Player adapters live under adapters/, UI integrations under integrations/; each keeps its published name
 // (so.kontext:video-<name>).
 project(":video-media3").projectDir = file("adapters/media3")
 project(":video-ttsdk").projectDir = file("adapters/ttsdk")
+project(":video-txplayer").projectDir = file("adapters/txplayer")
 project(":video-compose").projectDir = file("integrations/compose")
