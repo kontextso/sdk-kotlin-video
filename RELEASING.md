@@ -73,7 +73,7 @@ git push origin 1.0.0
 
 ## 6. Verify
 
-1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0` and
-   `so.kontext:video-media3:1.0.0` on Maven Central, then builds `extras/release-check` from them, minified by
+1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0`,
+   `so.kontext:video-media3:1.0.0` and `so.kontext:video-txplayer:1.0.0` on Maven Central, then builds `extras/release-check` from them, minified by
    R8. It must be green; rerun it by hand (Actions → Release consumer → Run workflow) with the version.
 2. Integrate the new version into the example app and confirm it builds and runs.

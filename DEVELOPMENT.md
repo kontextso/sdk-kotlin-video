@@ -95,7 +95,8 @@ Swift has the same field, the name is the same.
 
 - **Lint**: `spotlessCheck` and `detekt`.
 - **Build and Test**: `assembleDebug`, `apiCheck` and the unit tests.
-- **Emulator Tests (API 24)**, **(API 26)** and **(API 34)**: `:video:connectedDebugAndroidTest`, on API 24 (the minSdk), 26 and 34.
+- **Emulator Tests (API 24)**, **(API 26)** and **(API 34)**: the `connectedDebugAndroidTest` of `:video`,
+  `:video-media3`, `:video-txplayer` and `:video-compose`, on API 24 (the minSdk), 26 and 34.
   The older emulator images may have a WebView older than the message listener (WebView 83) and nothing updates it,
   so the two tests that need the page's own messages skip there; the job prints the WebView's version first.
 - **Release check (R8)**: the artifacts published to mavenLocal, then `extras/release-check` built from them,

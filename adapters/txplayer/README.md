@@ -30,6 +30,8 @@ player.setVodListener(object : ITXVodPlayListener {
 
 - **The Player SDK is not included.** The adapter compiles against `com.tencent.liteav:LiteAVSDK_Player` 11.0 and
   uses the app's own, licensed SDK (any edition with `com.tencent.rtmp.TXVodPlayer`).
+- **R8:** the adapter needs no rules. The app keeps the Player SDK's own (`-keep class com.tencent.** { *; }`, from
+  its integration guide): minified without it, the Player SDK aborts when the first player is created.
 - **Playing** is the player's `isPlaying()`: paused, ended or stopped is not playing; a stall to load is. A pause
   has no event: the SDK reads `isPlaying()` four times a second while an ad is on screen, and at `show`.
 - **The events** tell the SDK at once of the end (`PLAY_END`), a loop's next round (`LOOP_ONCE_COMPLETE`) and a
@@ -41,3 +43,15 @@ player.setVodListener(object : ITXVodPlayListener {
   becomes current.
 - **Speed:** the Player SDK has no getter for it. Pass the speed when the app changes it; without it the SDK accepts
   up to about 4×.
+
+## Tests
+
+- Unit tests (`src/test`): the adapter's rules over a player the test drives.
+- Emulator tests (`src/androidTest`, in CI): a real `TXVodPlayer` (LiteAV 13.3) tracked by a `VideoAds`. The Player
+  SDK plays nothing without a license (event -5, `VOD_PLAY_ERR_INVALID_LICENCE`), so CI checks the wiring with the
+  real classes, and the playback tests (playing, pause, seek, end, loop) skip. With a license they run:
+  ```bash
+  ./gradlew :video-txplayer:connectedDebugAndroidTest \
+      -Pandroid.testInstrumentationRunnerArguments.txLicenceUrl=<licence url> \
+      -Pandroid.testInstrumentationRunnerArguments.txLicenceKey=<licence key>
+  ```

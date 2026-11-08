@@ -38,7 +38,7 @@ jobs:
         run: |
           version="${REQUESTED:-$(sed -n 's/^sdk-kotlin-video *= *"\([^"]*\)".*/\1/p' gradle/libs.versions.toml)}"
           echo "SDK_VERSION=$version" >> "$GITHUB_ENV"
-          echo "so.kontext:video-media3:$version"
+          echo "so.kontext:video-media3 and video-txplayer $version"
 
       # A release is on Maven Central minutes after it is published, sometimes half an hour or more.
       - name: Wait for Maven Central
@@ -46,7 +46,8 @@ jobs:
         run: |
           base=https://repo1.maven.org/maven2/so/kontext
           until curl -sfI "$base/video/$SDK_VERSION/video-$SDK_VERSION.pom" > /dev/null &&
-                curl -sfI "$base/video-media3/$SDK_VERSION/video-media3-$SDK_VERSION.pom" > /dev/null; do
+                curl -sfI "$base/video-media3/$SDK_VERSION/video-media3-$SDK_VERSION.pom" > /dev/null &&
+                curl -sfI "$base/video-txplayer/$SDK_VERSION/video-txplayer-$SDK_VERSION.pom" > /dev/null; do
             echo "not on Maven Central yet"; sleep 60
           done
 
