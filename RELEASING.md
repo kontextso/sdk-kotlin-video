@@ -71,7 +71,16 @@ git tag -a 1.0.0 -m "Release 1.0.0"
 git push origin 1.0.0
 ```
 
-## 6. Verify
+## 6. Publish the GitHub release
+
+Maven Central carries the artifacts; the repository's Releases page is where integrators look for the notes.
+Create the release from the tag, with the changelog section as its body:
+
+```bash
+gh release create 1.0.0 --title 1.0.0 --notes-file <(awk '/^## 1.0.0$/{f=1;next} /^## /{f=0} f' CHANGELOG.md)
+```
+
+## 7. Verify
 
 1. After **Publish SDK**, the **Release consumer** workflow waits for `so.kontext:video:1.0.0`,
    `so.kontext:video-media3:1.0.0` and `so.kontext:video-txplayer:1.0.0` on Maven Central, then builds `extras/release-check` from them, minified by
