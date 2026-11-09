@@ -1,6 +1,7 @@
 package so.kontext.video.internal.diagnostics
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -10,10 +11,10 @@ import kotlinx.serialization.json.put
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.network.ApiClient
 import so.kontext.video.internal.network.ApiException
+import so.kontext.video.internal.payloads.ConfigResponse
 import so.kontext.video.internal.payloads.SdkInfo
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.SdkState
-import java.util.UUID
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.random.Random
@@ -25,15 +26,18 @@ import kotlin.random.Random
  *
  * Off until `/config` says `reportErrors: true`. Before it answers, reports wait in memory and leave once it
  * turns them on, or are dropped. Delivery is bounded and best effort: at most `ReportQueue.MAX_BUFFERED` reports
- * wait (the oldest go, and the next batch says how many); one batch at a time, at most `ReportQueue.MAX_BATCH`; a batch that
- * fails is retried unchanged after a doubling backoff with jitter; `410` ends reporting for this launch, any
- * other `4xx` but `429` drops that batch. Nothing is stored on disk. Each report carries codes and ids, never
- * free text from a system error, the advertising id, the user id, the email, consent strings, bodies or URLs.
+ * wait (the oldest go); one batch at a time, at most `ReportQueue.MAX_BATCH`, after the [intervalMillis] `/config`
+ * set; a batch that fails is retried unchanged after a doubling backoff with jitter, and the server counts a retry
+ * again; `410` ends reporting for this launch, any other `4xx` but `429` drops that batch. Nothing is stored on
+ * disk. A report's own fields carry codes and ids, never free text from a system error, the advertising id, the
+ * user id, the email, consent strings, bodies or URLs with their query; its history is the recent debug events,
+ * Logcat lines included, as [DebugReporter] keeps them.
  */
 internal object ErrorReporter {
     private enum class Mode { PENDING, ON, OFF }
 
-    var intervalMillis = 100L
+    /** The wait before a batch leaves, as `/config` set it (`errorBatchInterval`); 0 waits for nothing but a request in flight. */
+    var intervalMillis = ConfigResponse.DEFAULT_BATCH_INTERVAL_MILLIS
     var retryDelayMillis = 30_000L
     var maxRetryDelayMillis = 300_000L
 
@@ -89,19 +93,17 @@ internal object ErrorReporter {
 
     fun report(
         code: ErrorReport.Code,
-        stage: ErrorReport.Stage,
         requestId: String? = null,
         sessionId: String? = null,
-        adId: String? = null,
+        bidId: String? = null,
         vastCode: Int? = null,
         httpStatus: Int? = null,
-        underlying: ErrorReport.Underlying? = null,
+        cause: ErrorReport.Cause? = null,
         detail: String? = null,
-        recovery: ErrorReport.Recovery? = null,
     ) {
         if (mode == Mode.OFF) return
-        val report = ErrorReport.json(code, stage, requestId, sessionId, adId, vastCode, httpStatus, underlying, detail, recovery)
-        val adPart = adId?.let { " ad=" + it.take(8) } ?: ""
+        val report = ErrorReport.json(code, requestId, sessionId, bidId, vastCode, httpStatus, cause, detail)
+        val adPart = bidId?.let { " ad=" + it.take(8) } ?: ""
         Logger.debug { "error report ${code.wire}$adPart" }
         if (!queue.add(report)) return
         if (mode == Mode.ON) scheduleFlush(intervalMillis)
@@ -110,21 +112,17 @@ internal object ErrorReporter {
     /** A failed ads or `/config` request; [requestId] is `null` for one whose body could not be built. */
     fun report(
         code: ErrorReport.Code,
-        stage: ErrorReport.Stage,
         requestId: String?,
         sessionId: String? = null,
         failure: ErrorReport.FailedRequest,
-        recovery: ErrorReport.Recovery? = null,
     ) {
         report(
             code,
-            stage,
             requestId = requestId,
             sessionId = sessionId,
             httpStatus = failure.httpStatus,
-            underlying = failure.underlying,
+            cause = failure.cause,
             detail = failure.detail,
-            recovery = recovery,
         )
     }
 
@@ -135,7 +133,7 @@ internal object ErrorReporter {
         queue.clear()
         pendingBatch = null
         failures = 0
-        intervalMillis = 100L
+        intervalMillis = ConfigResponse.DEFAULT_BATCH_INTERVAL_MILLIS
         retryDelayMillis = 30_000L
         maxRetryDelayMillis = 300_000L
     }
@@ -149,13 +147,17 @@ internal object ErrorReporter {
 
     private fun scheduleFlush(delayMillis: Long) {
         if (flushJob != null) return
-        flushJob = Environment.scope.launch {
-            delay(delayMillis)
+        // Kept lazy until it is the flush job: on an immediate dispatcher a flush that never suspends (interval 0,
+        // a report that fits no batch) would otherwise finish, clear `flushJob`, and then be stored in it, done.
+        val job = Environment.scope.launch(start = CoroutineStart.LAZY) {
+            if (delayMillis > 0) delay(delayMillis)
             val delivered = flush()
             flushJob = null
             if (mode != Mode.ON || (pendingBatch == null && queue.isEmpty())) return@launch
             scheduleFlush(if (delivered) intervalMillis else nextRetryDelay())
         }
+        flushJob = job
+        job.start()
     }
 
     private fun nextRetryDelay(): Long {
@@ -212,25 +214,16 @@ internal object ErrorReporter {
         }
     }
 
-    /** The next batch from the queue, in this launch's envelope; it becomes the pending one. `null` when nothing is left. */
+    /** The next batch from the queue, in this launch's envelope (the app and the OS around the reports); it becomes the pending one. `null` when nothing is left. */
     private fun makeBatch(configuration: so.kontext.video.KontextVideo.Configuration, context: android.content.Context): ReportQueue.Batch? {
-        val batchId = UUID.randomUUID().toString()
-        val os = DeviceInfo.os(context)
-        return queue.makeBatch { errors, dropped ->
+        val os = DeviceInfo.osForReports(context)
+        return queue.makeBatch { errors ->
             buildJsonObject {
-                put("batchId", batchId)
                 put("publisherToken", configuration.publisherToken)
                 put("installId", DeviceInfo.installId(context))
                 put("sdk", SdkInfo.json())
                 put("app", DeviceInfo.app(context))
-                put(
-                    "os",
-                    buildJsonObject {
-                        os["name"]?.let { put("name", it) }
-                        os["version"]?.let { put("version", it) }
-                    },
-                )
-                put("dropped", dropped)
+                put("os", os)
                 put("errors", JsonArray(errors))
             }
         }?.also { pendingBatch = it }

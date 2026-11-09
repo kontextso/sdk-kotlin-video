@@ -34,7 +34,7 @@ internal class FrameWebViewClient(
     /** The page replaced itself after it was ready. */
     private val onPageReplaced: () -> Unit,
     /** A main-frame load failed. */
-    private val onLoadFailed: (ErrorReport.Underlying) -> Unit,
+    private val onLoadFailed: (ErrorReport.Cause) -> Unit,
     /** The web content process ended. */
     private val onProcessGone: () -> Unit,
 ) : WebViewClient() {
@@ -53,7 +53,7 @@ internal class FrameWebViewClient(
             FrameNavigation.NavigationDecision.FAIL_LOAD -> {
                 // Shown for the redirects of a loadUrl too: the page's own load went to another origin.
                 Logger.warning { "frame ${adId.take(8)}: the page's load went to another origin; the load fails" }
-                onLoadFailed(ErrorReport.Underlying("navigation", 0))
+                onLoadFailed(ErrorReport.Cause("navigation", 0))
                 true
             }
         }
@@ -74,11 +74,11 @@ internal class FrameWebViewClient(
     }
 
     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-        if (request.isForMainFrame) onLoadFailed(ErrorReport.Underlying("webview", error.errorCode))
+        if (request.isForMainFrame) onLoadFailed(ErrorReport.Cause("webview", error.errorCode))
     }
 
     override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
-        if (request.isForMainFrame) onLoadFailed(ErrorReport.Underlying("http", errorResponse.statusCode))
+        if (request.isForMainFrame) onLoadFailed(ErrorReport.Cause("http", errorResponse.statusCode))
     }
 
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {

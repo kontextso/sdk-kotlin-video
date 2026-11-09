@@ -35,9 +35,6 @@ internal class AdStore {
     /** Ids that left: shown, rejected, expired, failed, destroyed. A response that brings one back is ignored. */
     private val spentIds = mutableSetOf<String>()
 
-    /** A valid ad is held: a failed request then keeps it (the error report's recovery says so). */
-    val holdsAds: Boolean get() = ads.values.any { !it.isExpired }
-
     /** One step of following an answer for one format. */
     sealed class Step {
         abstract val format: AdFormat

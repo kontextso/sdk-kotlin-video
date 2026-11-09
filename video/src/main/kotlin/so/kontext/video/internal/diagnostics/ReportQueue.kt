@@ -4,17 +4,13 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * The error reports waiting to be sent, and the batches made from them; no coroutines, no Android, no sending.
- * At most [MAX_BUFFERED] reports and [MAX_BUFFERED_BYTES] wait: past either the oldest go, counted in
- * [dropped], which the next batch says. A batch takes the oldest reports, at most [MAX_BATCH], whose whole body
- * stays within [MAX_BATCH_BYTES]; a report that does not fit even alone is dropped and counted.
+ * At most [MAX_BUFFERED] reports and [MAX_BUFFERED_BYTES] wait: past either the oldest go. A batch takes the
+ * oldest reports, at most [MAX_BATCH], whose whole body stays within [MAX_BATCH_BYTES]; a report that does not
+ * fit even alone goes.
  */
 internal class ReportQueue {
     private val buffer = ArrayDeque<Pair<JsonObject, Int>>()
     private var bufferedBytes = 0
-
-    /** Reports dropped since the last batch: the next one says how many. */
-    var dropped = 0
-        private set
 
     /** Reports waiting. */
     val size: Int get() = buffer.size
@@ -25,42 +21,39 @@ internal class ReportQueue {
     /** The encoded sizes of the reports waiting. */
     val sizes: List<Int> get() = buffer.map { it.second }
 
-    /** One batch: its finished body and how many reports it holds. */
+    /** One batch: its finished body and how many reports it holds. Retried as it is; the server counts a retry again. */
     class Batch(val body: JsonObject, val count: Int)
 
     fun isEmpty(): Boolean = buffer.isEmpty()
 
-    /** Queues [report]; one over [MAX_BATCH_BYTES] alone is dropped and counted. Says whether it was queued. */
+    /** Queues [report]; one over [MAX_BATCH_BYTES] alone goes instead. Says whether it was queued. */
     fun add(report: JsonObject): Boolean {
         val size = report.toString().toByteArray().size
-        if (size > MAX_BATCH_BYTES) {
-            dropped += 1
-            return false
-        }
+        // Ids and codes are capped; the history's console lines are not, so a report can in theory outgrow a
+        // batch. Then the report goes rather than the budgets.
+        if (size > MAX_BATCH_BYTES) return false
         buffer.addLast(report to size)
         bufferedBytes += size
         while (buffer.size > MAX_BUFFERED || (bufferedBytes > MAX_BUFFERED_BYTES && buffer.size > 1)) {
+            Logger.debug { "oldest error report dropped: ${buffer.size} waiting, $bufferedBytes bytes" }
             bufferedBytes -= buffer.removeFirst().second
-            dropped += 1
         }
         return true
     }
 
-    /** Everything goes, the count of dropped ones too. */
+    /** Everything goes. */
     fun clear() {
         buffer.clear()
         bufferedBytes = 0
-        dropped = 0
     }
 
     /**
-     * The next batch: the oldest reports whose whole body, [envelope] (the reports and the dropped count) and
-     * separators included, stays within [MAX_BATCH_BYTES]; the rest wait for the next one. `null` when nothing
-     * is left to send. A batch made says the dropped count, which starts again from 0.
+     * The next batch: the oldest reports whose whole body, [envelope] (around the reports) and separators
+     * included, stays within [MAX_BATCH_BYTES]; the rest wait for the next one. A report that cannot fit even
+     * alone goes. `null` when nothing is left to send.
      */
-    fun makeBatch(envelope: (reports: List<JsonObject>, dropped: Int) -> JsonObject): Batch? {
-        // The empty envelope, its `dropped` as large as it can get while this batch is made.
-        var bytes = envelope(emptyList(), dropped + buffer.size).toString().toByteArray().size
+    fun makeBatch(envelope: (reports: List<JsonObject>) -> JsonObject): Batch? {
+        var bytes = envelope(emptyList()).toString().toByteArray().size
         val reports = mutableListOf<JsonObject>()
         while (buffer.isNotEmpty() && reports.size < MAX_BATCH) {
             val (report, size) = buffer.first()
@@ -69,14 +62,14 @@ internal class ReportQueue {
             buffer.removeFirst()
             bufferedBytes -= size
             if (bytes + added > MAX_BATCH_BYTES) {
-                dropped += 1
+                Logger.debug { "error report of $size bytes dropped, it cannot fit a batch" }
                 continue
             }
             reports += report
             bytes += added
         }
         if (reports.isEmpty()) return null
-        return Batch(envelope(reports, dropped), reports.size).also { dropped = 0 }
+        return Batch(envelope(reports), reports.size)
     }
 
     companion object {

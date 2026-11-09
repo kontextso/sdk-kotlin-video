@@ -51,6 +51,15 @@ internal object DeviceInfo {
         }
     }
 
+    /** The `os` object of a diagnostics batch: the name and the version only. */
+    fun osForReports(context: Context): JsonObject {
+        val info = OSInfoProvider.collect(context)
+        return buildJsonObject {
+            put("name", info.name)
+            put("version", info.version)
+        }
+    }
+
     fun os(context: Context): JsonObject {
         val info = OSInfoProvider.collect(context)
         return buildJsonObject {

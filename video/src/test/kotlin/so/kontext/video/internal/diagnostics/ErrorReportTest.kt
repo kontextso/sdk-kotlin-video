@@ -27,15 +27,15 @@ class ErrorReportTest {
         val table = listOf(
             ApiException.Http(503, emptyList()) to Triple(503, null, null),
             ApiException.Transport(java.net.SocketTimeoutException()) to
-                Triple(null, ErrorReport.Underlying("java.net.SocketTimeoutException", 0), "network"),
-            ApiException.Transport(ResponseTooLarge()) to Triple(null, ErrorReport.Underlying("too_large", 0), "network"),
-            ApiException.Decoding(AdPayload.MalformedField("id", "x")) to Triple(null, ErrorReport.Underlying("malformed_field", 0), null),
-            ApiException.Decoding(kotlinx.serialization.SerializationException("x")) to Triple(null, ErrorReport.Underlying("json", 0), null),
-            IllegalStateException() to Triple(null, ErrorReport.Underlying("java.lang.IllegalStateException", 0), null),
+                Triple(null, ErrorReport.Cause("java.net.SocketTimeoutException", 0), "network"),
+            ApiException.Transport(ResponseTooLarge()) to Triple(null, ErrorReport.Cause("too_large", 0), "network"),
+            ApiException.Decoding(AdPayload.MalformedField("id", "x")) to Triple(null, ErrorReport.Cause("malformed_field", 0), null),
+            ApiException.Decoding(kotlinx.serialization.SerializationException("x")) to Triple(null, ErrorReport.Cause("json", 0), null),
+            IllegalStateException() to Triple(null, ErrorReport.Cause("java.lang.IllegalStateException", 0), null),
         )
         for ((error, expected) in table) {
             val request = ErrorReport.FailedRequest(error)
-            assertEquals(expected, Triple(request.httpStatus, request.underlying, request.detail), "$error")
+            assertEquals(expected, Triple(request.httpStatus, request.cause, request.detail), "$error")
         }
     }
 }

@@ -364,7 +364,6 @@ class VideoAdsTest {
         val report = reports.map { it.jsonObject }.single { it["requestId"]?.jsonPrimitive?.content == requestId }
         assertEquals("ads.decode_failed", report["code"]?.jsonPrimitive?.content)
         assertEquals("the format and the field that failed, as the Swift SDK sends", "overlay:price.precision", report["detail"]?.jsonPrimitive?.content)
-        assertEquals("no_ad", report["recovery"]?.jsonPrimitive?.content)
         ads.destroy()
     }
 

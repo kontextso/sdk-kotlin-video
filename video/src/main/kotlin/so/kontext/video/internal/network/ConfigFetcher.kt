@@ -36,7 +36,7 @@ internal object ConfigFetcher {
         } catch (error: Exception) {
             onFailure()
             Logger.error { "/config failed, no ads until it succeeds: ${error.message}" }
-            ErrorReporter.report(ErrorReport.Code.CONFIG_FAILED, ErrorReport.Stage.CONFIG, requestId = requestId, failure = ErrorReport.FailedRequest(error))
+            ErrorReporter.report(ErrorReport.Code.CONFIG_FAILED, requestId = requestId, failure = ErrorReport.FailedRequest(error))
             null
         }
     }

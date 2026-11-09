@@ -55,7 +55,7 @@ class SdkStatesTest : ParityHarness() {
 
     private fun failingConfig() = answer("/v2/config") { MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) }
 
-    private fun report(detail: String = "x") = ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = detail)
+    private fun report(detail: String = "x") = ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, detail = detail)
 
     /** A second `initialize` changes nothing: no `/config`, the same state, no listener told. */
     private fun assertSecondInitializeIgnored() {

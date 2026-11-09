@@ -12,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import so.kontext.kit.util.UuidV7
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.content.ContentPlayback
@@ -26,7 +27,6 @@ import so.kontext.video.internal.state.AdStore
 import so.kontext.video.internal.state.LiveVideoAds
 import so.kontext.video.internal.state.SdkState
 import java.lang.ref.WeakReference
-import java.util.UUID
 
 /**
  * The ads of one video ("content"): one per episode, created when it opens. Creating it sends nothing; every
@@ -58,8 +58,11 @@ constructor(
     internal val labels: Map<String, String> = labels.toMap()
     internal val playback = ContentPlayback()
 
-    /** One per `VideoAds`, sent with every request: the server keeps the bids it gave out per session. */
-    internal val sessionId: String = UUID.randomUUID().toString()
+    /**
+     * One per `VideoAds`, sent with every request: the server keeps the bids it gave out per session. A UUID v7,
+     * so sessions sort by when they began.
+     */
+    internal val sessionId: String = UuidV7.generate()
 
     /** The ads held, at most one unshown per format, and the ids that left (see [AdStore]). */
     private val store = AdStore()
@@ -84,7 +87,6 @@ constructor(
         playheadMillis = { playheadMillis },
         heldIds = store::heldIds,
         checkIdsAgainstHeld = store::checkIdsAgainstHeld,
-        holdsAds = { store.holdsAds },
         checkStillUsable = ::checkStillUsable,
     )
 
@@ -313,7 +315,7 @@ constructor(
                 is AdStore.Step.Replace -> {
                     val payload = step.payload
                     Logger.info { "$format for ${content.id}: ad ${payload.id.take(8)}, ${payload.price.value} ${payload.price.currency} cpm" }
-                    DebugReporter.event("ads.response", adId = payload.id, state = mapOf("format" to format.wireName, "filled" to true))
+                    DebugReporter.event("ads.response", sessionId = sessionId, bidId = payload.id, properties = mapOf("format" to format.wireName, "filled" to true))
                     ads[format] = VideoAd(payload, Environment.now(), this)
                 }
             }
@@ -329,7 +331,7 @@ constructor(
             Logger.info { "$format for ${content.id}: no fill ($reason)" }
         }
         val known = if (reason is NoFillReason.Other) "other" else reason.toString()
-        DebugReporter.event("ads.response", state = mapOf("format" to format.wireName, "filled" to false, "reason" to known))
+        DebugReporter.event("ads.response", sessionId = sessionId, properties = mapOf("format" to format.wireName, "filled" to false, "reason" to known))
     }
 
     private fun notEnabledMessage(format: AdFormat, reason: NoFillReason) =

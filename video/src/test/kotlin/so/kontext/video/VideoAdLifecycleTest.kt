@@ -11,6 +11,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -140,8 +142,9 @@ class VideoAdLifecycleTest : SdkTest() {
         for ((reason, expected) in reasons) {
             overlay().invalidate(reason)
             val moment = so.kontext.video.internal.diagnostics.EventHistory.recent().last()
-            assertEquals("ad.invalidated", moment.name)
-            assertEquals("as iOS sends it", expected, moment.state)
+            assertEquals("ad.invalidated", moment["name"]!!.jsonPrimitive.content)
+            val properties = moment["properties"]!!.jsonObject.mapValues { (_, value) -> value.jsonPrimitive.let { if (it.isString) it.content else it.content.toInt() } }
+            assertEquals("as iOS sends it", expected, properties)
         }
     }
 

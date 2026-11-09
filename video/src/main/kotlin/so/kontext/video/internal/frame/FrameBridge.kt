@@ -80,7 +80,7 @@ internal class FrameBridge(
     val state: FramePhase get() = protocol.state
     var failureCause: FailureCause? = null
         private set
-    var failureUnderlying: ErrorReport.Underlying? = null
+    var failureUnderlying: ErrorReport.Cause? = null
         private set
     var onEvent: ((FrameEvent) -> Unit)? = null
 
@@ -285,8 +285,7 @@ internal class FrameBridge(
     private fun reportProtocolViolation(detail: String) {
         ErrorReporter.report(
             ErrorReport.Code.PROTOCOL_VIOLATION,
-            if (state == FramePhase.SHOWN) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
-            adId = adId,
+            bidId = adId,
             detail = detail,
         )
     }
@@ -319,7 +318,7 @@ internal class FrameBridge(
     }
 
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
-    private fun loadFailed(underlying: ErrorReport.Underlying) {
+    private fun loadFailed(underlying: ErrorReport.Cause) {
         if (state != FramePhase.LOADING) return
         Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying

@@ -8,7 +8,7 @@
 # The published version: the release workflow publishes this value, after checking
 # that the tag equals it (`-PsdkVersion=X.Y.Z` overrides it for a local build only). Read at runtime as
 # `KontextVideo.VERSION`, from a generated internal source (see video/build.gradle.kts).
-sdk-kotlin-video = "0.1.0"
+sdk-kotlin-video = "0.1.1"
 
 # ---- Build tooling ----
 agp = "8.7.3"                       # Android Gradle Plugin
@@ -47,7 +47,7 @@ liteav-player = "13.3.0.20247"
 # ---- Kontext ----
 # Device info, install id, advertising id, TCF consent. 0.1.0 moved Open Measurement to its own artifact,
 # which this SDK does not use: no OMSDK binary ships with it.
-kontext-kit = "0.3.0"
+kontext-kit = "0.4.0"
 
 # ---- Kotlin libraries ----
 kotlinx-coroutines = "1.9.0"
