@@ -11,7 +11,7 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.payloads.putIfNotNull
 import java.util.UUID
 
-/** One error report: its vocabulary (what failed, where, what the SDK did) and its JSON. Sent by [ErrorReporter]. */
+/** One error report: what failed, the ids it concerns, and its JSON. Sent by [ErrorReporter]. */
 internal object ErrorReport {
     /** What failed. Stable: the server groups by it. */
     enum class Code(val wire: String) {
@@ -32,22 +32,8 @@ internal object ErrorReport {
         BAD_CONTENT("integration.bad_content"),
     }
 
-    /** Where in the SDK it failed. */
-    enum class Stage { CONFIG, REQUEST, LOAD, PRESENTATION, PLAYBACK, INTEGRATION }
-
-    /** What the SDK did about it. */
-    enum class Recovery(val wire: String) {
-        HELD_ADS_KEPT("held_ads_kept"),
-        NO_AD("no_ad"),
-        AD_ENDED_FAILED("ad_ended_failed"),
-        AD_DROPPED_BEFORE_SHOW("ad_dropped_before_show"),
-
-        /** The system never finished; `onAdEnded` was delivered anyway. */
-        DID_END_DELIVERED("did_end_delivered"),
-    }
-
-    /** A system error as a domain and a code only, as the Swift SDK sends it; its text can carry anything. */
-    data class Underlying(val domain: String, val code: Int)
+    /** The system error behind a fault, as a domain and a code only, as the Swift SDK sends it; its text can carry anything. */
+    data class Cause(val domain: String, val code: Int)
 
     /**
      * A failed request as the report's fields: an HTTP status, or the exception's class with `network`. Not the
@@ -57,10 +43,10 @@ internal object ErrorReport {
         val httpStatus: Int? = (error as? ApiException.Http)?.status
 
         // A Java exception has no code of its own: 0.
-        val underlying: Underlying? = when (error) {
+        val cause: Cause? = when (error) {
             is ApiException.Http -> null
-            is ApiException.Transport, is ApiException.Decoding -> error.cause?.let { Underlying(domainOf(it), 0) }
-            else -> Underlying(domainOf(error), 0)
+            is ApiException.Transport, is ApiException.Decoding -> error.cause?.let { Cause(domainOf(it), 0) }
+            else -> Cause(domainOf(error), 0)
         }
         val detail: String? = if (error is ApiException.Transport) "network" else null
     }
@@ -82,31 +68,28 @@ internal object ErrorReport {
         }
     }
 
-    /** One report's JSON, its strings capped, with the recent events of [EventHistory]. */
+    /** One report's JSON, its strings capped, with the recent events of [EventHistory] as they were recorded. */
     fun json(
         code: Code,
-        stage: Stage,
         requestId: String? = null,
         sessionId: String? = null,
-        adId: String? = null,
+        bidId: String? = null,
         vastCode: Int? = null,
         httpStatus: Int? = null,
-        underlying: Underlying? = null,
+        cause: Cause? = null,
         detail: String? = null,
-        recovery: Recovery? = null,
     ): JsonObject = buildJsonObject {
         put("id", UUID.randomUUID().toString())
-        put("createdAt", ReportFormat.timestamp())
+        put("occurredAt", ReportFormat.timestamp())
         put("code", code.wire)
-        put("stage", stage.name.lowercase())
         putIfNotNull("requestId", requestId?.let(ReportFormat::capped))
         putIfNotNull("sessionId", sessionId?.let(ReportFormat::capped))
-        putIfNotNull("adId", adId?.let(ReportFormat::capped))
+        putIfNotNull("bidId", bidId?.let(ReportFormat::capped))
         putIfNotNull("vastCode", vastCode)
         putIfNotNull("httpStatus", httpStatus)
-        underlying?.let {
+        cause?.let {
             put(
-                "underlying",
+                "cause",
                 buildJsonObject {
                     put("domain", ReportFormat.capped(it.domain))
                     put("code", it.code)
@@ -114,19 +97,6 @@ internal object ErrorReport {
             )
         }
         putIfNotNull("detail", detail?.let(ReportFormat::capped))
-        putIfNotNull("recovery", recovery?.wire)
-        put(
-            "history",
-            JsonArray(
-                EventHistory.recent().map { moment ->
-                    buildJsonObject {
-                        put("createdAt", moment.createdAt)
-                        put("name", moment.name)
-                        putIfNotNull("adId", moment.adId)
-                        moment.state?.let { state -> put("state", JsonObject(state.mapValues { ReportFormat.json(it.value) })) }
-                    }
-                },
-            ),
-        )
+        put("history", JsonArray(EventHistory.recent()))
     }
 }

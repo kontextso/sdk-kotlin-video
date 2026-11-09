@@ -89,11 +89,11 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun reportsAreOffWhenConfigLeavesThemOutOrDisablesTheSdk() {
         initialize()
-        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = "x")
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, detail = "x")
         assertEquals("reportErrors left out is off", 0, ErrorReporter.bufferedCount)
         answers.remove("/v2/config")
         initialize("""{"enabled": false, "disabledReason": "publisherDisabled"}""")
-        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = "x")
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, detail = "x")
         assertEquals("a disabled SDK reports nothing", 0, ErrorReporter.bufferedCount)
         settle()
         assertTrue(requests("/v2/error").isEmpty())
@@ -110,9 +110,8 @@ class ParitySupportTest : ParityHarness() {
         format(owner(), AdFormat.PAUSE).getOrThrow() // retries /config, which turns the reports on
         await { errorReports("config.failed").isNotEmpty() }
         val report = errorReports("config.failed").single()
-        assertEquals("config", report.str("stage"))
         assertEquals("network", report.str("detail"))
-        assertTrue("${report["underlying"]}", report["underlying"]!!.jsonObject.str("domain")!!.startsWith("java."))
+        assertTrue("${report["cause"]}", report["cause"]!!.jsonObject.str("domain")!!.startsWith("java."))
         assertEquals("the id of the request that failed", sent.single(), report.str("requestId"))
     }
 
@@ -137,13 +136,11 @@ class ParitySupportTest : ParityHarness() {
         val report = errorReports("ads.request_failed").single()
         assertEquals("one request, one report, however many callers waited", 1, requests("/v2/video/ads").size)
         assertEquals(500, report["httpStatus"]!!.jsonPrimitive.int)
-        assertEquals("request", report.str("stage"))
         assertNotNull(ads.lastRequestId)
         assertEquals("the id the app can quote", ads.lastRequestId, report.str("requestId"))
         assertEquals(ads.sessionId, report.str("sessionId"))
-        assertEquals("no_ad", report.str("recovery"))
         val moment = report["history"]!!.jsonArray.map { it.jsonObject }.first { it.str("name") == "ads.request" }
-        val createdAt = moment.str("createdAt")!!
+        val createdAt = moment.str("occurredAt")!!
         assertTrue("ISO 8601 with milliseconds in UTC: $createdAt", Regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$").matches(createdAt))
         assertNull("a date, not seconds before the error", moment["at"])
     }
@@ -177,8 +174,6 @@ class ParitySupportTest : ParityHarness() {
         assertEquals("sdk-kotlin-video", body["sdk"]!!.jsonObject.str("name"))
         assertNotNull(body["app"]!!.jsonObject["bundleId"])
         assertNotNull(body["os"]!!.jsonObject["name"])
-        assertFalse(body.str("batchId").isNullOrEmpty())
-        assertEquals(0, body["dropped"]!!.jsonPrimitive.int)
     }
 
     @Test fun aBatchWhoseRequestFailsInTransitIsRetriedUnchanged() {
@@ -188,12 +183,12 @@ class ParitySupportTest : ParityHarness() {
             if (calls == 1) MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) else MockResponse().setResponseCode(204)
         }
         SdkInitializer.recordErrorReporting(true)
-        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, adId = "ad-1", detail = "start")
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, bidId = "ad-1", detail = "start")
         await { requests("/v2/error").size >= 2 }
         settle()
         val bodies = requests("/v2/error").map { it.text }
         assertEquals("delivered once after the failure: $bodies", 2, bodies.size)
-        assertEquals("the same batch, byte for byte, so the server counts it once", bodies[0], bodies[1])
+        assertEquals("the same batch, byte for byte, so the server counts a retry again", bodies[0], bodies[1])
     }
 
     @Test fun theCreativesFailuresAreToldApartBehindTheSameVastCode() {
@@ -209,14 +204,10 @@ class ParitySupportTest : ParityHarness() {
         await { errorReports().size >= 2 }
         val process = errorReports("frame.process_terminated").single()
         assertEquals(405, process["vastCode"]!!.jsonPrimitive.int)
-        assertEquals("playback", process.str("stage"))
-        assertEquals("ad_ended_failed", process.str("recovery"))
-        assertEquals(terminated.id, process.str("adId"))
+        assertEquals(terminated.id, process.str("bidId"))
         assertEquals(ads.sessionId, process.str("sessionId"))
         val creative = errorReports("ad.creative_failed").single()
         assertEquals(405, creative["vastCode"]!!.jsonPrimitive.int)
-        assertEquals("failed while waiting to be shown", "load", creative.str("stage"))
-        assertEquals("ad_dropped_before_show", creative.str("recovery"))
     }
 
     @Test fun aPageThatBreaksTheMessageContractIsReportedOncePerAd() {
@@ -243,8 +234,6 @@ class ParitySupportTest : ParityHarness() {
         ad.show(host) // the screen is asked for and never created
         await { errorReports("ad.presentation_failed").isNotEmpty() }
         val report = errorReports("ad.presentation_failed").single()
-        assertEquals("ad_ended_failed", report.str("recovery"))
-        assertEquals("presentation", report.str("stage"))
     }
 
     @Test fun aNoFillReasonTheSdkDoesNotKnowNeverLeavesTheDevice() {
@@ -252,11 +241,11 @@ class ParitySupportTest : ParityHarness() {
         val free = "contact secret@example.com at https://evil.test/x"
         answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", noFill = free)).toString())
         format(owner(), AdFormat.PAUSE)
-        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, detail = "start") // any fault after it carries the history
+        ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, detail = "start") // any fault after it carries the history
         await { errorReports("ad.creative_failed").isNotEmpty() }
         val raw = requests("/v2/error").last().text
         assertFalse("the server's free text stays on the device: $raw", raw.contains("secret@example.com") || raw.contains("evil.test"))
-        val reasons = errorReports("ad.creative_failed").single()["history"]!!.jsonArray.mapNotNull { it.jsonObject["state"]?.jsonObject?.str("reason") }
+        val reasons = errorReports("ad.creative_failed").single()["history"]!!.jsonArray.mapNotNull { it.jsonObject["properties"]?.jsonObject?.str("reason") }
         assertTrue("an unknown reason is \"other\": $reasons", reasons.contains("other"))
     }
 
@@ -266,21 +255,21 @@ class ParitySupportTest : ParityHarness() {
         assertTrue(ReportFormat.capped(heavy).toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
         assertEquals("short", ReportFormat.capped("short"))
         val long = "a".repeat(10_000)
-        DebugReporter.event(heavy, adId = heavy, state = mapOf("format" to heavy))
+        DebugReporter.event(heavy, bidId = heavy, properties = mapOf("format" to heavy))
         SdkInitializer.recordErrorReporting(true)
         repeat(20) { index ->
-            ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, ErrorReport.Stage.LOAD, requestId = long, sessionId = heavy, adId = "$index$long", detail = heavy, underlying = ErrorReport.Underlying(long, 0))
+            ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, requestId = long, sessionId = heavy, bidId = "$index$long", detail = heavy, cause = ErrorReport.Cause(long, 0))
         }
         await { errorReports().size == 20 }
         for (report in errorReports()) {
-            for (field in listOf("requestId", "sessionId", "adId", "detail")) {
+            for (field in listOf("requestId", "sessionId", "bidId", "detail")) {
                 assertTrue("$field capped", report.str(field)!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
             }
-            assertTrue(report["underlying"]!!.jsonObject.str("domain")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
+            assertTrue(report["cause"]!!.jsonObject.str("domain")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
             val moment = report["history"]!!.jsonArray.single().jsonObject
             assertTrue(moment.str("name")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
-            assertTrue(moment.str("adId")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
-            assertTrue(moment["state"]!!.jsonObject.str("format")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
+            assertTrue(moment.str("bidId")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
+            assertTrue(moment["properties"]!!.jsonObject.str("format")!!.toByteArray().size <= ReportFormat.MAX_FIELD_LENGTH)
         }
         val sizes = requests("/v2/error").map { it.bytes.size }
         assertTrue("within the batch budget: $sizes", sizes.all { it <= ReportQueue.MAX_BATCH_BYTES })
@@ -309,7 +298,6 @@ class ParitySupportTest : ParityHarness() {
             gate.countDown()
         }
         await { errorReports("ads.request_failed").isNotEmpty() }
-        assertEquals("no_ad", errorReports("ads.request_failed").single().str("recovery"))
     }
 
     @Test fun aPageThatCannotLoadCarriesTheSystemsError() {
@@ -325,9 +313,9 @@ class ParitySupportTest : ParityHarness() {
         val error: WebResourceError = mockk { every { errorCode } returns -2 }
         bridge.webView.webViewClient.onReceivedError(bridge.webView, request, error)
         await { errorReports("frame.load_failed").isNotEmpty() }
-        val underlying = errorReports("frame.load_failed").single()["underlying"]!!.jsonObject
-        assertEquals("webview", underlying.str("domain"))
-        assertEquals("-2", underlying["code"].toString())
+        val cause = errorReports("frame.load_failed").single()["cause"]!!.jsonObject
+        assertEquals("webview", cause.str("domain"))
+        assertEquals("-2", cause["code"].toString())
     }
 
     @Test fun integrationMistakesAreReportedOnceTheServerAllowsIt() {
@@ -358,8 +346,8 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun enabledByConfigEventsAreBatchedWithTheBodyShape() {
         initialize(debugOn)
-        DebugReporter.event("ads.request", state = mapOf("format" to "pause", "playhead" to 1200, "filled" to true))
-        DebugReporter.event("ad.loaded", adId = "ad-1", level = DebugReporter.Level.WARNING, state = mapOf("durationMs" to 842))
+        DebugReporter.event("ads.request", properties = mapOf("format" to "pause", "playhead" to 1200, "filled" to true))
+        DebugReporter.event("ad.loaded", bidId = "ad-1", level = DebugReporter.Level.WARNING, properties = mapOf("durationMs" to 842))
         await { debugBatches("ad.loaded").isNotEmpty() }
         val body = requests("/v2/debug").last().json!!
         assertEquals("test-token", body.str("publisherToken"))
@@ -368,29 +356,29 @@ class ParitySupportTest : ParityHarness() {
         assertTrue("config.response", debugNames().contains("config.response"))
         val events = debugBatches().flatten()
         val request = events.first { it.str("name") == "ads.request" }
-        val createdAt = request.str("createdAt")!!
+        val createdAt = request.str("occurredAt")!!
         assertTrue("ISO 8601 with milliseconds, UTC: $createdAt", Regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$").matches(createdAt))
-        assertNull(request["adId"])
-        val state = request["state"]!!.jsonObject
+        assertNull(request["bidId"])
+        val state = request["properties"]!!.jsonObject
         assertEquals("pause", state.str("format"))
         assertEquals(1200.0, state["playhead"]!!.jsonPrimitive.content.toDouble(), 0.0)
         assertEquals("true", state["filled"]!!.jsonPrimitive.content)
         assertFalse(state["filled"]!!.jsonPrimitive.isString)
         val loaded = events.first { it.str("name") == "ad.loaded" }
-        assertEquals("ad-1", loaded.str("adId"))
+        assertEquals("ad-1", loaded.str("bidId"))
         assertEquals("warning", loaded.str("level"))
     }
 
     @Test fun nothingIsSentWhenConfigDoesNotAsk() {
         initialize()
-        DebugReporter.event("ads.request", state = mapOf("format" to "pause"))
+        DebugReporter.event("ads.request", properties = mapOf("format" to "pause"))
         settle()
         assertTrue(requests("/v2/debug").isEmpty())
     }
 
     @Test fun eventsAreCoalescedIntoOneRequestPerInterval() {
         SdkInitializer.recordDebugReporting(true)
-        repeat(20) { DebugReporter.event("tick", state = mapOf("i" to it)) }
+        repeat(20) { DebugReporter.event("tick", properties = mapOf("i" to it)) }
         await { debugBatches("tick").isNotEmpty() }
         settle()
         val batches = debugBatches("tick")
@@ -458,7 +446,7 @@ class ParitySupportTest : ParityHarness() {
         try {
             DebugReporter.event("first")
             await { debugBatches("first").isNotEmpty() }
-            repeat(5) { DebugReporter.event("later", state = mapOf("i" to it)) }
+            repeat(5) { DebugReporter.event("later", properties = mapOf("i" to it)) }
             settle()
             assertTrue("no second request while the first is answered", debugBatches("later").isEmpty())
             gate.countDown()
@@ -482,7 +470,7 @@ class ParitySupportTest : ParityHarness() {
         try {
             DebugReporter.event("fill") // holds a batch open; the rest pile up behind it
             await { debugBatches("fill").isNotEmpty() }
-            repeat(DebugReporter.MAX_BUFFERED + 10) { DebugReporter.event("tick", state = mapOf("i" to it)) }
+            repeat(DebugReporter.MAX_BUFFERED + 10) { DebugReporter.event("tick", properties = mapOf("i" to it)) }
             gate.countDown()
             await { debugBatches("tick").isNotEmpty() }
         } finally {
@@ -490,7 +478,7 @@ class ParitySupportTest : ParityHarness() {
         }
         val batch = debugBatches("tick").single()
         assertEquals(DebugReporter.MAX_BUFFERED, batch.size)
-        assertEquals("the oldest ten were dropped", 10, batch.first()["state"]!!.jsonObject["i"]!!.jsonPrimitive.int)
+        assertEquals("the oldest ten were dropped", 10, batch.first()["properties"]!!.jsonObject["i"]!!.jsonPrimitive.int)
     }
 
     @Test fun aNumberBeyondLongFormatsAsItselfWithoutATrap() {
@@ -500,7 +488,7 @@ class ParitySupportTest : ParityHarness() {
         assertEquals("n a=NaN", DebugReporter.line("n", null, mapOf("a" to Double.NaN)))
         assertEquals("n a=42 b=1.5 c=7", DebugReporter.line("n", null, mapOf("a" to 42.0, "b" to 1.5, "c" to 7)))
         assertEquals("config.response", DebugReporter.line("config.response", null, null))
-        DebugReporter.event("n", state = mapOf("a" to Double.POSITIVE_INFINITY)) // the console line is formatted whether or not reporting is on
+        DebugReporter.event("n", properties = mapOf("a" to Double.POSITIVE_INFINITY)) // the console line is formatted whether or not reporting is on
     }
 
     @Test fun theLoadFlowReportsItsEvents() {

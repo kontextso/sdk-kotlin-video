@@ -93,9 +93,9 @@ class PayloadsTest {
     }
 
     @Test fun configDefaultsTheReportsToOff() {
-        assertEquals(ConfigResponse.Enabled(reportDebug = false, reportErrors = false), ConfigResponse.parse(Fixtures.json("""{"enabled": true}""")))
+        assertEquals(ConfigResponse.Enabled(reportDebug = false, reportErrors = false, errorBatchIntervalMillis = 100, debugBatchIntervalMillis = 100), ConfigResponse.parse(Fixtures.json("""{"enabled": true}""")))
         assertEquals(
-            ConfigResponse.Enabled(reportDebug = true, reportErrors = true),
+            ConfigResponse.Enabled(reportDebug = true, reportErrors = true, errorBatchIntervalMillis = 100, debugBatchIntervalMillis = 100),
             ConfigResponse.parse(Fixtures.json("""{"enabled": true, "reportDebug": true, "reportErrors": true}""")),
         )
         assertEquals(ConfigResponse.Disabled("x"), ConfigResponse.parse(Fixtures.json("""{"enabled": false, "disabledReason": "x"}""")))

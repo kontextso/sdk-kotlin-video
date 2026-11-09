@@ -39,7 +39,7 @@ internal object IntegrationGuard {
         if (SdkState.current.isInitialized) return true
         Environment.assertionFailure("KontextVideo: call initialize() before $call")
         Logger.error { "$call called before initialize(); no ads will load" }
-        ErrorReporter.report(ErrorReport.Code.NOT_INITIALIZED, ErrorReport.Stage.INTEGRATION, detail = call)
+        ErrorReporter.report(ErrorReport.Code.NOT_INITIALIZED, detail = call)
         return false
     }
 
@@ -49,8 +49,8 @@ internal object IntegrationGuard {
         if (problems.isEmpty()) return
         Environment.assertionFailure("KontextVideo.Configuration: ${problems.joinToString()}")
         Logger.error { "configuration: ${problems.joinToString()}; no ads will load" }
-        if (configuration.publisherToken.isEmpty()) ErrorReporter.report(ErrorReport.Code.EMPTY_TOKEN, ErrorReport.Stage.INTEGRATION)
-        if (problems.any { it.startsWith("adServerUrl") }) ErrorReporter.report(ErrorReport.Code.BAD_SERVER_URL, ErrorReport.Stage.INTEGRATION)
+        if (configuration.publisherToken.isEmpty()) ErrorReporter.report(ErrorReport.Code.EMPTY_TOKEN)
+        if (problems.any { it.startsWith("adServerUrl") }) ErrorReporter.report(ErrorReport.Code.BAD_SERVER_URL)
     }
 
     /** What the publisher passed wrong in [content], said once when its `VideoAds` is made rather than as a server 400 later. */
@@ -59,7 +59,7 @@ internal object IntegrationGuard {
         if (missing.isNotEmpty()) {
             Environment.assertionFailure("Content: ${missing.joinToString()}")
             Logger.error { "content ${content.id}: ${missing.joinToString()}; the server will refuse its requests" }
-            ErrorReporter.report(ErrorReport.Code.BAD_CONTENT, ErrorReport.Stage.INTEGRATION, sessionId = sessionId, detail = missing.joinToString(","))
+            ErrorReporter.report(ErrorReport.Code.BAD_CONTENT, sessionId = sessionId, detail = missing.joinToString(","))
         }
         if (content.leftOut.isNotEmpty()) Logger.warning { "content ${content.id}: ${content.leftOut.joinToString()}" }
     }

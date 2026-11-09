@@ -124,13 +124,11 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
     /** The closing Activity was never taken down: reported, and [onGone] runs anyway (`onAdEnded` once). */
     private fun reportDismissalTimeout(onGone: () -> Unit) {
         Logger.error { "ad ${ad.id.take(8)}: the linear ad's screen did not close in ${dismissalTimeoutMillis / 1000} s; onAdEnded delivered anyway" }
-        DebugReporter.event("ad.dismissalTimedOut", adId = ad.id, level = DebugReporter.Level.WARNING)
+        DebugReporter.event("ad.dismissalTimedOut", sessionId = ad.owner.get()?.sessionId, bidId = ad.id, level = DebugReporter.Level.WARNING)
         ErrorReporter.report(
             ErrorReport.Code.DISMISSAL_TIMED_OUT,
-            ErrorReport.Stage.PRESENTATION,
             sessionId = ad.owner.get()?.sessionId,
-            adId = ad.id,
-            recovery = ErrorReport.Recovery.DID_END_DELIVERED,
+            bidId = ad.id,
         )
         onGone()
     }
@@ -163,10 +161,8 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
             LinearAdActivity.forget(this@LinearScreen)
             ErrorReporter.report(
                 ErrorReport.Code.PRESENTATION_FAILED,
-                ErrorReport.Stage.PRESENTATION,
                 sessionId = ad.owner.get()?.sessionId,
-                adId = ad.id,
-                recovery = ErrorReport.Recovery.AD_ENDED_FAILED,
+                bidId = ad.id,
             )
             ad.fail(VideoAdException.CannotShowNow())
         }

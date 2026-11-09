@@ -37,13 +37,23 @@ class ParityPayloadsTest {
         assertEquals(ConfigResponse.Disabled(UNKNOWN_REASON), config("""{"enabled": false}"""))
     }
 
+    @Test fun configBatchIntervalsAreMillisecondsAndAnythingUnusableIsTheDefault() {
+        val cases = listOf(null to 100L, "0" to 0L, "250" to 250L, "60000" to 60_000L, "-5" to 100L, "\"100\"" to 100L, "null" to 100L)
+        for ((value, expected) in cases) {
+            val body = if (value == null) "{\"enabled\": true}" else "{\"enabled\": true, \"errorBatchInterval\": $value, \"debugBatchInterval\": $value}"
+            val enabled = config(body) as ConfigResponse.Enabled
+            assertEquals(expected, enabled.errorBatchIntervalMillis, "$value")
+            assertEquals(expected, enabled.debugBatchIntervalMillis, "$value")
+        }
+    }
+
     @Test fun aConfigAnswerNeedsABooleanEnabledAndToleratesTheRest() {
         for (body in listOf("{}", """{"enabled": null}""", """{"enabled": "true"}""", """{"enabled": 1}""")) {
             assertThrows<ApiException.Decoding>(body) { config(body) }
         }
         for (flag in listOf("null", "\"yes\"", "1")) {
             assertEquals(
-                ConfigResponse.Enabled(reportDebug = false, reportErrors = false),
+                ConfigResponse.Enabled(reportDebug = false, reportErrors = false, errorBatchIntervalMillis = 100, debugBatchIntervalMillis = 100),
                 config("""{"enabled": true, "reportDebug": $flag, "reportErrors": $flag}"""),
                 "a malformed flag is off: $flag",
             )

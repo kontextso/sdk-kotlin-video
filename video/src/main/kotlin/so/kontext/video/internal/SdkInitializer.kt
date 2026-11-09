@@ -145,9 +145,11 @@ internal object SdkInitializer {
         val context = Environment.context ?: return
         when (val response = ConfigFetcher.fetch(context, configuration) { state.moveTo(State.Failed) }) {
             is ConfigResponse.Enabled -> {
+                ErrorReporter.intervalMillis = response.errorBatchIntervalMillis
+                DebugReporter.intervalMillis = response.debugBatchIntervalMillis
                 recordDebugReporting(response.reportDebug)
                 recordErrorReporting(response.reportErrors)
-                DebugReporter.event("config.response", state = mapOf("enabled" to true))
+                DebugReporter.event("config.response", properties = mapOf("enabled" to true))
                 state.moveTo(State.Enabled)
                 Logger.info { "Enabled" }
                 // The browser user agent every ads request carries, read in a WebView once per process:

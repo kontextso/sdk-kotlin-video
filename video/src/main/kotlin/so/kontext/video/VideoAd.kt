@@ -275,7 +275,7 @@ public class VideoAd internal constructor(
                 signal.await()
             } catch (error: VideoAdException.CreativeFailed) {
                 invalidate(InvalidationReason.CreativeFailed(error.code))
-                DebugReporter.event("ad.loadFailed", adId = id, level = DebugReporter.Level.WARNING, state = mapOf("code" to error.code))
+                DebugReporter.event("ad.loadFailed", sessionId = owner.sessionId, bidId = id, level = DebugReporter.Level.WARNING, properties = mapOf("code" to error.code))
                 throw error
             } catch (error: VideoAdException) {
                 // The ad ended meanwhile: say why in the order the app expects.
@@ -286,7 +286,7 @@ public class VideoAd internal constructor(
             checkLoadable()
             val durationMs = Environment.now() - started
             Logger.info { "$format ad ${id.take(8)}: ready in $durationMs ms" }
-            DebugReporter.event("ad.loaded", adId = id, state = mapOf("durationMs" to durationMs))
+            DebugReporter.event("ad.loaded", sessionId = owner.sessionId, bidId = id, properties = mapOf("durationMs" to durationMs))
         }
         loading = task
         task.invokeOnCompletion { if (loading === task) loading = null }
@@ -299,14 +299,12 @@ public class VideoAd internal constructor(
         tracker.fire("error", errorCode = code)
         ErrorReporter.report(
             ErrorReport.Code.FRAME_LOAD_FAILED,
-            ErrorReport.Stage.LOAD,
             sessionId = owner.get()?.sessionId,
-            adId = id,
+            bidId = id,
             vastCode = code,
-            recovery = ErrorReport.Recovery.AD_DROPPED_BEFORE_SHOW,
         )
         invalidate(InvalidationReason.CreativeFailed(code))
-        DebugReporter.event("ad.loadFailed", adId = id, level = DebugReporter.Level.WARNING, state = mapOf("code" to code))
+        DebugReporter.event("ad.loadFailed", sessionId = owner.get()?.sessionId, bidId = id, level = DebugReporter.Level.WARNING, properties = mapOf("code" to code))
         return VideoAdException.CreativeFailed(code)
     }
 
@@ -520,7 +518,7 @@ public class VideoAd internal constructor(
         // 1. The page is shown, in the variant chosen for an inline ad.
         loadedBridge?.show((screen as? InlineScreen)?.chosenSize)
         Logger.info { "ad ${id.take(8)}: shown" }
-        DebugReporter.event("ad.shown", adId = id, state = mapOf("format" to format.wireName))
+        DebugReporter.event("ad.shown", sessionId = owner.get()?.sessionId, bidId = id, properties = mapOf("format" to format.wireName))
         val screen = this.screen
         // 2. The meter starts; inline, the clock, the content rule and the holding Activity start too (see
         //    InlineScreen.reachedScreen).
@@ -646,12 +644,10 @@ public class VideoAd internal constructor(
     private fun reportCreativeError(vastCode: Int) {
         ErrorReporter.report(
             (loadedBridge?.failureCause ?: FrameBridge.FailureCause.PAGE).reportCode,
-            if (wasShown) ErrorReport.Stage.PLAYBACK else ErrorReport.Stage.LOAD,
             sessionId = owner.get()?.sessionId,
-            adId = id,
+            bidId = id,
             vastCode = vastCode,
-            underlying = loadedBridge?.failureUnderlying,
-            recovery = if (wasShown) ErrorReport.Recovery.AD_ENDED_FAILED else ErrorReport.Recovery.AD_DROPPED_BEFORE_SHOW,
+            cause = loadedBridge?.failureUnderlying,
         )
     }
 
@@ -769,7 +765,7 @@ public class VideoAd internal constructor(
         val dismissing = screen?.close { finish(reason, bridge) } ?: false
         fireEndBeacons(reason, activeTime, isInline)
         Logger.info { "ad ${id.take(8)}: ended ($reason)" }
-        DebugReporter.event("ad.ended", adId = id, state = mapOf("reason" to reason.name.lowercase()))
+        DebugReporter.event("ad.ended", sessionId = owner.get()?.sessionId, bidId = id, properties = mapOf("reason" to reason.name.lowercase()))
         if (!dismissing) finish(reason, bridge)
     }
 
@@ -805,7 +801,7 @@ public class VideoAd internal constructor(
         Logger.debug { "$format ad ${id.take(8)} ended before show: $reason" }
         // Wire names, as iOS sends them; a failed creative's code as its own key.
         val details = mapOf("reason" to reason.wireName) + ((reason as? InvalidationReason.CreativeFailed)?.let { mapOf("code" to it.code) } ?: emptyMap())
-        DebugReporter.event("ad.invalidated", adId = id, state = details)
+        DebugReporter.event("ad.invalidated", sessionId = owner.get()?.sessionId, bidId = id, properties = details)
         loadedBridge?.hide()
         loadedBridge = null
         // Never shown, so no onAdEnded to let the listener go (see finish): it goes here.

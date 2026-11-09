@@ -41,8 +41,6 @@ internal class AdsFetcher(
     private val heldIds: () -> List<String>,
     /** Throws for an answer whose ids clash with the held ads (`AdStore.checkIdsAgainstHeld`). */
     private val checkIdsAgainstHeld: (AdsResponse) -> Unit,
-    /** Whether a valid ad is held, for a failure's recovery. */
-    private val holdsAds: () -> Boolean,
     /** Throws `Destroyed` or `Disabled` once the `VideoAds` may no longer use an answer. */
     private val checkStillUsable: () -> Unit,
 ) {
@@ -76,11 +74,9 @@ internal class AdsFetcher(
             Logger.error { "${content.id}: the request could not be built, ${error.message}" }
             ErrorReporter.report(
                 ErrorReport.Code.ADS_REQUEST_FAILED,
-                ErrorReport.Stage.REQUEST,
                 requestId = null,
                 sessionId = sessionId,
                 failure = ErrorReport.FailedRequest(error),
-                recovery = if (holdsAds()) ErrorReport.Recovery.HELD_ADS_KEPT else ErrorReport.Recovery.NO_AD,
             )
             throw VideoAdException.Request(VideoAdException.RequestFailure.BadResponse)
         }
@@ -88,7 +84,7 @@ internal class AdsFetcher(
         checkStillUsable()
         lastRequestId = adsRequest.requestId
         Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms, holding ${adsRequest.held.size}" }
-        DebugReporter.event("ads.request", state = mapOf("held" to adsRequest.held.size, "playhead" to adsRequest.playheadMillis))
+        DebugReporter.event("ads.request", sessionId = sessionId, properties = mapOf("held" to adsRequest.held.size, "playhead" to adsRequest.playheadMillis))
         // 3. The answer, parsed and checked against the held ads.
         val response = try {
             val answer = ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)
@@ -104,11 +100,9 @@ internal class AdsFetcher(
             @Suppress("InstanceOfCheckForException") // the code, not the handling, depends on it
             ErrorReporter.report(
                 if (error is ApiException.Decoding) ErrorReport.Code.ADS_DECODE_FAILED else ErrorReport.Code.ADS_REQUEST_FAILED,
-                ErrorReport.Stage.REQUEST,
                 requestId = adsRequest.requestId,
                 sessionId = sessionId,
                 failure = ErrorReport.FailedRequest(error),
-                recovery = if (holdsAds()) ErrorReport.Recovery.HELD_ADS_KEPT else ErrorReport.Recovery.NO_AD,
             )
             throw VideoAdException.Request(error.toRequestFailure())
         }
@@ -133,11 +127,9 @@ internal class AdsFetcher(
                 Logger.error { "${result.format} for ${content.id}: an ad of request $requestId is malformed at ${dropped.path} ($dropped); left out" }
                 ErrorReporter.report(
                     ErrorReport.Code.ADS_DECODE_FAILED,
-                    ErrorReport.Stage.REQUEST,
                     requestId = requestId,
                     sessionId = sessionId,
                     detail = "${result.format.wireName}:${dropped.path}",
-                    recovery = if (result.ads.isEmpty()) ErrorReport.Recovery.NO_AD else null,
                 )
             }
         }
