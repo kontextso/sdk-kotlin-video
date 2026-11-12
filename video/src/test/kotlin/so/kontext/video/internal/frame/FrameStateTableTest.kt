@@ -37,7 +37,7 @@ class FrameStateTableTest {
     @After fun reset() = Environment.reset()
 
     private fun send(bridge: FrameBridge, type: String, fields: String = "") =
-        bridge.receive("""{"adId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", origin, true)
+        bridge.receive("""{"bidId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", origin, true)
 
     private fun bridgeIn(column: String): FrameBridge {
         val bridge = FrameBridge(Environment.context!!, "ad-1", url, isVideo = true)

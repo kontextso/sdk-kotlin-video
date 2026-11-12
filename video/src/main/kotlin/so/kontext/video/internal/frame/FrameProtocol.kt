@@ -38,7 +38,7 @@ import so.kontext.video.internal.diagnostics.Logger
  */
 internal class FrameProtocol(
     /** The ad's id: every message of its page carries it. */
-    val adId: String,
+    val bidId: String,
     /** The page's own origin, the one sender whose messages count; `null` for a URL with none (none count). */
     val origin: Origin?,
     isVideo: Boolean,
@@ -97,7 +97,7 @@ internal class FrameProtocol(
     fun accept(raw: String?, sender: Origin?, isMainFrame: Boolean, now: Long): Step {
         if (state == FramePhase.ENDED) return Step.Ignore
         if (!isFromPage(sender, isMainFrame)) return Step.Drop("message from another frame dropped")
-        val message = FrameMessage.parse(raw, adId, playheadLimitMillis) ?: return drop("malformed message dropped", "envelope")
+        val message = FrameMessage.parse(raw, bidId, playheadLimitMillis) ?: return drop("malformed message dropped", "envelope")
         return accept(message, now)
     }
 
@@ -111,7 +111,7 @@ internal class FrameProtocol(
         if (state == FramePhase.ENDED) return Step.Ignore
         val type = message.type
         val playhead = message.playheadMillis
-        Logger.debug { "frame ${adId.take(8)}: ← $type" }
+        Logger.debug { "frame ${bidId.take(8)}: ← $type" }
         return when (type) {
             "ad.loaded" -> {
                 if (state != FramePhase.LOADING) return Step.Ignore
