@@ -21,6 +21,11 @@ import so.kontext.video.internal.platform.Environment
 internal object UserAgent {
     private const val TABLET_WIDTH_DP = 600
 
+    /** A lookup found the WebView's user agent: KontextKit holds it now and reads it again at no cost. */
+    @Volatile
+    var isKnown: Boolean = false
+        private set
+
     /** The one user-agent lookup in flight or done: KontextKit makes a WebView until it has cached the answer. */
     private var userAgentLookup: Deferred<String?>? = null
 
@@ -39,6 +44,7 @@ internal object UserAgent {
     suspend fun userAgent(context: Context): String? {
         val lookup = userAgentLookup ?: Environment.scope.lookUpUserAgent(context).also { userAgentLookup = it }
         val agent = lookup.await()
+        if (agent != null) isKnown = true
         if (agent == null && userAgentLookup === lookup) userAgentLookup = null
         return agent
     }
@@ -78,6 +84,7 @@ internal object UserAgent {
 
     fun resetForTesting() {
         userAgentLookup = null
+        isKnown = false
         read = { NetworkInfoProvider.collect(it).userAgent }
     }
 }
