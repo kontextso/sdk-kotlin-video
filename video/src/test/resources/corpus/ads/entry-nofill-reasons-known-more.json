@@ -1,0 +1,137 @@
+{
+  "description": "a no-fill in overlay and pause with the contract's other two reasons",
+  "response": {
+    "enabled": true,
+    "formats": [
+      {
+        "format": "overlay",
+        "ads": [],
+        "noFillReason": "formatNotEnabled"
+      },
+      {
+        "format": "pause",
+        "ads": [],
+        "noFillReason": "frequencyCap"
+      },
+      {
+        "format": "pauseFullscreen",
+        "ads": [
+          {
+            "id": "f-1",
+            "format": "pauseFullscreen",
+            "creative": "image",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 9.0,
+              "currency": "USD"
+            },
+            "expires": 3600000,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/f-1"
+            },
+            "tracking": [
+              {
+                "event": "impression",
+                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/f-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/f-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "overlayViewDuration",
+                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+              }
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
+            "position": "fullscreen"
+          }
+        ]
+      },
+      {
+        "format": "linear",
+        "ads": [
+          {
+            "id": "l-1",
+            "format": "linear",
+            "creative": "video",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 12.0,
+              "currency": "USD"
+            },
+            "expires": 3600000,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/l-1"
+            },
+            "tracking": [
+              {
+                "event": "impression",
+                "url": "https://ads.test/events/l-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/l-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/l-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/l-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "start",
+                "url": "https://ads.test/events/l-1/start"
+              },
+              {
+                "event": "progress",
+                "url": "https://ads.test/events/l-1/progress",
+                "offset": 5000
+              },
+              {
+                "event": "complete",
+                "url": "https://ads.test/events/l-1/complete"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/l-1/endcard-click",
+                "part": "endCard"
+              }
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/l-1/vast",
+            "duration": 15000,
+            "skipOffset": 5000
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "noFill:formatNotEnabled",
+      "pause": "noFill:frequencyCap",
+      "pauseFullscreen": "ad:f-1",
+      "linear": "ad:l-1"
+    },
+    "decodeReports": []
+  }
+}

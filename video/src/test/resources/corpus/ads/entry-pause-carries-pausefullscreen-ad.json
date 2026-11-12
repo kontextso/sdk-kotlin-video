@@ -1,5 +1,5 @@
 {
-  "description": "the overlay ad's price precision is unknown",
+  "description": "the pause entry carries a pauseFullscreen ad (its own format disagrees): dropped, reported at format",
   "response": {
     "enabled": true,
     "formats": [
@@ -16,8 +16,7 @@
             "price": {
               "model": "cpm",
               "value": 7.5,
-              "currency": "USD",
-              "precision": "guess"
+              "currency": "USD"
             },
             "expires": 3600000,
             "rendering": {
@@ -64,55 +63,93 @@
         "format": "pause",
         "ads": [
           {
-            "id": "p-1",
-            "format": "pause",
+            "id": "f-2",
+            "format": "pauseFullscreen",
             "creative": "image",
             "trigger": {
               "kind": "manual"
             },
             "price": {
               "model": "cpm",
-              "value": 5.5,
-              "currency": "EUR",
-              "precision": "estimated"
+              "value": 9.0,
+              "currency": "USD"
             },
             "expires": 3600000,
             "rendering": {
               "kind": "frame",
-              "url": "https://frames.test/v2/frame/p-1"
+              "url": "https://frames.test/v2/frame/f-2"
             },
             "tracking": [
               {
                 "event": "impression",
-                "url": "https://ads.test/events/p-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
               },
               {
                 "event": "creativeView",
-                "url": "https://ads.test/events/p-1/creativeView"
+                "url": "https://ads.test/events/f-1/creativeView"
               },
               {
                 "event": "click",
-                "url": "https://ads.test/events/p-1/click"
+                "url": "https://ads.test/events/f-1/click"
               },
               {
                 "event": "notUsed",
-                "url": "https://ads.test/events/p-1/notUsed?reason=[KONTEXT_REASON]"
+                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
               },
               {
                 "event": "overlayViewDuration",
-                "url": "https://ads.test/events/p-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
               }
             ],
-            "vastUrl": "https://ads.test/v2/video/ads/p-1/vast",
-            "position": "top",
-            "sizes": [
+            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
+            "position": "fullscreen"
+          }
+        ]
+      },
+      {
+        "format": "pauseFullscreen",
+        "ads": [
+          {
+            "id": "f-1",
+            "format": "pauseFullscreen",
+            "creative": "image",
+            "trigger": {
+              "kind": "manual"
+            },
+            "price": {
+              "model": "cpm",
+              "value": 9.0,
+              "currency": "USD"
+            },
+            "expires": 3600000,
+            "rendering": {
+              "kind": "frame",
+              "url": "https://frames.test/v2/frame/f-1"
+            },
+            "tracking": [
               {
-                "width": 300,
-                "height": 250,
-                "scalable": false,
-                "maintainAspectRatio": true
+                "event": "impression",
+                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+              },
+              {
+                "event": "creativeView",
+                "url": "https://ads.test/events/f-1/creativeView"
+              },
+              {
+                "event": "click",
+                "url": "https://ads.test/events/f-1/click"
+              },
+              {
+                "event": "notUsed",
+                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
+              },
+              {
+                "event": "overlayViewDuration",
+                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
               }
-            ]
+            ],
+            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
+            "position": "fullscreen"
           }
         ]
       },
@@ -129,8 +166,7 @@
             "price": {
               "model": "cpm",
               "value": 12.0,
-              "currency": "USD",
-              "precision": "exact"
+              "currency": "USD"
             },
             "expires": 3600000,
             "rendering": {
@@ -184,12 +220,13 @@
   "expect": {
     "result": "formats",
     "formats": {
-      "overlay": "noFill:unknown",
-      "pause": "ad:p-1",
+      "overlay": "ad:o-1",
+      "pause": "noFill:unknown",
+      "pauseFullscreen": "ad:f-1",
       "linear": "ad:l-1"
     },
     "decodeReports": [
-      "overlay:price.precision"
+      "pause:format"
     ]
   }
 }
