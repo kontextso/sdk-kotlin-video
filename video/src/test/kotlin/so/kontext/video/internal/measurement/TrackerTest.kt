@@ -16,7 +16,10 @@ class TrackerTest {
     private val sent = mutableListOf<String>()
 
     @BeforeEach fun capture() {
-        Environment.sendBeacon = { url, _ -> sent += url }
+        Environment.sendBeacon = { url, _ ->
+            sent += url
+            null
+        }
     }
 
     @AfterEach fun restore() {
