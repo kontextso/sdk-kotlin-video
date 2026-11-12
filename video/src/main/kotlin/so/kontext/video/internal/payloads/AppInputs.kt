@@ -42,9 +42,12 @@ internal fun Regulatory?.advertisingIdToSend(advertisingId: String?): String? = 
 internal val User.withoutContact: User
     get() = User(id) { keywords = this@withoutContact.keywords }
 
-/** The user a request may carry: `null` when none is set or its id is empty, and then no request is sent. */
+/** The longest `user.id` the server takes. */
+internal const val MAX_USER_ID_LENGTH = 256
+
+/** The user a request may carry: `null` when none is set or its id is empty or too long, and then no request is sent. */
 internal val User?.usable: User?
-    get() = this?.takeIf { it.id.isNotEmpty() }
+    get() = this?.takeIf { it.id.isNotEmpty() && it.id.length <= MAX_USER_ID_LENGTH }
 
 /** Fields set to an empty string, which the request leaves out. */
 internal val User.emptyFields: List<String>

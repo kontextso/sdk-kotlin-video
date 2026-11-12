@@ -15,11 +15,12 @@ import so.kontext.video.internal.diagnostics.Logger
  *
  * ```
  *   reject()  ──► notUsed GET ─────────────── answered ─┐
- *   format()  ──► /config, the request built ── wait ───┴─► POST /video/ads
- *                                               (at most 2 s)
+ *   format()  ──► /config ── wait ─────────────────────┴─► the request built ─► POST /video/ads
+ *                             (at most 2 s)
  * ```
  *
- * Main thread only, as the `VideoAds` that holds it.
+ * A beacon still on the wire at the cap stays: every later request waits for it again, each at most 2 s, until
+ * it has finished. Main thread only, as the `VideoAds` that holds it.
  */
 internal class PendingBeacons {
     private val jobs = mutableListOf<Job>()
@@ -30,10 +31,13 @@ internal class PendingBeacons {
         if (job != null && !job.isCompleted) jobs += job
     }
 
-    /** Waits until every outcome beacon sent so far has finished, or [WAIT_MILLIS] passed; never throws for a beacon. */
+    /**
+     * Waits until every outcome beacon sent so far has finished, or [WAIT_MILLIS] passed; never throws for a beacon.
+     * One still on the wire at the cap stays: the next request waits for it again, each at most [WAIT_MILLIS].
+     */
     suspend fun await() {
-        val pending = jobs.filter { !it.isCompleted }
-        jobs.clear()
+        jobs.removeAll { it.isCompleted }
+        val pending = jobs.toList()
         if (pending.isEmpty()) return
         val isDone = withTimeoutOrNull(WAIT_MILLIS) { pending.joinAll() } != null
         if (!isDone) Logger.info { "${pending.count { !it.isCompleted }} outcome beacon(s) still on the wire after $WAIT_MILLIS ms; the ads request goes" }

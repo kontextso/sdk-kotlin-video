@@ -27,7 +27,8 @@ KontextVideo.user = KontextVideo.User("viewer-42")
 
 // The episode's ads live in a ViewModel, so a rotation keeps them
 class EpisodeViewModel : ViewModel() {
-    // section: where in the app the player is, as agreed with Kontext; it picks the placements that answer
+    // section: where in the app the player is, as agreed with Kontext; it chooses the formats
+    // (and their settings) the publisher configured for that section
     val ads = VideoAds(KontextVideo.Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 }, section = "feed")
     var pauseAd: VideoAd? = null
 

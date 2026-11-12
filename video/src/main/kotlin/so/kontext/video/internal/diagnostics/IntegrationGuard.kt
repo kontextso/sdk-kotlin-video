@@ -5,6 +5,7 @@ import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.KontextVideo.User
 import so.kontext.video.internal.network.UrlAuthority
+import so.kontext.video.internal.payloads.MAX_USER_ID_LENGTH
 import so.kontext.video.internal.payloads.emptyFields
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
@@ -68,6 +69,10 @@ internal object IntegrationGuard {
 
     /** A user with empty fields: they are left out of the requests; an empty id, which no request can carry, stops a debuggable app. */
     fun checkUser(user: User?) {
+        if (user != null && user.id.length > MAX_USER_ID_LENGTH) {
+            Environment.assertionFailure("KontextVideo.user: id is longer than $MAX_USER_ID_LENGTH characters")
+            Logger.warning { "user: id longer than $MAX_USER_ID_LENGTH characters; no ads request can be sent" }
+        }
         val empty = user?.emptyFields.orEmpty()
         if (empty.isEmpty()) return
         if ("id" in empty) Environment.assertionFailure("KontextVideo.user: id is empty")

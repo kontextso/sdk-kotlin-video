@@ -125,8 +125,9 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
         public object BadResponse : RequestFailure("badResponse")
 
         /**
-         * No request was sent: `KontextVideo.user` is not set (or its id is empty), and every ads request names the
-         * viewer. Set it as soon as you know who watches (an account id, or your own id for a guest), then ask again.
+         * No request was sent: `KontextVideo.user` is not set (or its id is empty or longer than 256 characters), and every ads request names the
+         * viewer. Set it as soon as you know who watches (an account id, or your own id for a guest), then ask again. Thrown even when a valid held ad exists: it is a mistake in the
+         * integration, not a moment's failure.
          */
         public object MissingUser : RequestFailure("missingUser")
 

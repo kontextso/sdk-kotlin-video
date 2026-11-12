@@ -43,12 +43,18 @@ constructor(
     /** The video the ads are for; every request carries it. */
     public val content: Content,
     /**
-     * Where in the app the player is, as Kontext named it with you (`"feed"`, `"series_detail"`): it picks the
-     * placements that answer. One non-empty name of at most 128 characters; `null` sends none. It describes the
-     * screen, never the viewer: no personal data. Every request of this `VideoAds` carries it.
+     * Where in the app the player is, as Kontext named it with you (`"feed"`, `"series_detail"`): it chooses the
+     * formats (and their settings) the publisher configured for that section. One non-empty name of at most 128
+     * characters; `null` sends none. Empty or longer is an integration mistake: a debuggable build stops at it, and
+     * the value is left out of the request. It describes the screen, never the viewer: no personal data. Every
+     * request of this `VideoAds` carries it.
      */
     public val section: String? = null,
-    /** The publisher's A/B test variant for this video's ads, at most 128 characters; `null` when none. Sent with every request. */
+    /**
+     * The publisher's A/B test variant for this video's ads; `null` when none. Sent with every request. Empty or
+     * longer than 128 characters is an integration mistake: a debuggable build stops at it, and the value is left
+     * out of the request.
+     */
     public val variantId: String? = null,
 ) {
     /** [destroy] was called: the object does nothing any more. */
@@ -122,7 +128,7 @@ constructor(
      * this `VideoAds` and returns an unshown one unchanged until it expires or its outcome is known, so the same ad
      * comes back. A `reject()` just before is heard first: the request waits up to 2 s for its `notUsed` beacon.
      * Calls made while a request runs share it. A failed request returns the held ad when it is still valid.
-     * Without `KontextVideo.user` nothing is sent and it fails with `Request(MissingUser)`. Throws
+     * Without `KontextVideo.user` nothing is sent and it fails with `Request(MissingUser)`, held ad or not. Throws
      * [VideoAdException]: `NoFill`, `Request` (nothing valid held; its `failure` says why), `Destroyed`,
      * `Disabled`, `NotInitialized`, `InitializationFailed`.
      * A cancelled caller stops waiting; the request itself continues. Callable from any dispatcher: the work
@@ -140,6 +146,8 @@ constructor(
             task.await()
         } catch (error: VideoAdException.Request) {
             checkStillUsable()
+            // No user is the app's mistake, not the moment's: a held ad must not hide it.
+            if (error.failure == VideoAdException.RequestFailure.MissingUser) throw error
             store.ad(format)?.let { held ->
                 Logger.info { "$format for ${content.id}: request failed, returning the held ad ${held.id.take(8)}" }
                 return held

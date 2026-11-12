@@ -28,9 +28,9 @@ import so.kontext.video.internal.state.SdkState
  *
  * 1. A user must be set: without one nothing is sent (`Request(MissingUser)`). Then wait for the SDK
  *    (`/config`); it must be on, and the `VideoAds` still usable.
- * 2. Build the request: the user and the consent are read after the waits (`/config`, the user agent, the
- *    advertising id), just before the body. Then wait for this `VideoAds`'s outcome beacons still on the wire
- *    (`PendingBeacons`, at most 2 s), so the server has heard a `reject()` made just before.
+ * 2. Wait for this `VideoAds`'s outcome beacons still on the wire (`PendingBeacons`, at most 2 s), so the server
+ *    has heard a `reject()` made just before; then build the request: the user, the consent and the playhead are
+ *    read after every wait (`/config`, the beacons, the user agent, the advertising id), just before the body.
  * 3. POST `video/ads` and parse the answer; an id held under another format makes it malformed. A failure is
  *    reported and thrown as `VideoAdException.Request`.
  * 4. The kill switch in an answer switches the whole SDK off (`SdkInitializer.disable` drops the unshown ads of
@@ -65,11 +65,12 @@ internal class AdsFetcher(
             SdkState.current.disabledReason?.let { throw VideoAdException.Disabled(it) }
             throw VideoAdException.InitializationFailed()
         }
-        // 2. The request, the user read now; then the outcome beacons before it.
+        // 2. The outcome beacons first, then the request, the user, the consent and the playhead read now.
+        pendingBeacons.await()
+        checkStillUsable()
         val configuration = SdkState.current.configuration ?: throw VideoAdException.NotInitialized()
         val context = Environment.context ?: throw VideoAdException.NotInitialized()
         val adsRequest = build(context, configuration.publisherToken)
-        pendingBeacons.await()
         // Another video's response may have switched the SDK off meanwhile: nothing leaves.
         checkStillUsable()
         lastRequestId = adsRequest.requestId

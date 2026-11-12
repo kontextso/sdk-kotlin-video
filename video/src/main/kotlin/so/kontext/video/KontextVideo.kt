@@ -422,7 +422,8 @@ public object KontextVideo {
         /**
          * The publisher's own id of the viewer, required and non-empty (at most 256 characters): an account id, or
          * an id of your own for a guest, kept for the install. Always sent, for a child too (`coppa`): the server
-         * keeps it from buyers then. An empty id counts as no user: no request is sent.
+         * keeps it from buyers then. An empty id, or one longer than 256 characters, counts as no user: a
+         * debuggable build stops at it, and `format()` sends nothing and throws `Request(MissingUser)`.
          */
         public val id: String = builder.id
 

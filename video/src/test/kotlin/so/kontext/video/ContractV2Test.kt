@@ -15,6 +15,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -159,12 +160,32 @@ class ContractV2Test {
         ads.destroy()
     }
 
-    @Test fun anEmptyUserIdIsNoUser() {
+    @Test fun missingUserIsThrownEvenWithAValidHeldAd() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        val ads = VideoAds(Content("ep", "en"))
+        val held = format(ads, AdFormat.PAUSE).getOrThrow()
+        SdkState.current.recordUser(null)
+        val error = format(ads, AdFormat.PAUSE).exceptionOrNull()
+        assertEquals("an integration error is never hidden by the held ad", RequestFailure.MissingUser, (error as VideoAdException.Request).failure)
+        assertNull("the held ad stays held", held.invalidationReason)
+        assertEquals(1, adsBodies().size)
+        ads.destroy()
+    }
+
+    @Test fun anEmptyOrTooLongUserIdIsNoUser() {
         initialize()
         SdkState.current.recordUser(KontextVideo.User(""))
         val ads = VideoAds(Content("ep", "en"))
         assertEquals(RequestFailure.MissingUser, (format(ads, AdFormat.OVERLAY).exceptionOrNull() as VideoAdException.Request).failure)
         assertTrue(adsBodies().isEmpty())
+        // Longer than the server's 256 characters: no user either.
+        SdkState.current.recordUser(KontextVideo.User("u".repeat(257)))
+        assertEquals(RequestFailure.MissingUser, (format(ads, AdFormat.OVERLAY).exceptionOrNull() as VideoAdException.Request).failure)
+        assertTrue(adsBodies().isEmpty())
+        SdkState.current.recordUser(KontextVideo.User("u".repeat(256)))
+        format(ads, AdFormat.OVERLAY)
+        assertEquals("256 is the limit, inclusive", 256, adsBodies().single()["user"]!!.jsonObject["id"]!!.jsonPrimitive.content.length)
         ads.destroy()
     }
 
@@ -213,6 +234,62 @@ class ContractV2Test {
         assertTrue(never.isActive)
         assertEquals("outbid", events("ad.notUsed").single().property("reason"))
         ads.destroy()
+    }
+
+    @Test fun theUserAndConsentAreReadAfterTheBeaconWait() {
+        initialize()
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", pauseWithNotUsed)).toString())
+        KontextVideo.user = KontextVideo.User("viewer-1") { email = "v@example.com" }
+        val ads = VideoAds(Content("ep", "en"))
+        val notUsed = Job()
+        beaconJob = { url -> if ("e=notUsed" in url) notUsed else null }
+        format(ads, AdFormat.PAUSE).getOrThrow().reject()
+        val next = startFormat(ads, AdFormat.PAUSE)
+        settle()
+        // While the request waits: COPPA turns on.
+        KontextVideo.regulatory = KontextVideo.Regulatory { coppa = true }
+        notUsed.complete()
+        await { next() != null }
+        val sent = adsBodies().last()["user"]!!.jsonObject
+        assertEquals("the id stays, the email goes: read after the wait", setOf("id"), sent.keys)
+        // And a user cleared during the wait: nothing leaves.
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", pauseWithNotUsed.replace("ad-2", "ad-9"))).toString())
+        KontextVideo.regulatory = null
+        val again = Job()
+        beaconJob = { url -> if ("e=notUsed" in url) again else null }
+        format(ads, AdFormat.PAUSE).getOrThrow().reject()
+        val count = adsBodies().size
+        val last = startFormat(ads, AdFormat.PAUSE)
+        settle()
+        SdkState.current.recordUser(null)
+        again.complete()
+        await { last() != null }
+        assertEquals(RequestFailure.MissingUser, (last()!!.exceptionOrNull() as VideoAdException.Request).failure)
+        assertEquals("no request without a user", count, adsBodies().size)
+        ads.destroy()
+    }
+
+    @Test fun aBeaconStillOnTheWireAtTheCapIsWaitedForAgainByTheNextRequest() {
+        val pending = PendingBeacons()
+        val slow = Job()
+        pending.add(slow)
+        var first = false
+        Environment.scope.launch {
+            pending.await()
+            first = true
+        }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(PendingBeacons.WAIT_MILLIS + 1))
+        assertTrue("the first request goes at the cap", first)
+        var second = false
+        Environment.scope.launch {
+            pending.await()
+            second = true
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse("the next one waits for the same beacon", second)
+        slow.complete()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(second)
     }
 
     @Test fun otherBeaconsAreNotWaitedFor() {
