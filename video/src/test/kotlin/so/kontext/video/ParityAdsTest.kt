@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.mockwebserver.Dispatcher
@@ -82,6 +81,8 @@ class ParityAdsTest {
     private val configuration get() = Configuration("test-token") { adServerUrl = server.url("/").toString() }
 
     @Before fun start() {
+        // Every ads request names the viewer.
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.path.orEmpty()
@@ -102,7 +103,10 @@ class ParityAdsTest {
         server.start()
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
-        Environment.sendBeacon = { url, _ -> beacons += url }
+        Environment.sendBeacon = { url, _ ->
+            beacons += url
+            null
+        }
         Environment.assertionFailure = {}
         Environment.now = { now }
     }
@@ -126,7 +130,8 @@ class ParityAdsTest {
         return state!!
     }
 
-    private fun videoAds(id: String = "ep", labels: Map<String, String> = emptyMap()) = VideoAds(Content(id, "en"), labels).also { owners += it }
+    private fun videoAds(id: String = "ep", section: String? = null, variantId: String? = null) =
+        VideoAds(Content(id, "en"), section, variantId).also { owners += it }
 
     /** Runs the main looper until [done], with real time for the HTTP threads. */
     private fun await(done: () -> Boolean) {
@@ -186,8 +191,6 @@ class ParityAdsTest {
 
     private fun configCount() = received.count { it.first == "/v2/config" }
 
-    private fun JsonObject.held(): Set<String> = this["held"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet()
-
     /** The beacons of [event] that fired, each as its query values. */
     private fun fired(event: String): List<Map<String, String>> = beacons.map { url ->
         url.substringAfter('?').split('&').associate { part -> part.substringBefore('=') to URLDecoder.decode(part.substringAfter('=', ""), "UTF-8") }
@@ -196,7 +199,7 @@ class ParityAdsTest {
     /** Sends the ad's page a message, as its main frame. */
     private fun page(ad: VideoAd, type: String, fields: String = "") {
         val bridge = checkNotNull(ad.loadedBridge) { "no page for ${ad.id}" }
-        bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", Origin.of(ad.payload.frameUrl), true)
+        bridge.receive("""{"bidId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", Origin.of(ad.payload.frameUrl), true)
     }
 
     /** `load()` with the page reporting `ad.loaded`. */
@@ -261,48 +264,49 @@ class ParityAdsTest {
         assertTrue(adsBodies().isEmpty())
     }
 
-    @Test fun formatAsksForAllFormatsWithTheSessionAndWhatItHolds() {
+    @Test fun formatAsksForAllFormatsWithTheSession() {
         initialize()
         serve(Fixtures.entry("pause", ad("img-p1")), Fixtures.entry("linear", ad("vid-l1", "linear")))
         val ads = videoAds()
         assertEquals("img-p1", ok(ads).id)
         val first = adsBodies()[0]
         assertNull("no formats: every request is for all of them", first["formats"])
-        assertTrue(first.held().isEmpty())
+        assertNull(first["held"])
         val session = first["sessionId"]!!.jsonPrimitive.content
         assertTrue(session.isNotEmpty())
         ok(ads, AdFormat.LINEAR)
         val second = adsBodies()[1]
         assertEquals("one session per VideoAds", session, second["sessionId"]!!.jsonPrimitive.content)
-        assertEquals("both unshown ads are listed", setOf("img-p1", "vid-l1"), second.held())
+        assertNull("no held list: the server keeps the bids", second["held"])
     }
 
-    @Test fun labelsGoWithEveryRequestAndNoneAreLeftOut() {
+    @Test fun theSectionAndTheVariantGoWithEveryRequestAndNoneAreLeftOut() {
         initialize()
         serveAd("img-l1")
-        val ads = videoAds("ep-l", mapOf("stage" to "first_episode", "layout" to "inline"))
+        val ads = videoAds("ep-l", section = "feed", variantId = "exp-b")
         ok(ads)
         ok(ads)
-        val labels = adsBodies().map { body -> body["labels"]!!.jsonObject.mapValues { it.value.jsonPrimitive.content } }
-        assertEquals(List(2) { mapOf("stage" to "first_episode", "layout" to "inline") }, labels)
+        assertEquals(List(2) { "feed" }, adsBodies().map { it["section"]!!.jsonPrimitive.content })
+        assertEquals(List(2) { "exp-b" }, adsBodies().map { it["variantId"]!!.jsonPrimitive.content })
         ok(videoAds("ep-n"))
-        assertNull("none: left out", adsBodies()[2]["labels"])
+        assertNull("none: left out", adsBodies()[2]["section"])
+        assertNull(adsBodies()[2]["variantId"])
+        assertNull("no labels any more", adsBodies()[0]["labels"])
     }
 
-    @Test fun labelsAreSentExactlyAsGivenWithoutChecks() {
+    @Test fun aSectionOrVariantTheServerWouldRefuseIsLeftOutAndAsserted() {
         initialize()
-        val warnings = mutableListOf<String>()
-        Logger.sink = { level, message -> if (level == Configuration.LogLevel.WARNING) warnings += message }
-        // A free format on purpose: any key, any value, any number of them.
-        val labels = mapOf("stage" to "unlock", "my-ad" to "x", "Player Layout" to "é".repeat(80), "empty" to "") +
-            (1..25).associate { "k$it" to "v" }
-        val ads = videoAds("ep-d", labels)
-        assertEquals(labels, ads.labels)
-        assertTrue("no warning: $warnings", warnings.none { "label" in it })
-        serveAd("vid-d1", "linear")
-        ok(ads, AdFormat.LINEAR)
-        val sent = adsBodies()[0]["labels"]!!.jsonObject.mapValues { it.value.jsonPrimitive.content }
-        assertEquals("what the app gave is what goes", labels, sent)
+        val assertions = mutableListOf<String>()
+        Environment.assertionFailure = { assertions += it }
+        val ads = videoAds("ep-s", section = "", variantId = "v".repeat(129))
+        assertEquals(1, assertions.size)
+        assertTrue(assertions.single().contains("section is empty") && assertions.single().contains("variantId is longer than 128"))
+        serveAd("img-s1")
+        ok(ads)
+        assertNull(adsBodies()[0]["section"])
+        assertNull(adsBodies()[0]["variantId"])
+        ok(videoAds("ep-s2", section = "s".repeat(128)))
+        assertEquals("128 is the limit, inclusive", 128, adsBodies()[1]["section"]!!.jsonPrimitive.content.length)
     }
 
     @Test fun everyVideoAdsHasItsOwnSession() {
@@ -394,7 +398,7 @@ class ParityAdsTest {
         val ads = videoAds()
         ok(ads)
         assertEquals("img-o6", ok(ads, AdFormat.OVERLAY).id)
-        assertEquals(setOf("img-p6", "img-o6"), adsBodies()[1].held())
+        assertNull("no held list: the server keeps the bids", adsBodies()[1]["held"])
     }
 
     @Test fun aNewIdReplacesTheHeldAdAndTheOldOneRefusesShowAndLoadSilently() {
@@ -421,7 +425,7 @@ class ParityAdsTest {
         assertEquals(VideoAd.InvalidationReason.Expired, held.invalidationReason)
         serveAd("img-p10")
         assertEquals("the next call asks again", "img-p10", ok(ads).id)
-        assertTrue(adsBodies()[2].held().isEmpty())
+        assertNull(adsBodies()[2]["held"])
     }
 
     @Test fun anExpiredAdIsDroppedSilentlyBeforeTheNextRequest() {
@@ -432,7 +436,7 @@ class ParityAdsTest {
         now += 31_000
         serveAd("img-p12")
         assertEquals("the next format gets a new ad", "img-p12", ok(ads).id)
-        assertTrue("an expired ad is not listed", adsBodies()[1].held().isEmpty())
+        assertNull("an expired ad is not listed", adsBodies()[1]["held"])
         assertEquals(VideoAd.InvalidationReason.Expired, ad.invalidationReason)
         assertTrue("no expiry notice: the server knows expires", fired("notUsed").isEmpty())
     }
@@ -459,7 +463,7 @@ class ParityAdsTest {
         adsGate = CountDownLatch(1)
         val linear = call { ads.format(AdFormat.LINEAR) }
         await { adsBodies().size == 2 }
-        assertEquals("valid when the request left: held", setOf("img-e1"), adsBodies()[1].held())
+        assertNull("no held list: the server keeps the bids", adsBodies()[1]["held"])
         now += 31_000
         serveAd("vid-e1", "linear")
         adsGate!!.countDown()
@@ -522,7 +526,7 @@ class ParityAdsTest {
         serveAd("img-after-failure")
         assertEquals("the failed request is not reused", "img-after-failure", ok(ads).id)
         assertEquals(2, adsBodies().size)
-        assertTrue(adsBodies()[1].held().isEmpty())
+        assertNull(adsBodies()[1]["held"])
     }
 
     @Test fun serverErrorsAreRequestErrorsNeverRetried() {
@@ -690,7 +694,7 @@ class ParityAdsTest {
         val pause = call { ads.format(AdFormat.PAUSE) }
         val linear = call { ads.format(AdFormat.LINEAR) }
         await { adsBodies().size == 2 }
-        assertEquals("the request listed it before the reject", setOf("img-p20", "vid-l20"), adsBodies()[1].held())
+        assertNull("no held list: the server keeps the bids", adsBodies()[1]["held"])
         ad.reject()
         adsGate!!.countDown()
         assertEquals("a spent id is never accepted again", NoFillReason.AlreadyUsed, pause.settled().failure<VideoAdException.NoFill>().reason)
@@ -839,7 +843,7 @@ class ParityAdsTest {
         val ad = ok(videoAds())
         assertEquals("img-1", ad.id)
         assertEquals(AdFormat.PAUSE, ad.format)
-        assertEquals(VideoAd.Price(7.5, "USD", VideoAd.Price.Precision.EXACT), ad.price)
+        assertEquals(VideoAd.Price(7.5, "USD"), ad.price)
         assertNull(ad.durationMillis)
         assertNull(ad.invalidationReason)
         assertFalse(ad.isLoaded || ad.isReady)
@@ -883,7 +887,7 @@ class ParityAdsTest {
         assertEquals(VideoAd.InvalidationReason.CreativeFailed(502), ad.invalidationReason)
         serveAd("img-8")
         ok(ads)
-        assertTrue("a failed ad is not held", adsBodies().last().held().isEmpty())
+        assertNull(adsBodies().last()["held"])
     }
 
     @Test fun cancellingALoadStopsOnlyItsWaitingTheLoadGoesOn() {
@@ -951,7 +955,7 @@ class ParityAdsTest {
         assertEquals(VideoAd.InvalidationReason.Rejected, call { ad.load() }.settled().failure<VideoAdException.Invalidated>().reason)
         serveAd("img-16")
         ok(ads)
-        assertTrue("a rejected ad is not held", adsBodies().last().held().isEmpty())
+        assertNull(adsBodies().last()["held"])
     }
 
     @Test fun rejectOutbidCarriesTheWinningPriceAndTheWinnerBothOptional() {
@@ -1215,7 +1219,7 @@ class ParityAdsTest {
         serve(Fixtures.entry("pause", ad("img-loop2")), Fixtures.entry("overlay", ad("img-loopo", "overlay")))
         val next = ok(ads)
         assertEquals("the shown ad is never served again", "img-loop2", next.id)
-        assertEquals("the overlay ad is still held", setOf("img-loopo"), adsBodies().last().held())
+        assertNull(adsBodies().last()["held"])
         next.reject(VideoAd.RejectReason.Outbid(winningPrice = 3.0))
         assertEquals("nothing rendered, one notice", listOf("notUsed"), beacons.filter { "id=img-loop2&" in it }.map { it.substringAfter("&e=").substringBefore('&') })
         val overlay = ok(ads, AdFormat.OVERLAY)

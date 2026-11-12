@@ -5,11 +5,9 @@ import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.mockwebserver.Dispatcher
@@ -56,8 +54,8 @@ class ParityRequestsTest : SdkTest() {
         usPrivacy = "1NNN"
     }
 
-    private fun request(content: Content = Content("v", "en"), labels: Map<String, String> = emptyMap(), held: List<String> = emptyList()) =
-        runBlocking { AdsRequest.make(context, "pub-dev", content, labels, 12_345, "s-1", { held }) }
+    private fun request(content: Content = Content("v", "en"), section: String? = null, variantId: String? = null) =
+        runBlocking { AdsRequest.make(context, "pub-dev", content, section, variantId, 12_345, "s-1") }
 
     private fun JsonObject.obj(key: String) = this[key]!!.jsonObject
 
@@ -73,10 +71,9 @@ class ParityRequestsTest : SdkTest() {
 
     @Test fun theAdsRequestBodyHasEveryField() {
         Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
-        KontextVideo.user = User { id = "u1" }
-        KontextVideo.variantId = "exp-b"
+        KontextVideo.user = User("u1")
         KontextVideo.regulatory = Regulatory { coppa = false }
-        val built = request(Content("v1", "en") { durationMillis = 92_000 }, mapOf("stage" to "first_episode", "layout" to "fullscreen"), listOf("a-1", "a-2"))
+        val built = request(Content("v1", "en") { durationMillis = 92_000 }, section = "feed", variantId = "exp-b")
         val body = built.body
         assertEquals(built.requestId, body.text("requestId"))
         for (absent in listOf("adServerUrl", "adServerURL", "formats", "placementId")) assertNull(absent, body[absent])
@@ -87,8 +84,8 @@ class ParityRequestsTest : SdkTest() {
         assertEquals(false, body.obj("ifa").bool("limitAdTracking"))
         assertEquals(false, body.obj("regulatory").bool("coppa"))
         assertEquals("s-1", body.text("sessionId"))
-        assertEquals(listOf("a-1", "a-2"), body["held"]!!.jsonArray.map { it.jsonPrimitive.content })
-        assertEquals(mapOf("stage" to "first_episode", "layout" to "fullscreen"), body.obj("labels").mapValues { it.value.jsonPrimitive.content })
+        assertNull("the server keeps the bids", body["held"])
+        assertEquals("feed", body.text("section"))
         assertEquals("92000", body.obj("video").text("duration"))
         val player = body.obj("player")
         assertEquals(true, player.bool("fullscreen"))
@@ -102,8 +99,7 @@ class ParityRequestsTest : SdkTest() {
 
     @Test fun aCoppaRequestCarriesNoIdentifierForAdvertising() {
         Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
-        KontextVideo.user = User {
-            id = "u1"
+        KontextVideo.user = User("u1") {
             email = "kid@example.com"
             emailHash = "h"
             keywords = listOf("cartoons")
@@ -111,20 +107,20 @@ class ParityRequestsTest : SdkTest() {
         KontextVideo.regulatory = Regulatory { coppa = true }
         val body = request().body
         assertNull("no advertising id for a child", body["ifa"])
-        assertEquals("no id, email or hash; keywords stay", Json.parseToJsonElement("""{"keywords": ["cartoons"]}"""), body["user"])
+        assertEquals("the id always, no email or hash; keywords stay", Json.parseToJsonElement("""{"id": "u1", "keywords": ["cartoons"]}"""), body["user"])
         assertEquals(true, body.obj("regulatory").bool("coppa"))
 
-        KontextVideo.user = User { id = "u1" }
-        assertNull("nothing left of the user", request().body["user"])
+        KontextVideo.user = User("u1")
+        assertEquals("the id alone", Json.parseToJsonElement("""{"id": "u1"}"""), request().body["user"])
     }
 
     @Test fun anAdsRequestCarriesExactlyWhatWasSetAndNothingElse() {
         val bare = request()
-        for (absent in listOf("user", "variantId", "labels", "regulatory", "ifa")) assertNull(absent, bare.body[absent])
-        assertEquals("nothing held: an empty list, never absent", JsonArray(emptyList()), bare.body["held"])
+        for (absent in listOf("variantId", "section", "labels", "held", "regulatory", "ifa")) assertNull(absent, bare.body[absent])
+        assertEquals("the user is always there", "test-user", bare.body.obj("user").text("id"))
         val again = request()
         assertNotEquals("a new id per request", bare.body.text("requestId"), again.body.text("requestId"))
-        KontextVideo.user = User { id = "later" }
+        KontextVideo.user = User("later")
         assertEquals("a change reaches the next request", "later", request().body.obj("user").text("id"))
     }
 

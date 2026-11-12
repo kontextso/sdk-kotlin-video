@@ -55,9 +55,8 @@ class MainSafetyTest : SdkTest() {
         val container = container()
         val screen = activity()
         val calls = listOf<Pair<String, () -> Unit>>(
-            "KontextVideo.user" to { KontextVideo.user = User { id = "u-1" } },
+            "KontextVideo.user" to { KontextVideo.user = User("u-1") },
             "KontextVideo.regulatory" to { KontextVideo.regulatory = Regulatory { coppa = false } },
-            "KontextVideo.variantId" to { KontextVideo.variantId = "b" },
             "KontextVideo.initialize()" to { KontextVideo.initialize(container.context, Configuration("test-token")) },
             "VideoAd.show(container)" to { unloaded.show(container) },
             "VideoAd.show(activity)" to { unloadedLinear.show(screen) },
@@ -72,7 +71,7 @@ class MainSafetyTest : SdkTest() {
         }
         assertEquals(calls.size, assertions.size)
         // On the main thread: nothing to say.
-        KontextVideo.variantId = "c"
+        KontextVideo.regulatory = null
         assertEquals(calls.size, assertions.size)
     }
 

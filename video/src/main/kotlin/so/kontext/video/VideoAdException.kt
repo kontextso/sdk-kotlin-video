@@ -33,7 +33,7 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
 
     /**
      * The request failed: [failure] says why (no network, a timeout, a server error, an answer the SDK could not
-     * use). Thrown only when the SDK holds no valid ad for the format; otherwise `format()` returns that one.
+     * use, no `KontextVideo.user`). Thrown only when the SDK holds no valid ad for the format; otherwise `format()` returns that one.
      * Never retried by the SDK; the app decides when to ask again. The underlying exception is in the SDK's log,
      * with the request's id.
      * @property failure Why the request failed.
@@ -91,7 +91,7 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
     )
 
     /**
-     * Why an ads request failed, in four outcomes an app can act on. Unlike a no-fill, the server's answer for
+     * Why an ads request failed, in five outcomes an app can act on. Unlike a no-fill, the server's answer for
      * the moment is unknown: asking again later may fill. There is no cancelled case: only `destroy()` cancels a
      * request, and its callers hear `Destroyed`.
      */
@@ -124,7 +124,13 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
          */
         public object BadResponse : RequestFailure("badResponse")
 
-        /** The case's name, for logs: `offline`, `timedOut`, `server(503)`, `badResponse`. */
+        /**
+         * No request was sent: `KontextVideo.user` is not set (or its id is empty), and every ads request names the
+         * viewer. Set it as soon as you know who watches (an account id, or your own id for a guest), then ask again.
+         */
+        public object MissingUser : RequestFailure("missingUser")
+
+        /** The case's name, for logs: `offline`, `timedOut`, `server(503)`, `badResponse`, `missingUser`. */
         override fun toString(): String = name
     }
 

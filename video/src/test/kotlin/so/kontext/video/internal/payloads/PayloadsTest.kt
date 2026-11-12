@@ -16,7 +16,7 @@ class PayloadsTest {
         val ad = AdPayload.parse(Fixtures.json(Fixtures.overlay()))
         assertEquals("ad-1", ad.id)
         assertEquals(AdFormat.OVERLAY, ad.format)
-        assertEquals(VideoAd.Price(8.0, "USD", VideoAd.Price.Precision.EXACT), ad.price)
+        assertEquals(VideoAd.Price(8.0, "USD"), ad.price)
         assertEquals(AdPayload.Position.BOTTOM, ad.position)
         assertEquals(listOf(AdPayload.Size(320, 80), AdPayload.Size(640, 160)), ad.sizes)
         assertEquals(6000L, ad.durationMillis)
@@ -28,10 +28,56 @@ class PayloadsTest {
         assertNull(ad.durationMillis)
     }
 
-    @Test fun aFullScreenPauseAdHasNoSizes() {
-        val ad = AdPayload.parse(Fixtures.json(Fixtures.pause(position = "fullscreen")))
+    @Test fun aPauseFullscreenAdIsItsOwnFormatWithNoSizes() {
+        val ad = AdPayload.parse(Fixtures.json(Fixtures.pauseFullscreen()))
+        assertEquals(AdFormat.PAUSE_FULLSCREEN, ad.format)
         assertEquals(AdPayload.Position.FULLSCREEN, ad.position)
         assertTrue(ad.sizes.isEmpty())
+        assertNull(ad.durationMillis)
+        // Its sizes are never read, whatever they hold.
+        val withJunk = Fixtures.pauseFullscreen().replace("\"position\": \"fullscreen\"", "\"position\": \"fullscreen\", \"sizes\": 7")
+        assertTrue(AdPayload.parse(Fixtures.json(withJunk)).sizes.isEmpty())
+    }
+
+    @Test fun aPauseAdIsACardOnlyAFullscreenOneIsDroppedAtItsPosition() {
+        val response = AdsResponse.parse(
+            Fixtures.ads(
+                Fixtures.entry("pause", Fixtures.pause(position = "fullscreen")),
+                Fixtures.entry("pauseFullscreen", Fixtures.pauseFullscreen()),
+            ),
+        )
+        val pause = response.result(AdFormat.PAUSE)!!
+        assertTrue(pause.ads.isEmpty())
+        assertEquals(listOf("position"), pause.dropped.map { it.path })
+        assertEquals(NoFillReason.Unknown, pause.noFillReason)
+        assertEquals("ad-4", response.result(AdFormat.PAUSE_FULLSCREEN)!!.ads.single().id)
+    }
+
+    @Test fun aPriceIsAValueAndACurrencyAnOldPrecisionIsIgnored() {
+        val withPrecision = Fixtures.overlay().replace("\"currency\": \"USD\"", "\"currency\": \"USD\", \"precision\": \"floor\"")
+        assertEquals(VideoAd.Price(8.0, "USD"), AdPayload.parse(Fixtures.json(withPrecision)).price)
+    }
+
+    @Test fun everyNoFillReasonOfTheContractIsKnown() {
+        val reasons = mapOf(
+            "noAdMatch" to NoFillReason.NoAdMatch,
+            "contentUnsafe" to NoFillReason.ContentUnsafe,
+            "formatNotEnabled" to NoFillReason.FormatNotEnabled,
+            "frequencyCap" to NoFillReason.FrequencyCap,
+            "geoRestricted" to NoFillReason.GeoRestricted,
+            "temporaryError" to NoFillReason.TemporaryError,
+        )
+        for ((wire, reason) in reasons) {
+            val response = AdsResponse.parse(Fixtures.ads(Fixtures.entry("pauseFullscreen", noFill = wire)))
+            assertEquals(reason, response.result(AdFormat.PAUSE_FULLSCREEN)!!.noFillReason, wire)
+        }
+        assertEquals(NoFillReason.Other("later"), noFillReasonFrom("later"))
+    }
+
+    @Test fun theFormatsWireNames() {
+        assertEquals(listOf("overlay", "pause", "pauseFullscreen", "linear"), AdFormat.entries.map { it.wireName })
+        assertEquals(AdFormat.PAUSE_FULLSCREEN, AdFormat.fromWire("pauseFullscreen"))
+        assertNull(AdFormat.fromWire("pause_fullscreen"))
     }
 
     @Test fun aLinearAdHasItsDurationAndSkipOffset() {
@@ -137,7 +183,8 @@ class PayloadsTest {
     @Test fun thePayloadsLastRefusals() {
         val refused = listOf(
             Fixtures.overlay().replace("\"creative\": \"image\"", "\"creative\": \"audio\""),
-            Fixtures.overlay().replace("\"precision\": \"exact\"", "\"precision\": \"guess\""),
+            Fixtures.pause().replace("\"position\": \"top\"", "\"position\": \"fullscreen\""),
+            Fixtures.pauseFullscreen().replace("\"position\": \"fullscreen\"", "\"position\": \"top\""),
             Fixtures.overlay().replace("\"position\": \"bottom\"", "\"position\": \"left\""),
             Fixtures.pause().replace("\"position\": \"top\"", "\"position\": \"middle\""),
             Fixtures.overlay().replace("\"kind\": \"frame\"", "\"kind\": \"vast\""),

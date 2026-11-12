@@ -64,7 +64,7 @@ class LinearLaunchTest {
 
     private val payload = """
         {"id": "ad-3", "format": "linear", "creative": "video", "trigger": {"kind": "manual"},
-         "price": {"value": 12.0, "currency": "USD", "precision": "exact"}, "expires": 600000,
+         "price": {"value": 12.0, "currency": "USD"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/ad-3"}, "tracking": [],
          "duration": 30000, "skipOffset": 5000}
     """.trimIndent()
@@ -72,7 +72,7 @@ class LinearLaunchTest {
     @Test fun theHostHearsNoUserLeaveHintWhenTheAdStarts() {
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
@@ -86,7 +86,7 @@ class LinearLaunchTest {
                 val parsed = AdPayload.parse(Json.parseToJsonElement(payload))
                 val linear = VideoAd(parsed, Environment.now(), owner)
                 val bridge = FrameBridge(Environment.context!!, parsed.id, parsed.frameUrl, true)
-                bridge.receive("""{"adId":"ad-3","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
+                bridge.receive("""{"bidId":"ad-3","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
                 bridge.onEvent = { linear.handle(it) }
                 linear.loadedBridge = bridge
                 linear.state.markLoaded()
@@ -118,7 +118,7 @@ class LinearLaunchTest {
         val parsed = AdPayload.parse(Json.parseToJsonElement(payload))
         val linear = VideoAd(parsed, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, parsed.id, parsed.frameUrl, true)
-        bridge.receive("""{"adId":"ad-3","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
+        bridge.receive("""{"bidId":"ad-3","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
         bridge.onEvent = { linear.handle(it) }
         linear.loadedBridge = bridge
         linear.state.markLoaded()
@@ -138,7 +138,7 @@ class LinearLaunchTest {
         shell("settings put system user_rotation 0") // the device held in portrait
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
@@ -194,7 +194,7 @@ class LinearLaunchTest {
         assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(
@@ -233,7 +233,7 @@ class LinearLaunchTest {
     @Test fun aTranslucentActivityOverTheLinearAdCoversItAndADialogDoesNot() {
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val host = instrumentation.startActivitySync(

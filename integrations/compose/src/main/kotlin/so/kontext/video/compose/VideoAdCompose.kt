@@ -30,7 +30,7 @@ import so.kontext.video.VideoAds
  * The `VideoAds` of one episode, for as long as this composition shows it: created for [content] (a new one when
  * its `id` changes), [setUp] run once on it (`ads.track(player)`) once the composition is applied, and destroyed
  * when the composition leaves, the episode changes, or the composition is abandoned before it was applied.
- * [labels] and [setUp] are read when the episode's `VideoAds` is made. Destroying ends the ad on screen, a linear
+ * [section], [variantId] and [setUp] are read when the episode's `VideoAds` is made (see `VideoAds`). Destroying ends the ad on screen, a linear
  * ad too: move to the next episode after a post-roll's `onEnded`.
  *
  * For ads that must survive a rotation, keep the `VideoAds` in a `ViewModel` instead and destroy it in
@@ -39,10 +39,11 @@ import so.kontext.video.VideoAds
 @Composable
 public fun rememberVideoAds(
     content: Content,
-    labels: Map<String, String> = emptyMap(),
+    section: String? = null,
+    variantId: String? = null,
     setUp: (VideoAds) -> Unit = {},
 ): VideoAds {
-    return remember(content.id) { EpisodeAds(VideoAds(content, labels), setUp) }.ads
+    return remember(content.id) { EpisodeAds(VideoAds(content, section, variantId), setUp) }.ads
 }
 
 /**

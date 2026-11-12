@@ -74,8 +74,11 @@ public object KontextVideo {
     public val state: State get() = SdkState.current.phase
 
     /**
-     * What the publisher knows about the viewer. Set it whenever you learn it, for example after login; the
-     * next ads request carries it. Ads already loaded keep the targeting they were requested with.
+     * The viewer, required for ads: every ads request names them by [User.id]. Set it as soon as you know who
+     * watches, before the first `format()` (a guest gets your own id for the install), and again when it changes,
+     * for example after login; the next ads request carries it. Without it `format()` sends nothing and throws
+     * `Request(MissingUser)` (in a debuggable build that mistake stops the app). Ads already loaded keep the
+     * targeting they were requested with.
      */
     @JvmStatic
     @set:MainThread
@@ -98,16 +101,6 @@ public object KontextVideo {
         set(value) {
             if (!IntegrationGuard.requireMainThread("KontextVideo.regulatory")) return
             SdkState.current.recordRegulatory(value)
-        }
-
-    /** The publisher's A/B test variant, if any; sent with every later request. */
-    @JvmStatic
-    @set:MainThread
-    public var variantId: String?
-        get() = SdkState.current.variantId
-        set(value) {
-            if (!IntegrationGuard.requireMainThread("KontextVideo.variantId")) return
-            SdkState.current.recordVariantId(value)
         }
 
     /**
@@ -149,7 +142,7 @@ public object KontextVideo {
 
     /**
      * The options a publisher sets when initializing the SDK. They do not change during a run; what the viewer
-     * is and consented to can change later and lives on [KontextVideo] (`user`, `regulatory`, `variantId`).
+     * is and consented to can change later and lives on [KontextVideo] (`user`, `regulatory`).
      *
      * Kotlin: `KontextVideo.Configuration("your-token-dev") { logLevel = LogLevel.DEBUG }`.
      * Java: `new KontextVideo.Configuration.Builder("your-token-dev").logLevel(LogLevel.DEBUG).build()`.
@@ -242,7 +235,10 @@ public object KontextVideo {
         /** BCP-47, for example "en" or "pt-BR". Required and non-empty, as [id]. */
         public val language: String = builder.language
 
-        /** Whether the video suits every advertiser; `null` when you do not know. */
+        /**
+         * Whether the video suits every advertiser. `null` means unknown, not safe: the server then serves only the
+         * ads that accept content of unknown rating, so set it whenever you know it.
+         */
         public val mediaRating: Rating? = builder.mediaRating
 
         /** The episode's public page. */
@@ -250,9 +246,6 @@ public object KontextVideo {
 
         /** The episode's public name. */
         public val title: String? = builder.title
-
-        /** IAB Content Taxonomy 3.0 ids. */
-        public val categories: List<String>? = builder.categories?.toList()
 
         /** A short synopsis of the episode. */
         public val description: String? = builder.description
@@ -297,9 +290,6 @@ public object KontextVideo {
             /** [Content.title]. */
             public var title: String? = null
 
-            /** [Content.categories]. */
-            public var categories: List<String>? = null
-
             /** [Content.description]. */
             public var description: String? = null
 
@@ -326,9 +316,6 @@ public object KontextVideo {
 
             /** Sets [Content.title]; returns this builder, for chaining. */
             public fun title(value: String?): Builder = apply { title = value }
-
-            /** Sets [Content.categories]; returns this builder, for chaining. */
-            public fun categories(value: List<String>?): Builder = apply { categories = value }
 
             /** Sets [Content.description]; returns this builder, for chaining. */
             public fun description(value: String?): Builder = apply { description = value }
@@ -408,7 +395,7 @@ public object KontextVideo {
         }
 
         private val fields: List<Any?>
-            get() = listOf(id, language, mediaRating, url, title, categories, description, durationMillis, episodeNumber, keywords, genre, series)
+            get() = listOf(id, language, mediaRating, url, title, description, durationMillis, episodeNumber, keywords, genre, series)
 
         override fun equals(other: Any?): Boolean = other is Content && fields == other.fields
 
@@ -426,30 +413,40 @@ public object KontextVideo {
     }
 
     /**
-     * What the publisher knows about the viewer. Every field is optional. No demographics: OpenRTB 2.6 and
-     * AdCOM deprecated `user.yob` and `user.gender`; [keywords] and the identity fields are what buyers still read.
+     * The viewer, as the publisher knows them: [id] is required, the rest optional. No demographics: OpenRTB 2.6
+     * and AdCOM deprecated `user.yob` and `user.gender`; [keywords] and the identity fields are what buyers still read.
+     *
+     * Kotlin: `KontextVideo.User("u-42") { emailHash = "…" }`. Java: `new KontextVideo.User.Builder("u-42").build()`.
      */
     public class User private constructor(builder: Builder) {
-        /** The publisher's own unique identifier of the viewer. An empty id is left out of the request. */
-        public val id: String? = builder.id
+        /**
+         * The publisher's own id of the viewer, required and non-empty (at most 256 characters): an account id, or
+         * an id of your own for a guest, kept for the install. Always sent, for a child too (`coppa`): the server
+         * keeps it from buyers then. An empty id counts as no user: no request is sent.
+         */
+        public val id: String = builder.id
 
-        /** Plain email address, when the viewer's consent allows it. Sent as given; the SDK neither normalizes nor hashes it. */
+        /**
+         * Plain email address, when the viewer's consent allows it. Sent as given; the SDK neither normalizes nor
+         * hashes it. Never sent for a child (`coppa`).
+         */
         public val email: String? = builder.email
 
         /**
          * A hash of the viewer's email address, sent as given. SHA-256 of the trimmed, lowercased address is
-         * what we suggest. When [email] is set too, both are sent and the server matches on `email`.
+         * what we suggest. When [email] is set too, both are sent and the server matches on `email`. Never sent
+         * for a child (`coppa`).
          */
         public val emailHash: String? = builder.emailHash
 
         /** The viewer's interests, in the publisher's own words. */
         public val keywords: List<String>? = builder.keywords?.toList()
 
-        /** Set what you know; every field may stay `null`. */
-        public class Builder {
-            /** [User.id]. */
-            public var id: String? = null
-
+        /**
+         * Only `id` is required.
+         * @property id [User.id].
+         */
+        public class Builder(public val id: String) {
             /** [User.email]. */
             public var email: String? = null
 
@@ -458,9 +455,6 @@ public object KontextVideo {
 
             /** [User.keywords]. */
             public var keywords: List<String>? = null
-
-            /** Sets [User.id]; returns this builder, for chaining. */
-            public fun id(value: String?): Builder = apply { id = value }
 
             /** Sets [User.email]; returns this builder, for chaining. */
             public fun email(value: String?): Builder = apply { email = value }
@@ -486,8 +480,8 @@ public object KontextVideo {
 
         /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
         public companion object {
-            /** `User { id = "u-42" }`. */
-            public operator fun invoke(block: Builder.() -> Unit): User = Builder().apply(block).build()
+            /** `User("u-42") { keywords = listOf("romance") }`. */
+            public operator fun invoke(id: String, block: Builder.() -> Unit = {}): User = Builder(id).apply(block).build()
         }
     }
 
@@ -509,7 +503,8 @@ public object KontextVideo {
 
         /**
          * Whether the request is subject to COPPA; `null` is unspecified. Cannot be read from the device, so only the
-         * publisher sets it. When `true`, ads requests carry no advertising id and no user id, email or email hash.
+         * publisher sets it. When `true`, ads requests carry no advertising id, email or email hash; the user id is
+         * still sent, and the server keeps it from buyers.
          */
         public val coppa: Boolean? = builder.coppa
 

@@ -42,7 +42,7 @@ class VideoAdHostDeviceTest {
     @Before fun setUpSdk() {
         instrumentation.runOnMainSync {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(KontextVideo.Configuration("test-token"))
         }
     }
@@ -76,14 +76,14 @@ class VideoAdHostDeviceTest {
         val payload = AdPayload.parse(
             Json.parseToJsonElement(
                 """{"id": "ad-p0", "format": "pause", "creative": "image", "trigger": {"kind": "manual"},
-                 "price": {"value": 5.5, "currency": "EUR", "precision": "estimated"}, "expires": 600000,
+                 "price": {"value": 5.5, "currency": "EUR"}, "expires": 600000,
                  "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/ad-p0"}, "tracking": [],
                  "position": "top", "sizes": [{"width": 300, "height": 250, "scalable": false}]}""",
             ),
         )
         val ad = VideoAd(payload, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
-        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
+        bridge.receive("""{"bidId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
         bridge.onEvent = { event -> ad.handle(event) }
         ad.loadedBridge = bridge
         ad.state.markLoaded()

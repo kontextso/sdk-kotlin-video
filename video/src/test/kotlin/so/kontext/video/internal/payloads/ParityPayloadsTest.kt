@@ -142,7 +142,6 @@ class ParityPayloadsTest {
         assertEquals("ad", path("42"))
         assertEquals("id", path(Fixtures.overlay(id = "")))
         assertEquals("price.currency", path(overlay.replace("\"USD\"", "\"usd\"")))
-        assertEquals("price.precision", path(overlay.replace("\"exact\"", "\"floor\"")))
         assertEquals("expires", path(Fixtures.overlay(expires = 0)))
         assertEquals("duration", path(Fixtures.overlay(duration = "-1")))
         assertEquals("sizes", path(Fixtures.overlay(sizes = "[]")))
@@ -189,7 +188,7 @@ class ParityPayloadsTest {
         assertEquals(AdFormat.PAUSE, ad.format)
         assertEquals(AdPayload.Creative.IMAGE, ad.creative)
         assertEquals(600_000L, ad.expiresMillis)
-        assertEquals(VideoAd.Price(5.5, "EUR", VideoAd.Price.Precision.ESTIMATED), ad.price)
+        assertEquals(VideoAd.Price(5.5, "EUR"), ad.price)
         assertEquals("https://frames.test/v2/frame/ad-2", ad.frameUrl)
         assertEquals(AdPayload.Position.TOP, ad.position)
         assertEquals(listOf(AdPayload.Size(300, 250, isScalable = false)), ad.sizes)
@@ -255,7 +254,10 @@ class ParityPayloadsTest {
         assertEquals(1, absent.tracking.size, "an absent offset is no offset")
         // A fractional checkpoint fires once the video passes it.
         val sent = mutableListOf<String>()
-        Environment.sendBeacon = { url, _ -> sent += url }
+        Environment.sendBeacon = { url, _ ->
+            sent += url
+            null
+        }
         try {
             Tracker(ad.id, ad.tracking).fireProgress(5_000)
             assertEquals((0..4).map { "https://t.test/p?n=$it" }, sent.sorted())
@@ -367,7 +369,6 @@ class ParityPayloadsTest {
             mediaRating = Content.Rating.EXPLICIT
             url = "https://p.test/ep/6"
             title = "Episode 6"
-            categories = listOf("640")
             description = "d"
             durationMillis = 92_400
             episodeNumber = 6
@@ -381,7 +382,7 @@ class ParityPayloadsTest {
         }
         val expected = """
             {"id": "100001-6", "language": "pt-BR", "mediaRating": "explicit", "url": "https://p.test/ep/6", "title": "Episode 6",
-             "categories": ["640"], "description": "d", "duration": 92400, "episodeNumber": 6, "keywords": ["love"], "genre": "romance",
+             "description": "d", "duration": 92400, "episodeNumber": 6, "keywords": ["love"], "genre": "romance",
              "series": {"id": "100001", "title": "S", "description": "sd", "episodeCount": 40}}
         """
         assertEquals(Json.parseToJsonElement(expected), content.toJson())
@@ -426,8 +427,7 @@ class ParityPayloadsTest {
     }
 
     @Test fun aUserIsSentExactlyAsGivenAndOnlyWhatIsSet() {
-        val user = User {
-            id = "U-42"
+        val user = User("U-42") {
             email = "  Viewer.Name@Example.COM "
             emailHash = "AbC123=="
             keywords = listOf("Romance", " CEO ")
@@ -438,21 +438,18 @@ class ParityPayloadsTest {
         )
         assertEquals(
             Json.parseToJsonElement("""{"id": "u1", "keywords": []}"""),
-            User {
-                id = "u1"
+            User("u1") {
                 keywords = emptyList()
             }.toJson(),
         )
-        assertEquals(setOf("emailHash"), User { emailHash = "abc" }.toJson().keys)
-        val empty = User {
-            id = ""
+        assertEquals(setOf("id", "emailHash"), User("u1") { emailHash = "abc" }.toJson().keys)
+        val empty = User("") {
             email = ""
             emailHash = ""
         }
-        assertTrue(empty.toJson().isEmpty())
+        assertEquals(setOf("id"), empty.toJson().keys, "the id always: a request is never made without one")
         assertEquals(listOf("id", "email", "emailHash"), empty.emptyFields)
-        assertTrue(User {}.toJson().isEmpty())
-        assertNotEquals(User { id = "u1" }, User { id = "u2" })
+        assertNotEquals(User("u1"), User("u2"))
     }
 
     @Test fun regulatoryEncodesEveryFieldAndOmitsWhatIsUnset() {

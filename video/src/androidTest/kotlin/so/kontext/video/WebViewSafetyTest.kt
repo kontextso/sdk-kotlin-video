@@ -33,7 +33,7 @@ class WebViewSafetyTest {
 
     @Before fun setUp() = main {
         Environment.context = instrumentation.targetContext
-        Environment.sendBeacon = { _, _ -> }
+        Environment.sendBeacon = { _, _ -> null }
         SdkInitializer.configureForTesting(Configuration("test-token"))
     }
 
@@ -46,7 +46,7 @@ class WebViewSafetyTest {
     private fun ad(owner: VideoAds, frameUrl: String) = VideoAd(
         AdPayload(
             id = "ad-1", format = AdFormat.OVERLAY, creative = AdPayload.Creative.IMAGE,
-            price = VideoAd.Price(8.0, "USD", VideoAd.Price.Precision.EXACT), expiresMillis = 600_000,
+            price = VideoAd.Price(8.0, "USD"), expiresMillis = 600_000,
             frameUrl = frameUrl, tracking = emptyList(), position = AdPayload.Position.BOTTOM,
             sizes = listOf(AdPayload.Size(320, 80)), durationMillis = null, skipOffsetMillis = null,
         ),
@@ -109,6 +109,7 @@ class WebViewSafetyTest {
             // Nothing listens there: the request fails at once.
             SdkInitializer.resetForTesting()
             SdkInitializer.configureForTesting(Configuration("test-token") { adServerUrl = "http://127.0.0.1:9" })
+            so.kontext.video.internal.state.SdkState.current.recordUser(KontextVideo.User("test-user"))
             owner = VideoAds(Content("ep", "en"))
             // A held ad that expired, whose WebView the next request releases.
             val expired = VideoAd(ad(owner, "https://frames.test/v2/frame/ad-1").payload, Environment.now() - 700_000, owner)

@@ -8,6 +8,8 @@ import so.kontext.video.internal.network.UrlAuthority
 import so.kontext.video.internal.payloads.emptyFields
 import so.kontext.video.internal.payloads.leftOut
 import so.kontext.video.internal.payloads.missingRequired
+import so.kontext.video.internal.payloads.nameProblem
+import so.kontext.video.internal.payloads.usable
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.SdkState
 import java.net.URI
@@ -64,12 +66,32 @@ internal object IntegrationGuard {
         if (content.leftOut.isNotEmpty()) Logger.warning { "content ${content.id}: ${content.leftOut.joinToString()}" }
     }
 
-    /** A user with empty fields: they are left out of the requests; an empty id stops a debuggable app. */
+    /** A user with empty fields: they are left out of the requests; an empty id, which no request can carry, stops a debuggable app. */
     fun checkUser(user: User?) {
         val empty = user?.emptyFields.orEmpty()
         if (empty.isEmpty()) return
         if ("id" in empty) Environment.assertionFailure("KontextVideo.user: id is empty")
-        Logger.warning { "user: ${empty.joinToString()} empty, left out of the requests" }
+        Logger.warning { "user: ${empty.joinToString()} empty${if ("id" in empty) "; no ads request can be sent" else ", left out of the requests"}" }
+    }
+
+    /**
+     * Guards an ads request: every one names the viewer, so without `KontextVideo.user` (or with an empty id)
+     * nothing is sent. A mistake in the app's code: it stops a debuggable app; a release build logs it, and the
+     * request fails with `MissingUser`.
+     */
+    fun requireUser(call: String): Boolean {
+        if (SdkState.current.user.usable != null) return true
+        Environment.assertionFailure("KontextVideo: set KontextVideo.user before $call")
+        Logger.error { "$call without KontextVideo.user: no request sent; set the viewer's id first" }
+        return false
+    }
+
+    /** A `section` or `variantId` the request would have to leave out: said once when its `VideoAds` is made. */
+    fun checkNames(section: String?, variantId: String?) {
+        val problems = listOfNotNull(section.nameProblem()?.let { "section $it" }, variantId.nameProblem()?.let { "variantId $it" })
+        if (problems.isEmpty()) return
+        Environment.assertionFailure("VideoAds: ${problems.joinToString()}")
+        Logger.error { "VideoAds: ${problems.joinToString()}; left out of the requests" }
     }
 }
 

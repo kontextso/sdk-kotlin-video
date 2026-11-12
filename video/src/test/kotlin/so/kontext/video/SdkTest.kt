@@ -23,6 +23,7 @@ import so.kontext.video.internal.payloads.AdPayload
 import so.kontext.video.internal.platform.AppActivities
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.screen.LinearScreen
+import so.kontext.video.internal.state.SdkState
 import java.time.Duration
 
 /**
@@ -39,10 +40,15 @@ abstract class SdkTest {
     @Before fun setUpSdk() {
         Environment.context = ApplicationProvider.getApplicationContext()
         Environment.assertionFailure = {}
-        Environment.sendBeacon = { url, _ -> beacons += url }
+        Environment.sendBeacon = { url, _ ->
+            beacons += url
+            null
+        }
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
         SdkInitializer.configureForTesting(Configuration("test-token"))
+        // Every ads request names the viewer.
+        SdkState.current.recordUser(KontextVideo.User("test-user"))
     }
 
     @After fun tearDownSdk() {
@@ -90,7 +96,7 @@ abstract class SdkTest {
     internal fun loaded(payload: AdPayload, owner: VideoAds = owner()): VideoAd {
         val ad = VideoAd(payload, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
-        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
+        bridge.receive("""{"bidId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
         bridge.onEvent = { event -> ad.handle(event) } // as the ad wires the bridges it makes itself
         ad.loadedBridge = bridge
         ad.state.markLoaded()
@@ -100,8 +106,9 @@ abstract class SdkTest {
     protected fun overlay(owner: VideoAds = owner(), duration: String = "null", tracking: String = "[]") =
         loaded(AdPayload.parse(Fixtures.json(Fixtures.overlay(duration = duration, tracking = tracking))), owner)
 
+    /** A pause ad: a card at [position] (`top`, `bottom`), or with `fullscreen` a `PAUSE_FULLSCREEN` ad. */
     protected fun pause(owner: VideoAds = owner(), position: String = "top") =
-        loaded(AdPayload.parse(Fixtures.json(Fixtures.pause(position = position))), owner)
+        loaded(AdPayload.parse(Fixtures.json(if (position == "fullscreen") Fixtures.pauseFullscreen(id = "ad-2") else Fixtures.pause(position = position))), owner)
 
     protected fun linear(owner: VideoAds = owner(), tracking: String = "[]") =
         loaded(AdPayload.parse(Fixtures.json(Fixtures.linear().replace("\"tracking\": []", "\"tracking\": $tracking"))), owner)
@@ -109,7 +116,7 @@ abstract class SdkTest {
     /** Sends the ad's page a message, as its main frame. */
     protected fun page(ad: VideoAd, type: String, fields: String = "") {
         val bridge = ad.loadedBridge ?: return
-        bridge.receive("""{"adId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", Origin.of(ad.payload.frameUrl), true)
+        bridge.receive("""{"bidId":"${ad.id}","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", Origin.of(ad.payload.frameUrl), true)
     }
 
     companion object {
