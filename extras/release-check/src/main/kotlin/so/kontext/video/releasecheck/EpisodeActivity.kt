@@ -39,7 +39,7 @@ class EpisodeActivity : Activity(), VideoAdListener {
         root.addView(adArea, match())
         setContentView(root)
 
-        ads = VideoAds(Content("release-check-episode-1", "en") { title = "Episode 1" })
+        ads = VideoAds(Content("release-check-episode-1", "en") { title = "Episode 1" }, section = "release-check")
         ads.track(player)
         ads.format(AdFormat.OVERLAY, object : VideoAdCallback {
             override fun onAd(ad: VideoAd) {

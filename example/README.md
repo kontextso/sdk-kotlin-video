@@ -5,14 +5,13 @@ classic Views. It is built with the SDK from this repo (not from Maven Central) 
 
 ## What it shows
 
-The home screen lists five videos, one per situation. Each plays a bundled sample episode on loop:
+The home screen lists four videos, one per format. Each plays a bundled sample episode on loop:
 
 | Video | Format | What happens |
 |---|---|---|
-| Revenge of the Heiress | overlay (bottom) | An overlay after 3 s of playing; pausing ends it |
-| Midnight Vows | overlay (top) | An overlay at the top after 3 s of playing (labels `layout: top`); pausing ends it |
+| Revenge of the Heiress | overlay | An overlay after 3 s of playing; pausing ends it |
 | The CEO's Secret | linear | A full-screen linear ad after 3 s of playing |
-| The Heir's Return | pause (full screen) | Tap to pause: a full-screen pause ad shows; its Resume button plays on |
+| The Heir's Return | pauseFullscreen | Tap to pause: a full-screen pause ad shows; its Resume button plays on |
 | Moonlit Contract | pause (card) | Tap the player to pause: a pause ad shows; tap again to resume |
 
 A status line under the title shows the ad's format and price once it is loaded, or why there is none. An ad at
@@ -23,25 +22,26 @@ above the title and the status line.
 
 | File | What it does |
 |---|---|
-| `ExampleApp.kt` | `KontextVideo.initialize` once, at launch, with debug logging |
+| `ExampleApp.kt` | `KontextVideo.initialize` once, at launch, with debug logging; `KontextVideo.user`, a guest id kept for the install |
 | `MainActivity.kt` | The list of videos |
 | `PlayerActivity.kt` | One episode: the player, the ad area over it, `VideoAds` per episode, `track(player)`, `format` → `load` → `show`, the listener, `destroy()` in `onDestroy` |
-| `Video.kt` | The five demo videos: id, title, format, labels; `find`, the video a deep link names |
+| `Video.kt` | The four demo videos: id, title, format, section; `find`, the video a deep link names |
 
 `PlayerActivity` is the one to read: it is the integration a publisher writes, in about 200 lines.
 
 ## Run it
 
 ```bash
-./gradlew :example:installDebug
+./gradlew :example:installDebug -PkontextPublisherToken=<your token>
 adb shell am start -n so.kontext.video.example/.MainActivity                          # the home screen
 adb shell am start -n so.kontext.video.example/.MainActivity --es video demo-overlay  # one video directly
 adb shell am start -n so.kontext.video.example/.MainActivity --es video pause         # a format: its demo-<format> video
 adb logcat -s KontextVideo                                                            # the SDK's log
 ```
 
-It talks to the production ad server, whose demo routes answer any token (`example-debug`); put your own
-publisher token in `ExampleApp.kt` to see your own ads. An emulator needs 4 GB of RAM or more for ExoPlayer and a
+It talks to the production ad server with your publisher token, from Kontext: pass it as above, or put
+`kontextPublisherToken=<your token>` in `~/.gradle/gradle.properties`. None is committed; without one the app
+runs and the server refuses its requests. An emulator needs 4 GB of RAM or more for ExoPlayer and a
 WebView at once.
 
 For Jetpack Compose, see `integrations/compose`; for a TTSDK player, `adapters/ttsdk`; for a Tencent Cloud Player, `adapters/txplayer`.
