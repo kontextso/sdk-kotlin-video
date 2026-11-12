@@ -5,7 +5,7 @@ only points here. Details live in [DEVELOPMENT.md](DEVELOPMENT.md), the release 
 
 ## Project
 
-Kontext Kotlin Video SDK: overlay, pause and linear ads in short-drama and other video-first Android apps. Kotlin
+Kontext Kotlin Video SDK: overlay, pause, full-screen pause and linear ads in short-drama and other video-first Android apps. Kotlin
 2.1 (built for apps on Kotlin 2.0+ and Java 11+), min SDK 24 (Android 7), published to Maven Central as `so.kontext:video` (and `so.kontext:video-media3`, `so.kontext:video-ttsdk` and `so.kontext:video-txplayer`, the player
 adapters, and `so.kontext:video-compose`, the Jetpack Compose functions). It is the Android twin of [sdk-swift-video](https://github.com/kontextso/sdk-swift-video): the same
 public API shape, the same wire contract, the same frame protocol and the same behavior, in Android and Kotlin
@@ -37,12 +37,12 @@ adb logcat -s KontextVideo
 
 ## Architecture
 
-- `KontextVideo` (an `object`): `initialize(context, configuration)` (`/config`), `user`, `regulatory`, `variantId`;
+- `KontextVideo` (an `object`): `initialize(context, configuration)` (`/config`), `user` (required for ads), `regulatory`;
   the models nested in it, as in Swift: `KontextVideo.Configuration`, `.Content`, `.User`, `.Regulatory`
   (`VideoAdException.NoFillReason` in the exception).
-- `VideoAds`: one per video. `format()` asks the server for all formats with the `VideoAds`'s `sessionId` and the
-  ids of the unshown bids it holds (`held`); one request at a time, shared by every caller; the server owns the bid
-  state and the SDK follows the response.
+- `VideoAds`: one per video, with its `section` and `variantId`. `format()` asks the server for all formats with
+  the `VideoAds`'s `sessionId`, after its outcome beacons still on the wire (`PendingBeacons`, at most 2 s); one
+  request at a time, shared by every caller; the server owns the bid state and the SDK follows the response.
 - `VideoAd`: the facts (`price`, `durationMillis`), `load()` (shared), `reject()`, `show(container, insets)` for
   overlay and pause, `show(activity)` for linear, `dismiss()`; the page's events mapped to beacons and the listener;
   `end()` is the only terminal path.
@@ -62,7 +62,7 @@ adb logcat -s KontextVideo
     `SdkLifecycle.kt`: the SDK's legal moves between the phases of `KontextVideo.State` (`canMove`), stateless.
     `SdkState.kt`: every fact of the SDK's life, the one source of truth: its phase (moved only by `moveTo`, which
     asks `SdkLifecycle.canMove`), the configuration, what `/config` said of the reports (`isErrorReportingOn`,
-    `null` until it answers; `isDebugReportingOn`), the app's inputs (`user`, `regulatory`, `variantId`), and
+    `null` until it answers; `isDebugReportingOn`), the app's inputs (`user`, `regulatory`), and
     `isInitialized` and `disabledReason` derived from the phase; one shared instance, `SdkState.current`, which
     `KontextVideo`, the requests and the reporters read. `AdLifecycle.kt`: the rules of an ad's
     life, stateless: its phases (offered, invalidated, reserved, on screen, ending, ended) and `canMove`, their
@@ -103,8 +103,9 @@ adb logcat -s KontextVideo
   - `network/`, everything that goes to our server and back: `HttpTransport` (connections, redirects, at most
     10), `ApiClient` (our server), `BeaconClient` (tracking GETs), `ConfigFetcher` (the `/config` request),
     `AdsFetcher` (one `VideoAds`'s ads request:
-    the waits, the body, the answer, its failures, the kill switch), `ApiException`.
-  - `device/`: `DeviceInfo` (the device facts), `UserAgent` (the shared lookup, its wait and its fallback), `Consent` (through KontextKit).
+    the waits, the body, the answer, its failures, the kill switch), `PendingBeacons` (the outcome beacons a
+    request waits for), `ApiException`.
+  - `device/`: `DeviceInfo` (the device facts, the network's through KontextKit), `UserAgent` (the shared lookup, its wait and its fallback), `Consent` (through KontextKit).
   - `diagnostics/`: `Logger`; `IntegrationGuard` (the app's own mistakes: off the main thread, before
     `initialize`, a configuration, content or user that cannot work); `ErrorReporter` (the shell that sends to `/error`), `ErrorReport` (one report: its
     vocabulary and its JSON), `ReportQueue` (the bounded queue and its batches); `DebugReporter` (`/debug`),

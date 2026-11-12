@@ -4,15 +4,15 @@ Jetpack Compose functions for the SDK. Two calls replace the host view, the effe
 Compose screen would otherwise write itself.
 
 ```kotlin
-implementation("so.kontext:video:0.1.0")
-implementation("so.kontext:video-compose:0.1.0")
+implementation("so.kontext:video:0.2.0")
+implementation("so.kontext:video-compose:0.2.0")
 ```
 
 ```kotlin
 @Composable
 fun EpisodeScreen(content: KontextVideo.Content, player: ExoPlayer) {
     // One per episode: created for it, tracked, destroyed when the screen or the episode goes
-    val ads = rememberVideoAds(content) { it.track(player) }
+    val ads = rememberVideoAds(content, section = "feed") { it.track(player) }
     var adOnScreen by remember { mutableStateOf<VideoAd?>(null) }
     val scope = rememberCoroutineScope()
 

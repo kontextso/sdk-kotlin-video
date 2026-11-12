@@ -129,11 +129,11 @@ compileSdk 35. The older minimums above follow from the metadata and are not bui
 
 ## Running the example app
 
-The example talks to the production ad server, whose demo routes answer any token: five videos, one per
-situation, each with its labels.
+The example talks to the production ad server with the publisher token you pass it (none is committed): four
+videos, one per format, each with its section.
 
 ```bash
-./gradlew :example:installDebug
+./gradlew :example:installDebug -PkontextPublisherToken=<your token>
 adb shell am start -n so.kontext.video.example/.MainActivity                    # the home screen
 adb shell am start -n so.kontext.video.example/.MainActivity --es video demo-overlay   # one video directly
 adb logcat -s KontextVideo

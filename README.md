@@ -1,17 +1,17 @@
 # Kontext Kotlin Video SDK
 
-An Android SDK for Kontext video ads (overlay, pause and linear) in short-drama and other video-first apps. The
+An Android SDK for Kontext video ads (overlay, pause, full-screen pause and linear) in short-drama and other video-first apps. The
 Android twin of the [Swift Video SDK](https://github.com/kontextso/sdk-swift-video).
 
 ## Install
 
 ```kotlin
 dependencies {
-    implementation("so.kontext:video:0.1.1")
-    implementation("so.kontext:video-media3:0.1.1")  // optional: ads.track(exoPlayer)
-    implementation("so.kontext:video-ttsdk:0.1.1")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
-    implementation("so.kontext:video-txplayer:0.1.1") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
-    implementation("so.kontext:video-compose:0.1.1") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
+    implementation("so.kontext:video:0.2.0")
+    implementation("so.kontext:video-media3:0.2.0")  // optional: ads.track(exoPlayer)
+    implementation("so.kontext:video-ttsdk:0.2.0")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
+    implementation("so.kontext:video-txplayer:0.2.0") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
+    implementation("so.kontext:video-compose:0.2.0") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
 }
 ```
 
@@ -21,9 +21,14 @@ dependencies {
 // Application.onCreate, once
 KontextVideo.initialize(this, KontextVideo.Configuration("your-publisher-token"))
 
+// As soon as you know the viewer (an account id, or your own id for a guest), and again after a login.
+// Required: without a user, format() sends nothing and throws Request(MissingUser).
+KontextVideo.user = KontextVideo.User("viewer-42")
+
 // The episode's ads live in a ViewModel, so a rotation keeps them
 class EpisodeViewModel : ViewModel() {
-    val ads = VideoAds(KontextVideo.Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 })
+    // section: where in the app the player is, as agreed with Kontext; it picks the placements that answer
+    val ads = VideoAds(KontextVideo.Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 }, section = "feed")
     var pauseAd: VideoAd? = null
 
     override fun onCleared() = ads.destroy() // the viewer left the episode
@@ -35,7 +40,8 @@ val ads = viewModel.ads
 ads.track(player) // your Media3 player, or your own ContentPlayer
 
 // Prepare a pause ad early: format() gets the offer (its price, before anything renders),
-// load() renders the creative so show() is instant
+// load() renders the creative so show() is instant. AdFormat.PAUSE_FULLSCREEN is the pause ad that covers
+// the whole player, with its own Resume button (onAdEnded(RESUMED))
 lifecycleScope.launch {
     val pauseAd = try { ads.format(AdFormat.PAUSE).apply { load() } } catch (e: VideoAdException) { null }
     pauseAd?.listener = object : VideoAdListener {

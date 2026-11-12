@@ -4,8 +4,8 @@ Follows a TTSDK `TTVideoEngine` (BytePlus / Volcengine VOD player, 1.40 or later
 player in one line instead of implementing `ContentPlayer`.
 
 ```kotlin
-implementation("so.kontext:video:0.1.0")
-implementation("so.kontext:video-ttsdk:0.1.0")
+implementation("so.kontext:video:0.2.0")
+implementation("so.kontext:video-ttsdk:0.2.0")
 ```
 
 ```kotlin
