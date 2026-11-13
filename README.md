@@ -70,8 +70,8 @@ Destroy the `VideoAds` with whatever owns it. Owned by a `ViewModel`, as above: 
 every new Activity `track` its player and set the ads' listeners again, so the ads survive a rotation. Owned by the
 Activity (or a Fragment, or a Compose `DisposableEffect`): `destroy()` in its `onDestroy()` (`onDispose`), every
 time; declare `android:configChanges` for rotation, as the example app does, so a rotation does not recreate it. A
-`VideoAds` its owner forgot is freed only once nothing holds it (a player it tracks holds it while that player
-lives), and its ad on screen runs until it ends: `destroy()` is the way to end its ads at once.
+`VideoAds` its owner forgot is freed only once nothing holds it (a player it tracks does not hold
+it), and its ad on screen runs until it ends: `destroy()` is the way to end its ads at once.
 
 A click on an ad opens its web link in an in-app browser (a Custom Tab) over your app, so the viewer stays in it;
 Play Store links, app links and web links an installed app claims open that app. The ad stays under its own
