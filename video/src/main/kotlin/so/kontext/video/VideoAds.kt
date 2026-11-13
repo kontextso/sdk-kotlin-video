@@ -21,6 +21,7 @@ import so.kontext.video.internal.diagnostics.IntegrationGuard
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.measurement.Tracker
 import so.kontext.video.internal.network.AdsFetcher
+import so.kontext.video.internal.network.PendingBeacons
 import so.kontext.video.internal.payloads.AdsResponse
 import so.kontext.video.internal.platform.Environment
 import so.kontext.video.internal.state.AdStore
@@ -34,17 +35,27 @@ import java.lang.ref.WeakReference
  * can be alive at once. Call [destroy] when the viewer leaves the video (see its notes). Every call is
  * main-thread, except [format], which may be called from any dispatcher.
  *
- * [labels] say where the ads play, such as the viewer's stage in the series or the player's layout
- * (`mapOf("stage" to "first_episode")`); every ads request of this `VideoAds` carries them, fixed for its
- * life. They are sent as given: use the names and values Kontext gives you. They describe the screen, never the
- * viewer: no personal data.
+ * Kotlin: `VideoAds(content, section = "feed")`. Java: `new VideoAds(content, "feed", null)`.
  */
 public class VideoAds
 @MainThread @JvmOverloads
 constructor(
     /** The video the ads are for; every request carries it. */
     public val content: Content,
-    labels: Map<String, String> = emptyMap(),
+    /**
+     * Where in the app the player is, as Kontext named it with you (`"feed"`, `"series_detail"`): it chooses the
+     * formats (and their settings) the publisher configured for that section. One non-empty name of at most 128
+     * characters; `null` sends none. Empty or longer is an integration mistake: a debuggable build stops at it, and
+     * the value is left out of the request. It describes the screen, never the viewer: no personal data. Every
+     * request of this `VideoAds` carries it.
+     */
+    public val section: String? = null,
+    /**
+     * The publisher's A/B test variant for this video's ads; `null` when none. Sent with every request. Empty or
+     * longer than 128 characters is an integration mistake: a debuggable build stops at it, and the value is left
+     * out of the request.
+     */
+    public val variantId: String? = null,
 ) {
     /** [destroy] was called: the object does nothing any more. */
     public var isDestroyed: Boolean = false
@@ -53,9 +64,6 @@ constructor(
     /** The id of the latest ads request, `null` before the first. Quote it to Kontext when an ad or a no-fill looks wrong. */
     public val lastRequestId: String? get() = fetcher.lastRequestId
 
-    // Labels are a free format on purpose: Kontext defines them per publisher and the server ignores the ones it
-    // does not use, so the SDK sends exactly what the app gives, with no checks (any key, any value, any number).
-    internal val labels: Map<String, String> = labels.toMap()
     internal val playback = ContentPlayback()
 
     /**
@@ -66,6 +74,9 @@ constructor(
 
     /** The ads held, at most one unshown per format, and the ids that left (see [AdStore]). */
     private val store = AdStore()
+
+    /** The `notUsed` and `error` beacons of this object's ads still on the wire: the next request waits for them. */
+    internal val pendingBeacons = PendingBeacons()
 
     /** The unshown ad of each format, at most one. */
     internal val ads: MutableMap<AdFormat, VideoAd> get() = store.ads
@@ -82,10 +93,11 @@ constructor(
     /** The ads request itself: the waits, the body, the answer, its failures and the kill switch. */
     private val fetcher = AdsFetcher(
         content,
-        this.labels,
+        section,
+        variantId,
         sessionId,
         playheadMillis = { playheadMillis },
-        heldIds = store::heldIds,
+        pendingBeacons = pendingBeacons,
         checkIdsAgainstHeld = store::checkIdsAgainstHeld,
         checkStillUsable = ::checkStillUsable,
     )
@@ -100,6 +112,7 @@ constructor(
         IntegrationGuard.requireInitialized("VideoAds(content)")
         // What the publisher passed wrong, said once here rather than as a server 400 later.
         IntegrationGuard.checkContent(content, sessionId)
+        IntegrationGuard.checkNames(section, variantId)
         // Held weakly: the kill switch reaches its unshown ads; it does not keep a forgotten one alive.
         LiveVideoAds.add(this)
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
@@ -111,10 +124,13 @@ constructor(
 
     /**
      * The ad for [format]: `ads.format(AdFormat.PAUSE)`, then its `price` and other facts, then `load()` or
-     * `reject()`. Every call asks the server for all formats and lists the unshown ads it holds (`held`); the
-     * server returns those unchanged until they expire, so the same ad comes back. Calls made while a request
-     * runs share it. A failed request returns the held ad when it is still valid. Throws [VideoAdException]:
-     * `NoFill`, `Request` (nothing valid held; its `failure` says why), `Destroyed`, `Disabled`, `NotInitialized`, `InitializationFailed`.
+     * `reject()`. Every call asks the server for all formats of the [section]; the server keeps the bids it gave
+     * this `VideoAds` and returns an unshown one unchanged until it expires or its outcome is known, so the same ad
+     * comes back. A `reject()` just before is heard first: the request waits up to 2 s for its `notUsed` beacon.
+     * Calls made while a request runs share it. A failed request returns the held ad when it is still valid.
+     * Without `KontextVideo.user` nothing is sent and it fails with `Request(MissingUser)`, held ad or not. Throws
+     * [VideoAdException]: `NoFill`, `Request` (nothing valid held; its `failure` says why), `Destroyed`,
+     * `Disabled`, `NotInitialized`, `InitializationFailed`.
      * A cancelled caller stops waiting; the request itself continues. Callable from any dispatcher: the work
      * runs on the main thread.
      */
@@ -130,6 +146,8 @@ constructor(
             task.await()
         } catch (error: VideoAdException.Request) {
             checkStillUsable()
+            // No user is the app's mistake, not the moment's: a held ad must not hide it.
+            if (error.failure == VideoAdException.RequestFailure.MissingUser) throw error
             store.ad(format)?.let { held ->
                 Logger.info { "$format for ${content.id}: request failed, returning the held ad ${held.id.take(8)}" }
                 return held
@@ -219,7 +237,7 @@ constructor(
         Logger.debug { "VideoAds destroyed for video ${content.id}" }
     }
 
-    override fun toString(): String = "VideoAds(content=${content.id}, destroyed=$isDestroyed)"
+    override fun toString(): String = "VideoAds(content=${content.id}, section=$section, destroyed=$isDestroyed)"
 
     /** An ad ended before `show`, or was shown: it leaves its format, and its id is never accepted again. */
     internal fun adDidLeave(ad: VideoAd) = store.left(ad)
@@ -342,7 +360,7 @@ constructor(
         store.endAll { ad ->
             ad.withContentPlayhead {
                 ad.invalidate(VideoAd.InvalidationReason.Destroyed)
-                ad.tracker.fire("notUsed", notUsed = Tracker.NotUsed.Destroyed)
+                ad.fireNotUsed(Tracker.NotUsed.Destroyed)
             }
         }
         showing?.end(VideoAd.EndReason.DESTROYED)

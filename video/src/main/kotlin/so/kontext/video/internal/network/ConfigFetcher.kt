@@ -5,6 +5,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import so.kontext.video.KontextVideo.Configuration
+import so.kontext.video.VideoAdException.RequestFailure
+import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
 import so.kontext.video.internal.diagnostics.Logger
@@ -18,7 +20,7 @@ import so.kontext.video.internal.payloads.ConfigResponse
 internal object ConfigFetcher {
     /**
      * The answer, or `null` when the request failed: then [onFailure] runs first (the SDK moves to `Failed`), and
-     * the failure is logged and reported (`CONFIG_FAILED`).
+     * the failure is logged, reported (`CONFIG_FAILED`) and said as the debug event `config.failed`.
      */
     suspend fun fetch(context: Context, configuration: Configuration, onFailure: () -> Unit): ConfigResponse? {
         var requestId: String? = null
@@ -37,6 +39,11 @@ internal object ConfigFetcher {
             onFailure()
             Logger.error { "/config failed, no ads until it succeeds: ${error.message}" }
             ErrorReporter.report(ErrorReport.Code.CONFIG_FAILED, requestId = requestId, failure = ErrorReport.FailedRequest(error))
+            // As `ads.requestFailed`: the failure's kind, and a server error's status.
+            val failure = error.toRequestFailure()
+            val properties = mutableMapOf<String, Any>("failure" to failure.kind)
+            if (failure is RequestFailure.Server) properties["httpStatus"] = failure.status
+            DebugReporter.event("config.failed", level = DebugReporter.Level.WARNING, properties = properties)
             null
         }
     }

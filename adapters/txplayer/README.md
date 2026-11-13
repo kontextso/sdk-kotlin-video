@@ -4,8 +4,8 @@ Follows a Tencent Cloud Player SDK (LiteAV) `TXVodPlayer`, 11.0 or later, so an 
 line instead of implementing `ContentPlayer`.
 
 ```kotlin
-implementation("so.kontext:video:0.1.0")
-implementation("so.kontext:video-txplayer:0.1.0")
+implementation("so.kontext:video:0.2.0")
+implementation("so.kontext:video-txplayer:0.2.0")
 ```
 
 ```kotlin

@@ -42,17 +42,17 @@ class FrameProtocolTest {
           window.addEventListener('message', function (event) {
             var message = event.data;
             if (typeof message === 'string') { try { message = JSON.parse(message); } catch (e) { return; } }
-            if (!message || message.adId !== 'ad-1' || message.type !== 'ad.show') return;
+            if (!message || message.bidId !== 'ad-1' || message.type !== 'ad.show') return;
             window.shownWith = JSON.stringify(message);
-            KontextAndroid.postMessage(JSON.stringify({ adId: 'ad-1', type: 'video.start', playhead: 0 }));
+            KontextAndroid.postMessage(JSON.stringify({ bidId: 'ad-1', type: 'video.start', playhead: 0 }));
           });
-          KontextAndroid.postMessage(JSON.stringify({ adId: 'ad-1', type: 'ad.loaded' }));
+          KontextAndroid.postMessage(JSON.stringify({ bidId: 'ad-1', type: 'ad.loaded' }));
         </script></body></html>
     """.trimIndent()
 
     private val payload = """
         {"id": "ad-1", "format": "overlay", "creative": "video", "trigger": {"kind": "manual"},
-         "price": {"value": 8.0, "currency": "USD", "precision": "exact"}, "expires": 600000,
+         "price": {"value": 8.0, "currency": "USD"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "$url"},
          "tracking": [{"event": "impression", "url": "https://t.test/b?e=impression"}],
          "position": "bottom", "sizes": [{"width": 320, "height": 80}], "duration": null}
@@ -80,7 +80,10 @@ class FrameProtocolTest {
         var loadError: VideoAdException? = null
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { beacon, _ -> beacons += beacon }
+            Environment.sendBeacon = { beacon, _ ->
+                beacons += beacon
+                null
+            }
             SdkInitializer.configureForTesting(Configuration("test-token"))
             owner = VideoAds(Content("ep", "en"))
             ad = VideoAd(AdPayload.parse(Json.parseToJsonElement(payload)), Environment.now(), owner)

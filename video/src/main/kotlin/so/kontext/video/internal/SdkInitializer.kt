@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import so.kontext.video.KontextVideo.Configuration
 import so.kontext.video.KontextVideo.State
 import so.kontext.video.internal.content.PlayerOwnership
+import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.device.UserAgent
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReporter
@@ -127,6 +128,7 @@ internal object SdkInitializer {
         DebugReporter.resetForTesting()
         ErrorReporter.resetForTesting()
         UserAgent.resetForTesting()
+        DeviceInfo.resetForTesting()
         PlayerOwnership.resetForTesting()
         LiveVideoAds.resetForTesting()
         Logger.level = Configuration.LogLevel.WARNING

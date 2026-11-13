@@ -49,6 +49,8 @@ class VideoAdsTest {
     @Volatile private var configAnswer: MockResponse = MockResponse().setBody("""{"enabled": true}""")
 
     @Before fun start() {
+        // Every ads request names the viewer.
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.path.orEmpty()
@@ -63,7 +65,10 @@ class VideoAdsTest {
         server.start()
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
-        Environment.sendBeacon = { url, _ -> beacons += url }
+        Environment.sendBeacon = { url, _ ->
+            beacons += url
+            null
+        }
     }
 
     @After fun stop() {
@@ -128,19 +133,19 @@ class VideoAdsTest {
         assertEquals(KontextVideo.State.Enabled, KontextVideo.state)
     }
 
-    @Test fun formatReturnsTheAdAndListsItAsHeldNextTime() {
+    @Test fun formatReturnsTheAdAndTheSameIdKeepsIt() {
         initialize()
         adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
-        val ads = VideoAds(Content("ep", "en") { title = "Episode" }, mapOf("stage" to "first_episode"))
+        val ads = VideoAds(Content("ep", "en") { title = "Episode" }, section = "feed")
         val ad = format(ads, AdFormat.PAUSE).getOrThrow()
-        assertEquals(VideoAd.Price(5.5, "EUR", VideoAd.Price.Precision.ESTIMATED), ad.price)
+        assertEquals(VideoAd.Price(5.5, "EUR"), ad.price)
         val again = format(ads, AdFormat.PAUSE).getOrThrow()
         assertSame("the same id keeps the same ad", ad, again)
         val bodies = adsBodies()
-        assertEquals("first_episode", bodies[0]["labels"]?.jsonObject?.get("stage")?.jsonPrimitive?.content)
+        assertEquals("feed", bodies[0]["section"]?.jsonPrimitive?.content)
+        assertNull("no held list any more", bodies[1]["held"])
         assertEquals("ep", bodies[0]["video"]?.jsonObject?.get("id")?.jsonPrimitive?.content)
-        assertTrue(bodies[0]["held"]!!.jsonArray.isEmpty())
-        assertEquals("ad-2", bodies[1]["held"]!!.jsonArray.single().jsonPrimitive.content)
+        assertNull(bodies[0]["held"])
         assertEquals(bodies[1]["requestId"]?.jsonPrimitive?.content, ads.lastRequestId)
         ads.destroy()
     }
@@ -346,7 +351,7 @@ class VideoAdsTest {
     @Test fun aMalformedAdCostsOnlyItsOwnFormatAndIsReportedOnce() {
         configAnswer = MockResponse().setBody("""{"enabled": true, "reportErrors": true}""")
         initialize()
-        val broken = Fixtures.overlay().replace("\"precision\": \"exact\"", "\"precision\": \"floor\"")
+        val broken = Fixtures.overlay().replace("\"USD\"", "\"usd\"")
         adsAnswer = MockResponse().setBody(
             Fixtures.ads(Fixtures.entry("overlay", broken), Fixtures.entry("pause", Fixtures.pause()), Fixtures.entry("menu")).toString(),
         )
@@ -363,7 +368,7 @@ class VideoAdsTest {
         val reports = requests.filter { it.first == "/v2/error" }.flatMap { Json.parseToJsonElement(it.second).jsonObject["errors"]!!.jsonArray }
         val report = reports.map { it.jsonObject }.single { it["requestId"]?.jsonPrimitive?.content == requestId }
         assertEquals("ads.decode_failed", report["code"]?.jsonPrimitive?.content)
-        assertEquals("the format and the field that failed, as the Swift SDK sends", "overlay:price.precision", report["detail"]?.jsonPrimitive?.content)
+        assertEquals("the format and the field that failed, as the Swift SDK sends", "overlay:price.currency", report["detail"]?.jsonPrimitive?.content)
         ads.destroy()
     }
 
@@ -390,8 +395,7 @@ class VideoAdsTest {
         assertEquals("ad-1", format(ads, AdFormat.OVERLAY).getOrThrow().id)
         assertSame("the answer said nothing about pause: the held ad stays", pause, format(ads, AdFormat.PAUSE).getOrThrow())
         assertNull(pause.invalidationReason)
-        val held = adsBodies().last()["held"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet()
-        assertEquals("listed as held next time", setOf("ad-1", "ad-2"), held)
+        assertNull("no held list: the server keeps the bids", adsBodies().last()["held"])
         adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", noFill = "frequencyCap")).toString())
         assertEquals(NoFillReason.FrequencyCap, (format(ads, AdFormat.PAUSE).exceptionOrNull() as VideoAdException.NoFill).reason)
         assertEquals("a no-fill drops it", VideoAd.InvalidationReason.Expired, pause.invalidationReason)

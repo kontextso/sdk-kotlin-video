@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 class FrameMessageTest {
     private fun parse(raw: String?, limit: Long = 30_000) = FrameMessage.parse(raw, "ad-1", limit)
 
-    private fun message(fields: String) = parse("""{"adId":"ad-1","type":"video.progress"${if (fields.isEmpty()) "" else ", $fields"}}""")!!
+    private fun message(fields: String) = parse("""{"bidId":"ad-1","type":"video.progress"${if (fields.isEmpty()) "" else ", $fields"}}""")!!
 
     @Test fun aBrokenEnvelopeIsNull() {
         val broken = listOf(
@@ -19,19 +19,20 @@ class FrameMessageTest {
             "[1, 2]" to "an array",
             "\"ad.loaded\"" to "a string",
             """{"type":"ad.loaded"}""" to "no id",
-            """{"adId":"ad-2","type":"ad.loaded"}""" to "another ad's id",
-            """{"adId":1,"type":"ad.loaded"}""" to "an id that is not a string",
-            """{"adId":"ad-1"}""" to "no type",
-            """{"adId":"ad-1","type":7}""" to "a type that is not a string",
+            """{"bidId":"ad-2","type":"ad.loaded"}""" to "another ad's id",
+            """{"bidId":1,"type":"ad.loaded"}""" to "an id that is not a string",
+            """{"adId":"ad-1","type":"ad.loaded"}""" to "the old envelope name: only bidId counts",
+            """{"bidId":"ad-1"}""" to "no type",
+            """{"bidId":"ad-1","type":7}""" to "a type that is not a string",
         )
         for ((raw, why) in broken) assertNull(parse(raw), why)
-        assertNotNull(parse("""{"adId":"ad-1","type":"ad.loaded"}"""))
-        assertEquals("something.new", parse("""{"adId":"ad-1","type":"something.new"}""")!!.type, "any type: the protocol judges it")
+        assertNotNull(parse("""{"bidId":"ad-1","type":"ad.loaded"}"""))
+        assertEquals("something.new", parse("""{"bidId":"ad-1","type":"something.new"}""")!!.type, "any type: the protocol judges it")
     }
 
     @Test fun theLimitIsOneMegabyteInUtf8() {
         fun sized(bytes: Int): String {
-            val head = """{"adId":"ad-1","type":"ad.loaded","pad":""""
+            val head = """{"bidId":"ad-1","type":"ad.loaded","pad":""""
             val tail = "\"}"
             return head + "x".repeat(bytes - head.length - tail.length) + tail
         }
@@ -39,12 +40,12 @@ class FrameMessageTest {
         assertEquals(1024 * 1024, limit)
         assertNotNull(parse(sized(limit)), "at the limit")
         assertNull(parse(sized(limit + 1)), "just over")
-        assertNull(parse("""{"adId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(limit / 2)}"}"""), "two-byte characters count twice")
+        assertNull(parse("""{"bidId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(limit / 2)}"}"""), "two-byte characters count twice")
     }
 
     @Test fun aMessageNestedTooDeepIsABrokenEnvelopeAndNeverParsed() {
         assertNull(parse("[".repeat(100_000)), "past JsonParser.MAX_DEPTH: no StackOverflowError")
-        val deep = "{\"adId\":\"ad-1\",\"type\":\"ad.loaded\",\"pad\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}"
+        val deep = "{\"bidId\":\"ad-1\",\"type\":\"ad.loaded\",\"pad\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}"
         assertNull(parse(deep))
     }
 
@@ -59,7 +60,7 @@ class FrameMessageTest {
             "\"playhead\": null" to 0L,
         )
         for ((fields, expected) in table) assertEquals(expected, message(fields).playheadMillis, fields)
-        assertEquals(86_400_000L, parse("""{"adId":"ad-1","type":"video.pause","playhead":1e12}""", limit = 86_400_000)!!.playheadMillis)
+        assertEquals(86_400_000L, parse("""{"bidId":"ad-1","type":"video.pause","playhead":1e12}""", limit = 86_400_000)!!.playheadMillis)
     }
 
     @Test fun theOffsetIsANumberOnly() {
@@ -76,25 +77,25 @@ class FrameMessageTest {
     }
 
     @Test fun riskyInputsReadAsNothingOrTheirBound() {
-        assertEquals(0L, parse("""{"adId":"ad-1","type":"video.pause","playhead":true}""")!!.playheadMillis, "a boolean playhead is none")
-        assertNull(parse("""{"adId":"ad-1","type":"ad.error","code":true}""")!!.code, "a boolean code is none: the failure's code applies")
-        assertEquals(30_000L, parse("""{"adId":"ad-1","type":"video.pause","playhead":1e400}""")!!.playheadMillis, "past a Double: the bound")
-        assertNull(parse("""{"adId":"ad-1","type":"video.pause","playhead":NaN}"""), "a bare NaN is not JSON: a broken envelope")
-        assertNull(parse("""{"adId":"ad-1","type":"video.pause","type":"video.start"}"""), "a key twice: a broken envelope")
+        assertEquals(0L, parse("""{"bidId":"ad-1","type":"video.pause","playhead":true}""")!!.playheadMillis, "a boolean playhead is none")
+        assertNull(parse("""{"bidId":"ad-1","type":"ad.error","code":true}""")!!.code, "a boolean code is none: the failure's code applies")
+        assertEquals(30_000L, parse("""{"bidId":"ad-1","type":"video.pause","playhead":1e400}""")!!.playheadMillis, "past a Double: the bound")
+        assertNull(parse("""{"bidId":"ad-1","type":"video.pause","playhead":NaN}"""), "a bare NaN is not JSON: a broken envelope")
+        assertNull(parse("""{"bidId":"ad-1","type":"video.pause","type":"video.start"}"""), "a key twice: a broken envelope")
         val big = "https://brand.test/" + "x".repeat(900 * 1024)
-        assertEquals(big, parse("""{"adId":"ad-1","type":"ad.click","url":"$big"}""")!!.url, "900 KB stays under the 1 MB limit")
+        assertEquals(big, parse("""{"bidId":"ad-1","type":"ad.click","url":"$big"}""")!!.url, "900 KB stays under the 1 MB limit")
     }
 
     @Test fun theFieldsAreTakenAsSent() {
         val click = parse(
-            """{"adId":"ad-1","type":"ad.click","url":"https://a.test","fallbackUrl":"https://b.test","area":"endCard"}""",
+            """{"bidId":"ad-1","type":"ad.click","url":"https://a.test","fallbackUrl":"https://b.test","area":"endCard"}""",
         )!!
         assertEquals(listOf("ad.click", "https://a.test", "https://b.test", "endCard"), listOf(click.type, click.url, click.fallbackUrl, click.area))
-        val open = parse("""{"adId":"ad-1","type":"ad.open","url":"https://c.test","purpose":"adChoices"}""")!!
+        val open = parse("""{"bidId":"ad-1","type":"ad.open","url":"https://c.test","purpose":"adChoices"}""")!!
         assertEquals("adChoices", open.purpose)
-        assertEquals("skip", parse("""{"adId":"ad-1","type":"ad.close","reason":"skip"}""")!!.reason)
-        assertEquals(402.0, parse("""{"adId":"ad-1","type":"ad.error","code":402}""")!!.code)
-        val bare = parse("""{"adId":"ad-1","type":"ad.loaded"}""")!!
+        assertEquals("skip", parse("""{"bidId":"ad-1","type":"ad.close","reason":"skip"}""")!!.reason)
+        assertEquals(402.0, parse("""{"bidId":"ad-1","type":"ad.error","code":402}""")!!.code)
+        val bare = parse("""{"bidId":"ad-1","type":"ad.loaded"}""")!!
         assertEquals(listOf(null, null, null, null, null, null), listOf(bare.url, bare.fallbackUrl, bare.area, bare.purpose, bare.reason, bare.code))
     }
 }

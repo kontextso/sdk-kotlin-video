@@ -1,5 +1,6 @@
 package so.kontext.video.internal.network
 
+import android.content.Context
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -8,10 +9,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import so.kontext.video.KontextVideo.Content
 import so.kontext.video.VideoAdException
+import so.kontext.video.VideoAdException.RequestFailure
 import so.kontext.video.internal.SdkInitializer
 import so.kontext.video.internal.diagnostics.DebugReporter
 import so.kontext.video.internal.diagnostics.ErrorReport
 import so.kontext.video.internal.diagnostics.ErrorReporter
+import so.kontext.video.internal.diagnostics.IntegrationGuard
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.payloads.AdsRequest
 import so.kontext.video.internal.payloads.AdsResponse
@@ -23,9 +26,11 @@ import so.kontext.video.internal.state.SdkState
  * by `VideoAds.format`, which holds the shared task. What the answer does to the held ads is `AdStore`'s plan,
  * carried out by `VideoAds`.
  *
- * 1. Wait for the SDK (`/config`); it must be on, and the `VideoAds` still usable.
- * 2. Build the request: `held` is read after the waits (`/config`, the user agent, the advertising id), just
- *    before the body, so an ad shown, rejected or expired meanwhile is not listed.
+ * 1. A user must be set: without one nothing is sent (`Request(MissingUser)`). Then wait for the SDK
+ *    (`/config`); it must be on, and the `VideoAds` still usable.
+ * 2. Wait for this `VideoAds`'s outcome beacons still on the wire (`PendingBeacons`, at most 2 s), so the server
+ *    has heard a `reject()` made just before; then build the request: the user, the consent and the playhead are
+ *    read after every wait (`/config`, the beacons, the user agent, the advertising id), just before the body.
  * 3. POST `video/ads` and parse the answer; an id held under another format makes it malformed. A failure is
  *    reported and thrown as `VideoAdException.Request`.
  * 4. The kill switch in an answer switches the whole SDK off (`SdkInitializer.disable` drops the unshown ads of
@@ -33,12 +38,13 @@ import so.kontext.video.internal.state.SdkState
  */
 internal class AdsFetcher(
     private val content: Content,
-    private val labels: Map<String, String>,
+    private val section: String?,
+    private val variantId: String?,
     private val sessionId: String,
     /** Content time now, for the request. */
     private val playheadMillis: () -> Long,
-    /** The ids of the valid ads held, read just before the body. */
-    private val heldIds: () -> List<String>,
+    /** The `notUsed` and `error` beacons the request waits for. */
+    private val pendingBeacons: PendingBeacons,
     /** Throws for an answer whose ids clash with the held ads (`AdStore.checkIdsAgainstHeld`). */
     private val checkIdsAgainstHeld: (AdsResponse) -> Unit,
     /** Throws `Destroyed` or `Disabled` once the `VideoAds` may no longer use an answer. */
@@ -50,7 +56,8 @@ internal class AdsFetcher(
 
     /** Asks the server; returns the answer, or throws [VideoAdException]. */
     suspend fun fetch(): AdsResponse {
-        // 1. The SDK on, the VideoAds still usable.
+        // 1. A user, the SDK on, the VideoAds still usable.
+        if (!IntegrationGuard.requireUser("ads.format()")) throw failed(RequestFailure.MissingUser)
         val isEnabled = SdkInitializer.waitUntilEnabled()
         checkStillUsable()
         if (!isEnabled) {
@@ -58,33 +65,18 @@ internal class AdsFetcher(
             SdkState.current.disabledReason?.let { throw VideoAdException.Disabled(it) }
             throw VideoAdException.InitializationFailed()
         }
-        // 2. The request, `held` read now.
+        // 2. The outcome beacons first, then the request, the user, the consent and the playhead read now.
+        pendingBeacons.await()
+        checkStillUsable()
         val configuration = SdkState.current.configuration ?: throw VideoAdException.NotInitialized()
         val context = Environment.context ?: throw VideoAdException.NotInitialized()
-        val adsRequest = try {
-            AdsRequest.make(context, configuration.publisherToken, content, labels, playheadMillis(), sessionId, heldIds)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: VideoAdException) {
-            throw error
-        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-            // The device facts, the stored ids or KontextKit threw: the app hears a failed request, never a raw
-            // exception (format() throws only VideoAdException).
-            checkStillUsable()
-            Logger.error { "${content.id}: the request could not be built, ${error.message}" }
-            ErrorReporter.report(
-                ErrorReport.Code.ADS_REQUEST_FAILED,
-                requestId = null,
-                sessionId = sessionId,
-                failure = ErrorReport.FailedRequest(error),
-            )
-            throw VideoAdException.Request(VideoAdException.RequestFailure.BadResponse)
-        }
+        val adsRequest = build(context, configuration.publisherToken)
         // Another video's response may have switched the SDK off meanwhile: nothing leaves.
         checkStillUsable()
         lastRequestId = adsRequest.requestId
-        Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms, holding ${adsRequest.held.size}" }
-        DebugReporter.event("ads.request", sessionId = sessionId, properties = mapOf("held" to adsRequest.held.size, "playhead" to adsRequest.playheadMillis))
+        Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms${section?.let { " for section $it" } ?: ""}" }
+        val requestProperties = mapOf("playhead" to adsRequest.playheadMillis) + (section?.let { mapOf("section" to it) } ?: emptyMap())
+        DebugReporter.event("ads.request", sessionId = sessionId, properties = requestProperties)
         // 3. The answer, parsed and checked against the held ads.
         val response = try {
             val answer = ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)
@@ -104,7 +96,7 @@ internal class AdsFetcher(
                 sessionId = sessionId,
                 failure = ErrorReport.FailedRequest(error),
             )
-            throw VideoAdException.Request(error.toRequestFailure())
+            throw failed(error.toRequestFailure())
         }
         // 4. The kill switch switches the whole SDK off and drops the unshown ads of every `VideoAds`, with no notices.
         if (response is AdsResponse.Disabled) {
@@ -133,6 +125,47 @@ internal class AdsFetcher(
                 )
             }
         }
+    }
+
+    /**
+     * The request's body; a failure to build it is a failed request: `MissingUser` when the user was cleared while
+     * the request waited, `BadResponse` when the device facts or KontextKit threw.
+     */
+    @Suppress("SwallowedException") // the user's absence, said as the failure format() promises
+    private suspend fun build(context: Context, publisherToken: String): AdsRequest = try {
+        AdsRequest.make(context, publisherToken, content, section, variantId, playheadMillis(), sessionId)
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: VideoAdException.Request) {
+        // The user was cleared while the request waited.
+        checkStillUsable()
+        if (error.failure == RequestFailure.MissingUser) IntegrationGuard.requireUser("ads.format()")
+        throw failed(error.failure)
+    } catch (error: VideoAdException) {
+        throw error
+    } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+        // The device facts, the stored ids or KontextKit threw: the app hears a failed request, never a raw
+        // exception (format() throws only VideoAdException).
+        checkStillUsable()
+        Logger.error { "${content.id}: the request could not be built, ${error.message}" }
+        ErrorReporter.report(
+            ErrorReport.Code.ADS_REQUEST_FAILED,
+            requestId = null,
+            sessionId = sessionId,
+            failure = ErrorReport.FailedRequest(error),
+        )
+        throw failed(RequestFailure.BadResponse)
+    }
+
+    /**
+     * The failure as `format()` throws it, said as the debug event `ads.requestFailed`: `failure` is the case's
+     * name (`offline`, `timedOut`, `server`, `badResponse`, `missingUser`), `httpStatus` a server error's status.
+     */
+    private fun failed(failure: RequestFailure): VideoAdException.Request {
+        val properties = mutableMapOf<String, Any>("failure" to failure.kind)
+        if (failure is RequestFailure.Server) properties["httpStatus"] = failure.status
+        DebugReporter.event("ads.requestFailed", sessionId = sessionId, level = DebugReporter.Level.WARNING, properties = properties)
+        return VideoAdException.Request(failure)
     }
 
     companion object {

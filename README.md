@@ -1,17 +1,17 @@
 # Kontext Kotlin Video SDK
 
-An Android SDK for Kontext video ads (overlay, pause and linear) in short-drama and other video-first apps. The
+An Android SDK for Kontext video ads (overlay, pause, full-screen pause and linear) in short-drama and other video-first apps. The
 Android twin of the [Swift Video SDK](https://github.com/kontextso/sdk-swift-video).
 
 ## Install
 
 ```kotlin
 dependencies {
-    implementation("so.kontext:video:0.1.1")
-    implementation("so.kontext:video-media3:0.1.1")  // optional: ads.track(exoPlayer)
-    implementation("so.kontext:video-ttsdk:0.1.1")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
-    implementation("so.kontext:video-txplayer:0.1.1") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
-    implementation("so.kontext:video-compose:0.1.1") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
+    implementation("so.kontext:video:0.2.0")
+    implementation("so.kontext:video-media3:0.2.0")  // optional: ads.track(exoPlayer)
+    implementation("so.kontext:video-ttsdk:0.2.0")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
+    implementation("so.kontext:video-txplayer:0.2.0") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
+    implementation("so.kontext:video-compose:0.2.0") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
 }
 ```
 
@@ -21,9 +21,15 @@ dependencies {
 // Application.onCreate, once
 KontextVideo.initialize(this, KontextVideo.Configuration("your-publisher-token"))
 
+// As soon as you know the viewer (an account id, or your own id for a guest), and again after a login.
+// Required: without a user, format() sends nothing and throws Request(MissingUser).
+KontextVideo.user = KontextVideo.User("viewer-42")
+
 // The episode's ads live in a ViewModel, so a rotation keeps them
 class EpisodeViewModel : ViewModel() {
-    val ads = VideoAds(KontextVideo.Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 })
+    // section: where in the app the player is, as agreed with Kontext; it chooses the formats
+    // (and their settings) the publisher configured for that section
+    val ads = VideoAds(KontextVideo.Content("episode-6", "en") { title = "Episode 6"; durationMillis = 92_000 }, section = "feed")
     var pauseAd: VideoAd? = null
 
     override fun onCleared() = ads.destroy() // the viewer left the episode
@@ -35,7 +41,8 @@ val ads = viewModel.ads
 ads.track(player) // your Media3 player, or your own ContentPlayer
 
 // Prepare a pause ad early: format() gets the offer (its price, before anything renders),
-// load() renders the creative so show() is instant
+// load() renders the creative so show() is instant. AdFormat.PAUSE_FULLSCREEN is the pause ad that covers
+// the whole player, with its own Resume button (onAdEnded(RESUMED))
 lifecycleScope.launch {
     val pauseAd = try { ads.format(AdFormat.PAUSE).apply { load() } } catch (e: VideoAdException) { null }
     pauseAd?.listener = object : VideoAdListener {
@@ -63,8 +70,8 @@ Destroy the `VideoAds` with whatever owns it. Owned by a `ViewModel`, as above: 
 every new Activity `track` its player and set the ads' listeners again, so the ads survive a rotation. Owned by the
 Activity (or a Fragment, or a Compose `DisposableEffect`): `destroy()` in its `onDestroy()` (`onDispose`), every
 time; declare `android:configChanges` for rotation, as the example app does, so a rotation does not recreate it. A
-`VideoAds` its owner forgot is freed only once nothing holds it (a player it tracks holds it while that player
-lives), and its ad on screen runs until it ends: `destroy()` is the way to end its ads at once.
+`VideoAds` its owner forgot is freed only once nothing holds it (a player it tracks does not hold
+it), and its ad on screen runs until it ends: `destroy()` is the way to end its ads at once.
 
 A click on an ad opens its web link in an in-app browser (a Custom Tab) over your app, so the viewer stays in it;
 Play Store links, app links and web links an installed app claims open that app. The ad stays under its own

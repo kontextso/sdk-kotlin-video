@@ -4,6 +4,7 @@ import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -62,8 +63,11 @@ internal object BeaconClient {
         var users = 0
     }
 
-    /** GETs [url]; [label] names it in the log (`ad f1a2b3c4: impression`). */
-    fun send(url: String, label: String) {
+    /**
+     * GETs [url]; [label] names it in the log (`ad f1a2b3c4: impression`). The job ends once the beacon was
+     * answered, failed or gave up: the next ads request waits for an outcome beacon by it (`PendingBeacons`).
+     */
+    fun send(url: String, label: String): Job =
         Environment.scope.launch {
             val status = runCatching { inLane(url) { exchange(url) } }
             status.onFailure { Logger.warning { "$label beacon failed, ${it.javaClass.simpleName}" } }
@@ -74,7 +78,6 @@ internal object BeaconClient {
                 answer >= 400 -> Logger.warning { "$label beacon answered $answer" }
             }
         }
-    }
 
     /** Runs [block] once [url]'s host has a turn free. A URL with no host to read gets a lane of its own. */
     private suspend fun <T> inLane(url: String, block: suspend () -> T): T {

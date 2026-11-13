@@ -24,26 +24,49 @@ internal val Content.leftOut: List<String>
         series?.episodeCount?.takeIf { it < 1 }?.let { "series.episodeCount $it left out" },
     )
 
-// COPPA: a child's request carries no identifier for advertising, no advertising id, user id or email. The
-// rule is here, in one place; the request sends what these return.
+// COPPA: a child's request carries no identifier for advertising, no advertising id, email or email hash. The
+// user id is still sent: the server's privacy decision keeps it from buyers, and its caps and analytics key on
+// it. The rule is here, in one place; the request sends what these return.
 
 /** Whether the request is for a child: the publisher said COPPA applies (`regulatory.coppa`). */
 internal val Regulatory?.isChild: Boolean
     get() = this?.coppa == true
 
-/** The user the request sends: for a child only what does not identify them ([withoutIdentity]). */
-internal fun Regulatory?.userToSend(user: User?): User? = if (isChild) user?.withoutIdentity else user
+/** The user the request sends: for a child without the email and its hash ([withoutContact]). */
+internal fun Regulatory?.userToSend(user: User): User = if (isChild) user.withoutContact else user
 
 /** The advertising id the request sends: none for a child. */
 internal fun Regulatory?.advertisingIdToSend(advertisingId: String?): String? = advertisingId?.takeUnless { isChild }
 
-/** The user without what identifies the viewer (id, email, email hash), for a COPPA request; `null` when nothing else is left. */
-internal val User.withoutIdentity: User?
-    get() = keywords?.let { kept -> User { keywords = kept } }
+/** The user without the email and its hash, for a COPPA request: the id and the keywords stay. */
+internal val User.withoutContact: User
+    get() = User(id) { keywords = this@withoutContact.keywords }
+
+/** The longest `user.id` the server takes. */
+internal const val MAX_USER_ID_LENGTH = 256
+
+/** The user a request may carry: `null` when none is set or its id is empty or too long, and then no request is sent. */
+internal val User?.usable: User?
+    get() = this?.takeIf { it.id.isNotEmpty() && it.id.length <= MAX_USER_ID_LENGTH }
 
 /** Fields set to an empty string, which the request leaves out. */
 internal val User.emptyFields: List<String>
-    get() = listOf("id" to id, "email" to email, "emailHash" to emailHash).filter { it.second?.isEmpty() == true }.map { it.first }
+    get() = listOf<Pair<String, String?>>("id" to id, "email" to email, "emailHash" to emailHash).filter { it.second?.isEmpty() == true }.map { it.first }
+
+/** The longest `section` or `variantId` the server takes. */
+internal const val MAX_NAME_LENGTH = 128
+
+/** A `section` or `variantId` as sent: empty or longer than [MAX_NAME_LENGTH], it would fail the request, so it is left out. */
+internal val String?.sendable: String?
+    get() = this?.takeIf { it.isNotEmpty() && it.length <= MAX_NAME_LENGTH }
+
+/** What is wrong with a `section` or `variantId`, or `null`: what [sendable] leaves out. */
+internal fun String?.nameProblem(): String? = when {
+    this == null -> null
+    isEmpty() -> "is empty"
+    length > MAX_NAME_LENGTH -> "is longer than $MAX_NAME_LENGTH characters"
+    else -> null
+}
 
 /** The `video` object: absent fields left out, as are numbers the server's schema would refuse. */
 internal fun Content.toJson(): JsonObject = buildJsonObject {
@@ -52,7 +75,6 @@ internal fun Content.toJson(): JsonObject = buildJsonObject {
     putIfNotNull("mediaRating", mediaRating?.name?.lowercase())
     putIfNotNull("url", url)
     putIfNotNull("title", title)
-    putIfNotNull("categories", categories)
     putIfNotNull("description", description)
     putIfNotNull("duration", durationMillis?.takeIf { it >= 1 })
     putIfNotNull("episodeNumber", episodeNumber?.takeIf { it >= 1 })
@@ -69,9 +91,9 @@ internal fun Content.Series.toJson(): JsonObject = buildJsonObject {
     putIfNotNull("episodeCount", episodeCount?.takeIf { it >= 1 })
 }
 
-/** The `user` object: empty strings are left out, an empty id, address or hash identifies nobody. */
+/** The `user` object: the id always (a request is never made without one), empty optional strings left out. */
 internal fun User.toJson(): JsonObject = buildJsonObject {
-    putIfNotNull("id", id?.takeIf { it.isNotEmpty() })
+    put("id", id)
     putIfNotNull("email", email?.takeIf { it.isNotEmpty() })
     putIfNotNull("emailHash", emailHash?.takeIf { it.isNotEmpty() })
     putIfNotNull("keywords", keywords)

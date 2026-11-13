@@ -148,7 +148,7 @@ class ParityLifecycleTest : SdkTest() {
         val ad = pause()
         assertEquals("ad-2", ad.id)
         assertEquals(AdFormat.PAUSE, ad.format)
-        assertEquals(VideoAd.Price(5.5, "EUR", VideoAd.Price.Precision.ESTIMATED), ad.price)
+        assertEquals(VideoAd.Price(5.5, "EUR"), ad.price)
         assertNull(ad.durationMillis)
         assertTrue(ad.isReady)
         assertFalse(ad.wasShown || ad.hasEnded || ad.isCompleted)
@@ -646,7 +646,7 @@ class ParityLifecycleTest : SdkTest() {
 
     @Test fun aShownVideoEndedBeforeItsFirstFrameSendsCloseAndNoImpression() {
         // Dismissed by the app.
-        val pause = ad(video(withTracking(Fixtures.pause(position = "fullscreen"), tracking("creativeView", "impression", "close", "error"))))
+        val pause = ad(video(withTracking(Fixtures.pauseFullscreen(id = "ad-2"), tracking("creativeView", "impression", "close", "error"))))
         val recorder = Recorder()
         pause.listener = recorder
         pause.show(container())
@@ -677,7 +677,7 @@ class ParityLifecycleTest : SdkTest() {
     }
 
     @Test fun aVideoEndedAfterItsFirstFrameSendsNoClose() {
-        val ad = ad(video(withTracking(Fixtures.pause(position = "fullscreen"), tracking("impression", "close"))))
+        val ad = ad(video(withTracking(Fixtures.pauseFullscreen(id = "ad-2"), tracking("impression", "close"))))
         ad.show(container())
         page(ad, "video.start", """"playhead": 0""")
         ad.dismiss()
@@ -686,7 +686,7 @@ class ParityLifecycleTest : SdkTest() {
 
     @Test fun aPauseAdsVideoCompletingLeavesItsEndToTheViewer() {
         val recorder = Recorder()
-        val ad = ad(video(withTracking(Fixtures.pause(position = "fullscreen"), tracking("complete", "close", "overlayViewDuration"))))
+        val ad = ad(video(withTracking(Fixtures.pauseFullscreen(id = "ad-2"), tracking("complete", "close", "overlayViewDuration"))))
         ad.listener = recorder
         ad.show(container())
         page(ad, "video.start", """"playhead": 0""")

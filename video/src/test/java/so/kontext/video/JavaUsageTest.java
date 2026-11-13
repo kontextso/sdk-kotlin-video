@@ -11,7 +11,6 @@ import androidx.core.graphics.Insets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.lang.reflect.Method;
 import org.junit.Test;
 
@@ -37,7 +36,7 @@ public class JavaUsageTest {
                 .build();
         assertEquals(KontextVideo.Configuration.DEFAULT_AD_SERVER_URL, configuration.getAdServerUrl());
 
-        KontextVideo.User user = new KontextVideo.User.Builder().id("u-1").keywords(Collections.singletonList("drama")).build();
+        KontextVideo.User user = new KontextVideo.User.Builder("u-1").keywords(Collections.singletonList("drama")).build();
         assertEquals("u-1", user.getId());
 
         KontextVideo.Regulatory regulatory = new KontextVideo.Regulatory.Builder().coppa(true).gppSid(Arrays.asList(2, 7)).build();
@@ -58,6 +57,8 @@ public class JavaUsageTest {
         assertSame(VideoAdException.NoFillReason.FrequencyCap.INSTANCE, ((VideoAdException.NoFill) error).getReason());
 
         assertEquals(VideoAd.EndReason.RESUMED, VideoAd.EndReason.valueOf("RESUMED"));
+        assertSame(VideoAdException.RequestFailure.MissingUser.INSTANCE, new VideoAdException.Request(VideoAdException.RequestFailure.MissingUser.INSTANCE).getFailure());
+        assertEquals(AdFormat.PAUSE_FULLSCREEN, AdFormat.valueOf("PAUSE_FULLSCREEN"));
 
         VideoAdException.Request request = new VideoAdException.Request(new VideoAdException.RequestFailure.Server(503));
         VideoAdException.RequestFailure failure = request.getFailure();
@@ -172,8 +173,14 @@ public class JavaUsageTest {
         assertEquals(1_000L, player.getCurrentPositionMillis());
         assertTrue(KontextVideo.VERSION.length() > 0);
         List<String> keys = Collections.emptyList();
-        Map<String, String> labels = Collections.singletonMap("stage", "unlock");
         assertEquals(0, keys.size());
-        assertEquals("unlock", labels.get("stage"));
+    }
+
+    @Test
+    public void videoAdsTakesASectionAndAVariantFromJava() throws NoSuchMethodException {
+        // @JvmOverloads: (content), (content, section), (content, section, variantId).
+        VideoAds.class.getConstructor(KontextVideo.Content.class);
+        VideoAds.class.getConstructor(KontextVideo.Content.class, String.class);
+        VideoAds.class.getConstructor(KontextVideo.Content.class, String.class, String.class);
     }
 }

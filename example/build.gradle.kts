@@ -13,6 +13,14 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        // Your publisher token, never committed: `-PkontextPublisherToken=…` or `kontextPublisherToken=…` in
+        // ~/.gradle/gradle.properties. Without it the app runs, and the ad server refuses its requests.
+        val publisherToken = providers.gradleProperty("kontextPublisherToken").getOrElse("your-publisher-token")
+        buildConfigField("String", "PUBLISHER_TOKEN", "\"$publisherToken\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 }
 

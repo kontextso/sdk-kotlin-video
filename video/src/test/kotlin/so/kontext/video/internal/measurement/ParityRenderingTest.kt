@@ -61,7 +61,7 @@ class ParityRenderingTest : SdkTest() {
         FrameBridge(Environment.context!!, "ad-1", at, isVideo).also { it.onEvent = { event -> received += event } }
 
     private fun FrameBridge.send(type: String, fields: String = "", from: Origin? = origin) =
-        receive("""{"adId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", from, true)
+        receive("""{"bidId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", from, true)
 
     private fun FrameBridge.shown() = apply {
         send("ad.loaded")
@@ -233,9 +233,10 @@ class ParityRenderingTest : SdkTest() {
         bridge.show()
         bridge.exposure(0.5, 1.0, 2.0, 3.0, 4.0)
         val message = sent.single()
-        assertEquals("ad-1", message["adId"]!!.jsonPrimitive.content)
+        assertEquals("ad-1", message["bidId"]!!.jsonPrimitive.content)
+        assertNull("the envelope names the bid bidId only", message["adId"])
         assertEquals("ad.exposure", message["type"]!!.jsonPrimitive.content)
-        assertEquals("the payload sits beside adId and type, 0–100 as in MRAID", 50.0, message["exposedPercentage"]!!.jsonPrimitive.double, 0.0)
+        assertEquals("the payload sits beside bidId and type, 0–100 as in MRAID", 50.0, message["exposedPercentage"]!!.jsonPrimitive.double, 0.0)
         val rectangle = message["visibleRectangle"]!!.jsonObject
         assertEquals(1.0, rectangle["x"]!!.jsonPrimitive.double, 0.0)
         assertEquals(3.0, rectangle["width"]!!.jsonPrimitive.double, 0.0)

@@ -57,6 +57,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun initializeInAnotherProcessOfTheAppStaysOffWithoutAServerCall() {
         SdkInitializer.resetForTesting()
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         answer("/v2/config", """{"enabled": true}""")
         val app = Environment.context!!
         Environment.processName = { "${app.packageName}:playback" }
@@ -155,8 +156,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun theBodyCarriesIdsAndNeverPersonalData() {
         initialize(reportsOn)
-        KontextVideo.user = User {
-            id = "user-secret-1"
+        KontextVideo.user = User("user-secret-1") {
             email = "secret@example.com"
         }
         KontextVideo.regulatory = Regulatory { gdprConsent = "CONSENT-SECRET" }
@@ -215,10 +215,10 @@ class ParitySupportTest : ParityHarness() {
         val ad = pause()
         val bridge = ad.loadedBridge!!
         val origin = Origin.of(ad.payload.frameUrl)
-        bridge.receive("""{"adId":"someone-else","type":"ad.loaded"}""", origin, true)
+        bridge.receive("""{"bidId":"someone-else","type":"ad.loaded"}""", origin, true)
         bridge.receive("""{"type":"ad.loaded"}""", origin, true)
-        bridge.receive("""{"adId":"${ad.id}","type":"ad.fromTheFuture"}""", origin, true) // a newer page: not a violation
-        bridge.receive("""{"adId":"x"}""", Origin.of("https://creative.test"), false)
+        bridge.receive("""{"bidId":"${ad.id}","type":"ad.fromTheFuture"}""", origin, true) // a newer page: not a violation
+        bridge.receive("""{"bidId":"x"}""", Origin.of("https://creative.test"), false)
         await { errorReports("frame.protocol_violation").isNotEmpty() }
         settle()
         val violations = errorReports("frame.protocol_violation")
@@ -320,6 +320,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun integrationMistakesAreReportedOnceTheServerAllowsIt() {
         SdkInitializer.resetForTesting()
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         fastReporters()
         val early = VideoAds(Content("v", "en")) // before initialize: waits in memory
         answer("/v2/config", reportsOn)
@@ -413,8 +414,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun debugReportsCarryNoneOfTheViewersData() {
         initialize(debugOn)
-        KontextVideo.user = User {
-            id = "canary-user-id"
+        KontextVideo.user = User("canary-user-id") {
             email = "canary@viewer.test"
             emailHash = "canary-hash"
             keywords = listOf("canary-keyword")
@@ -497,7 +497,7 @@ class ParitySupportTest : ParityHarness() {
         val ad = format(owner(), AdFormat.PAUSE).getOrThrow()
         var loaded: Result<Unit>? = null
         Environment.scope.launch { loaded = runCatching { ad.load() } }
-        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.loaded"}""", Origin.of(ad.payload.frameUrl), true)
+        ad.loadedBridge!!.receive("""{"bidId":"${ad.id}","type":"ad.loaded"}""", Origin.of(ad.payload.frameUrl), true)
         await { loaded != null }
         loaded!!.getOrThrow()
         await { debugNames().contains("ad.loaded") }

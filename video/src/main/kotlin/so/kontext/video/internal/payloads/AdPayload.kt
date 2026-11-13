@@ -22,7 +22,7 @@ internal class AdPayload(
     val tracking: List<TrackingEvent>,
     /** `null` for a linear ad. */
     val position: Position?,
-    /** Every size the creative was built for, the default first; empty for a linear or full-screen pause ad. */
+    /** Every size the creative was built for, the default first; empty for a linear or `pauseFullscreen` ad. */
     val sizes: List<Size>,
     /** A linear ad's video length, or how long an overlay stays on screen; `null` for a pause ad and an overlay that stays. */
     val durationMillis: Long?,
@@ -107,14 +107,10 @@ internal class AdPayload(
 
         private fun price(ad: JsonObject, id: String): VideoAd.Price {
             val price = ad["price"]?.obj()?.let { price ->
+                // `model` is always `cpm`, and a `precision` an older server sent is not read.
                 VideoAd.Price(
                     value = price.double("value") ?: invalidAt("price.value", "ad $id: price.value"),
                     currency = price.str("currency") ?: invalidAt("price.currency", "ad $id: price.currency"),
-                    precision = when (price.str("precision")) {
-                        "exact" -> VideoAd.Price.Precision.EXACT
-                        "estimated" -> VideoAd.Price.Precision.ESTIMATED
-                        else -> invalidAt("price.precision", "ad $id: price.precision")
-                    },
                 )
             } ?: invalidAt("price", "ad $id: price")
             // A CPM: a number, not infinity (`1e400`), and never negative. ISO 4217: three capital letters.
@@ -173,13 +169,18 @@ internal class AdPayload(
                 Shape(position, sizes(ad, id), nonNegative(ad, "duration", id), null)
             }
             AdFormat.PAUSE -> {
+                // A full-screen pause ad is a format of its own (`pauseFullscreen`): `pause` is a card only.
                 val position = when (ad.str("position")) {
                     "top" -> Position.TOP
                     "bottom" -> Position.BOTTOM
-                    "fullscreen" -> Position.FULLSCREEN
                     else -> invalidAt("position", "ad $id: pause position")
                 }
-                Shape(position, if (position == Position.FULLSCREEN) emptyList() else sizes(ad, id), null, null)
+                Shape(position, sizes(ad, id), null, null)
+            }
+            AdFormat.PAUSE_FULLSCREEN -> {
+                // It covers the whole player, so it has no sizes: whatever `sizes` holds is not read.
+                if (ad.str("position") != "fullscreen") invalidAt("position", "ad $id: pauseFullscreen position")
+                Shape(Position.FULLSCREEN, emptyList(), null, null)
             }
             AdFormat.LINEAR -> {
                 val duration = millis(ad, "duration") ?: invalidAt("duration", "ad $id: duration")
