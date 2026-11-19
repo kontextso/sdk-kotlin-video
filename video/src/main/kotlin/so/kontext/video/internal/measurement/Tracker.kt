@@ -1,5 +1,6 @@
 package so.kontext.video.internal.measurement
 
+import kotlinx.coroutines.Job
 import so.kontext.video.internal.diagnostics.Logger
 import so.kontext.video.internal.frame.FrameEvent
 import so.kontext.video.internal.payloads.AdPayload
@@ -10,12 +11,15 @@ import java.util.UUID
  * Fires an ad's tracking entries when their moment happens, once each except the events that repeat, with
  * the macros substituted ([TrackingMacros]). The page never fires a beacon; the SDK fires every one. No retries.
  */
-internal class Tracker(private val adId: String, private val entries: List<AdPayload.TrackingEvent>) {
+internal class Tracker(private val bidId: String, private val entries: List<AdPayload.TrackingEvent>) {
     /** Milliseconds into the ad video, as the page last reported it; `[ADPLAYHEAD]`. */
     var adPlayheadMillis = 0L
 
     /** Content time in milliseconds; `[MEDIAPLAYHEAD]`. The app's player behind it is app code, read once per operation. */
     var contentPlayhead: () -> Long = { 0 }
+
+    /** Told of every outcome beacon sent ([OUTCOME_EVENTS]): the `VideoAds`'s next ads request waits for it. */
+    var onOutcomeBeacon: (Job?) -> Unit = {}
 
     /** The content playhead read before the operation now running; every beacon of it uses this value. */
     private var frozenContentPlayhead: Long? = null
@@ -56,13 +60,14 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         viewDurationMillis: Long? = null,
         notUsed: NotUsed? = null,
     ): String {
-        // One fire id per occurrence, shared by every URL of it: the server dedupes on (adId, event, fid).
+        // One fire id per occurrence, shared by every URL of it: the server dedupes on (bidId, event, fid).
         val fireId = UUID.randomUUID().toString()
         entries.forEachIndexed { index, entry ->
             if (index in fired || entry.event != event || entry.part != part) return@forEachIndexed
             if (offsetMillis != null && entry.offsetMillis != offsetMillis) return@forEachIndexed
             if (event !in REPEATABLE) fired += index
-            send(substitute(entry.url, errorCode, fireId, viewDurationMillis, notUsed), part?.let { "$event ($it)" } ?: event)
+            val job = send(substitute(entry.url, errorCode, fireId, viewDurationMillis, notUsed), part?.let { "$event ($it)" } ?: event)
+            if (event in OUTCOME_EVENTS) onOutcomeBeacon(job)
         }
         return fireId
     }
@@ -152,9 +157,9 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
         }
     }
 
-    private fun send(url: String, label: String) {
-        Logger.debug { "ad ${adId.take(8)}: beacon $label" }
-        Environment.sendBeacon(url, "ad ${adId.take(8)}: $label")
+    private fun send(url: String, label: String): Job? {
+        Logger.debug { "ad ${bidId.take(8)}: beacon $label" }
+        return Environment.sendBeacon(url, "ad ${bidId.take(8)}: $label")
     }
 
     private fun substitute(template: String, errorCode: Int?, fireId: String, viewDurationMillis: Long?, notUsed: NotUsed?): String =
@@ -171,5 +176,8 @@ internal class Tracker(private val adId: String, private val entries: List<AdPay
     companion object {
         /** Events that fire every time they happen; everything else fires once per entry. */
         val REPEATABLE = setOf("click", "pause", "resume", "mute", "unmute")
+
+        /** The beacons that settle a bid the server would otherwise serve again: the next ads request waits for them. */
+        val OUTCOME_EVENTS = setOf("notUsed", "error")
     }
 }

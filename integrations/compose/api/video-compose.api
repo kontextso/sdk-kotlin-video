@@ -1,5 +1,5 @@
 public final class so/kontext/video/compose/VideoAdCompose {
 	public static final fun VideoAdHost (Lso/kontext/video/VideoAd;Landroidx/compose/ui/Modifier;Landroidx/compose/foundation/layout/PaddingValues;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
-	public static final fun rememberVideoAds (Lso/kontext/video/KontextVideo$Content;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)Lso/kontext/video/VideoAds;
+	public static final fun rememberVideoAds (Lso/kontext/video/KontextVideo$Content;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)Lso/kontext/video/VideoAds;
 }
 

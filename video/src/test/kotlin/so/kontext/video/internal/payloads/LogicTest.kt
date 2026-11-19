@@ -96,11 +96,10 @@ class LogicTest {
     }
 
     @Test fun emptyUserFieldsAreLeftOutAndNeverLogged() {
-        val user = User {
-            id = ""
+        val user = User("") {
             email = "a@b.test"
         }
-        assertEquals("""{"email":"a@b.test"}""", user.toJson().toString())
+        assertEquals("""{"id":"","email":"a@b.test"}""", user.toJson().toString())
         assertFalse("a@b.test" in user.toString())
     }
 

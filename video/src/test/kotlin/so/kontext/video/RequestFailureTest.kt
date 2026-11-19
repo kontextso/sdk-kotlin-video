@@ -87,6 +87,7 @@ class RequestFailureTest {
             RequestFailure.TimedOut -> "later"
             is RequestFailure.Server -> "later (${failure.status})"
             RequestFailure.BadResponse -> "report"
+            RequestFailure.MissingUser -> "set KontextVideo.user"
         }
         val error: VideoAdException = VideoAdException.Request(RequestFailure.Server(503))
         assertEquals("later (503)", advice((error as VideoAdException.Request).failure))

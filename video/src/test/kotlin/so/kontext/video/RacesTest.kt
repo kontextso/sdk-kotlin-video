@@ -49,6 +49,8 @@ class RacesTest {
     private val adsArrived = CountDownLatch(1)
 
     @Before fun start() {
+        // Every ads request names the viewer.
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
                 "/v2/config" -> {
@@ -67,7 +69,7 @@ class RacesTest {
         server.start()
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
-        Environment.sendBeacon = { _, _ -> }
+        Environment.sendBeacon = { _, _ -> null }
         Environment.assertionFailure = {}
     }
 

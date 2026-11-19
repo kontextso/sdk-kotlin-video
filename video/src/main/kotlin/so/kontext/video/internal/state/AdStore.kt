@@ -63,12 +63,6 @@ internal class AdStore {
         return null
     }
 
-    /** The ids of the valid ads held, for a request's `held`; expired ones leave first, silently (the server knows `expires`). */
-    fun heldIds(): List<String> {
-        dropExpired()
-        return AdFormat.entries.mapNotNull { ads[it]?.id }
-    }
-
     /** Every held ad that expired leaves, silently. */
     fun dropExpired() {
         ads.values.filter { it.isExpired }.forEach { it.invalidate(VideoAd.InvalidationReason.Expired) }

@@ -43,7 +43,7 @@ class FrameMessagesTest {
     private fun bridge(isVideo: Boolean) = FrameBridge(Environment.context!!, "ad-1", url, isVideo).also { it.onEvent = { event -> events += event } }
 
     private fun send(type: String, fields: String = "", to: FrameBridge = bridge) =
-        to.receive("""{"adId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", origin, true)
+        to.receive("""{"bidId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", origin, true)
 
     private fun shown(to: FrameBridge = bridge) {
         send("ad.loaded", to = to)
@@ -121,14 +121,14 @@ class FrameMessagesTest {
     }
 
     @Test fun messagesFromAnywhereButThePageItselfAreDropped() {
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", origin, isMainFrame = false)
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", null, true)
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of("https://evil.test"), true)
+        bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", origin, isMainFrame = false)
+        bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", null, true)
+        bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", Origin.of("https://evil.test"), true)
         bridge.receive(null, origin, true)
         bridge.receive("not json", origin, true)
         bridge.receive("[1, 2]", origin, true)
-        bridge.receive("""{"adId":"ad-2","type":"ad.loaded"}""", origin, true)
-        bridge.receive("""{"adId":"ad-1"}""", origin, true)
+        bridge.receive("""{"bidId":"ad-2","type":"ad.loaded"}""", origin, true)
+        bridge.receive("""{"bidId":"ad-1"}""", origin, true)
         send("ad.unknown")
         send("video.rewind")
         send("video.start")
@@ -286,14 +286,14 @@ class FrameMessagesTest {
         bridge.receive("not json", page, true)
         bridge.receive("""{"type":"ad.loaded"}""", page, true)
         assertEquals("one report for a broken page", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", page, true)
         bridge.show(so.kontext.video.internal.payloads.AdPayload.Size(320, 80))
         bridge.exposure(0.5, 0.0, 0.0, 10.0, 10.0)
-        bridge.receive("""{"adId":"ad-1","type":"something.new"}""", page, true)
-        bridge.receive("""{"adId":"ad-1","type":"video.progress","offset":"soon"}""", page, true)
-        bridge.receive("""{"adId":"ad-1","type":"video.mute","playhead":1234}""", page, true)
-        bridge.receive("""{"adId":"ad-1","type":"video.start","playhead":0}""", page, true)
-        bridge.receive("""{"adId":"ad-1","type":"video.complete","playhead":30000}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"something.new"}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"video.progress","offset":"soon"}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"video.mute","playhead":1234}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"video.start","playhead":0}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"video.complete","playhead":30000}""", page, true)
         assertEquals(listOf("ad.show", "ad.exposure"), sent)
         assertEquals(4, events.size)
         assertEquals(FrameEvent.VideoEvent.MUTE, (events[1] as FrameEvent.Video).event)
@@ -301,7 +301,7 @@ class FrameMessagesTest {
         bridge.hide()
         assertEquals("ad.hide", sent.last())
         assertEquals(FramePhase.ENDED, bridge.state)
-        bridge.receive("""{"adId":"ad-1","type":"video.start"}""", page, true) // ended: nothing
+        bridge.receive("""{"bidId":"ad-1","type":"video.start"}""", page, true) // ended: nothing
         assertEquals(4, events.size)
     }
 
@@ -310,7 +310,7 @@ class FrameMessagesTest {
         val events = mutableListOf<FrameEvent>()
         bridge.onEvent = { events += it }
         val page = Origin.of("https://frames.test")
-        fun send(type: String, fields: String = "") = bridge.receive("""{"adId":"ad-1","type":"$type"$fields}""", page, true)
+        fun send(type: String, fields: String = "") = bridge.receive("""{"bidId":"ad-1","type":"$type"$fields}""", page, true)
         send("ad.loaded")
         bridge.show()
         events.clear()
@@ -330,9 +330,9 @@ class FrameMessagesTest {
         val skipping = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", isVideo = true)
         val skipped = mutableListOf<FrameEvent>()
         skipping.onEvent = { skipped += it }
-        skipping.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+        skipping.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", page, true)
         skipping.show()
-        skipping.receive("""{"adId":"ad-1","type":"video.skip","playhead":0}""", page, true)
+        skipping.receive("""{"bidId":"ad-1","type":"video.skip","playhead":0}""", page, true)
         assertTrue("a skip goes before the start", skipped.last() is FrameEvent.Skip)
     }
 
@@ -342,21 +342,21 @@ class FrameMessagesTest {
             val bridge = FrameBridge(Environment.context!!, "ad-1", "https://frames.test/v2/frame/ad-1", true, duration)
             val events = mutableListOf<FrameEvent>()
             bridge.onEvent = { events += it }
-            bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+            bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", page, true)
             bridge.show()
-            bridge.receive("""{"adId":"ad-1","type":"video.start","playhead":0}""", page, true)
+            bridge.receive("""{"bidId":"ad-1","type":"video.start","playhead":0}""", page, true)
             events.clear()
             return bridge to events
         }
         val (linear, events) = shownBridge(30_000)
-        linear.receive("""{"adId":"ad-1","type":"video.progress","offset":50000,"playhead":1e12}""", page, true)
+        linear.receive("""{"bidId":"ad-1","type":"video.progress","offset":50000,"playhead":1e12}""", page, true)
         val progress = events.single() as FrameEvent.Progress
         assertEquals("the offset stops at the end and a second", 31_000L, progress.offsetMillis)
         assertEquals("so does the playhead", 31_000L, progress.playheadMillis)
-        linear.receive("""{"adId":"ad-1","type":"video.complete","playhead":30500}""", page, true)
+        linear.receive("""{"bidId":"ad-1","type":"video.complete","playhead":30500}""", page, true)
         assertEquals("within the grace: as sent", 30_500L, (events.last() as FrameEvent.Complete).playheadMillis)
         val (overlay, overlayEvents) = shownBridge(null)
-        overlay.receive("""{"adId":"ad-1","type":"video.complete","playhead":1e12}""", page, true)
+        overlay.receive("""{"bidId":"ad-1","type":"video.complete","playhead":1e12}""", page, true)
         assertEquals("without a duration: a day", 86_400_000L, (overlayEvents.last() as FrameEvent.Complete).playheadMillis)
     }
 
@@ -370,10 +370,10 @@ class FrameMessagesTest {
         bridge.receive(binary, page, false)
         assertTrue("from another sender or frame: dropped, not reported", ErrorReporter.bufferedCodes.isEmpty())
         bridge.receive(binary, page, true) // loading
-        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", page, true)
+        bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", page, true)
         bridge.show()
         bridge.receive(binary, page, true) // shown
-        bridge.receive(WebMessageCompat("""{"adId":"ad-1","type":"ad.close"}"""), page, true)
+        bridge.receive(WebMessageCompat("""{"bidId":"ad-1","type":"ad.close"}"""), page, true)
         bridge.receive(binary, page, true) // ended
         assertEquals("one report for a broken page", listOf("frame.protocol_violation"), ErrorReporter.bufferedCodes)
         assertEquals("text still goes through", listOf("Loaded", "Close"), events.map { it::class.simpleName })

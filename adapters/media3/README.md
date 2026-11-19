@@ -5,8 +5,8 @@ SDK can follow the content player (playhead, play and pause, the current item) w
 `ContentPlayer`. Apps on TTSDK use `adapters/ttsdk`; apps with another player implement `ContentPlayer` themselves (see `adapters/README.md`).
 
 ```kotlin
-implementation("so.kontext:video:0.1.0")
-implementation("so.kontext:video-media3:0.1.0")
+implementation("so.kontext:video:0.2.0")
+implementation("so.kontext:video-media3:0.2.0")
 
 ads.track(player)   // after player.setMediaItem(...) for each episode
 ```

@@ -47,7 +47,7 @@ import so.kontext.video.internal.platform.LinkOpener
 internal class FrameBridge(
     /** The application's context: the WebView's base while the ad is not on screen. */
     private val applicationContext: Context,
-    val adId: String,
+    val bidId: String,
     private val url: String,
     isVideo: Boolean,
     /** The video's length when the server gives one (a linear ad); without it the playhead is capped at a day. */
@@ -71,7 +71,7 @@ internal class FrameBridge(
     val webView = FrameWebView(contextWrapper)
 
     /** The frame protocol's rules and state for this page. */
-    private val protocol = FrameProtocol(adId, Origin.of(url), isVideo, videoDurationMillis, LinkOpener::isAllowed)
+    private val protocol = FrameProtocol(bidId, Origin.of(url), isVideo, videoDurationMillis, LinkOpener::isAllowed)
 
     /** Where the page may navigate, and when leaving is a click; it spends the same touches as the protocol. */
     private val navigation = FrameNavigation(protocol.origin, Origin::of, LinkOpener::isAllowed, protocol.touchGate) { protocol.state }
@@ -102,7 +102,7 @@ internal class FrameBridge(
         webView.onTouch = ::noteTouch
         webView.onNewWindow = ::externalNavigation
         webView.webViewClient = FrameWebViewClient(
-            adId,
+            bidId,
             phase = { state },
             navigationDecision = ::navigationDecision,
             onExternalLink = ::externalNavigation,
@@ -121,7 +121,7 @@ internal class FrameBridge(
                 object : WebViewRenderProcessClient() {
                     override fun onRenderProcessUnresponsive(view: WebView, renderer: WebViewRenderProcess?) {
                         if (state == FramePhase.ENDED) return
-                        Logger.warning { "frame ${adId.take(8)}: the page stopped responding; the ad ends" }
+                        Logger.warning { "frame ${bidId.take(8)}: the page stopped responding; the ad ends" }
                         fail(FrameEvent.Error(protocol.failureCode), FailureCause.UNRESPONSIVE)
                     }
 
@@ -141,13 +141,13 @@ internal class FrameBridge(
                 throw error
             }
         } else {
-            Logger.warning { "frame ${adId.take(8)}: this WebView cannot receive the page's messages; the ad will not load" }
+            Logger.warning { "frame ${bidId.take(8)}: this WebView cannot receive the page's messages; the ad will not load" }
         }
     }
 
     /** Loads the page. `ad.loaded` must arrive within [loadTimeoutMillis] of time the app is in front. */
     fun load() {
-        Logger.debug { "frame ${adId.take(8)}: loading $url" }
+        Logger.debug { "frame ${bidId.take(8)}: loading $url" }
         webView.loadUrl(url)
         loadTimeoutJob = Environment.scope.launch {
             // The time that passed while the app was in front, measured on the SDK's clock (Environment.now), not
@@ -169,7 +169,7 @@ internal class FrameBridge(
                 wasInFront = isInFront
             }
             if (state != FramePhase.LOADING) return@launch
-            Logger.warning { "frame ${adId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }
+            Logger.warning { "frame ${bidId.take(8)}: no ad.loaded within ${loadTimeoutMillis / 1000} s" }
             fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_TIMEOUT)
         }
     }
@@ -180,7 +180,7 @@ internal class FrameBridge(
      */
     fun show(size: AdPayload.Size? = null) {
         if (!protocol.show()) {
-            Logger.warning { "frame ${adId.take(8)}: show() in state $state, ignored" }
+            Logger.warning { "frame ${bidId.take(8)}: show() in state $state, ignored" }
             return
         }
         webView.onResume()
@@ -215,7 +215,7 @@ internal class FrameBridge(
     }
 
     private fun send(type: String, payload: Map<String, Any> = emptyMap()) {
-        val message = JsonObject(mapOf("adId" to JsonPrimitive(adId), "type" to JsonPrimitive(type)) + payload.mapValues { toJson(it.value) })
+        val message = JsonObject(mapOf("bidId" to JsonPrimitive(bidId), "type" to JsonPrimitive(type)) + payload.mapValues { toJson(it.value) })
         onSend?.invoke(type, message)
         webView.evaluateJavascript("window.postMessage($message, window.location.origin)", null)
     }
@@ -248,7 +248,7 @@ internal class FrameBridge(
         when (step) {
             FrameProtocol.Step.Ignore -> Unit
             is FrameProtocol.Step.Drop -> {
-                if (step.isWarning) Logger.warning { "frame ${adId.take(8)}: ${step.log}" } else Logger.debug { "frame ${adId.take(8)}: ${step.log}" }
+                if (step.isWarning) Logger.warning { "frame ${bidId.take(8)}: ${step.log}" } else Logger.debug { "frame ${bidId.take(8)}: ${step.log}" }
                 step.violation?.let(::reportProtocolViolation)
             }
             FrameProtocol.Step.Loaded -> {
@@ -285,7 +285,7 @@ internal class FrameBridge(
     private fun reportProtocolViolation(detail: String) {
         ErrorReporter.report(
             ErrorReport.Code.PROTOCOL_VIOLATION,
-            bidId = adId,
+            bidId = bidId,
             detail = detail,
         )
     }
@@ -320,7 +320,7 @@ internal class FrameBridge(
     /** A main-frame load that failed before `ad.loaded` fails the ad. */
     private fun loadFailed(underlying: ErrorReport.Cause) {
         if (state != FramePhase.LOADING) return
-        Logger.warning { "frame ${adId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
+        Logger.warning { "frame ${bidId.take(8)}: page failed to load (${underlying.domain} ${underlying.code})" }
         failureUnderlying = underlying
         fail(FrameEvent.Error(protocol.loadErrorCode), FailureCause.LOAD_FAILED)
     }

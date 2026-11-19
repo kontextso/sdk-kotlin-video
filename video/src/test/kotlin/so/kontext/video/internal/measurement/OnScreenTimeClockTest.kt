@@ -155,7 +155,7 @@ class OnScreenTimeClockTest {
         Environment.now = { now }
         var elapsed = false
         var activations = 0
-        val clock = OnScreenTimeClock(durationMillis = 3_000, adId = "ad-1") { elapsed = true }
+        val clock = OnScreenTimeClock(durationMillis = 3_000, bidId = "ad-1") { elapsed = true }
         clock.onActivate = { activations++ }
         clock.start(isVisible = true)
         now = 1_000

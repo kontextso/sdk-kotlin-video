@@ -46,7 +46,7 @@ class VideoAdHostControllerTest {
     @Before fun setUpSdk() {
         Environment.context = ApplicationProvider.getApplicationContext()
         Environment.assertionFailure = {}
-        Environment.sendBeacon = { _, _ -> }
+        Environment.sendBeacon = { _, _ -> null }
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
         SdkInitializer.configureForTesting(KontextVideo.Configuration("test-token"))
@@ -222,7 +222,7 @@ class VideoAdHostControllerTest {
         slot.set(ad)
         laidOut()
         ad.loadedBridge!!.noteTouch()
-        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.click","url":"https://brand.test"}""", Origin.of(ad.payload.frameUrl), true)
+        ad.loadedBridge!!.receive("""{"bidId":"${ad.id}","type":"ad.click","url":"https://brand.test"}""", Origin.of(ad.payload.frameUrl), true)
         assertEquals(listOf(VideoAd.Click.Area.Creative), recorder.clicks)
         page(ad, "ad.error")
         assertTrue(recorder.failures.single() is VideoAdException.CreativeFailed)
@@ -236,7 +236,7 @@ class VideoAdHostControllerTest {
         slot.set(ad)
         laidOut()
         ad.loadedBridge!!.noteTouch()
-        ad.loadedBridge!!.receive("""{"adId":"${ad.id}","type":"ad.click","url":"https://brand.test"}""", Origin.of(ad.payload.frameUrl), true)
+        ad.loadedBridge!!.receive("""{"bidId":"${ad.id}","type":"ad.click","url":"https://brand.test"}""", Origin.of(ad.payload.frameUrl), true)
         page(ad, "ad.error")
         assertTrue(ad.hasEnded)
         assertNull(slot.ad)
@@ -287,7 +287,7 @@ class VideoAdHostControllerTest {
         val payload = AdPayload.parse(kotlinx.serialization.json.Json.parseToJsonElement(json))
         val ad = VideoAd(payload, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
-        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
+        bridge.receive("""{"bidId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
         bridge.onEvent = { event -> ad.handle(event) }
         ad.loadedBridge = bridge
         ad.state.markLoaded()
@@ -298,7 +298,7 @@ class VideoAdHostControllerTest {
         val id = "ad-p${nextId++}"
         return loaded(
             """{"id": "$id", "format": "pause", "creative": "image", "trigger": {"kind": "manual"},
-             "price": {"value": 5.5, "currency": "EUR", "precision": "estimated"}, "expires": 600000,
+             "price": {"value": 5.5, "currency": "EUR"}, "expires": 600000,
              "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/$id"}, "tracking": [],
              "position": "top", "sizes": [{"width": 300, "height": 250, "scalable": false}]}""",
         )
@@ -306,14 +306,14 @@ class VideoAdHostControllerTest {
 
     private fun linear(): VideoAd = loaded(
         """{"id": "ad-3", "format": "linear", "creative": "video", "trigger": {"kind": "manual"},
-         "price": {"value": 12.0, "currency": "USD", "precision": "exact"}, "expires": 600000,
+         "price": {"value": 12.0, "currency": "USD"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/ad-3"}, "tracking": [],
          "duration": 30000, "skipOffset": 5000}""",
     )
 
     /** Sends the ad's page a message, as its main frame. */
     private fun page(ad: VideoAd, type: String) {
-        ad.loadedBridge?.receive("""{"adId":"${ad.id}","type":"$type"}""", Origin.of(ad.payload.frameUrl), true)
+        ad.loadedBridge?.receive("""{"bidId":"${ad.id}","type":"$type"}""", Origin.of(ad.payload.frameUrl), true)
     }
 
     private class Recorder : VideoAdListener {

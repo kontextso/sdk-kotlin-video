@@ -30,7 +30,7 @@ import so.kontext.video.internal.platform.Environment
  */
 internal class OnScreenTimeClock(
     private val durationMillis: Long?,
-    private val adId: String,
+    private val bidId: String,
     private val onElapsed: () -> Unit,
 ) {
     private var since: Long? = null
@@ -96,7 +96,7 @@ internal class OnScreenTimeClock(
         }
         timer?.cancel()
         timer = null
-        if (!isStopped) Logger.debug { "ad ${adId.take(8)}: clock frozen at $accumulated ms on screen" }
+        if (!isStopped) Logger.debug { "ad ${bidId.take(8)}: clock frozen at $accumulated ms on screen" }
     }
 
     private fun resume() {

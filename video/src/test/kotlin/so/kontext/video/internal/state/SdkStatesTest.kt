@@ -40,6 +40,7 @@ class SdkStatesTest : ParityHarness() {
     /** From scratch: `initialize` not called yet. */
     private fun fresh() {
         SdkInitializer.resetForTesting()
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         fastReporters()
     }
 

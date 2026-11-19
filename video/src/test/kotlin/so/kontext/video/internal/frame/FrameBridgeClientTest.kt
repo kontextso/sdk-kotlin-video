@@ -43,7 +43,7 @@ class FrameBridgeClientTest {
         every { isForMainFrame } returns mainFrame
     }
 
-    private fun loaded() = bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of(url), true)
+    private fun loaded() = bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", Origin.of(url), true)
 
     @Test fun navigationsGoWhereTheStateAllows() {
         val client = bridge.webView.webViewClient

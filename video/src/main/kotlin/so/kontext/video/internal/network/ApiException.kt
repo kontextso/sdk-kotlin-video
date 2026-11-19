@@ -39,3 +39,7 @@ internal fun Throwable?.toRequestFailure(): RequestFailure = when (this) {
     is IOException -> RequestFailure.Offline
     else -> RequestFailure.BadResponse
 }
+
+/** The case's name without its status, as the debug events carry it: `offline`, `timedOut`, `server`, `badResponse`, `missingUser`. */
+internal val RequestFailure.kind: String
+    get() = if (this is RequestFailure.Server) "server" else toString()

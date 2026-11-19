@@ -62,8 +62,8 @@ public class VideoAd internal constructor(
     // - where it is shown: its AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
     //   a linear ad), made by show.
     // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
-    // and a close before `complete` being a skip (closeByPage). A full-screen pause ad is a placement of the
-    // inline screen (its host covers the container), not a format of its own.
+    // and a close before `complete` being a skip (closeByPage). A `PAUSE_FULLSCREEN` ad is shown by the inline
+    // screen (its host covers the container) and follows the content as a pause ad does.
     //
     // No extension of VideoAd lives elsewhere: this class decides and orders, its parts do the work.
     // - internal/state/AdState.kt: every fact of the ad's life (read through [state]); AdLifecycle.kt: its phases
@@ -77,7 +77,7 @@ public class VideoAd internal constructor(
     //   LinearScreen.kt: the linear show (its own Activity, the launch and its watchdog); ScreenSlot.kt: the
     //   app's one ad on screen.
 
-    /** The server's id of the ad, for support. */
+    /** The server's bid id of this ad: the same id in its beacons, in error and debug reports, and in support requests. */
     public val id: String get() = payload.id
 
     /** The format it was requested for. */
@@ -122,6 +122,8 @@ public class VideoAd internal constructor(
     internal val owner = WeakReference(owner)
     internal val tracker = Tracker(payload.id, payload.tracking).apply {
         contentPlayhead = { this@VideoAd.owner.get()?.playheadMillis ?: 0 }
+        // A `notUsed` or `error` on the wire holds the owner's next ads request back until it is heard.
+        onOutcomeBeacon = { job -> this@VideoAd.owner.get()?.pendingBeacons?.add(job) }
     }
 
     /** The ad's page, if any: made when loading starts, released when the ad ends. Reading it never makes one. */
@@ -226,14 +228,29 @@ public class VideoAd internal constructor(
             Logger.info { "$format ad ${id.take(8)}: rejected ($reason)" }
             // Committed before the beacon: the rejection is final the moment the app asked for it.
             invalidate(InvalidationReason.Rejected)
-            tracker.fire(
-                "notUsed",
-                notUsed = when (reason) {
+            fireNotUsed(
+                when (reason) {
                     is RejectReason.NotUsed -> Tracker.NotUsed.NotUsedByApp
                     is RejectReason.Outbid -> Tracker.NotUsed.Outbid(reason.winningPrice, reason.winner)
                 },
             )
         }
+    }
+
+    /** The `notUsed` beacon, and its debug event with the beacon's reason (`notUsed`, `outbid`, `destroyed`). */
+    internal fun fireNotUsed(notUsed: Tracker.NotUsed) {
+        tracker.fire("notUsed", notUsed = notUsed)
+        DebugReporter.event("ad.notUsed", sessionId = owner.get()?.sessionId, bidId = id, properties = mapOf("reason" to notUsed.reason))
+    }
+
+    /** The `error` beacon of a creative that failed, with [code], and its debug event. */
+    private fun fireError(code: Int) {
+        tracker.fire("error", errorCode = code)
+        reportErrorEvent(code)
+    }
+
+    private fun reportErrorEvent(code: Int) {
+        DebugReporter.event("ad.error", sessionId = owner.get()?.sessionId, bidId = id, level = DebugReporter.Level.ERROR, properties = mapOf("code" to code))
     }
 
     internal fun checkUsable() {
@@ -296,7 +313,7 @@ public class VideoAd internal constructor(
     private fun bridgeFailed(error: Throwable): VideoAdException {
         val code = FrameProtocol.loadErrorCode(isVideo = payload.creative == AdPayload.Creative.VIDEO)
         Logger.warning { "ad ${id.take(8)}: no WebView for the creative (${error.javaClass.simpleName}), VAST error $code" }
-        tracker.fire("error", errorCode = code)
+        fireError(code)
         ErrorReporter.report(
             ErrorReport.Code.FRAME_LOAD_FAILED,
             sessionId = owner.get()?.sessionId,
@@ -317,7 +334,7 @@ public class VideoAd internal constructor(
      * nothing happened, or it was accepted: the ad is on screen, or, if your own code ended it during the call
      * (a hook of the container, the impression listener), `onAdEnded` already arrived (`hasEnded == true`). [insets] (pixels) keep it clear of your own controls, added to the system bars and cutout
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
-     * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
+     * minimum; a `PAUSE_FULLSCREEN` ad ignores them: it covers the whole container, its page inside the
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
      * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `CannotShowNow` (the container is not attached, not shown,
      * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or in
@@ -567,6 +584,7 @@ public class VideoAd internal constructor(
             }
             is FrameEvent.Error -> {
                 tracker.record(event)
+                reportErrorEvent(event.code)
                 reportCreativeError(event.code)
                 when {
                     frameLoader.isWaiting -> {
@@ -675,6 +693,7 @@ public class VideoAd internal constructor(
         }
         // The listener hears nothing after `onAdEnded`. Opening the click-through does not end the ad today; the check
         // keeps that rule if it ever does.
+        DebugReporter.event("ad.clicked", sessionId = owner.get()?.sessionId, bidId = id, properties = mapOf("area" to area.wireName))
         if (hasEnded) return
         listener?.onAdClicked(this, Click(area))
     }
@@ -801,6 +820,7 @@ public class VideoAd internal constructor(
         Logger.debug { "$format ad ${id.take(8)} ended before show: $reason" }
         // Wire names, as iOS sends them; a failed creative's code as its own key.
         val details = mapOf("reason" to reason.wireName) + ((reason as? InvalidationReason.CreativeFailed)?.let { mapOf("code" to it.code) } ?: emptyMap())
+        if (reason == InvalidationReason.Expired) DebugReporter.event("ad.expired", sessionId = owner.get()?.sessionId, bidId = id, properties = mapOf("format" to format.wireName))
         DebugReporter.event("ad.invalidated", sessionId = owner.get()?.sessionId, bidId = id, properties = details)
         loadedBridge?.hide()
         loadedBridge = null
@@ -820,31 +840,19 @@ public class VideoAd internal constructor(
         private val closedBeforeFirstFrame = setOf(EndReason.DISMISSED, EndReason.DESTROYED, EndReason.INTERRUPTED, EndReason.COMPLETED)
     }
 
-    /** What an ad pays: a CPM in a currency, and whether that figure is a clearing price or a forecast. */
+    /** What an ad pays: a CPM in a currency. */
     public class Price internal constructor(
         /** Per 1,000 impressions. */
         public val value: Double,
         /** ISO 4217. */
         public val currency: String,
-        /** Whether [value] is a DSP's clearing price or a forecast. */
-        public val precision: Precision,
     ) {
-        /** How firm [value] is. */
-        public enum class Precision {
-            /** A DSP's clearing price. */
-            EXACT,
-
-            /** Our own or house demand, a forecast. */
-            ESTIMATED,
-        }
-
-        override fun equals(other: Any?): Boolean =
-            other is Price && value == other.value && currency == other.currency && precision == other.precision
+        override fun equals(other: Any?): Boolean = other is Price && value == other.value && currency == other.currency
 
         // 0.0 and -0.0 are equal, so they hash alike; a price is never NaN.
-        override fun hashCode(): Int = listOf(if (value == 0.0) 0.0 else value, currency, precision).hashCode()
+        override fun hashCode(): Int = listOf(if (value == 0.0) 0.0 else value, currency).hashCode()
 
-        override fun toString(): String = "Price($value $currency, $precision)"
+        override fun toString(): String = "Price($value $currency)"
     }
 
     /** Why the app did not use an ad; the server tells the DSP. */
@@ -947,6 +955,14 @@ public class VideoAd internal constructor(
                 override fun toString(): String = "Other($label)"
             }
 
+            /** The name the page and the debug events use: `creative`, `endCard`, or the page's own label. */
+            internal val wireName: String
+                get() = when (this) {
+                    Creative -> "creative"
+                    EndCard -> "endCard"
+                    is Other -> label
+                }
+
             internal companion object {
                 /** From the page's `area`: absent is the creative. */
                 fun from(raw: String?): Area = when (raw) {
@@ -979,7 +995,7 @@ public class VideoAd internal constructor(
         /** The viewer tapped the ad's close control: an overlay's or pause card's ✕ (the content stays paused), or a linear ad's end card ✕. */
         CLOSED,
 
-        /** The viewer tapped Resume on a full-screen pause ad, the ad's own control. Content resumed elsewhere ends it as [INTERRUPTED]. */
+        /** The viewer tapped Resume on a `PAUSE_FULLSCREEN` ad, the ad's own control. Content resumed elsewhere ends it as [INTERRUPTED]. */
         RESUMED,
 
         /** The ad broke after `show` returned; `onAdFailed` came first. */

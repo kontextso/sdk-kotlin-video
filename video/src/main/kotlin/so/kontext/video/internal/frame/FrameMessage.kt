@@ -47,14 +47,14 @@ internal class FrameMessage(
         const val MAX_MESSAGE_BYTES = 1024 * 1024
 
         /**
-         * Reads [raw] as a message of the page of ad [adId], its playhead clamped to [playheadLimitMillis].
+         * Reads [raw] as a message of the page of ad [bidId], its playhead clamped to [playheadLimitMillis].
          * `null` for a broken envelope: over [MAX_MESSAGE_BYTES] (never parsed, as on iOS), not a JSON object,
          * another ad's id, or no type.
          */
-        fun parse(raw: String?, adId: String, playheadLimitMillis: Long): FrameMessage? {
+        fun parse(raw: String?, bidId: String, playheadLimitMillis: Long): FrameMessage? {
             val body = raw?.takeIf(::fitsLimit)?.let { runCatching { JsonParser.parse(it) }.getOrNull() }?.obj() ?: return null
             val type = body.str("type")
-            if (body.str("adId") != adId || type == null) return null
+            if (body.str("bidId") != bidId || type == null) return null
             return FrameMessage(
                 type = type,
                 // Clamped: a playhead past the end would fire every checkpoint at once.

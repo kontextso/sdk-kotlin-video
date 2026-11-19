@@ -91,7 +91,7 @@ internal sealed class ContentRule {
         /** The rule of [ad]'s format. */
         fun of(ad: VideoAd): ContentRule = when (ad.format) {
             AdFormat.OVERLAY -> OverlayRule(ad)
-            AdFormat.PAUSE -> PauseRule(ad)
+            AdFormat.PAUSE, AdFormat.PAUSE_FULLSCREEN -> PauseRule(ad)
             AdFormat.LINEAR -> NoContentRule
         }
     }

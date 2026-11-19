@@ -42,7 +42,7 @@ class FrameRendererTest {
                 val bridge = FrameBridge(instrumentation.targetContext, "ad-1", url, isVideo)
                 bridge.onEvent = { events += it }
                 if (shown) {
-                    bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of(url), true)
+                    bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", Origin.of(url), true)
                     bridge.show()
                     events.clear()
                 }

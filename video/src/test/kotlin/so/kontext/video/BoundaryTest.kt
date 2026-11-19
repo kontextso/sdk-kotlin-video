@@ -75,9 +75,11 @@ class BoundaryTest {
     private val owners = mutableListOf<VideoAds>()
 
     @Before fun setup() {
+        // Every ads request names the viewer.
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         Environment.context = ApplicationProvider.getApplicationContext()
         Environment.assertionFailure = {}
-        Environment.sendBeacon = { _, _ -> }
+        Environment.sendBeacon = { _, _ -> null }
         Environment.userAgent = { "test-agent" }
         Environment.advertisingId = { null }
         SdkInitializer.configureForTesting(Configuration("test-token"))
@@ -108,7 +110,7 @@ class BoundaryTest {
     private fun loaded(payload: AdPayload, owner: VideoAds): VideoAd {
         val ad = VideoAd(payload, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, payload.id, payload.frameUrl, payload.creative == AdPayload.Creative.VIDEO)
-        bridge.receive("""{"adId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
+        bridge.receive("""{"bidId":"${payload.id}","type":"ad.loaded"}""", Origin.of(payload.frameUrl), true)
         ad.loadedBridge = bridge
         ad.state.markLoaded()
         return ad
@@ -482,7 +484,7 @@ class BoundaryTest {
 
     @Test fun theAdvertisingIdIsAnAaid() = runBlocking {
         Environment.advertisingId = { "00000000-1111-2222-3333-444444444444" }
-        val request = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", { emptyList() })
+        val request = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), null, null, 0, "session")
         val ifa = request.body["ifa"]!!.jsonObject
         assertEquals("aaid", ifa["type"]!!.jsonPrimitive.content)
         assertEquals("00000000-1111-2222-3333-444444444444", ifa["id"]!!.jsonPrimitive.content)
@@ -493,16 +495,16 @@ class BoundaryTest {
         Environment.userAgent = { userAgent.await() }
         var adId = "00000000-0000-0000-0000-000000000001"
         Environment.advertisingId = { adId }
-        KontextVideo.user = User { id = "before" }
+        KontextVideo.user = User("before")
         KontextVideo.regulatory = Regulatory { gdpr = false }
         var body: kotlinx.serialization.json.JsonObject? = null
         Environment.scope.launch {
-            body = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), emptyMap(), 0, "session", { emptyList() }).body
+            body = AdsRequest.make(Environment.context!!, "token", Content("ep", "en"), null, null, 0, "session").body
         }
         shadowOf(Looper.getMainLooper()).idle()
         // While the user agent is read: the viewer resets the ad id, the consent changes, another user signs in.
         adId = "00000000-0000-0000-0000-000000000002"
-        KontextVideo.user = User { id = "after" }
+        KontextVideo.user = User("after")
         KontextVideo.regulatory = Regulatory {
             gdpr = true
             gdprConsent = "consent-string"

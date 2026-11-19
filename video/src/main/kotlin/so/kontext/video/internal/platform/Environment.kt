@@ -11,6 +11,7 @@ import android.os.SystemClock
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import so.kontext.video.internal.device.DeviceInfo
@@ -67,9 +68,9 @@ internal object Environment {
     @set:VisibleForTesting
     var userAgentWaitMillis = DEFAULT_USER_AGENT_WAIT_MILLIS
 
-    /** Sends one beacon; tests record them instead. */
+    /** Sends one beacon; its job ends with the beacon's outcome (`null`: nothing to wait for). Tests record them instead. */
     @set:VisibleForTesting
-    var sendBeacon: (url: String, label: String) -> Unit = defaultSendBeacon
+    var sendBeacon: (url: String, label: String) -> Job? = defaultSendBeacon
 
     /** The advertising id when the viewer allows it, else `null`. */
     @set:VisibleForTesting
@@ -89,7 +90,7 @@ internal object Environment {
     private val defaultNow: () -> Long get() = { SystemClock.elapsedRealtime() }
     private val defaultAssertionFailure: (String) -> Unit get() = ::failInDebuggableApp
     private val defaultUserAgent: suspend () -> String? get() = { context?.let { UserAgent.userAgent(it) } }
-    private val defaultSendBeacon: (String, String) -> Unit get() = BeaconClient::send
+    private val defaultSendBeacon: (String, String) -> Job? get() = BeaconClient::send
     private val defaultAdvertisingId: suspend () -> String? get() = { context?.let { DeviceInfo.advertisingId(it) } }
     private val defaultProcessName: (Context) -> String? get() = ::currentProcessName
     private val defaultMakeBridge: (Context, String, String, Boolean, Long?) -> FrameBridge get() = ::FrameBridge

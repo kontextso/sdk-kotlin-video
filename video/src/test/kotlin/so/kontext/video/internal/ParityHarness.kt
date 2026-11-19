@@ -58,6 +58,8 @@ abstract class ParityHarness : SdkTest() {
         }
         server.start()
         SdkInitializer.configureForTesting(Configuration("test-token") { adServerUrl = baseUrl })
+        // Every ads request names the viewer.
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         fastReporters()
     }
 
@@ -114,6 +116,7 @@ abstract class ParityHarness : SdkTest() {
     /** `KontextVideo.initialize` from scratch against the local server, `/config` answering [config]. */
     protected fun initialize(config: String = """{"enabled": true}""", token: String = "test-token"): KontextVideo.State {
         SdkInitializer.resetForTesting()
+        so.kontext.video.internal.state.SdkState.current.recordUser(KontextVideo.User("test-user"))
         fastReporters()
         if (answers["/v2/config"] == null) answer("/v2/config", config)
         var state: KontextVideo.State? = null

@@ -22,21 +22,28 @@ internal object Fixtures {
         tracking: String = TRACKING,
     ) = """
         {"id": "$id", "format": "overlay", "creative": "image", "trigger": {"kind": "manual"},
-         "price": {"value": 8.0, "currency": "USD", "precision": "exact"}, "expires": $expires,
+         "price": {"value": 8.0, "currency": "USD"}, "expires": $expires,
          "rendering": {"kind": "frame", "url": "$frameUrl"}, "tracking": $tracking,
          "position": "bottom", "sizes": $sizes, "duration": $duration}
     """.trimIndent()
 
     fun pause(id: String = "ad-2", position: String = "top") = """
         {"id": "$id", "format": "pause", "creative": "image", "trigger": {"kind": "manual"},
-         "price": {"value": 5.5, "currency": "EUR", "precision": "estimated"}, "expires": 600000,
+         "price": {"value": 5.5, "currency": "EUR"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/$id"}, "tracking": [],
          "position": "$position", "sizes": [{"width": 300, "height": 250, "scalable": false}]}
     """.trimIndent()
 
+    fun pauseFullscreen(id: String = "ad-4") = """
+        {"id": "$id", "format": "pauseFullscreen", "creative": "image", "trigger": {"kind": "manual"},
+         "price": {"model": "cpm", "value": 6.0, "currency": "USD"}, "expires": 600000,
+         "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/$id"}, "tracking": [],
+         "position": "fullscreen"}
+    """.trimIndent()
+
     fun linear(id: String = "ad-3") = """
         {"id": "$id", "format": "linear", "creative": "video", "trigger": {"kind": "manual"},
-         "price": {"value": 12.0, "currency": "USD", "precision": "exact"}, "expires": 600000,
+         "price": {"value": 12.0, "currency": "USD"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/$id"}, "tracking": [],
          "duration": 30000, "skipOffset": 5000}
     """.trimIndent()

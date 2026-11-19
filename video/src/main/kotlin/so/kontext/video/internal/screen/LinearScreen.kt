@@ -181,13 +181,13 @@ internal class LinearScreen(ad: VideoAd, private val bridge: FrameBridge) : AdSc
          * destroyed, or not visible (stopped, or in picture-in-picture). The system would not start it
          * from there (or not where the viewer sees it), and the bid would be spent on an Activity that never comes.
          */
-        fun checkCanStartFrom(activity: Activity, adId: String) {
+        fun checkCanStartFrom(activity: Activity, bidId: String) {
             if (activity.isFinishing || activity.isDestroyed) {
-                Logger.warning { "ad ${adId.take(8)}: cannot show, the Activity is finishing" }
+                Logger.warning { "ad ${bidId.take(8)}: cannot show, the Activity is finishing" }
                 throw VideoAdException.CannotShowNow()
             }
             if (!AppActivities.isVisibleToViewer(activity)) {
-                Logger.warning { "ad ${adId.take(8)}: cannot show, the Activity is not visible (stopped, or in picture-in-picture)" }
+                Logger.warning { "ad ${bidId.take(8)}: cannot show, the Activity is not visible (stopped, or in picture-in-picture)" }
                 throw VideoAdException.CannotShowNow()
             }
         }

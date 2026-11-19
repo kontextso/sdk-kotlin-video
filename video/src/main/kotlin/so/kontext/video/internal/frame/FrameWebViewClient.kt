@@ -24,7 +24,7 @@ import so.kontext.video.internal.diagnostics.Logger
  */
 internal class FrameWebViewClient(
     /** The ad's id, for the log. */
-    private val adId: String,
+    private val bidId: String,
     /** Where the page is now. */
     private val phase: () -> FramePhase,
     /** What a top-level navigation may do: (target, isMainFrame, the page's current URL). */
@@ -43,7 +43,7 @@ internal class FrameWebViewClient(
         return when (navigationDecision(target, request.isForMainFrame, view.url)) {
             FrameNavigation.NavigationDecision.ALLOW -> false
             FrameNavigation.NavigationDecision.CANCEL -> {
-                Logger.warning { "frame ${adId.take(8)}: the page tried to replace itself after it was ready; refused" }
+                Logger.warning { "frame ${bidId.take(8)}: the page tried to replace itself after it was ready; refused" }
                 true
             }
             FrameNavigation.NavigationDecision.EXTERNAL -> {
@@ -52,7 +52,7 @@ internal class FrameWebViewClient(
             }
             FrameNavigation.NavigationDecision.FAIL_LOAD -> {
                 // Shown for the redirects of a loadUrl too: the page's own load went to another origin.
-                Logger.warning { "frame ${adId.take(8)}: the page's load went to another origin; the load fails" }
+                Logger.warning { "frame ${bidId.take(8)}: the page's load went to another origin; the load fails" }
                 onLoadFailed(ErrorReport.Cause("navigation", 0))
                 true
             }
@@ -68,7 +68,7 @@ internal class FrameWebViewClient(
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         val phase = phase()
         if (phase == FramePhase.LOADING || phase == FramePhase.ENDED) return
-        Logger.warning { "frame ${adId.take(8)}: the page replaced itself after it was ready; the ad ends" }
+        Logger.warning { "frame ${bidId.take(8)}: the page replaced itself after it was ready; the ad ends" }
         view.stopLoading()
         onPageReplaced()
     }
@@ -82,7 +82,7 @@ internal class FrameWebViewClient(
     }
 
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-        Logger.warning { "frame ${adId.take(8)}: web content process ended" }
+        Logger.warning { "frame ${bidId.take(8)}: web content process ended" }
         // 405 is a failure while playing; an ad loaded but never shown gets the load error, like any other.
         onProcessGone()
         // The WebView is dead; returning true keeps the app alive.

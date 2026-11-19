@@ -38,8 +38,8 @@ class InlineShowTest {
     private fun main(work: () -> Unit) = instrumentation.runOnMainSync(work)
 
     private val payload = """
-        {"id": "ad-2", "format": "pause", "creative": "image", "trigger": {"kind": "manual"},
-         "price": {"value": 5.5, "currency": "EUR", "precision": "estimated"}, "expires": 600000,
+        {"id": "ad-2", "format": "pauseFullscreen", "creative": "image", "trigger": {"kind": "manual"},
+         "price": {"value": 5.5, "currency": "EUR"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/ad-2"}, "tracking": [],
          "position": "fullscreen"}
     """.trimIndent()
@@ -48,7 +48,7 @@ class InlineShowTest {
         val parsed = AdPayload.parse(Json.parseToJsonElement(payload))
         val ad = VideoAd(parsed, Environment.now(), owner)
         val bridge = FrameBridge(Environment.context!!, parsed.id, parsed.frameUrl, false)
-        bridge.receive("""{"adId":"ad-2","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
+        bridge.receive("""{"bidId":"ad-2","type":"ad.loaded"}""", Origin.of(parsed.frameUrl), true)
         bridge.onEvent = { ad.handle(it) }
         ad.loadedBridge = bridge
         ad.state.markLoaded()
@@ -65,7 +65,7 @@ class InlineShowTest {
     @Test fun aNeighbourPageAndAScrollViewWithItsChildAreRefusedAndAVisibleContainerShows() {
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val activity = instrumentation.startActivitySync(
@@ -113,7 +113,7 @@ class InlineShowTest {
     @Test fun aFullScreenPauseAdKeepsItsPageClearOfTheSystemBars() {
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         // An edge-to-edge player, as a video app's, whose container reaches under the bars (enforced from API
@@ -180,7 +180,7 @@ class InlineShowTest {
     @Test fun anotherScreenOfTheAppOverTheAdEndsItInterrupted() {
         main {
             Environment.context = instrumentation.targetContext
-            Environment.sendBeacon = { _, _ -> }
+            Environment.sendBeacon = { _, _ -> null }
             SdkInitializer.configureForTesting(Configuration("test-token"))
         }
         val activity = instrumentation.startActivitySync(

@@ -24,17 +24,15 @@ class KontextVideoTest : SdkTest() {
     private var callbackError: VideoAdException? = null
 
     @Test fun theFacadeHoldsWhatTheAppSets() {
-        val user = User { id = "u-1" }
+        val user = User("u-1")
         KontextVideo.user = user
         KontextVideo.regulatory = Regulatory { coppa = true }
-        KontextVideo.variantId = "b"
         assertSame(user, KontextVideo.user)
         assertEquals(true, KontextVideo.regulatory?.coppa)
-        assertEquals("b", KontextVideo.variantId)
         assertEquals(KontextVideo.State.Enabled, KontextVideo.state)
         var asserted: String? = null
         Environment.assertionFailure = { asserted = it }
-        KontextVideo.user = User { id = "" }
+        KontextVideo.user = User("")
         assertNotNull("an empty id is a programmer error", asserted)
         assertTrue(KontextVideo.VERSION.isNotEmpty())
     }

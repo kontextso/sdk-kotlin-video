@@ -17,7 +17,7 @@ import so.kontext.video.internal.payloads.emptyFields
 class ModelsTest {
     @Test fun contentFromTheJavaBuilderEqualsTheKotlinOne() {
         val java = Content.Builder("ep", "en")
-            .mediaRating(Content.Rating.EXPLICIT).url("https://show.test/ep").title("Episode").categories(listOf("IAB1"))
+            .mediaRating(Content.Rating.EXPLICIT).url("https://show.test/ep").title("Episode")
             .description("d").durationMillis(92_000L).episodeNumber(6).keywords(listOf("k")).genre("romance")
             .series(Content.Series.Builder("s").title("Show").description("sd").episodeCount(40).build())
             .build()
@@ -25,7 +25,6 @@ class ModelsTest {
             mediaRating = Content.Rating.EXPLICIT
             url = "https://show.test/ep"
             title = "Episode"
-            categories = listOf("IAB1")
             description = "d"
             durationMillis = 92_000
             episodeNumber = 6
@@ -51,11 +50,10 @@ class ModelsTest {
     }
 
     @Test fun userAndRegulatoryBuildBothWaysAndHidePersonalData() {
-        val user = User.Builder().id("u-1").email("a@b.test").emailHash("h").keywords(listOf("k")).build()
+        val user = User.Builder("u-1").email("a@b.test").emailHash("h").keywords(listOf("k")).build()
         assertEquals(
             user,
-            User {
-                id = "u-1"
+            User("u-1") {
                 email = "a@b.test"
                 emailHash = "h"
                 keywords = listOf("k")
@@ -65,8 +63,7 @@ class ModelsTest {
         assertTrue(user.emptyFields.isEmpty())
         assertEquals(
             listOf("id", "emailHash"),
-            User {
-                id = ""
+            User("") {
                 emailHash = ""
             }.emptyFields,
         )
@@ -119,9 +116,8 @@ class ModelsTest {
     }
 
     @Test fun theValueTypesCompareByValue() {
-        assertEquals(VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT), VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT))
-        assertNotEquals(VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT), VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.ESTIMATED))
-        assertEquals("Price(1.5 USD, EXACT)", VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT).toString())
+        assertEquals(VideoAd.Price(1.5, "USD"), VideoAd.Price(1.5, "USD"))
+        assertEquals("Price(1.5 USD)", VideoAd.Price(1.5, "USD").toString())
         assertEquals(VideoAd.RejectReason.Outbid(2.0, "net"), VideoAd.RejectReason.Outbid(2.0, "net"))
         assertEquals(VideoAd.RejectReason.Outbid(2.0, "net").hashCode(), VideoAd.RejectReason.Outbid(2.0, "net").hashCode())
         assertEquals("Outbid(winningPrice=null, winner=null)", VideoAd.RejectReason.Outbid().toString())
@@ -171,7 +167,7 @@ class ModelsTest {
     }
 
     @Test fun formatsHaveTheirWireNames() {
-        assertEquals(listOf("overlay", "pause", "linear"), AdFormat.entries.map { it.wireName })
+        assertEquals(listOf("overlay", "pause", "pauseFullscreen", "linear"), AdFormat.entries.map { it.wireName })
         assertEquals(AdFormat.PAUSE, AdFormat.fromWire("pause"))
         assertNull(AdFormat.fromWire("banner"))
     }
@@ -186,11 +182,11 @@ class ModelsTest {
     }
 
     @Test fun theValueTypesDifferByEachField() {
-        val price = VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT)
-        assertNotEquals(price, VideoAd.Price(2.0, "USD", VideoAd.Price.Precision.EXACT))
-        assertNotEquals(price, VideoAd.Price(1.5, "EUR", VideoAd.Price.Precision.EXACT))
+        val price = VideoAd.Price(1.5, "USD")
+        assertNotEquals(price, VideoAd.Price(2.0, "USD"))
+        assertNotEquals(price, VideoAd.Price(1.5, "EUR"))
         assertNotEquals(price, "1.5 USD")
-        assertEquals(price.hashCode(), VideoAd.Price(1.5, "USD", VideoAd.Price.Precision.EXACT).hashCode())
+        assertEquals(price.hashCode(), VideoAd.Price(1.5, "USD").hashCode())
         val outbid = VideoAd.RejectReason.Outbid(2.0, "net")
         assertNotEquals(outbid, VideoAd.RejectReason.Outbid(3.0, "net"))
         assertNotEquals(outbid, VideoAd.RejectReason.Outbid(2.0, "other"))
@@ -211,7 +207,7 @@ class ModelsTest {
     }
 
     @Test fun equalPricesHashAlikeZeroAndMinusZeroToo() {
-        fun price(value: Double) = VideoAd.Price(value, "USD", VideoAd.Price.Precision.EXACT)
+        fun price(value: Double) = VideoAd.Price(value, "USD")
         assertEquals(price(0.0), price(-0.0))
         assertEquals(price(0.0).hashCode(), price(-0.0).hashCode())
         assertEquals(price(2.5).hashCode(), price(2.5).hashCode())

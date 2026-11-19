@@ -24,7 +24,7 @@ class FrameProtocolTableTest {
         FrameProtocol("ad-1", originOf(url), isVideo, durationMillis, isAllowed = { it.startsWith("https://") })
 
     private fun FrameProtocol.send(type: String, fields: String = "", from: Origin? = page, mainFrame: Boolean = true): Step =
-        accept("""{"adId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", from, mainFrame, now)
+        accept("""{"bidId":"ad-1","type":"$type"${if (fields.isEmpty()) "" else ", $fields"}}""", from, mainFrame, now)
 
     private fun describe(step: Step): String = when (step) {
         Step.Ignore -> "ignore"
@@ -115,13 +115,13 @@ class FrameProtocolTableTest {
 
     @Test fun theEnvelopeAndTheSender() {
         val cases = listOf(
-            "from another frame" to protocol().accept("""{"adId":"ad-1","type":"ad.loaded"}""", page, false, now),
-            "from no origin" to protocol().accept("""{"adId":"ad-1","type":"ad.loaded"}""", null, true, now),
-            "from another origin" to protocol().accept("""{"adId":"ad-1","type":"ad.loaded"}""", Origin("https", "evil.test", 443), true, now),
-            "another port" to protocol().accept("""{"adId":"ad-1","type":"ad.loaded"}""", Origin("https", "frames.test", 8443), true, now),
+            "from another frame" to protocol().accept("""{"bidId":"ad-1","type":"ad.loaded"}""", page, false, now),
+            "from no origin" to protocol().accept("""{"bidId":"ad-1","type":"ad.loaded"}""", null, true, now),
+            "from another origin" to protocol().accept("""{"bidId":"ad-1","type":"ad.loaded"}""", Origin("https", "evil.test", 443), true, now),
+            "another port" to protocol().accept("""{"bidId":"ad-1","type":"ad.loaded"}""", Origin("https", "frames.test", 8443), true, now),
         )
         for ((what, step) in cases) assertEquals("drop", describe(step), what)
-        for (raw in listOf(null, "not json", "[1]", """{"adId":"ad-2","type":"ad.loaded"}""", """{"adId":"ad-1"}""", """{"type":"ad.loaded"}""")) {
+        for (raw in listOf(null, "not json", "[1]", """{"bidId":"ad-2","type":"ad.loaded"}""", """{"bidId":"ad-1"}""", """{"type":"ad.loaded"}""")) {
             assertEquals("drop!envelope", describe(protocol().accept(raw, page, true, now)), "$raw")
         }
         assertEquals("drop!envelope", describe(protocol().acceptNonText(page, true)))
@@ -188,7 +188,7 @@ class FrameProtocolTableTest {
 
     @Test fun aMessageOverOneMegabyteIsABrokenEnvelope() {
         fun message(bytes: Int): String {
-            val head = """{"adId":"ad-1","type":"ad.loaded","pad":""""
+            val head = """{"bidId":"ad-1","type":"ad.loaded","pad":""""
             val tail = "\"}"
             return head + "x".repeat(bytes - head.length - tail.length) + tail
         }
@@ -197,7 +197,7 @@ class FrameProtocolTableTest {
         assertEquals("loaded", describe(protocol().accept(message(FrameMessage.MAX_MESSAGE_BYTES - 1), page, true, now)), "just under")
         assertEquals("drop!envelope", describe(protocol().accept(message(FrameMessage.MAX_MESSAGE_BYTES + 1), page, true, now)), "just over")
         // Counted in UTF-8 bytes, not characters: two-byte characters reach the limit at half the length.
-        val wide = """{"adId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(FrameMessage.MAX_MESSAGE_BYTES / 2)}"}"""
+        val wide = """{"bidId":"ad-1","type":"ad.loaded","pad":"${"é".repeat(FrameMessage.MAX_MESSAGE_BYTES / 2)}"}"""
         assertEquals("drop!envelope", describe(protocol().accept(wide, page, true, now)))
     }
 
@@ -331,7 +331,7 @@ class FrameProtocolTableTest {
 
     @Test fun anEndedPageIgnoresEvenAMessageAlreadyRead() {
         val protocol = protocolIn("ended")
-        val message = FrameMessage.parse("""{"adId":"ad-1","type":"ad.error"}""", "ad-1", 1_000)!!
+        val message = FrameMessage.parse("""{"bidId":"ad-1","type":"ad.error"}""", "ad-1", 1_000)!!
         assertEquals("ignore", describe(protocol.accept(message, now)))
         assertEquals("ignore", describe(protocol.acceptNonText(page, true)))
         assertEquals(FramePhase.ENDED, protocol.state)

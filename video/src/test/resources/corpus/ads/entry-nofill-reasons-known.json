@@ -1,0 +1,38 @@
+{
+  "description": "a no-fill in every format, each with a reason the contract lists",
+  "response": {
+    "enabled": true,
+    "formats": [
+      {
+        "format": "overlay",
+        "ads": [],
+        "noFillReason": "noAdMatch"
+      },
+      {
+        "format": "pause",
+        "ads": [],
+        "noFillReason": "contentUnsafe"
+      },
+      {
+        "format": "pauseFullscreen",
+        "ads": [],
+        "noFillReason": "temporaryError"
+      },
+      {
+        "format": "linear",
+        "ads": [],
+        "noFillReason": "geoRestricted"
+      }
+    ]
+  },
+  "expect": {
+    "result": "formats",
+    "formats": {
+      "overlay": "noFill:noAdMatch",
+      "pause": "noFill:contentUnsafe",
+      "pauseFullscreen": "noFill:temporaryError",
+      "linear": "noFill:geoRestricted"
+    },
+    "decodeReports": []
+  }
+}

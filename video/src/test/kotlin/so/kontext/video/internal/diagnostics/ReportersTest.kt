@@ -43,6 +43,8 @@ class ReportersTest {
     @Volatile private var errorBody: String? = null
 
     @Before fun start() {
+        // Every ads request names the viewer.
+        so.kontext.video.internal.state.SdkState.current.recordUser(so.kontext.video.KontextVideo.User("test-user"))
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.path.orEmpty()

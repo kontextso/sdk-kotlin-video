@@ -41,10 +41,6 @@ internal class SdkState {
     var regulatory: Regulatory? = null
         private set
 
-    /** The publisher's A/B test variant (`KontextVideo.variantId`). */
-    var variantId: String? = null
-        private set
-
     /** `initialize` was called: the phase left [State.NotInitialized], never to return. */
     val isInitialized: Boolean get() = phase != State.NotInitialized
 
@@ -82,11 +78,6 @@ internal class SdkState {
     /** The app set `KontextVideo.regulatory`. */
     fun recordRegulatory(regulatory: Regulatory?) {
         this.regulatory = regulatory
-    }
-
-    /** The app set `KontextVideo.variantId`. */
-    fun recordVariantId(variantId: String?) {
-        this.variantId = variantId
     }
 
     /** As if `/config` had enabled the SDK with [configuration], without it. Tests only. */

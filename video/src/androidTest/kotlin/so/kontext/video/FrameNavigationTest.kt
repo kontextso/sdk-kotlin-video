@@ -72,7 +72,7 @@ class FrameNavigationTest {
 
                 override fun onPageFinished(view: WebView, url: String?) {
                     if (pages.incrementAndGet() == 1) {
-                        bridge.receive("""{"adId":"ad-1","type":"ad.loaded"}""", Origin.of(url!!), true)
+                        bridge.receive("""{"bidId":"ad-1","type":"ad.loaded"}""", Origin.of(url!!), true)
                         bridge.show()
                         shown.countDown()
                     }
