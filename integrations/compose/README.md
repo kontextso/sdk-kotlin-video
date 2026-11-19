@@ -12,7 +12,7 @@ implementation("so.kontext:video-compose:0.2.0")
 @Composable
 fun EpisodeScreen(content: KontextVideo.Content, player: ExoPlayer) {
     // One per episode: created for it, tracked, destroyed when the screen or the episode goes
-    val ads = rememberVideoAds(content, section = "feed") { it.track(player) }
+    val ads = rememberVideoAds(content, page = "feed") { it.track(player) }
     var adOnScreen by remember { mutableStateOf<VideoAd?>(null) }
     val scope = rememberCoroutineScope()
 

@@ -177,8 +177,8 @@ public class JavaUsageTest {
     }
 
     @Test
-    public void videoAdsTakesASectionAndAVariantFromJava() throws NoSuchMethodException {
-        // @JvmOverloads: (content), (content, section), (content, section, variantId).
+    public void videoAdsTakesAPageAndAVariantFromJava() throws NoSuchMethodException {
+        // @JvmOverloads: (content), (content, page), (content, page, variantId).
         VideoAds.class.getConstructor(KontextVideo.Content.class);
         VideoAds.class.getConstructor(KontextVideo.Content.class, String.class);
         VideoAds.class.getConstructor(KontextVideo.Content.class, String.class, String.class);

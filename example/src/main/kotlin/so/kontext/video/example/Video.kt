@@ -4,15 +4,15 @@ import android.graphics.Color
 import so.kontext.video.AdFormat
 
 /**
- * One video per ad format in a short-drama app. Its section says where in the app the player is; the ad server
- * answers every format of that section, and the app asks for the one it shows.
+ * One video per ad format in a short-drama app. Its page says where in the app the player is; the ad server
+ * answers every format of that page, and the app asks for the one it shows.
  */
 data class Video(
     val id: String,
     val title: String,
     val format: AdFormat,
-    /** Sent with every ads request of this video: `VideoAds(content, section = …)`. */
-    val section: String,
+    /** Sent with every ads request of this video: `VideoAds(content, page = …)`. */
+    val page: String,
     val color: Int,
     /** What happens once the video plays. */
     val caption: String,

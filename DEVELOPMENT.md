@@ -130,7 +130,7 @@ compileSdk 35. The older minimums above follow from the metadata and are not bui
 ## Running the example app
 
 The example talks to the production ad server with the publisher token you pass it (none is committed): four
-videos, one per format, each with its section.
+videos, one per format, each with its page.
 
 ```bash
 ./gradlew :example:installDebug -PkontextPublisherToken=<your token>

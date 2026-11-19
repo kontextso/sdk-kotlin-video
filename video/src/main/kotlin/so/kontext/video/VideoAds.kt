@@ -35,7 +35,7 @@ import java.lang.ref.WeakReference
  * can be alive at once. Call [destroy] when the viewer leaves the video (see its notes). Every call is
  * main-thread, except [format], which may be called from any dispatcher.
  *
- * Kotlin: `VideoAds(content, section = "feed")`. Java: `new VideoAds(content, "feed", null)`.
+ * Kotlin: `VideoAds(content, page = "feed")`. Java: `new VideoAds(content, "feed", null)`.
  */
 public class VideoAds
 @MainThread @JvmOverloads
@@ -44,12 +44,12 @@ constructor(
     public val content: Content,
     /**
      * Where in the app the player is, as Kontext named it with you (`"feed"`, `"series_detail"`): it chooses the
-     * formats (and their settings) the publisher configured for that section. One non-empty name of at most 128
+     * formats (and their settings) the publisher configured for that page. One non-empty name of at most 128
      * characters; `null` sends none. Empty or longer is an integration mistake: a debuggable build stops at it, and
      * the value is left out of the request. It describes the screen, never the viewer: no personal data. Every
      * request of this `VideoAds` carries it.
      */
-    public val section: String? = null,
+    public val page: String? = null,
     /**
      * The publisher's A/B test variant for this video's ads; `null` when none. Sent with every request. Empty or
      * longer than 128 characters is an integration mistake: a debuggable build stops at it, and the value is left
@@ -93,7 +93,7 @@ constructor(
     /** The ads request itself: the waits, the body, the answer, its failures and the kill switch. */
     private val fetcher = AdsFetcher(
         content,
-        section,
+        page,
         variantId,
         sessionId,
         playheadMillis = { playheadMillis },
@@ -112,7 +112,7 @@ constructor(
         IntegrationGuard.requireInitialized("VideoAds(content)")
         // What the publisher passed wrong, said once here rather than as a server 400 later.
         IntegrationGuard.checkContent(content, sessionId)
-        IntegrationGuard.checkNames(section, variantId)
+        IntegrationGuard.checkNames(page, variantId)
         // Held weakly: the kill switch reaches its unshown ads; it does not keep a forgotten one alive.
         LiveVideoAds.add(this)
         Environment.context?.registerComponentCallbacks(memoryCallbacks)
@@ -124,7 +124,7 @@ constructor(
 
     /**
      * The ad for [format]: `ads.format(AdFormat.PAUSE)`, then its `price` and other facts, then `load()` or
-     * `reject()`. Every call asks the server for all formats of the [section]; the server keeps the bids it gave
+     * `reject()`. Every call asks the server for all formats of the [page]; the server keeps the bids it gave
      * this `VideoAds` and returns an unshown one unchanged until it expires or its outcome is known, so the same ad
      * comes back. A `reject()` just before is heard first: the request waits up to 2 s for its `notUsed` beacon.
      * Calls made while a request runs share it. A failed request returns the held ad when it is still valid.
@@ -237,7 +237,7 @@ constructor(
         Logger.debug { "VideoAds destroyed for video ${content.id}" }
     }
 
-    override fun toString(): String = "VideoAds(content=${content.id}, section=$section, destroyed=$isDestroyed)"
+    override fun toString(): String = "VideoAds(content=${content.id}, page=$page, destroyed=$isDestroyed)"
 
     /** An ad ended before `show`, or was shown: it leaves its format, and its id is never accepted again. */
     internal fun adDidLeave(ad: VideoAd) = store.left(ad)

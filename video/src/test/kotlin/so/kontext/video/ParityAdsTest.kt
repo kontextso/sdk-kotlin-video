@@ -130,8 +130,8 @@ class ParityAdsTest {
         return state!!
     }
 
-    private fun videoAds(id: String = "ep", section: String? = null, variantId: String? = null) =
-        VideoAds(Content(id, "en"), section, variantId).also { owners += it }
+    private fun videoAds(id: String = "ep", page: String? = null, variantId: String? = null) =
+        VideoAds(Content(id, "en"), page, variantId).also { owners += it }
 
     /** Runs the main looper until [done], with real time for the HTTP threads. */
     private fun await(done: () -> Boolean) {
@@ -280,33 +280,33 @@ class ParityAdsTest {
         assertNull("no held list: the server keeps the bids", second["held"])
     }
 
-    @Test fun theSectionAndTheVariantGoWithEveryRequestAndNoneAreLeftOut() {
+    @Test fun thePageAndTheVariantGoWithEveryRequestAndNoneAreLeftOut() {
         initialize()
         serveAd("img-l1")
-        val ads = videoAds("ep-l", section = "feed", variantId = "exp-b")
+        val ads = videoAds("ep-l", page = "feed", variantId = "exp-b")
         ok(ads)
         ok(ads)
-        assertEquals(List(2) { "feed" }, adsBodies().map { it["section"]!!.jsonPrimitive.content })
+        assertEquals(List(2) { "feed" }, adsBodies().map { it["page"]!!.jsonPrimitive.content })
         assertEquals(List(2) { "exp-b" }, adsBodies().map { it["variantId"]!!.jsonPrimitive.content })
         ok(videoAds("ep-n"))
-        assertNull("none: left out", adsBodies()[2]["section"])
+        assertNull("none: left out", adsBodies()[2]["page"])
         assertNull(adsBodies()[2]["variantId"])
         assertNull("no labels any more", adsBodies()[0]["labels"])
     }
 
-    @Test fun aSectionOrVariantTheServerWouldRefuseIsLeftOutAndAsserted() {
+    @Test fun aPageOrVariantTheServerWouldRefuseIsLeftOutAndAsserted() {
         initialize()
         val assertions = mutableListOf<String>()
         Environment.assertionFailure = { assertions += it }
-        val ads = videoAds("ep-s", section = "", variantId = "v".repeat(129))
+        val ads = videoAds("ep-s", page = "", variantId = "v".repeat(129))
         assertEquals(1, assertions.size)
-        assertTrue(assertions.single().contains("section is empty") && assertions.single().contains("variantId is longer than 128"))
+        assertTrue(assertions.single().contains("page is empty") && assertions.single().contains("variantId is longer than 128"))
         serveAd("img-s1")
         ok(ads)
-        assertNull(adsBodies()[0]["section"])
+        assertNull(adsBodies()[0]["page"])
         assertNull(adsBodies()[0]["variantId"])
-        ok(videoAds("ep-s2", section = "s".repeat(128)))
-        assertEquals("128 is the limit, inclusive", 128, adsBodies()[1]["section"]!!.jsonPrimitive.content.length)
+        ok(videoAds("ep-s2", page = "s".repeat(128)))
+        assertEquals("128 is the limit, inclusive", 128, adsBodies()[1]["page"]!!.jsonPrimitive.content.length)
     }
 
     @Test fun everyVideoAdsHasItsOwnSession() {

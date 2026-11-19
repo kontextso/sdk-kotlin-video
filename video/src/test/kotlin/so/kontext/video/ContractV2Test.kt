@@ -320,14 +320,14 @@ class ContractV2Test {
         adsAnswer = MockResponse().setBody(
             Fixtures.ads(Fixtures.entry("pause", Fixtures.pause()), Fixtures.entry("pauseFullscreen", Fixtures.pauseFullscreen())).toString(),
         )
-        val ads = VideoAds(Content("ep", "en"), section = "player")
+        val ads = VideoAds(Content("ep", "en"), page = "player")
         val fullscreen = format(ads, AdFormat.PAUSE_FULLSCREEN).getOrThrow()
         assertEquals("ad-4", fullscreen.id)
         assertEquals(AdFormat.PAUSE_FULLSCREEN, fullscreen.format)
         assertNull(fullscreen.durationMillis)
         assertEquals("the same answer holds both", "ad-2", format(ads, AdFormat.PAUSE).getOrThrow().id)
         val request = events("ads.request").first()
-        assertEquals("player", request.property("section"))
+        assertEquals("player", request.property("page"))
         assertNull("no held count any more", request.property("held"))
         ads.destroy()
     }

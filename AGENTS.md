@@ -40,7 +40,7 @@ adb logcat -s KontextVideo
 - `KontextVideo` (an `object`): `initialize(context, configuration)` (`/config`), `user` (required for ads), `regulatory`;
   the models nested in it, as in Swift: `KontextVideo.Configuration`, `.Content`, `.User`, `.Regulatory`
   (`VideoAdException.NoFillReason` in the exception).
-- `VideoAds`: one per video, with its `section` and `variantId`. `format()` asks the server for all formats with
+- `VideoAds`: one per video, with its `page` and `variantId`. `format()` asks the server for all formats with
   the `VideoAds`'s `sessionId`, after its outcome beacons still on the wire (`PendingBeacons`, at most 2 s); one
   request at a time, shared by every caller; the server owns the bid state and the SDK follows the response.
 - `VideoAd`: the facts (`price`, `durationMillis`), `load()` (shared), `reject()`, `show(container, insets)` for

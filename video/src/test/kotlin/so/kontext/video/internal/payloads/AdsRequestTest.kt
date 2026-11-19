@@ -22,15 +22,15 @@ import so.kontext.video.VideoAdException
 import so.kontext.video.internal.device.DeviceInfo
 import so.kontext.video.internal.platform.Environment
 
-/** The ads request's body: what the app and a consent platform set, the section and variant, the playhead, the network. */
+/** The ads request's body: what the app and a consent platform set, the page and variant, the playhead, the network. */
 @RunWith(RobolectricTestRunner::class)
 class AdsRequestTest : SdkTest() {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private fun make(section: String? = null, variantId: String? = null) =
-        runBlocking { AdsRequest.make(context, "token", Content("ep", "en"), section, variantId, 1_234, "session") }
+    private fun make(page: String? = null, variantId: String? = null) =
+        runBlocking { AdsRequest.make(context, "token", Content("ep", "en"), page, variantId, 1_234, "session") }
 
-    @Test fun theRequestCarriesTheUserConsentSectionAndVariant() {
+    @Test fun theRequestCarriesTheUserConsentPageAndVariant() {
         KontextVideo.user = User("u-1") {
             keywords = listOf("drama")
         }
@@ -41,10 +41,10 @@ class AdsRequestTest : SdkTest() {
         // What a consent platform wrote: its values win over the app's, COPPA stays the app's.
         context.getSharedPreferences(context.packageName + "_preferences", Context.MODE_PRIVATE).edit()
             .putString("IABGPP_HDR_GppString", "cmp-gpp").putString("IABGPP_GppSID", "2_7").putString("IABUSPrivacy_String", "1YNN").commit()
-        val body = make(section = "feed", variantId = "b").body
+        val body = make(page = "feed", variantId = "b").body
         assertEquals("u-1", body["user"]!!.jsonObject["id"]!!.jsonPrimitive.content)
         assertEquals("b", body["variantId"]!!.jsonPrimitive.content)
-        assertEquals("feed", body["section"]!!.jsonPrimitive.content)
+        assertEquals("feed", body["page"]!!.jsonPrimitive.content)
         val regulatory = body["regulatory"]!!.jsonObject
         assertEquals("cmp-gpp", regulatory["gpp"]!!.jsonPrimitive.content)
         assertEquals(listOf(2, 7), regulatory["gppSid"]!!.jsonArray.map { it.jsonPrimitive.content.toInt() })
@@ -56,11 +56,11 @@ class AdsRequestTest : SdkTest() {
     }
 
     @Test fun whatTheContractDroppedIsNeverSent() {
-        val body = make(section = "feed").body
+        val body = make(page = "feed").body
         for (gone in listOf("held", "labels")) assertNull(gone, body[gone])
         assertNull("no categories", body["video"]!!.jsonObject["categories"])
         assertNull("no variant unless the VideoAds has one", body["variantId"])
-        assertNull(make().body["section"])
+        assertNull(make().body["page"])
     }
 
     @Test fun aChildsRequestKeepsTheUserIdAndLeavesOutTheEmailAndItsHash() {

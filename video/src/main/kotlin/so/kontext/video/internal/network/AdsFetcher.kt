@@ -38,7 +38,7 @@ import so.kontext.video.internal.state.SdkState
  */
 internal class AdsFetcher(
     private val content: Content,
-    private val section: String?,
+    private val page: String?,
     private val variantId: String?,
     private val sessionId: String,
     /** Content time now, for the request. */
@@ -74,8 +74,8 @@ internal class AdsFetcher(
         // Another video's response may have switched the SDK off meanwhile: nothing leaves.
         checkStillUsable()
         lastRequestId = adsRequest.requestId
-        Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms${section?.let { " for section $it" } ?: ""}" }
-        val requestProperties = mapOf("playhead" to adsRequest.playheadMillis) + (section?.let { mapOf("section" to it) } ?: emptyMap())
+        Logger.debug { "${content.id}: requesting at playhead ${adsRequest.playheadMillis} ms${page?.let { " for page $it" } ?: ""}" }
+        val requestProperties = mapOf("playhead" to adsRequest.playheadMillis) + (page?.let { mapOf("page" to it) } ?: emptyMap())
         DebugReporter.event("ads.request", sessionId = sessionId, properties = requestProperties)
         // 3. The answer, parsed and checked against the held ads.
         val response = try {
@@ -133,7 +133,7 @@ internal class AdsFetcher(
      */
     @Suppress("SwallowedException") // the user's absence, said as the failure format() promises
     private suspend fun build(context: Context, publisherToken: String): AdsRequest = try {
-        AdsRequest.make(context, publisherToken, content, section, variantId, playheadMillis(), sessionId)
+        AdsRequest.make(context, publisherToken, content, page, variantId, playheadMillis(), sessionId)
     } catch (error: CancellationException) {
         throw error
     } catch (error: VideoAdException.Request) {

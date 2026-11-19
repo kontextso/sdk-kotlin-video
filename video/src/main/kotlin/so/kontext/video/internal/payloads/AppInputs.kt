@@ -53,14 +53,14 @@ internal val User?.usable: User?
 internal val User.emptyFields: List<String>
     get() = listOf<Pair<String, String?>>("id" to id, "email" to email, "emailHash" to emailHash).filter { it.second?.isEmpty() == true }.map { it.first }
 
-/** The longest `section` or `variantId` the server takes. */
+/** The longest `page` or `variantId` the server takes. */
 internal const val MAX_NAME_LENGTH = 128
 
-/** A `section` or `variantId` as sent: empty or longer than [MAX_NAME_LENGTH], it would fail the request, so it is left out. */
+/** A `page` or `variantId` as sent: empty or longer than [MAX_NAME_LENGTH], it would fail the request, so it is left out. */
 internal val String?.sendable: String?
     get() = this?.takeIf { it.isNotEmpty() && it.length <= MAX_NAME_LENGTH }
 
-/** What is wrong with a `section` or `variantId`, or `null`: what [sendable] leaves out. */
+/** What is wrong with a `page` or `variantId`, or `null`: what [sendable] leaves out. */
 internal fun String?.nameProblem(): String? = when {
     this == null -> null
     isEmpty() -> "is empty"

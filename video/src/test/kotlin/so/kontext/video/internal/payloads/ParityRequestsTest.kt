@@ -54,8 +54,8 @@ class ParityRequestsTest : SdkTest() {
         usPrivacy = "1NNN"
     }
 
-    private fun request(content: Content = Content("v", "en"), section: String? = null, variantId: String? = null) =
-        runBlocking { AdsRequest.make(context, "pub-dev", content, section, variantId, 12_345, "s-1") }
+    private fun request(content: Content = Content("v", "en"), page: String? = null, variantId: String? = null) =
+        runBlocking { AdsRequest.make(context, "pub-dev", content, page, variantId, 12_345, "s-1") }
 
     private fun JsonObject.obj(key: String) = this[key]!!.jsonObject
 
@@ -73,7 +73,7 @@ class ParityRequestsTest : SdkTest() {
         Environment.advertisingId = { "6d92078a-8246-4ba4-ae5b-76104861e7dc" }
         KontextVideo.user = User("u1")
         KontextVideo.regulatory = Regulatory { coppa = false }
-        val built = request(Content("v1", "en") { durationMillis = 92_000 }, section = "feed", variantId = "exp-b")
+        val built = request(Content("v1", "en") { durationMillis = 92_000 }, page = "feed", variantId = "exp-b")
         val body = built.body
         assertEquals(built.requestId, body.text("requestId"))
         for (absent in listOf("adServerUrl", "adServerURL", "formats", "placementId")) assertNull(absent, body[absent])
@@ -85,7 +85,7 @@ class ParityRequestsTest : SdkTest() {
         assertEquals(false, body.obj("regulatory").bool("coppa"))
         assertEquals("s-1", body.text("sessionId"))
         assertNull("the server keeps the bids", body["held"])
-        assertEquals("feed", body.text("section"))
+        assertEquals("feed", body.text("page"))
         assertEquals("92000", body.obj("video").text("duration"))
         val player = body.obj("player")
         assertEquals(true, player.bool("fullscreen"))
@@ -116,7 +116,7 @@ class ParityRequestsTest : SdkTest() {
 
     @Test fun anAdsRequestCarriesExactlyWhatWasSetAndNothingElse() {
         val bare = request()
-        for (absent in listOf("variantId", "section", "labels", "held", "regulatory", "ifa")) assertNull(absent, bare.body[absent])
+        for (absent in listOf("variantId", "page", "labels", "held", "regulatory", "ifa")) assertNull(absent, bare.body[absent])
         assertEquals("the user is always there", "test-user", bare.body.obj("user").text("id"))
         val again = request()
         assertNotEquals("a new id per request", bare.body.text("requestId"), again.body.text("requestId"))

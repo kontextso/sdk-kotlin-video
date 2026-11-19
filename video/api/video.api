@@ -576,7 +576,7 @@ public final class so/kontext/video/VideoAds {
 	public final fun format (Lso/kontext/video/AdFormat;Lso/kontext/video/VideoAdCallback;)V
 	public final fun getContent ()Lso/kontext/video/KontextVideo$Content;
 	public final fun getLastRequestId ()Ljava/lang/String;
-	public final fun getSection ()Ljava/lang/String;
+	public final fun getPage ()Ljava/lang/String;
 	public final fun getVariantId ()Ljava/lang/String;
 	public final fun isDestroyed ()Z
 	public fun toString ()Ljava/lang/String;

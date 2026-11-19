@@ -135,7 +135,7 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
 
         // Creating it sends nothing; the request goes out in prepareAd(). The SDK reads the playhead from the
         // player and follows its playback: an overlay lives only while the content plays.
-        ads = VideoAds(Content(video.id, "en") { title = video.title; genre = "romance" }, section = video.section)
+        ads = VideoAds(Content(video.id, "en") { title = video.title; genre = "romance" }, page = video.page)
         ads.track(player)
         player.play()
         startJob = lifecycleScope.launch {

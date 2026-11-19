@@ -25,7 +25,7 @@ above the title and the status line.
 | `ExampleApp.kt` | `KontextVideo.initialize` once, at launch, with debug logging; `KontextVideo.user`, a guest id kept for the install |
 | `MainActivity.kt` | The list of videos |
 | `PlayerActivity.kt` | One episode: the player, the ad area over it, `VideoAds` per episode, `track(player)`, `format` → `load` → `show`, the listener, `destroy()` in `onDestroy` |
-| `Video.kt` | The four demo videos: id, title, format, section; `find`, the video a deep link names |
+| `Video.kt` | The four demo videos: id, title, format, page; `find`, the video a deep link names |
 
 `PlayerActivity` is the one to read: it is the integration a publisher writes, in about 200 lines.
 

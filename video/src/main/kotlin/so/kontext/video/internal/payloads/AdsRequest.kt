@@ -31,7 +31,7 @@ internal class AdsRequest private constructor(
             context: Context,
             publisherToken: String,
             content: Content,
-            section: String?,
+            page: String?,
             variantId: String?,
             playheadMillis: Long,
             sessionId: String,
@@ -80,7 +80,7 @@ internal class AdsRequest private constructor(
                 )
                 put("player", player(context, playheadMillis))
                 put("video", content.toJson())
-                putIfNotNull("section", section.sendable)
+                putIfNotNull("page", page.sendable)
                 put("sessionId", sessionId)
             }
             return AdsRequest(requestId, body, playheadMillis)

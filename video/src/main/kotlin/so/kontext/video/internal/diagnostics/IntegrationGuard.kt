@@ -91,9 +91,9 @@ internal object IntegrationGuard {
         return false
     }
 
-    /** A `section` or `variantId` the request would have to leave out: said once when its `VideoAds` is made. */
-    fun checkNames(section: String?, variantId: String?) {
-        val problems = listOfNotNull(section.nameProblem()?.let { "section $it" }, variantId.nameProblem()?.let { "variantId $it" })
+    /** A `page` or `variantId` the request would have to leave out: said once when its `VideoAds` is made. */
+    fun checkNames(page: String?, variantId: String?) {
+        val problems = listOfNotNull(page.nameProblem()?.let { "page $it" }, variantId.nameProblem()?.let { "variantId $it" })
         if (problems.isEmpty()) return
         Environment.assertionFailure("VideoAds: ${problems.joinToString()}")
         Logger.error { "VideoAds: ${problems.joinToString()}; left out of the requests" }
