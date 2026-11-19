@@ -156,9 +156,12 @@ jobs:
       # wiring, not playback), and VideoAdHost on real layout passes. The
       # modules' tests one after the other (--no-parallel): at once, two instrumentations share one emulator. Each line of the script is its own
       # shell command, so the logcat on a failure is one line; it goes into the uploaded reports.
+      # A healthy run takes 5 to 7 minutes. The API 24 image sometimes stops answering adb mid-run and the tests then
+      # wait forever; the limit turns that hang into a failure, so the retry below starts on a fresh emulator.
       - name: Run the emulator tests
         id: emulator
         continue-on-error: true
+        timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -176,6 +179,7 @@ jobs:
       # leaves a warning on the run, and the first attempt's logcat stays in the reports.
       - name: Run the emulator tests (retry)
         if: steps.emulator.outcome == 'failure'
+        timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}

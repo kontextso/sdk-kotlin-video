@@ -25,6 +25,9 @@ data class Video(
         val all = listOf(
             Video("demo-overlay", "Revenge of the Heiress", AdFormat.OVERLAY, "free_episodes",
                 Color.rgb(255, 87, 34), "An overlay after 3 s of playing; pausing ends it"),
+            Video("demo-overlay-top", "Midnight Vows", AdFormat.OVERLAY, "free_episodes_top",
+                Color.rgb(255, 193, 7),
+                "An overlay after 3 s of playing, placed as its page's configuration says (the top, for example); pausing ends it"),
             Video("demo-linear", "The CEO's Secret", AdFormat.LINEAR, "unlock",
                 Color.rgb(156, 39, 176), "A linear ad after 3 s of playing"),
             Video("demo-pause-fullscreen", "The Heir's Return", AdFormat.PAUSE_FULLSCREEN, "first_episode",
