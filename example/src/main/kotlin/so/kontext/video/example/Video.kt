@@ -18,7 +18,7 @@ data class Video(
     val caption: String,
 ) {
     /** The format is shown while the content is paused: a card, or the whole player. */
-    val isPause: Boolean get() = format == AdFormat.PAUSE || format == AdFormat.PAUSE_FULLSCREEN
+    val isPause: Boolean get() = format == AdFormat.PAUSE
 
     companion object {
         /** The home list, in this order. */
@@ -30,15 +30,14 @@ data class Video(
                 "An overlay after 3 s of playing, placed as its page's configuration says (the top, for example); pausing ends it"),
             Video("demo-linear", "The CEO's Secret", AdFormat.LINEAR, "unlock",
                 Color.rgb(156, 39, 176), "A linear ad after 3 s of playing"),
-            Video("demo-pause-fullscreen", "The Heir's Return", AdFormat.PAUSE_FULLSCREEN, "first_episode",
-                Color.rgb(0, 150, 136), "Tap to pause: a full-screen pause ad shows, its Resume plays on"),
             Video("demo-pause", "Moonlit Contract", AdFormat.PAUSE, "first_episode",
-                Color.rgb(63, 81, 181), "Tap to pause: a pause ad shows, tap again to resume"),
+                Color.rgb(63, 81, 181),
+                "Tap to pause: a pause ad shows, a card or the whole player as its page's configuration says; tap again, or the ad's Resume, to play on"),
         )
 
         /**
-         * The video an id opens: a video's own id, or a format's name (`overlay`, `linear`, `pause`,
-         * `pause-fullscreen`), which opens its `demo-<format>` video. `null` when none matches.
+         * The video an id opens: a video's own id, or a format's name (`overlay`, `linear`, `pause`),
+         * which opens its `demo-<format>` video. `null` when none matches.
          */
         fun find(id: String): Video? = all.firstOrNull { it.id == id || it.id == "demo-$id" }
             ?: all.firstOrNull { it.format.name.equals(id, ignoreCase = true) }

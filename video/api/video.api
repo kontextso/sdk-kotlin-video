@@ -2,7 +2,6 @@ public final class so/kontext/video/AdFormat : java/lang/Enum {
 	public static final field LINEAR Lso/kontext/video/AdFormat;
 	public static final field OVERLAY Lso/kontext/video/AdFormat;
 	public static final field PAUSE Lso/kontext/video/AdFormat;
-	public static final field PAUSE_FULLSCREEN Lso/kontext/video/AdFormat;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/AdFormat;
 	public static fun values ()[Lso/kontext/video/AdFormat;
@@ -291,6 +290,7 @@ public final class so/kontext/video/VideoAd {
 	public final fun getId ()Ljava/lang/String;
 	public final fun getInvalidationReason ()Lso/kontext/video/VideoAd$InvalidationReason;
 	public final fun getListener ()Lso/kontext/video/VideoAdListener;
+	public final fun getPosition ()Lso/kontext/video/VideoAd$Position;
 	public final fun getPrice ()Lso/kontext/video/VideoAd$Price;
 	public final fun getWasShown ()Z
 	public final fun isCompleted ()Z
@@ -380,6 +380,15 @@ public final class so/kontext/video/VideoAd$InvalidationReason$Expired : so/kont
 public final class so/kontext/video/VideoAd$InvalidationReason$Rejected : so/kontext/video/VideoAd$InvalidationReason {
 	public static final field INSTANCE Lso/kontext/video/VideoAd$InvalidationReason$Rejected;
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class so/kontext/video/VideoAd$Position : java/lang/Enum {
+	public static final field BOTTOM Lso/kontext/video/VideoAd$Position;
+	public static final field FULLSCREEN Lso/kontext/video/VideoAd$Position;
+	public static final field TOP Lso/kontext/video/VideoAd$Position;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lso/kontext/video/VideoAd$Position;
+	public static fun values ()[Lso/kontext/video/VideoAd$Position;
 }
 
 public final class so/kontext/video/VideoAd$Price {

@@ -6,7 +6,6 @@
     "formats": {
       "overlay": "ad:o-1",
       "pause": "ad:p-1",
-      "pauseFullscreen": "ad:f-1",
       "linear": "ad:l-1"
     },
     "decodeReports": []

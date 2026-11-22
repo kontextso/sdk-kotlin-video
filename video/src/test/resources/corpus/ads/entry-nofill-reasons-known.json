@@ -14,11 +14,6 @@
         "noFillReason": "contentUnsafe"
       },
       {
-        "format": "pauseFullscreen",
-        "ads": [],
-        "noFillReason": "temporaryError"
-      },
-      {
         "format": "linear",
         "ads": [],
         "noFillReason": "geoRestricted"
@@ -30,7 +25,6 @@
     "formats": {
       "overlay": "noFill:noAdMatch",
       "pause": "noFill:contentUnsafe",
-      "pauseFullscreen": "noFill:temporaryError",
       "linear": "noFill:geoRestricted"
     },
     "decodeReports": []

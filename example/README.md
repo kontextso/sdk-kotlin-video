@@ -5,15 +5,14 @@ classic Views. It is built with the SDK from this repo (not from Maven Central) 
 
 ## What it shows
 
-The home screen lists five videos: one per format, and a second overlay on a page that places it at the top. Each plays a bundled sample episode on loop:
+The home screen lists four videos: one per format, and a second overlay on a page that places it at the top. Each plays a bundled sample episode on loop:
 
 | Video | Format | What happens |
 |---|---|---|
 | Revenge of the Heiress | overlay | An overlay after 3 s of playing; pausing ends it |
 | Midnight Vows | overlay | An overlay after 3 s of playing, placed as its page's configuration says (the top, for example); pausing ends it |
 | The CEO's Secret | linear | A full-screen linear ad after 3 s of playing |
-| The Heir's Return | pauseFullscreen | Tap to pause: a full-screen pause ad shows; its Resume button plays on |
-| Moonlit Contract | pause (card) | Tap the player to pause: a pause ad shows; tap again to resume |
+| Moonlit Contract | pause | Tap the player to pause: a pause ad shows, a card or the whole player as its page's configuration says; tap again, or the ad's Resume button, to play on |
 
 A status line under the title shows the ad's format and price once it is loaded, or why there is none. An ad at
 the top stays below the back button (76 dp for an overlay strip, 68 dp for a pause card), one at the bottom 20 dp

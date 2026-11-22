@@ -167,7 +167,7 @@ class ModelsTest {
     }
 
     @Test fun formatsHaveTheirWireNames() {
-        assertEquals(listOf("overlay", "pause", "pauseFullscreen", "linear"), AdFormat.entries.map { it.wireName })
+        assertEquals(listOf("overlay", "pause", "linear"), AdFormat.entries.map { it.wireName })
         assertEquals(AdFormat.PAUSE, AdFormat.fromWire("pause"))
         assertNull(AdFormat.fromWire("banner"))
     }

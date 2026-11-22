@@ -21,8 +21,8 @@ internal class AdPayload(
     val frameUrl: String,
     val tracking: List<TrackingEvent>,
     /** `null` for a linear ad. */
-    val position: Position?,
-    /** Every size the creative was built for, the default first; empty for a linear or `pauseFullscreen` ad. */
+    val position: VideoAd.Position?,
+    /** Every size the creative was built for, the default first; empty for a linear or full-screen pause ad. */
     val sizes: List<Size>,
     /** A linear ad's video length, or how long an overlay stays on screen; `null` for a pause ad and an overlay that stays. */
     val durationMillis: Long?,
@@ -31,8 +31,6 @@ internal class AdPayload(
 ) {
     /** What the page renders: decides the viewability clock, when the impression counts and the error codes. */
     enum class Creative { IMAGE, VIDEO, HTML }
-
-    enum class Position { TOP, BOTTOM, FULLSCREEN }
 
     /** The box a creative was built for, in dp; `scalable: false` means never shown smaller. */
     data class Size(val width: Int, val height: Int, val isScalable: Boolean = true)
@@ -96,7 +94,7 @@ internal class AdPayload(
         }
 
         /** The fields that differ by format: where it shows, its sizes, its duration and skip offset. */
-        private class Shape(val position: Position?, val sizes: List<Size>, val durationMillis: Long?, val skipOffsetMillis: Long?)
+        private class Shape(val position: VideoAd.Position?, val sizes: List<Size>, val durationMillis: Long?, val skipOffsetMillis: Long?)
 
         private fun creative(ad: JsonObject, id: String): Creative = when (ad.str("creative")) {
             "image" -> Creative.IMAGE
@@ -162,25 +160,22 @@ internal class AdPayload(
         private fun shape(ad: JsonObject, id: String, format: AdFormat): Shape = when (format) {
             AdFormat.OVERLAY -> {
                 val position = when (ad.str("position")) {
-                    "top" -> Position.TOP
-                    "bottom" -> Position.BOTTOM
+                    "top" -> VideoAd.Position.TOP
+                    "bottom" -> VideoAd.Position.BOTTOM
                     else -> invalidAt("position", "ad $id: overlay position")
                 }
                 Shape(position, sizes(ad, id), nonNegative(ad, "duration", id), null)
             }
             AdFormat.PAUSE -> {
-                // A full-screen pause ad is a format of its own (`pauseFullscreen`): `pause` is a card only.
                 val position = when (ad.str("position")) {
-                    "top" -> Position.TOP
-                    "bottom" -> Position.BOTTOM
+                    "top" -> VideoAd.Position.TOP
+                    "bottom" -> VideoAd.Position.BOTTOM
+                    "fullscreen" -> VideoAd.Position.FULLSCREEN
                     else -> invalidAt("position", "ad $id: pause position")
                 }
-                Shape(position, sizes(ad, id), null, null)
-            }
-            AdFormat.PAUSE_FULLSCREEN -> {
-                // It covers the whole player, so it has no sizes: whatever `sizes` holds is not read.
-                if (ad.str("position") != "fullscreen") invalidAt("position", "ad $id: pauseFullscreen position")
-                Shape(Position.FULLSCREEN, emptyList(), null, null)
+                // A card needs its sizes. A full-screen ad covers the whole player, so it has none: whatever
+                // `sizes` holds is not read.
+                Shape(position, if (position == VideoAd.Position.FULLSCREEN) emptyList() else sizes(ad, id), null, null)
             }
             AdFormat.LINEAR -> {
                 val duration = millis(ad, "duration") ?: invalidAt("duration", "ad $id: duration")

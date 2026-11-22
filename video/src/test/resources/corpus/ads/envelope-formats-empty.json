@@ -9,7 +9,6 @@
     "formats": {
       "overlay": "absent",
       "pause": "absent",
-      "pauseFullscreen": "absent",
       "linear": "absent"
     },
     "decodeReports": []

@@ -1,5 +1,5 @@
 {
-  "description": "a pause ad may not be fullscreen: the full-screen pause is its own format, pauseFullscreen",
+  "description": "a pause ad with position fullscreen and no sizes is the whole player: valid",
   "response": {
     "enabled": true,
     "formats": [
@@ -102,61 +102,6 @@
               }
             ],
             "vastUrl": "https://ads.test/v2/video/ads/p-1/vast",
-            "position": "fullscreen",
-            "sizes": [
-              {
-                "width": 300,
-                "height": 250,
-                "scalable": false,
-                "maintainAspectRatio": true
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "format": "pauseFullscreen",
-        "ads": [
-          {
-            "id": "f-1",
-            "format": "pauseFullscreen",
-            "creative": "image",
-            "trigger": {
-              "kind": "manual"
-            },
-            "price": {
-              "model": "cpm",
-              "value": 9.0,
-              "currency": "USD"
-            },
-            "expires": 3600000,
-            "rendering": {
-              "kind": "frame",
-              "url": "https://frames.test/v2/frame/f-1"
-            },
-            "tracking": [
-              {
-                "event": "impression",
-                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
-              },
-              {
-                "event": "creativeView",
-                "url": "https://ads.test/events/f-1/creativeView"
-              },
-              {
-                "event": "click",
-                "url": "https://ads.test/events/f-1/click"
-              },
-              {
-                "event": "notUsed",
-                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
-              },
-              {
-                "event": "overlayViewDuration",
-                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
-              }
-            ],
-            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
             "position": "fullscreen"
           }
         ]
@@ -229,12 +174,14 @@
     "result": "formats",
     "formats": {
       "overlay": "ad:o-1",
-      "pause": "noFill:unknown",
-      "pauseFullscreen": "ad:f-1",
+      "pause": "ad:p-1",
       "linear": "ad:l-1"
     },
-    "decodeReports": [
-      "pause:position"
-    ]
+    "decodeReports": [],
+    "ads": {
+      "pause": {
+        "sizesCount": 0
+      }
+    }
   }
 }

@@ -58,7 +58,8 @@ public class JavaUsageTest {
 
         assertEquals(VideoAd.EndReason.RESUMED, VideoAd.EndReason.valueOf("RESUMED"));
         assertSame(VideoAdException.RequestFailure.MissingUser.INSTANCE, new VideoAdException.Request(VideoAdException.RequestFailure.MissingUser.INSTANCE).getFailure());
-        assertEquals(AdFormat.PAUSE_FULLSCREEN, AdFormat.valueOf("PAUSE_FULLSCREEN"));
+        assertEquals(AdFormat.PAUSE, AdFormat.valueOf("PAUSE"));
+        assertEquals(VideoAd.Position.FULLSCREEN, VideoAd.Position.valueOf("FULLSCREEN"));
 
         VideoAdException.Request request = new VideoAdException.Request(new VideoAdException.RequestFailure.Server(503));
         VideoAdException.RequestFailure failure = request.getFailure();

@@ -1,17 +1,17 @@
 # Kontext Kotlin Video SDK
 
-An Android SDK for Kontext video ads (overlay, pause, full-screen pause and linear) in short-drama and other video-first apps. The
+An Android SDK for Kontext video ads (overlay, pause and linear) in short-drama and other video-first apps. The
 Android twin of the [Swift Video SDK](https://github.com/kontextso/sdk-swift-video).
 
 ## Install
 
 ```kotlin
 dependencies {
-    implementation("so.kontext:video:0.2.0")
-    implementation("so.kontext:video-media3:0.2.0")  // optional: ads.track(exoPlayer)
-    implementation("so.kontext:video-ttsdk:0.2.0")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
-    implementation("so.kontext:video-txplayer:0.2.0") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
-    implementation("so.kontext:video-compose:0.2.0") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
+    implementation("so.kontext:video:0.3.0")
+    implementation("so.kontext:video-media3:0.3.0")  // optional: ads.track(exoPlayer)
+    implementation("so.kontext:video-ttsdk:0.3.0")   // optional: ads.track(ttVideoEngine), TTSDK 1.40+
+    implementation("so.kontext:video-txplayer:0.3.0") // optional: ads.track(txVodPlayer), Tencent Cloud Player SDK 11.0+
+    implementation("so.kontext:video-compose:0.3.0") // optional: rememberVideoAds and VideoAdHost for Jetpack Compose
 }
 ```
 
@@ -41,8 +41,8 @@ val ads = viewModel.ads
 ads.track(player) // your Media3 player, or your own ContentPlayer
 
 // Prepare a pause ad early: format() gets the offer (its price, before anything renders),
-// load() renders the creative so show() is instant. AdFormat.PAUSE_FULLSCREEN is the pause ad that covers
-// the whole player, with its own Resume button (onAdEnded(RESUMED))
+// load() renders the creative so show() is instant. The server decides whether it is a card or covers
+// the whole player (ad.position == VideoAd.Position.FULLSCREEN), then with its own Resume button (onAdEnded(RESUMED))
 lifecycleScope.launch {
     val pauseAd = try { ads.format(AdFormat.PAUSE).apply { load() } } catch (e: VideoAdException) { null }
     pauseAd?.listener = object : VideoAdListener {

@@ -190,7 +190,7 @@ class ParityPayloadsTest {
         assertEquals(600_000L, ad.expiresMillis)
         assertEquals(VideoAd.Price(5.5, "EUR"), ad.price)
         assertEquals("https://frames.test/v2/frame/ad-2", ad.frameUrl)
-        assertEquals(AdPayload.Position.TOP, ad.position)
+        assertEquals(VideoAd.Position.TOP, ad.position)
         assertEquals(listOf(AdPayload.Size(300, 250, isScalable = false)), ad.sizes)
         assertNull(ad.durationMillis)
         assertNull(ad.skipOffsetMillis)

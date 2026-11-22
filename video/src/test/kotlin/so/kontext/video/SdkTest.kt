@@ -106,9 +106,9 @@ abstract class SdkTest {
     protected fun overlay(owner: VideoAds = owner(), duration: String = "null", tracking: String = "[]") =
         loaded(AdPayload.parse(Fixtures.json(Fixtures.overlay(duration = duration, tracking = tracking))), owner)
 
-    /** A pause ad: a card at [position] (`top`, `bottom`), or with `fullscreen` a `PAUSE_FULLSCREEN` ad. */
+    /** A pause ad: a card at [position] (`top`, `bottom`), or with `fullscreen` the whole player. */
     protected fun pause(owner: VideoAds = owner(), position: String = "top") =
-        loaded(AdPayload.parse(Fixtures.json(if (position == "fullscreen") Fixtures.pauseFullscreen(id = "ad-2") else Fixtures.pause(position = position))), owner)
+        loaded(AdPayload.parse(Fixtures.json(if (position == "fullscreen") Fixtures.fullscreenPause(id = "ad-2") else Fixtures.pause(position = position))), owner)
 
     protected fun linear(owner: VideoAds = owner(), tracking: String = "[]") =
         loaded(AdPayload.parse(Fixtures.json(Fixtures.linear().replace("\"tracking\": []", "\"tracking\": $tracking"))), owner)
