@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import so.kontext.video.ContentPlayer
+import so.kontext.video.VideoAd
 import so.kontext.video.internal.frame.FrameBridge
 import so.kontext.video.internal.frame.FrameNavigation
 import so.kontext.video.internal.frame.Origin
@@ -100,11 +101,11 @@ class AndroidPartsTest {
     @Test fun anAdIsScaledToFitNeverEnlargedAndRefusedBelowHalf() {
         val size = AdPayload.Size(320, 80)
         // 1080 px wide at density 3: 360 dp of room, the ad at its own 320 dp is 960 px, centred at the bottom.
-        assertEquals(Rect(60, 1680, 1020, 1920), AdGeometry.frame(size, AdPayload.Position.BOTTOM, 1080, 1920, Rect(), 3f))
+        assertEquals(Rect(60, 1680, 1020, 1920), AdGeometry.frame(size, VideoAd.Position.BOTTOM, 1080, 1920, Rect(), 3f))
         // 480 px of room for 960: half size, the smallest allowed.
-        assertEquals(Rect(0, 0, 480, 120), AdGeometry.frame(size, AdPayload.Position.TOP, 480, 1920, Rect(), 3f))
-        assertNull(AdGeometry.frame(size, AdPayload.Position.TOP, 470, 1920, Rect(), 3f))
-        assertNull("not scalable", AdGeometry.frame(size.copy(isScalable = false), AdPayload.Position.TOP, 900, 1920, Rect(), 3f))
+        assertEquals(Rect(0, 0, 480, 120), AdGeometry.frame(size, VideoAd.Position.TOP, 480, 1920, Rect(), 3f))
+        assertNull(AdGeometry.frame(size, VideoAd.Position.TOP, 470, 1920, Rect(), 3f))
+        assertNull("not scalable", AdGeometry.frame(size.copy(isScalable = false), VideoAd.Position.TOP, 900, 1920, Rect(), 3f))
         assertNull("insets that leave no room", AdGeometry.room(1080, 1920, Rect(0, 0, 0, 2000)))
         assertEquals(AdGeometry.PixelSize(480 + 10, 120 + 200), AdGeometry.minimum(size, Rect(0, 0, 10, 200), 3f))
     }

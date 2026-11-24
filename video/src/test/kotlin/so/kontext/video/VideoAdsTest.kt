@@ -43,7 +43,7 @@ class VideoAdsTest {
     private val requests = ConcurrentLinkedQueue<Pair<String, String>>()
     private val beacons = mutableListOf<String>()
 
-    /** What `/v2/video/ads` answers next; `/v2/config` is enabled unless a test says otherwise. */
+    /** What `/v2/preload` answers next; `/v2/config` is enabled unless a test says otherwise. */
     @Volatile private var adsAnswer: MockResponse = MockResponse().setBody(Fixtures.ads().toString())
 
     @Volatile private var configAnswer: MockResponse = MockResponse().setBody("""{"enabled": true}""")
@@ -57,7 +57,7 @@ class VideoAdsTest {
                 requests += path to request.body.readUtf8()
                 return when (path) {
                     "/v2/config" -> configAnswer
-                    "/v2/video/ads" -> adsAnswer
+                    "/v2/preload" -> adsAnswer
                     else -> MockResponse().setResponseCode(204)
                 }
             }
@@ -108,7 +108,7 @@ class VideoAdsTest {
         return result!!
     }
 
-    private fun adsBodies() = requests.filter { it.first == "/v2/video/ads" }.map { Json.parseToJsonElement(it.second).jsonObject }
+    private fun adsBodies() = requests.filter { it.first == "/v2/preload" }.map { Json.parseToJsonElement(it.second).jsonObject }
 
     @Test fun initializeAsksConfigAndEnables() {
         assertEquals(KontextVideo.State.Enabled, initialize())

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0
+### Breaking
+* `KontextVideo.User.keywords` is removed (and `User.Builder.keywords`): a viewer is `id`, `email` and `emailHash`. Drop it from `User(id) { … }` and from the Java builder. A video's own `Content.keywords` stay.
+* `AdFormat.PAUSE_FULLSCREEN` is removed: there are three formats, `OVERLAY`, `PAUSE` and `LINEAR`. A pause ad is a card at the top or bottom of the player, or covers the whole player; the server decides which for the publisher (the new `VideoAd.position` says it), and `format(AdFormat.PAUSE)` returns the one it answered. `show(container)` shows either, and nothing else changes: the ad that covers the whole player fills the container, ignores `insets`, and ends as before (Resume: `RESUMED`; the content playing again: `INTERRUPTED`; ✕: `CLOSED`). Replace `format(AdFormat.PAUSE_FULLSCREEN)` with `format(AdFormat.PAUSE)`, drop the case from a `when` over `AdFormat`, and resume the content on `RESUMED` for any pause ad.
+
+### Added
+* `VideoAdException.NoFillReason.InvalidTraffic`: the server turned the request away as invalid traffic.
+* `VideoAdException.Disabled` can say `geoRestricted`: ads are not served in the viewer's country, on `/config` or on an ads request, and the SDK stays off until the app restarts.
+* `VideoAd.position` (`VideoAd.Position`: `TOP`, `BOTTOM`, `FULLSCREEN`; Java `getPosition()`): where the server placed the ad, known before anything renders. `FULLSCREEN` is a pause ad that covers the whole player; an overlay and a pause card say `TOP` or `BOTTOM`; `null` for a linear ad.
+
+### Changed
+* A `pause` ad with position `fullscreen` is valid, and `sizes` sent with it are ignored; a pause card (`top`, `bottom`) still needs its `sizes`. An answer's entry for the format `pauseFullscreen` (an older server) is an unknown format, ignored as any other.
+* The example app has one pause video: its ad is a card or the whole player, as the page's configuration says.
+* Ads are asked for on `/v2/preload`; before, on `/v2/video/ads`. The request and the answer are the same.
+* The example app's pages are named without an underscore: `freeEpisodes`, `freeEpisodesTop`, `unlock`, `firstEpisode`.
+
 ## 0.2.0
 The ad server's `/v2` contract as it ships. Breaking changes first.
 

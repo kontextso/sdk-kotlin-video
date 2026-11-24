@@ -155,6 +155,9 @@ public sealed class VideoAdException(message: String, cause: Throwable? = null) 
         /** The server's side; ask again later. */
         public object TemporaryError : NoFillReason("temporaryError")
 
+        /** The server turned the request away as invalid traffic (a data centre address, an automated client). */
+        public object InvalidTraffic : NoFillReason("invalidTraffic")
+
         /** The SDK's own: the answer was an ad the app had just shown or rejected while the request ran. */
         public object AlreadyUsed : NoFillReason("alreadyUsed")
 

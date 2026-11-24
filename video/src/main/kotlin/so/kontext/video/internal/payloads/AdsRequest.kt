@@ -14,7 +14,7 @@ import so.kontext.video.internal.state.SdkState
 import java.util.UUID
 import kotlin.math.roundToInt
 
-/** The body of `POST /video/ads`: every format, for one video, for one `VideoAds` session. As [ConfigRequest]. */
+/** The body of `POST /preload`: every format, for one video, for one `VideoAds` session. As [ConfigRequest]. */
 internal class AdsRequest private constructor(
     /** A new UUID per request: it traces one request through the device log, the debug events, the error reports and the server's log. */
     val requestId: String,

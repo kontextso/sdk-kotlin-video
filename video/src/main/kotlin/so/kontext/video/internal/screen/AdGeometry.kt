@@ -1,6 +1,7 @@
 package so.kontext.video.internal.screen
 
 import android.graphics.Rect
+import so.kontext.video.VideoAd
 import so.kontext.video.internal.payloads.AdPayload
 import kotlin.math.ceil
 import kotlin.math.min
@@ -21,7 +22,7 @@ internal object AdGeometry {
     const val MINIMUM_SCALE = 0.5
 
     /** Where [size] goes inside [width]×[height] less [insets]; `null` when it does not fit. */
-    fun frame(size: AdPayload.Size, position: AdPayload.Position?, width: Int, height: Int, insets: Rect, density: Float): Rect? {
+    fun frame(size: AdPayload.Size, position: VideoAd.Position?, width: Int, height: Int, insets: Rect, density: Float): Rect? {
         // 1. The free space: the view less the insets. Nothing left: it does not fit.
         val room = room(width, height, insets) ?: return null
         // 2. The largest scale at which the ad fits that space, at most 1 (full size, never enlarged).
@@ -33,7 +34,7 @@ internal object AdGeometry {
         val scaledHeight = (size.height * density * scale).roundToInt()
         // 5. Centred across, at the top or the bottom (the default) of the free space.
         val left = room.left + (room.width() - scaledWidth) / 2
-        val top = if (position == AdPayload.Position.TOP) room.top else room.bottom - scaledHeight
+        val top = if (position == VideoAd.Position.TOP) room.top else room.bottom - scaledHeight
         return Rect(left, top, left + scaledWidth, top + scaledHeight)
     }
 

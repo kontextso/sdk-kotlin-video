@@ -62,8 +62,8 @@ public class VideoAd internal constructor(
     // - where it is shown: its AdScreen (InlineScreen for an overlay or pause ad, LinearScreen for
     //   a linear ad), made by show.
     // A few facts of the linear format itself stay here: the two show guards, dismiss, the page's video duration,
-    // and a close before `complete` being a skip (closeByPage). A `PAUSE_FULLSCREEN` ad is shown by the inline
-    // screen (its host covers the container) and follows the content as a pause ad does.
+    // and a close before `complete` being a skip (closeByPage). A full-screen pause ad is shown by the inline
+    // screen (its host covers the container) and follows the content as a pause card does.
     //
     // No extension of VideoAd lives elsewhere: this class decides and orders, its parts do the work.
     // - internal/state/AdState.kt: every fact of the ad's life (read through [state]); AdLifecycle.kt: its phases
@@ -85,6 +85,12 @@ public class VideoAd internal constructor(
 
     /** What it pays, known before anything renders. */
     public val price: Price get() = payload.price
+
+    /**
+     * Where the server placed it in the player: `TOP` or `BOTTOM` for an overlay and for a pause card, `FULLSCREEN`
+     * for a pause ad that covers the whole player. `null` for a linear ad.
+     */
+    public val position: Position? get() = payload.position
 
     /**
      * Overlay: how long the SDK keeps it on screen, `null` when it stays until ended; a hint, as a pause of the
@@ -334,7 +340,7 @@ public class VideoAd internal constructor(
      * nothing happened, or it was accepted: the ad is on screen, or, if your own code ended it during the call
      * (a hook of the container, the impression listener), `onAdEnded` already arrived (`hasEnded == true`). [insets] (pixels) keep it clear of your own controls, added to the system bars and cutout
      * that overlap the container; kept through resizes and rotations, counted in `ContainerTooSmall`'s
-     * minimum; a `PAUSE_FULLSCREEN` ad ignores them: it covers the whole container, its page inside the
+     * minimum; a full-screen pause ad ignores them: it covers the whole container, its page inside the
      * system bars and cutout. Throws, with nothing shown: `NotLoaded`, `AlreadyShown`, `AnotherAdShowing`,
      * `Invalidated` (`ContentChanged` too: show an episode's ads only in that episode, see `VideoAds.track`), `Destroyed`, `Disabled`, `CannotShowNow` (the container is not attached, not shown,
      * has no area, lies entirely outside its window such as a pager's neighbour page, its Activity is stopped or in
@@ -840,6 +846,18 @@ public class VideoAd internal constructor(
         private val closedBeforeFirstFrame = setOf(EndReason.DISMISSED, EndReason.DESTROYED, EndReason.INTERRUPTED, EndReason.COMPLETED)
     }
 
+    /** Where the server placed an overlay or pause ad in the player. */
+    public enum class Position {
+        /** A strip or a card at the top of the player. */
+        TOP,
+
+        /** A strip or a card at the bottom of the player. */
+        BOTTOM,
+
+        /** The whole player: a pause ad only, with its own Resume and ✕. */
+        FULLSCREEN,
+    }
+
     /** What an ad pays: a CPM in a currency. */
     public class Price internal constructor(
         /** Per 1,000 impressions. */
@@ -995,7 +1013,7 @@ public class VideoAd internal constructor(
         /** The viewer tapped the ad's close control: an overlay's or pause card's ✕ (the content stays paused), or a linear ad's end card ✕. */
         CLOSED,
 
-        /** The viewer tapped Resume on a `PAUSE_FULLSCREEN` ad, the ad's own control. Content resumed elsewhere ends it as [INTERRUPTED]. */
+        /** The viewer tapped Resume on a full-screen pause ad, the ad's own control. Content resumed elsewhere ends it as [INTERRUPTED]. */
         RESUMED,
 
         /** The ad broke after `show` returned; `onAdFailed` came first. */

@@ -47,7 +47,7 @@ class WebViewSafetyTest {
         AdPayload(
             id = "ad-1", format = AdFormat.OVERLAY, creative = AdPayload.Creative.IMAGE,
             price = VideoAd.Price(8.0, "USD"), expiresMillis = 600_000,
-            frameUrl = frameUrl, tracking = emptyList(), position = AdPayload.Position.BOTTOM,
+            frameUrl = frameUrl, tracking = emptyList(), position = VideoAd.Position.BOTTOM,
             sizes = listOf(AdPayload.Size(320, 80)), durationMillis = null, skipOffsetMillis = null,
         ),
         Environment.now(),

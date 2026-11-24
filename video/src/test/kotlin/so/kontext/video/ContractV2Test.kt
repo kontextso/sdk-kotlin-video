@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * The ad server's `/v2` contract as this release follows it, end to end against a local server: the required
- * user, the wait for outcome beacons, `pauseFullscreen`, and the debug events of these moments.
+ * user, the wait for outcome beacons, the full-screen pause ad, and the debug events of these moments.
  */
 @RunWith(RobolectricTestRunner::class)
 class ContractV2Test {
@@ -64,7 +64,7 @@ class ContractV2Test {
                 requests += path to request.body.readUtf8()
                 return when (path) {
                     "/v2/config" -> configAnswer
-                    "/v2/video/ads" -> adsAnswer
+                    "/v2/preload" -> adsAnswer
                     else -> MockResponse().setResponseCode(204)
                 }
             }
@@ -128,7 +128,7 @@ class ContractV2Test {
         return result()!!
     }
 
-    private fun adsBodies() = requests.filter { it.first == "/v2/video/ads" }.map { Json.parseToJsonElement(it.second).jsonObject }
+    private fun adsBodies() = requests.filter { it.first == "/v2/preload" }.map { Json.parseToJsonElement(it.second).jsonObject }
 
     private fun events(name: String): List<JsonObject> = EventHistory.recent().filter { it["name"]?.jsonPrimitive?.content == name }
 
@@ -313,19 +313,17 @@ class ContractV2Test {
 
     // endregion
 
-    // region pauseFullscreen
+    // region The full-screen pause ad
 
-    @Test fun pauseFullscreenIsAFormatOfItsOwn() {
+    @Test fun aFullscreenPauseAdIsThePauseFormatsAd() {
         initialize()
-        adsAnswer = MockResponse().setBody(
-            Fixtures.ads(Fixtures.entry("pause", Fixtures.pause()), Fixtures.entry("pauseFullscreen", Fixtures.pauseFullscreen())).toString(),
-        )
+        adsAnswer = MockResponse().setBody(Fixtures.ads(Fixtures.entry("pause", Fixtures.fullscreenPause())).toString())
         val ads = VideoAds(Content("ep", "en"), page = "player")
-        val fullscreen = format(ads, AdFormat.PAUSE_FULLSCREEN).getOrThrow()
+        val fullscreen = format(ads, AdFormat.PAUSE).getOrThrow()
         assertEquals("ad-4", fullscreen.id)
-        assertEquals(AdFormat.PAUSE_FULLSCREEN, fullscreen.format)
+        assertEquals(AdFormat.PAUSE, fullscreen.format)
+        assertEquals("the whole player, known before show", VideoAd.Position.FULLSCREEN, fullscreen.position)
         assertNull(fullscreen.durationMillis)
-        assertEquals("the same answer holds both", "ad-2", format(ads, AdFormat.PAUSE).getOrThrow().id)
         val request = events("ads.request").first()
         assertEquals("player", request.property("page"))
         assertNull("no held count any more", request.property("held"))

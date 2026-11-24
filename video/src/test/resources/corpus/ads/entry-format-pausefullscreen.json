@@ -1,5 +1,5 @@
 {
-  "description": "the pauseFullscreen entry carries a top pause ad (its own format disagrees): dropped, reported at format",
+  "description": "an entry for the old format pauseFullscreen (an older server's four-format answer) is an unknown format: ignored, the others stand",
   "response": {
     "enabled": true,
     "formats": [
@@ -118,54 +118,46 @@
         "format": "pauseFullscreen",
         "ads": [
           {
-            "id": "p-2",
-            "format": "pause",
+            "id": "f-1",
+            "format": "pauseFullscreen",
             "creative": "image",
             "trigger": {
               "kind": "manual"
             },
             "price": {
               "model": "cpm",
-              "value": 5.5,
-              "currency": "EUR"
+              "value": 9.0,
+              "currency": "USD"
             },
             "expires": 3600000,
             "rendering": {
               "kind": "frame",
-              "url": "https://frames.test/v2/frame/p-2"
+              "url": "https://frames.test/v2/frame/f-1"
             },
             "tracking": [
               {
                 "event": "impression",
-                "url": "https://ads.test/events/p-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
               },
               {
                 "event": "creativeView",
-                "url": "https://ads.test/events/p-1/creativeView"
+                "url": "https://ads.test/events/f-1/creativeView"
               },
               {
                 "event": "click",
-                "url": "https://ads.test/events/p-1/click"
+                "url": "https://ads.test/events/f-1/click"
               },
               {
                 "event": "notUsed",
-                "url": "https://ads.test/events/p-1/notUsed?reason=[KONTEXT_REASON]"
+                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
               },
               {
                 "event": "overlayViewDuration",
-                "url": "https://ads.test/events/p-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
               }
             ],
-            "vastUrl": "https://ads.test/v2/video/ads/p-1/vast",
-            "position": "top",
-            "sizes": [
-              {
-                "width": 300,
-                "height": 250,
-                "scalable": false,
-                "maintainAspectRatio": true
-              }
-            ]
+            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
+            "position": "fullscreen"
           }
         ]
       },
@@ -238,11 +230,8 @@
     "formats": {
       "overlay": "ad:o-1",
       "pause": "ad:p-1",
-      "pauseFullscreen": "noFill:unknown",
       "linear": "ad:l-1"
     },
-    "decodeReports": [
-      "pauseFullscreen:format"
-    ]
+    "decodeReports": []
   }
 }

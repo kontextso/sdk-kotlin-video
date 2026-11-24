@@ -414,7 +414,7 @@ public object KontextVideo {
 
     /**
      * The viewer, as the publisher knows them: [id] is required, the rest optional. No demographics: OpenRTB 2.6
-     * and AdCOM deprecated `user.yob` and `user.gender`; [keywords] and the identity fields are what buyers still read.
+     * and AdCOM deprecated `user.yob` and `user.gender`; the identity fields are what buyers still read.
      *
      * Kotlin: `KontextVideo.User("u-42") { emailHash = "…" }`. Java: `new KontextVideo.User.Builder("u-42").build()`.
      */
@@ -440,9 +440,6 @@ public object KontextVideo {
          */
         public val emailHash: String? = builder.emailHash
 
-        /** The viewer's interests, in the publisher's own words. */
-        public val keywords: List<String>? = builder.keywords?.toList()
-
         /**
          * Only `id` is required.
          * @property id [User.id].
@@ -454,34 +451,28 @@ public object KontextVideo {
             /** [User.emailHash]. */
             public var emailHash: String? = null
 
-            /** [User.keywords]. */
-            public var keywords: List<String>? = null
-
             /** Sets [User.email]; returns this builder, for chaining. */
             public fun email(value: String?): Builder = apply { email = value }
 
             /** Sets [User.emailHash]; returns this builder, for chaining. */
             public fun emailHash(value: String?): Builder = apply { emailHash = value }
 
-            /** Sets [User.keywords]; returns this builder, for chaining. */
-            public fun keywords(value: List<String>?): Builder = apply { keywords = value }
-
             /** The [User], from the values set. */
             public fun build(): User = User(this)
         }
 
         override fun equals(other: Any?): Boolean =
-            other is User && id == other.id && email == other.email && emailHash == other.emailHash && keywords == other.keywords
+            other is User && id == other.id && email == other.email && emailHash == other.emailHash
 
-        override fun hashCode(): Int = listOf(id, email, emailHash, keywords).hashCode()
+        override fun hashCode(): Int = listOf(id, email, emailHash).hashCode()
 
         // No personal data in logs: the fields are only said to be set.
         override fun toString(): String =
-            "User(id=${said(id)}, email=${said(email)}, emailHash=${said(emailHash)}, keywords=${keywords?.size})"
+            "User(id=${said(id)}, email=${said(email)}, emailHash=${said(emailHash)})"
 
         /** Builds one in Kotlin, with a block; Java uses the `Builder`. */
         public companion object {
-            /** `User("u-42") { keywords = listOf("romance") }`. */
+            /** `User("u-42") { emailHash = "…" }`. */
             public operator fun invoke(id: String, block: Builder.() -> Unit = {}): User = Builder(id).apply(block).build()
         }
     }

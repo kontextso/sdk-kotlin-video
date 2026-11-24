@@ -178,7 +178,7 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
         when (video.format) {
             AdFormat.LINEAR -> showLinear()
             AdFormat.OVERLAY -> showInPlayer() // ends by itself after its duration
-            AdFormat.PAUSE, AdFormat.PAUSE_FULLSCREEN -> Unit // the viewer pauses; nothing happens on its own
+            AdFormat.PAUSE -> Unit // the viewer pauses; nothing happens on its own
         }
     }
 
@@ -247,8 +247,8 @@ class PlayerActivity : ComponentActivity(), VideoAdListener {
         if (isLeaving) return
         when (ad.format) {
             AdFormat.LINEAR -> player.play() // the content paused for the ad; every other way it ends lands here
-            AdFormat.PAUSE_FULLSCREEN -> if (reason == VideoAd.EndReason.RESUMED) resume() // the viewer tapped Resume on the ad
-            AdFormat.PAUSE, AdFormat.OVERLAY -> Unit
+            AdFormat.PAUSE -> if (reason == VideoAd.EndReason.RESUMED) resume() // the viewer tapped Resume on a full-screen pause ad
+            AdFormat.OVERLAY -> Unit
         }
     }
 

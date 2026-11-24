@@ -4,8 +4,8 @@ Jetpack Compose functions for the SDK. Two calls replace the host view, the effe
 Compose screen would otherwise write itself.
 
 ```kotlin
-implementation("so.kontext:video:0.2.0")
-implementation("so.kontext:video-compose:0.2.0")
+implementation("so.kontext:video:0.3.0")
+implementation("so.kontext:video-compose:0.3.0")
 ```
 
 ```kotlin

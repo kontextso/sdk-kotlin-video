@@ -31,7 +31,7 @@ import so.kontext.video.internal.state.SdkState
  * 2. Wait for this `VideoAds`'s outcome beacons still on the wire (`PendingBeacons`, at most 2 s), so the server
  *    has heard a `reject()` made just before; then build the request: the user, the consent and the playhead are
  *    read after every wait (`/config`, the beacons, the user agent, the advertising id), just before the body.
- * 3. POST `video/ads` and parse the answer; an id held under another format makes it malformed. A failure is
+ * 3. POST `preload` and parse the answer; an id held under another format makes it malformed. A failure is
  *    reported and thrown as `VideoAdException.Request`.
  * 4. The kill switch in an answer switches the whole SDK off (`SdkInitializer.disable` drops the unshown ads of
  *    every live `VideoAds`) and throws `Disabled`; otherwise each malformed ad left out of its format is reported, and the answer is returned.
@@ -79,7 +79,7 @@ internal class AdsFetcher(
         DebugReporter.event("ads.request", sessionId = sessionId, properties = requestProperties)
         // 3. The answer, parsed and checked against the held ads.
         val response = try {
-            val answer = ApiClient(configuration.adServerUrl).post("video/ads", adsRequest.body)
+            val answer = ApiClient(configuration.adServerUrl).post("preload", adsRequest.body)
             // Decoded off the main thread (every ad validated, up to a 5 MB answer); checked against the held ads
             // back on it, where they live.
             withContext(decodeDispatcher) { decode(answer) }.also(checkIdsAgainstHeld)

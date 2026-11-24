@@ -142,7 +142,7 @@ internal class InlineScreen(
         if (ad.hasEnded) return false
         // A full-screen pause ad's page stops at the bars (see refit): its host fills the strips behind
         // them and takes their touches, so the paused frame and the player stay covered as on iOS.
-        val host = InlineAdView(container.context, webView, coversWhole = ad.payload.position == AdPayload.Position.FULLSCREEN)
+        val host = InlineAdView(container.context, webView, coversWhole = ad.payload.position == VideoAd.Position.FULLSCREEN)
         host.place = { width, height, system -> refit(width, height, system, density) }
         attach(host)
         container.addView(host)
@@ -282,7 +282,7 @@ internal class InlineScreen(
     fun chooseSize(width: Int, height: Int, insets: Rect, density: Float) {
         val payload = ad.payload
         val defaultSize = payload.sizes.firstOrNull()
-        if (payload.position == AdPayload.Position.FULLSCREEN || defaultSize == null) return
+        if (payload.position == VideoAd.Position.FULLSCREEN || defaultSize == null) return
         val room = AdGeometry.room(width, height, insets) ?: run {
             chosenSize = null
             throw tooSmall(defaultSize, insets, density, "the insets leave no room for")
@@ -311,7 +311,7 @@ internal class InlineScreen(
         // A full-screen pause ad clears the system bars and the cutout, as on iOS: the page is placed inside
         // them and reads no safe-area insets (InlineAdView), so its own padding is all it adds. The host still
         // covers the whole container behind the bars.
-        if (payload.position == AdPayload.Position.FULLSCREEN) return clearOfBars(width, height, system)
+        if (payload.position == VideoAd.Position.FULLSCREEN) return clearOfBars(width, height, system)
         val size = chosenSize ?: return Rect(0, 0, width, height)
         return AdGeometry.frame(size, payload.position, width, height, combinedInsets(system), density)
     }

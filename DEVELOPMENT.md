@@ -34,7 +34,7 @@ sdk-kotlin-video/
 │   ├── ttsdk/                                #   :video-ttsdk, VideoAds.track(TTVideoEngine) for a TTSDK engine
 │   └── txplayer/                             #   :video-txplayer, VideoAds.track(TXVodPlayer) for a Tencent Cloud Player
 ├── integrations/compose/                     # :video-compose, rememberVideoAds and VideoAdHost for Jetpack Compose
-├── example/                                  # classic-View demo app, five videos (see its README)
+├── example/                                  # classic-View demo app, four videos (see its README)
 ├── extras/release-check/                     # a publisher's app built from the published SDK (see its README)
 ├── detekt.yml                                # lint rules
 ├── AGENTS.md                                 # guidance for coding agents (CLAUDE.md imports it)

@@ -1,5 +1,5 @@
 {
-  "description": "the pause entry carries a pauseFullscreen ad (its own format disagrees): dropped, reported at format",
+  "description": "a fullscreen pause ad's sizes are not read, even of the wrong type",
   "response": {
     "enabled": true,
     "formats": [
@@ -63,93 +63,47 @@
         "format": "pause",
         "ads": [
           {
-            "id": "f-2",
-            "format": "pauseFullscreen",
+            "id": "p-1",
+            "format": "pause",
             "creative": "image",
             "trigger": {
               "kind": "manual"
             },
             "price": {
               "model": "cpm",
-              "value": 9.0,
-              "currency": "USD"
+              "value": 5.5,
+              "currency": "EUR"
             },
             "expires": 3600000,
             "rendering": {
               "kind": "frame",
-              "url": "https://frames.test/v2/frame/f-2"
+              "url": "https://frames.test/v2/frame/p-1"
             },
             "tracking": [
               {
                 "event": "impression",
-                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
+                "url": "https://ads.test/events/p-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
               },
               {
                 "event": "creativeView",
-                "url": "https://ads.test/events/f-1/creativeView"
+                "url": "https://ads.test/events/p-1/creativeView"
               },
               {
                 "event": "click",
-                "url": "https://ads.test/events/f-1/click"
+                "url": "https://ads.test/events/p-1/click"
               },
               {
                 "event": "notUsed",
-                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
+                "url": "https://ads.test/events/p-1/notUsed?reason=[KONTEXT_REASON]"
               },
               {
                 "event": "overlayViewDuration",
-                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
+                "url": "https://ads.test/events/p-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
               }
             ],
-            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
-            "position": "fullscreen"
-          }
-        ]
-      },
-      {
-        "format": "pauseFullscreen",
-        "ads": [
-          {
-            "id": "f-1",
-            "format": "pauseFullscreen",
-            "creative": "image",
-            "trigger": {
-              "kind": "manual"
-            },
-            "price": {
-              "model": "cpm",
-              "value": 9.0,
-              "currency": "USD"
-            },
-            "expires": 3600000,
-            "rendering": {
-              "kind": "frame",
-              "url": "https://frames.test/v2/frame/f-1"
-            },
-            "tracking": [
-              {
-                "event": "impression",
-                "url": "https://ads.test/events/f-1/impression?cb=[CACHEBUSTING]&cph=[CONTENTPLAYHEAD]"
-              },
-              {
-                "event": "creativeView",
-                "url": "https://ads.test/events/f-1/creativeView"
-              },
-              {
-                "event": "click",
-                "url": "https://ads.test/events/f-1/click"
-              },
-              {
-                "event": "notUsed",
-                "url": "https://ads.test/events/f-1/notUsed?reason=[KONTEXT_REASON]"
-              },
-              {
-                "event": "overlayViewDuration",
-                "url": "https://ads.test/events/f-1/ovd?ovd=[KONTEXT_VIEWDURATION]"
-              }
-            ],
-            "vastUrl": "https://ads.test/v2/video/ads/f-1/vast",
-            "position": "fullscreen"
+            "vastUrl": "https://ads.test/v2/video/ads/p-1/vast",
+            "position": "fullscreen",
+            "sizes": "junk"
           }
         ]
       },
@@ -221,12 +175,14 @@
     "result": "formats",
     "formats": {
       "overlay": "ad:o-1",
-      "pause": "noFill:unknown",
-      "pauseFullscreen": "ad:f-1",
+      "pause": "ad:p-1",
       "linear": "ad:l-1"
     },
-    "decodeReports": [
-      "pause:format"
-    ]
+    "decodeReports": [],
+    "ads": {
+      "pause": {
+        "sizesCount": 0
+      }
+    }
   }
 }

@@ -38,7 +38,7 @@ class InlineShowTest {
     private fun main(work: () -> Unit) = instrumentation.runOnMainSync(work)
 
     private val payload = """
-        {"id": "ad-2", "format": "pauseFullscreen", "creative": "image", "trigger": {"kind": "manual"},
+        {"id": "ad-2", "format": "pause", "creative": "image", "trigger": {"kind": "manual"},
          "price": {"value": 5.5, "currency": "EUR"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/ad-2"}, "tracking": [],
          "position": "fullscreen"}

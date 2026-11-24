@@ -31,9 +31,7 @@ class AdsRequestTest : SdkTest() {
         runBlocking { AdsRequest.make(context, "token", Content("ep", "en"), page, variantId, 1_234, "session") }
 
     @Test fun theRequestCarriesTheUserConsentPageAndVariant() {
-        KontextVideo.user = User("u-1") {
-            keywords = listOf("drama")
-        }
+        KontextVideo.user = User("u-1")
         KontextVideo.regulatory = Regulatory {
             coppa = false
             gpp = "explicit-gpp"
@@ -68,11 +66,10 @@ class AdsRequestTest : SdkTest() {
         KontextVideo.user = User("kid-1") {
             email = "kid@example.com"
             emailHash = "a".repeat(64)
-            keywords = listOf("cartoons")
         }
         KontextVideo.regulatory = Regulatory { coppa = true }
         val body = make().body
-        assertEquals(Json.parseToJsonElement("""{"id": "kid-1", "keywords": ["cartoons"]}"""), body["user"])
+        assertEquals(Json.parseToJsonElement("""{"id": "kid-1"}"""), body["user"])
         assertNull("no advertising id for a child", body["ifa"])
         KontextVideo.user = User("kid-2")
         assertEquals(Json.parseToJsonElement("""{"id": "kid-2"}"""), make().body["user"])

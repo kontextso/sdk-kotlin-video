@@ -17,7 +17,7 @@ class PayloadsTest {
         assertEquals("ad-1", ad.id)
         assertEquals(AdFormat.OVERLAY, ad.format)
         assertEquals(VideoAd.Price(8.0, "USD"), ad.price)
-        assertEquals(AdPayload.Position.BOTTOM, ad.position)
+        assertEquals(VideoAd.Position.BOTTOM, ad.position)
         assertEquals(listOf(AdPayload.Size(320, 80), AdPayload.Size(640, 160)), ad.sizes)
         assertEquals(6000L, ad.durationMillis)
         assertEquals(5, ad.tracking.size)
@@ -28,29 +28,26 @@ class PayloadsTest {
         assertNull(ad.durationMillis)
     }
 
-    @Test fun aPauseFullscreenAdIsItsOwnFormatWithNoSizes() {
-        val ad = AdPayload.parse(Fixtures.json(Fixtures.pauseFullscreen()))
-        assertEquals(AdFormat.PAUSE_FULLSCREEN, ad.format)
-        assertEquals(AdPayload.Position.FULLSCREEN, ad.position)
+    @Test fun aFullscreenPauseAdIsAPauseAdWithNoSizes() {
+        val ad = AdPayload.parse(Fixtures.json(Fixtures.fullscreenPause()))
+        assertEquals(AdFormat.PAUSE, ad.format)
+        assertEquals(VideoAd.Position.FULLSCREEN, ad.position)
         assertTrue(ad.sizes.isEmpty())
         assertNull(ad.durationMillis)
         // Its sizes are never read, whatever they hold.
-        val withJunk = Fixtures.pauseFullscreen().replace("\"position\": \"fullscreen\"", "\"position\": \"fullscreen\", \"sizes\": 7")
+        val withJunk = Fixtures.fullscreenPause().replace("\"position\": \"fullscreen\"", "\"position\": \"fullscreen\", \"sizes\": 7")
         assertTrue(AdPayload.parse(Fixtures.json(withJunk)).sizes.isEmpty())
+        assertTrue(AdPayload.parse(Fixtures.json(Fixtures.pause(position = "fullscreen"))).sizes.isEmpty(), "a card's sizes sent with it are not read either")
     }
 
-    @Test fun aPauseAdIsACardOnlyAFullscreenOneIsDroppedAtItsPosition() {
+    @Test fun aPauseCardWithoutSizesIsDroppedAtItsSizes() {
         val response = AdsResponse.parse(
-            Fixtures.ads(
-                Fixtures.entry("pause", Fixtures.pause(position = "fullscreen")),
-                Fixtures.entry("pauseFullscreen", Fixtures.pauseFullscreen()),
-            ),
+            Fixtures.ads(Fixtures.entry("pause", Fixtures.fullscreenPause().replace("\"position\": \"fullscreen\"", "\"position\": \"top\""))),
         )
         val pause = response.result(AdFormat.PAUSE)!!
         assertTrue(pause.ads.isEmpty())
-        assertEquals(listOf("position"), pause.dropped.map { it.path })
+        assertEquals(listOf("sizes"), pause.dropped.map { it.path })
         assertEquals(NoFillReason.Unknown, pause.noFillReason)
-        assertEquals("ad-4", response.result(AdFormat.PAUSE_FULLSCREEN)!!.ads.single().id)
     }
 
     @Test fun aPriceIsAValueAndACurrencyAnOldPrecisionIsIgnored() {
@@ -66,18 +63,19 @@ class PayloadsTest {
             "frequencyCap" to NoFillReason.FrequencyCap,
             "geoRestricted" to NoFillReason.GeoRestricted,
             "temporaryError" to NoFillReason.TemporaryError,
+            "invalidTraffic" to NoFillReason.InvalidTraffic,
         )
         for ((wire, reason) in reasons) {
-            val response = AdsResponse.parse(Fixtures.ads(Fixtures.entry("pauseFullscreen", noFill = wire)))
-            assertEquals(reason, response.result(AdFormat.PAUSE_FULLSCREEN)!!.noFillReason, wire)
+            val response = AdsResponse.parse(Fixtures.ads(Fixtures.entry("pause", noFill = wire)))
+            assertEquals(reason, response.result(AdFormat.PAUSE)!!.noFillReason, wire)
         }
         assertEquals(NoFillReason.Other("later"), noFillReasonFrom("later"))
     }
 
     @Test fun theFormatsWireNames() {
-        assertEquals(listOf("overlay", "pause", "pauseFullscreen", "linear"), AdFormat.entries.map { it.wireName })
-        assertEquals(AdFormat.PAUSE_FULLSCREEN, AdFormat.fromWire("pauseFullscreen"))
-        assertNull(AdFormat.fromWire("pause_fullscreen"))
+        assertEquals(listOf("overlay", "pause", "linear"), AdFormat.entries.map { it.wireName })
+        assertEquals(AdFormat.PAUSE, AdFormat.fromWire("pause"))
+        assertNull(AdFormat.fromWire("PAUSE"))
     }
 
     @Test fun aLinearAdHasItsDurationAndSkipOffset() {
@@ -183,8 +181,7 @@ class PayloadsTest {
     @Test fun thePayloadsLastRefusals() {
         val refused = listOf(
             Fixtures.overlay().replace("\"creative\": \"image\"", "\"creative\": \"audio\""),
-            Fixtures.pause().replace("\"position\": \"top\"", "\"position\": \"fullscreen\""),
-            Fixtures.pauseFullscreen().replace("\"position\": \"fullscreen\"", "\"position\": \"top\""),
+            Fixtures.fullscreenPause().replace("\"position\": \"fullscreen\"", "\"position\": \"top\""),
             Fixtures.overlay().replace("\"position\": \"bottom\"", "\"position\": \"left\""),
             Fixtures.pause().replace("\"position\": \"top\"", "\"position\": \"middle\""),
             Fixtures.overlay().replace("\"kind\": \"frame\"", "\"kind\": \"vast\""),

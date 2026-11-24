@@ -155,6 +155,14 @@ class ParityLifecycleTest : SdkTest() {
         assertNull(ad.invalidationReason)
     }
 
+    @Test fun anAdSaysWhereTheServerPlacedIt() {
+        assertEquals(VideoAd.Position.TOP, pause().position)
+        assertEquals(VideoAd.Position.BOTTOM, pause(position = "bottom").position)
+        assertEquals("the whole player", VideoAd.Position.FULLSCREEN, pause(position = "fullscreen").position)
+        assertEquals(VideoAd.Position.BOTTOM, overlay().position)
+        assertNull("a linear ad has no position", linear().position)
+    }
+
     @Test fun expiryIsFoundOutAtTheNextCallNotByATimer() {
         var now = 0L
         Environment.now = { now }
@@ -646,7 +654,7 @@ class ParityLifecycleTest : SdkTest() {
 
     @Test fun aShownVideoEndedBeforeItsFirstFrameSendsCloseAndNoImpression() {
         // Dismissed by the app.
-        val pause = ad(video(withTracking(Fixtures.pauseFullscreen(id = "ad-2"), tracking("creativeView", "impression", "close", "error"))))
+        val pause = ad(video(withTracking(Fixtures.fullscreenPause(id = "ad-2"), tracking("creativeView", "impression", "close", "error"))))
         val recorder = Recorder()
         pause.listener = recorder
         pause.show(container())
@@ -677,7 +685,7 @@ class ParityLifecycleTest : SdkTest() {
     }
 
     @Test fun aVideoEndedAfterItsFirstFrameSendsNoClose() {
-        val ad = ad(video(withTracking(Fixtures.pauseFullscreen(id = "ad-2"), tracking("impression", "close"))))
+        val ad = ad(video(withTracking(Fixtures.fullscreenPause(id = "ad-2"), tracking("impression", "close"))))
         ad.show(container())
         page(ad, "video.start", """"playhead": 0""")
         ad.dismiss()
@@ -686,7 +694,7 @@ class ParityLifecycleTest : SdkTest() {
 
     @Test fun aPauseAdsVideoCompletingLeavesItsEndToTheViewer() {
         val recorder = Recorder()
-        val ad = ad(video(withTracking(Fixtures.pauseFullscreen(id = "ad-2"), tracking("complete", "close", "overlayViewDuration"))))
+        val ad = ad(video(withTracking(Fixtures.fullscreenPause(id = "ad-2"), tracking("complete", "close", "overlayViewDuration"))))
         ad.listener = recorder
         ad.show(container())
         page(ad, "video.start", """"playhead": 0""")

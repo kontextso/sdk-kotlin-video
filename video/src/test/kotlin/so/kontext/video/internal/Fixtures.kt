@@ -34,8 +34,9 @@ internal object Fixtures {
          "position": "$position", "sizes": [{"width": 300, "height": 250, "scalable": false}]}
     """.trimIndent()
 
-    fun pauseFullscreen(id: String = "ad-4") = """
-        {"id": "$id", "format": "pauseFullscreen", "creative": "image", "trigger": {"kind": "manual"},
+    /** A pause ad over the whole player: position `fullscreen`, no sizes. */
+    fun fullscreenPause(id: String = "ad-4") = """
+        {"id": "$id", "format": "pause", "creative": "image", "trigger": {"kind": "manual"},
          "price": {"model": "cpm", "value": 6.0, "currency": "USD"}, "expires": 600000,
          "rendering": {"kind": "frame", "url": "https://frames.test/v2/frame/$id"}, "tracking": [],
          "position": "fullscreen"}

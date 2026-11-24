@@ -36,7 +36,7 @@ public class JavaUsageTest {
                 .build();
         assertEquals(KontextVideo.Configuration.DEFAULT_AD_SERVER_URL, configuration.getAdServerUrl());
 
-        KontextVideo.User user = new KontextVideo.User.Builder("u-1").keywords(Collections.singletonList("drama")).build();
+        KontextVideo.User user = new KontextVideo.User.Builder("u-1").emailHash("h").build();
         assertEquals("u-1", user.getId());
 
         KontextVideo.Regulatory regulatory = new KontextVideo.Regulatory.Builder().coppa(true).gppSid(Arrays.asList(2, 7)).build();
@@ -58,7 +58,8 @@ public class JavaUsageTest {
 
         assertEquals(VideoAd.EndReason.RESUMED, VideoAd.EndReason.valueOf("RESUMED"));
         assertSame(VideoAdException.RequestFailure.MissingUser.INSTANCE, new VideoAdException.Request(VideoAdException.RequestFailure.MissingUser.INSTANCE).getFailure());
-        assertEquals(AdFormat.PAUSE_FULLSCREEN, AdFormat.valueOf("PAUSE_FULLSCREEN"));
+        assertEquals(AdFormat.PAUSE, AdFormat.valueOf("PAUSE"));
+        assertEquals(VideoAd.Position.FULLSCREEN, VideoAd.Position.valueOf("FULLSCREEN"));
 
         VideoAdException.Request request = new VideoAdException.Request(new VideoAdException.RequestFailure.Server(503));
         VideoAdException.RequestFailure failure = request.getFailure();
