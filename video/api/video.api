@@ -500,6 +500,10 @@ public final class so/kontext/video/VideoAdException$NoFillReason$GeoRestricted 
 	public static final field INSTANCE Lso/kontext/video/VideoAdException$NoFillReason$GeoRestricted;
 }
 
+public final class so/kontext/video/VideoAdException$NoFillReason$InvalidTraffic : so/kontext/video/VideoAdException$NoFillReason {
+	public static final field INSTANCE Lso/kontext/video/VideoAdException$NoFillReason$InvalidTraffic;
+}
+
 public final class so/kontext/video/VideoAdException$NoFillReason$NoAdMatch : so/kontext/video/VideoAdException$NoFillReason {
 	public static final field INSTANCE Lso/kontext/video/VideoAdException$NoFillReason$NoAdMatch;
 }

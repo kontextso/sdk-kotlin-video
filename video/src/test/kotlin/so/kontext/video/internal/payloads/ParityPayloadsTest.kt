@@ -512,6 +512,7 @@ class ParityPayloadsTest {
             "frequencyCap" to NoFillReason.FrequencyCap,
             "geoRestricted" to NoFillReason.GeoRestricted,
             "temporaryError" to NoFillReason.TemporaryError,
+            "invalidTraffic" to NoFillReason.InvalidTraffic,
             "alreadyUsed" to NoFillReason.AlreadyUsed,
             "unknown" to NoFillReason.Unknown,
         )

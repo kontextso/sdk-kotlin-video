@@ -90,6 +90,7 @@ private val knownNoFillReasons by lazy {
         NoFillReason.FrequencyCap,
         NoFillReason.GeoRestricted,
         NoFillReason.TemporaryError,
+        NoFillReason.InvalidTraffic,
         NoFillReason.AlreadyUsed,
         NoFillReason.Unknown,
     )

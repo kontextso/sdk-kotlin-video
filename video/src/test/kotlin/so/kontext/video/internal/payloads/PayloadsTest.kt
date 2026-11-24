@@ -63,6 +63,7 @@ class PayloadsTest {
             "frequencyCap" to NoFillReason.FrequencyCap,
             "geoRestricted" to NoFillReason.GeoRestricted,
             "temporaryError" to NoFillReason.TemporaryError,
+            "invalidTraffic" to NoFillReason.InvalidTraffic,
         )
         for ((wire, reason) in reasons) {
             val response = AdsResponse.parse(Fixtures.ads(Fixtures.entry("pause", noFill = wire)))

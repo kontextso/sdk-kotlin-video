@@ -6,6 +6,8 @@
 * `AdFormat.PAUSE_FULLSCREEN` is removed: there are three formats, `OVERLAY`, `PAUSE` and `LINEAR`. A pause ad is a card at the top or bottom of the player, or covers the whole player; the server decides which for the publisher (the new `VideoAd.position` says it), and `format(AdFormat.PAUSE)` returns the one it answered. `show(container)` shows either, and nothing else changes: the ad that covers the whole player fills the container, ignores `insets`, and ends as before (Resume: `RESUMED`; the content playing again: `INTERRUPTED`; ✕: `CLOSED`). Replace `format(AdFormat.PAUSE_FULLSCREEN)` with `format(AdFormat.PAUSE)`, drop the case from a `when` over `AdFormat`, and resume the content on `RESUMED` for any pause ad.
 
 ### Added
+* `VideoAdException.NoFillReason.InvalidTraffic`: the server turned the request away as invalid traffic.
+* `VideoAdException.Disabled` can say `geoRestricted`: ads are not served in the viewer's country, on `/config` or on an ads request, and the SDK stays off until the app restarts.
 * `VideoAd.position` (`VideoAd.Position`: `TOP`, `BOTTOM`, `FULLSCREEN`; Java `getPosition()`): where the server placed the ad, known before anything renders. `FULLSCREEN` is a pause ad that covers the whole player; an overlay and a pause card say `TOP` or `BOTTOM`; `null` for a linear ad.
 
 ### Changed
