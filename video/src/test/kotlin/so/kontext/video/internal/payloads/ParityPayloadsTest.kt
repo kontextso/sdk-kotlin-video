@@ -430,17 +430,10 @@ class ParityPayloadsTest {
         val user = User("U-42") {
             email = "  Viewer.Name@Example.COM "
             emailHash = "AbC123=="
-            keywords = listOf("Romance", " CEO ")
         }
         assertEquals(
-            Json.parseToJsonElement("""{"id": "U-42", "email": "  Viewer.Name@Example.COM ", "emailHash": "AbC123==", "keywords": ["Romance", " CEO "]}"""),
+            Json.parseToJsonElement("""{"id": "U-42", "email": "  Viewer.Name@Example.COM ", "emailHash": "AbC123=="}"""),
             user.toJson(),
-        )
-        assertEquals(
-            Json.parseToJsonElement("""{"id": "u1", "keywords": []}"""),
-            User("u1") {
-                keywords = emptyList()
-            }.toJson(),
         )
         assertEquals(setOf("id", "emailHash"), User("u1") { emailHash = "abc" }.toJson().keys)
         val empty = User("") {

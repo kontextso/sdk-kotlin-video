@@ -50,13 +50,12 @@ class ModelsTest {
     }
 
     @Test fun userAndRegulatoryBuildBothWaysAndHidePersonalData() {
-        val user = User.Builder("u-1").email("a@b.test").emailHash("h").keywords(listOf("k")).build()
+        val user = User.Builder("u-1").email("a@b.test").emailHash("h").build()
         assertEquals(
             user,
             User("u-1") {
                 email = "a@b.test"
                 emailHash = "h"
-                keywords = listOf("k")
             },
         )
         assertFalse("u-1" in user.toString() || "a@b.test" in user.toString())

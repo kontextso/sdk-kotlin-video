@@ -417,7 +417,6 @@ class ParitySupportTest : ParityHarness() {
         KontextVideo.user = User("canary-user-id") {
             email = "canary@viewer.test"
             emailHash = "canary-hash"
-            keywords = listOf("canary-keyword")
         }
         KontextVideo.regulatory = Regulatory {
             gdprConsent = "canary-tc-string"
@@ -429,7 +428,7 @@ class ParitySupportTest : ParityHarness() {
         format(owner(Content("ep", "en") { title = "canary-title" }), AdFormat.PAUSE).getOrThrow()
         await { debugNames().contains("ads.response") }
         for (body in requests("/v2/debug").map { it.text }) {
-            for (canary in listOf("canary-user-id", "canary@viewer.test", "canary-hash", "canary-keyword", "canary-tc-string", "canary-gpp", "canary-usp", "canary-title", "canary-aaid")) {
+            for (canary in listOf("canary-user-id", "canary@viewer.test", "canary-hash", "canary-tc-string", "canary-gpp", "canary-usp", "canary-title", "canary-aaid")) {
                 assertFalse("$canary reached a debug report", body.contains(canary))
             }
             assertFalse("never the forbidden fields: $body", body.contains("ifa") || body.contains("email") || body.contains("gdprConsent"))

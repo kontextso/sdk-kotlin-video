@@ -102,12 +102,11 @@ class ParityRequestsTest : SdkTest() {
         KontextVideo.user = User("u1") {
             email = "kid@example.com"
             emailHash = "h"
-            keywords = listOf("cartoons")
         }
         KontextVideo.regulatory = Regulatory { coppa = true }
         val body = request().body
         assertNull("no advertising id for a child", body["ifa"])
-        assertEquals("the id always, no email or hash; keywords stay", Json.parseToJsonElement("""{"id": "u1", "keywords": ["cartoons"]}"""), body["user"])
+        assertEquals("the id only: no email or hash", Json.parseToJsonElement("""{"id": "u1"}"""), body["user"])
         assertEquals(true, body.obj("regulatory").bool("coppa"))
 
         KontextVideo.user = User("u1")

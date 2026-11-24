@@ -36,7 +36,7 @@ public class JavaUsageTest {
                 .build();
         assertEquals(KontextVideo.Configuration.DEFAULT_AD_SERVER_URL, configuration.getAdServerUrl());
 
-        KontextVideo.User user = new KontextVideo.User.Builder("u-1").keywords(Collections.singletonList("drama")).build();
+        KontextVideo.User user = new KontextVideo.User.Builder("u-1").emailHash("h").build();
         assertEquals("u-1", user.getId());
 
         KontextVideo.Regulatory regulatory = new KontextVideo.Regulatory.Builder().coppa(true).gppSid(Arrays.asList(2, 7)).build();

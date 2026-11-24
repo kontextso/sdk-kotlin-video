@@ -257,7 +257,6 @@ public final class so/kontext/video/KontextVideo$User {
 	public final fun getEmail ()Ljava/lang/String;
 	public final fun getEmailHash ()Ljava/lang/String;
 	public final fun getId ()Ljava/lang/String;
-	public final fun getKeywords ()Ljava/util/List;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -270,11 +269,8 @@ public final class so/kontext/video/KontextVideo$User$Builder {
 	public final fun getEmail ()Ljava/lang/String;
 	public final fun getEmailHash ()Ljava/lang/String;
 	public final fun getId ()Ljava/lang/String;
-	public final fun getKeywords ()Ljava/util/List;
-	public final fun keywords (Ljava/util/List;)Lso/kontext/video/KontextVideo$User$Builder;
 	public final fun setEmail (Ljava/lang/String;)V
 	public final fun setEmailHash (Ljava/lang/String;)V
-	public final fun setKeywords (Ljava/util/List;)V
 }
 
 public final class so/kontext/video/KontextVideo$User$Companion {

@@ -38,9 +38,9 @@ internal fun Regulatory?.userToSend(user: User): User = if (isChild) user.withou
 /** The advertising id the request sends: none for a child. */
 internal fun Regulatory?.advertisingIdToSend(advertisingId: String?): String? = advertisingId?.takeUnless { isChild }
 
-/** The user without the email and its hash, for a COPPA request: the id and the keywords stay. */
+/** The user without the email and its hash, for a COPPA request: only the id stays. */
 internal val User.withoutContact: User
-    get() = User(id) { keywords = this@withoutContact.keywords }
+    get() = User(id)
 
 /** The longest `user.id` the server takes. */
 internal const val MAX_USER_ID_LENGTH = 256
@@ -96,7 +96,6 @@ internal fun User.toJson(): JsonObject = buildJsonObject {
     put("id", id)
     putIfNotNull("email", email?.takeIf { it.isNotEmpty() })
     putIfNotNull("emailHash", emailHash?.takeIf { it.isNotEmpty() })
-    putIfNotNull("keywords", keywords)
 }
 
 /** The `regulatory` object: the merged signals, absent fields left out. */
