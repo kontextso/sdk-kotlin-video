@@ -23,14 +23,14 @@ data class Video(
     companion object {
         /** The home list, in this order. */
         val all = listOf(
-            Video("demo-overlay", "Revenge of the Heiress", AdFormat.OVERLAY, "free_episodes",
+            Video("demo-overlay", "Revenge of the Heiress", AdFormat.OVERLAY, "freeEpisodes",
                 Color.rgb(255, 87, 34), "An overlay after 3 s of playing; pausing ends it"),
-            Video("demo-overlay-top", "Midnight Vows", AdFormat.OVERLAY, "free_episodes_top",
+            Video("demo-overlay-top", "Midnight Vows", AdFormat.OVERLAY, "freeEpisodesTop",
                 Color.rgb(255, 193, 7),
                 "An overlay after 3 s of playing, placed as its page's configuration says (the top, for example); pausing ends it"),
             Video("demo-linear", "The CEO's Secret", AdFormat.LINEAR, "unlock",
                 Color.rgb(156, 39, 176), "A linear ad after 3 s of playing"),
-            Video("demo-pause", "Moonlit Contract", AdFormat.PAUSE, "first_episode",
+            Video("demo-pause", "Moonlit Contract", AdFormat.PAUSE, "firstEpisode",
                 Color.rgb(63, 81, 181),
                 "Tap to pause: a pause ad shows, a card or the whole player as its page's configuration says; tap again, or the ad's Resume, to play on"),
         )

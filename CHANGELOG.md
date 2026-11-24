@@ -12,6 +12,7 @@
 * A `pause` ad with position `fullscreen` is valid, and `sizes` sent with it are ignored; a pause card (`top`, `bottom`) still needs its `sizes`. An answer's entry for the format `pauseFullscreen` (an older server) is an unknown format, ignored as any other.
 * The example app has one pause video: its ad is a card or the whole player, as the page's configuration says.
 * Ads are asked for on `/v2/preload`; before, on `/v2/video/ads`. The request and the answer are the same.
+* The example app's pages are named without an underscore: `freeEpisodes`, `freeEpisodesTop`, `unlock`, `firstEpisode`.
 
 ## 0.2.0
 The ad server's `/v2` contract as it ships. Breaking changes first.
