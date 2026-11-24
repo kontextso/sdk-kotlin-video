@@ -92,7 +92,7 @@ class ParityAdsTest {
                         configGate?.await(10, TimeUnit.SECONDS)
                         configAnswer
                     }
-                    "/v2/video/ads" -> {
+                    "/v2/preload" -> {
                         adsGate?.await(10, TimeUnit.SECONDS)
                         adsAnswer
                     }
@@ -187,7 +187,7 @@ class ParityAdsTest {
 
     private fun serveAd(id: String, format: String = "pause", expires: Long = 600_000): Unit = serve(Fixtures.entry(format, ad(id, format, expires)))
 
-    private fun adsBodies(): List<JsonObject> = received.filter { it.first == "/v2/video/ads" }.map { Json.parseToJsonElement(it.second).jsonObject }
+    private fun adsBodies(): List<JsonObject> = received.filter { it.first == "/v2/preload" }.map { Json.parseToJsonElement(it.second).jsonObject }
 
     private fun configCount() = received.count { it.first == "/v2/config" }
 

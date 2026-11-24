@@ -64,7 +64,7 @@ class ContractV2Test {
                 requests += path to request.body.readUtf8()
                 return when (path) {
                     "/v2/config" -> configAnswer
-                    "/v2/video/ads" -> adsAnswer
+                    "/v2/preload" -> adsAnswer
                     else -> MockResponse().setResponseCode(204)
                 }
             }
@@ -128,7 +128,7 @@ class ContractV2Test {
         return result()!!
     }
 
-    private fun adsBodies() = requests.filter { it.first == "/v2/video/ads" }.map { Json.parseToJsonElement(it.second).jsonObject }
+    private fun adsBodies() = requests.filter { it.first == "/v2/preload" }.map { Json.parseToJsonElement(it.second).jsonObject }
 
     private fun events(name: String): List<JsonObject> = EventHistory.recent().filter { it["name"]?.jsonPrimitive?.content == name }
 

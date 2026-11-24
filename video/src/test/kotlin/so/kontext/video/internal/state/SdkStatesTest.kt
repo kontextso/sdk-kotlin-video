@@ -121,7 +121,7 @@ class SdkStatesTest : ParityHarness() {
         assertEquals(2, requests("/v2/config").size)
         // A retry held by the server: Initializing until it answers, then Enabled.
         val gate = heldConfig("""{"enabled": true}""")
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
         try {
             val second = startFormat(owner(), AdFormat.PAUSE)
             await { KontextVideo.state == State.Initializing }
@@ -156,7 +156,7 @@ class SdkStatesTest : ParityHarness() {
         await { call.result != null }
         val error = call.result!!.exceptionOrNull()
         assertTrue("$error", error is VideoAdException.Request && error.failure == VideoAdException.RequestFailure.BadResponse)
-        assertEquals(0, requests("/v2/video/ads").size)
+        assertEquals(0, requests("/v2/preload").size)
     }
 
     @Test fun aReportBatchThatCannotBeBuiltIsDroppedWithoutStoppingTheApp() {
@@ -174,7 +174,7 @@ class SdkStatesTest : ParityHarness() {
             so.kontext.video.internal.payloads.AdsResponse.parse(it)
         }
         try {
-            answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+            answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
             assertTrue(format(owner(), AdFormat.PAUSE).isSuccess)
             assertEquals(false, onMain)
         } finally {
@@ -191,7 +191,7 @@ class SdkStatesTest : ParityHarness() {
             so.kontext.kit.privacy.ConsentDataProvider.collect(it)
         }
         try {
-            answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+            answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
             assertTrue(format(owner(), AdFormat.PAUSE).isSuccess)
             assertEquals(false, onMain)
         } finally {
@@ -222,7 +222,7 @@ class SdkStatesTest : ParityHarness() {
 
     @Test fun aKillSwitchInAnAdsAnswerMovesEnabledToDisabled() {
         assertEquals(State.Enabled, initialize())
-        answer("/v2/video/ads", killSwitch)
+        answer("/v2/preload", killSwitch)
         val call = startFormat(owner(), AdFormat.PAUSE)
         await { call.result != null }
         assertTrue("${call.result}", call.result!!.exceptionOrNull() is VideoAdException.Disabled)
@@ -265,7 +265,7 @@ class SdkStatesTest : ParityHarness() {
         settle()
         assertEquals(listOf("config.failed", "ad.creative_failed"), ErrorReporter.bufferedCodes)
         answer("/v2/config", reportsOn)
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
         format(owner(), AdFormat.PAUSE).getOrThrow()
         await { errorReports().size == 2 }
     }
@@ -298,7 +298,7 @@ class SdkStatesTest : ParityHarness() {
 
     @Test fun errorReportsStayOnAfterTheKillSwitch() {
         assertEquals(State.Enabled, initialize(reportsOn))
-        answer("/v2/video/ads", killSwitch)
+        answer("/v2/preload", killSwitch)
         format(owner(), AdFormat.PAUSE)
         assertEquals(State.Disabled("killed"), KontextVideo.state)
         report("after")
@@ -325,7 +325,7 @@ class SdkStatesTest : ParityHarness() {
         await { heard != null }
         assertTrue(DebugReporter.isEnabled)
         await { debugNames().contains("config.response") }
-        answer("/v2/video/ads", killSwitch)
+        answer("/v2/preload", killSwitch)
         format(owner(), AdFormat.PAUSE)
         assertEquals(State.Disabled("killed"), KontextVideo.state)
         assertTrue("on after the kill switch", DebugReporter.isEnabled)

@@ -613,7 +613,7 @@ class BoundaryTest {
         val queued = java.util.ArrayDeque<Runnable>()
         try {
             val call = async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
-                ApiClient(server.url("/").toString(), 10_000, queued::add).post("video/ads", buildJsonObject {})
+                ApiClient(server.url("/").toString(), 10_000, queued::add).post("preload", buildJsonObject {})
             }
             assertEquals("the I/O work is queued", 1, queued.size)
             call.cancel()

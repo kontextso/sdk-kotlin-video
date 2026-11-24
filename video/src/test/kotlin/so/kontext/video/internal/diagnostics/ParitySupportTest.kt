@@ -107,7 +107,7 @@ class ParitySupportTest : ParityHarness() {
         assertEquals("one attempt", 1, sent.size)
         assertEquals("kept in memory", listOf("config.failed"), ErrorReporter.bufferedCodes)
         answer("/v2/config", reportsOn)
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
         format(owner(), AdFormat.PAUSE).getOrThrow() // retries /config, which turns the reports on
         await { errorReports("config.failed").isNotEmpty() }
         val report = errorReports("config.failed").single()
@@ -119,14 +119,14 @@ class ParitySupportTest : ParityHarness() {
     @Test fun aFailedRequestSharedByThreeCallsIsOneReport() {
         initialize(reportsOn)
         val gate = CountDownLatch(1)
-        answer("/v2/video/ads") {
+        answer("/v2/preload") {
             gate.await(10, TimeUnit.SECONDS)
             MockResponse().setResponseCode(500).setBody("""{"errors": [{"status": "500", "code": "internal"}]}""")
         }
         val ads = owner()
         try {
             val calls = AdFormat.entries.map { startFormat(ads, it) }
-            await { requests("/v2/video/ads").size == 1 }
+            await { requests("/v2/preload").size == 1 }
             gate.countDown()
             await { calls.all { it.result != null } }
         } finally {
@@ -135,7 +135,7 @@ class ParitySupportTest : ParityHarness() {
         await { errorReports("ads.request_failed").isNotEmpty() }
         settle()
         val report = errorReports("ads.request_failed").single()
-        assertEquals("one request, one report, however many callers waited", 1, requests("/v2/video/ads").size)
+        assertEquals("one request, one report, however many callers waited", 1, requests("/v2/preload").size)
         assertEquals(500, report["httpStatus"]!!.jsonPrimitive.int)
         assertNotNull(ads.lastRequestId)
         assertEquals("the id the app can quote", ads.lastRequestId, report.str("requestId"))
@@ -148,7 +148,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun anAnswerThatBreaksTheContractIsADecodeFailure() {
         initialize(reportsOn)
-        answer("/v2/video/ads", """{"nonsense": true}""")
+        answer("/v2/preload", """{"nonsense": true}""")
         assertTrue(format(owner(), AdFormat.PAUSE).isFailure)
         await { errorReports("ads.decode_failed").isNotEmpty() }
         assertTrue(errorReports("ads.request_failed").isEmpty())
@@ -161,7 +161,7 @@ class ParitySupportTest : ParityHarness() {
         }
         KontextVideo.regulatory = Regulatory { gdprConsent = "CONSENT-SECRET" }
         Environment.advertisingId = { "aaid-secret-0000" }
-        answer("/v2/video/ads", """{"errors": [{"status": "500", "code": "internal"}]}""", 500)
+        answer("/v2/preload", """{"errors": [{"status": "500", "code": "internal"}]}""", 500)
         format(owner(), AdFormat.PAUSE)
         await { requests("/v2/error").isNotEmpty() }
         val request = requests("/v2/error").first()
@@ -239,7 +239,7 @@ class ParitySupportTest : ParityHarness() {
     @Test fun aNoFillReasonTheSdkDoesNotKnowNeverLeavesTheDevice() {
         initialize(reportsOn)
         val free = "contact secret@example.com at https://evil.test/x"
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", noFill = free)).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", noFill = free)).toString())
         format(owner(), AdFormat.PAUSE)
         ErrorReporter.report(ErrorReport.Code.CREATIVE_FAILED, detail = "start") // any fault after it carries the history
         await { errorReports("ad.creative_failed").isNotEmpty() }
@@ -279,17 +279,17 @@ class ParitySupportTest : ParityHarness() {
         var now = 1_000_000L
         Environment.now = { now }
         initialize(reportsOn)
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("overlay", Fixtures.overlay(expires = 30_000))).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("overlay", Fixtures.overlay(expires = 30_000))).toString())
         val ads = owner()
         format(ads, AdFormat.OVERLAY).getOrThrow()
         val gate = CountDownLatch(1)
-        answer("/v2/video/ads") {
+        answer("/v2/preload") {
             gate.await(10, TimeUnit.SECONDS)
             MockResponse().setResponseCode(500)
         }
         try {
             val call = startFormat(ads, AdFormat.OVERLAY)
-            await { requests("/v2/video/ads").size == 2 }
+            await { requests("/v2/preload").size == 2 }
             now += 31_000 // the held ad expires while the request is out
             gate.countDown()
             await { call.result != null }
@@ -425,7 +425,7 @@ class ParitySupportTest : ParityHarness() {
             usPrivacy = "canary-usp"
         }
         Environment.advertisingId = { "canary-aaid" }
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
         format(owner(Content("ep", "en") { title = "canary-title" }), AdFormat.PAUSE).getOrThrow()
         await { debugNames().contains("ads.response") }
         for (body in requests("/v2/debug").map { it.text }) {
@@ -493,7 +493,7 @@ class ParitySupportTest : ParityHarness() {
 
     @Test fun theLoadFlowReportsItsEvents() {
         initialize(debugOn)
-        answer("/v2/video/ads", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
+        answer("/v2/preload", Fixtures.ads(Fixtures.entry("pause", Fixtures.pause())).toString())
         val ad = format(owner(), AdFormat.PAUSE).getOrThrow()
         var loaded: Result<Unit>? = null
         Environment.scope.launch { loaded = runCatching { ad.load() } }

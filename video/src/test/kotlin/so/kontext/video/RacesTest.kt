@@ -57,7 +57,7 @@ class RacesTest {
                     configGate?.await(10, TimeUnit.SECONDS)
                     configAnswer
                 }
-                "/v2/video/ads" -> {
+                "/v2/preload" -> {
                     adsRequests.incrementAndGet()
                     adsArrived.countDown()
                     adsGate?.await(10, TimeUnit.SECONDS)

@@ -6,7 +6,7 @@ import so.kontext.video.VideoAdException.NoFillReason
 import so.kontext.video.internal.network.ApiException
 
 /**
- * The answer to `POST /video/ads`: one entry per format (the SDK always asks for all of them), each with its
+ * The answer to `POST /preload`: one entry per format (the SDK always asks for all of them), each with its
  * ads or its no-fill reason; or the kill switch. Strict on the envelope (`enabled`, `formats`, each entry's
  * `format` and `ads`), a format listed twice and an ad id listed twice, which fail the whole answer. Each ad is
  * read on its own: a malformed one is dropped, and leaves its format a no-fill when nothing valid is left; a

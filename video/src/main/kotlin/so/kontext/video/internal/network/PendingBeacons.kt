@@ -15,7 +15,7 @@ import so.kontext.video.internal.diagnostics.Logger
  *
  * ```
  *   reject()  ──► notUsed GET ─────────────── answered ─┐
- *   format()  ──► /config ── wait ─────────────────────┴─► the request built ─► POST /video/ads
+ *   format()  ──► /config ── wait ─────────────────────┴─► the request built ─► POST /preload
  *                             (at most 2 s)
  * ```
  *
